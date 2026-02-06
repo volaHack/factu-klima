@@ -1,0 +1,24 @@
+[
+    {
+        "herramienta": "gobuster",
+        "descripcion": "Herramienta de fuerza bruta rápida para descubrir URIs, directorios, subdominios y vhosts en servidores web.",
+        "categoria": "security",
+        "etiquetas": [
+            "web",
+            "fuzzing",
+            "directorios",
+            "pentesting",
+            "reconocimiento"
+        ],
+        "ejemplos": [
+            {
+                "code": "gobuster dir -u http://ejemplo.com -w /usr/share/wordlists/dirb/common.txt",
+                "description": "Buscar directorios usando un diccionario común"
+            },
+            {
+                "code": "gobuster vhost -u http://ejemplo.com -w subdominios.txt",
+                "description": "Descubrir virtual hosts (subdominios)"
+            }
+        ]
+    }
+]

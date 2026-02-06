@@ -1,0 +1,14 @@
+TIMESTAMP: 2026-02-06T17:05:28.093Z\nRAW LENGTH: 0\n\n\n\nFULL JSON:\n{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"status\":\"success\",\"answer\":\"\",\"conversation_id\":\"9b9f0c5b-bebb-43de-aa4e-4a7181aa0dcf\"}"
+    }
+  ],
+  "structuredContent": {
+    "status": "success",
+    "answer": "",
+    "conversation_id": "9b9f0c5b-bebb-43de-aa4e-4a7181aa0dcf"
+  },
+  "isError": false
+}
