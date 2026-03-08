@@ -15,10 +15,17 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ slots: [] });
     }
 
+    // Rechazar fechas con año inválido (el input envía años parciales mientras el usuario escribe)
+    const year = parseInt(date.split("-")[0], 10);
+    if (year < 2024 || year > 2030) {
+        return NextResponse.json({ slots: [] });
+    }
+
     const startTime = `${date}T00:00:00.000Z`;
     const endTime = `${date}T23:59:59.000Z`;
 
-    const url = `https://api.cal.com/v2/slots/available?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}&eventTypeId=${eventTypeId}`;
+    // Endpoint correcto: /v2/slots con parámetros start/end
+    const url = `https://api.cal.com/v2/slots?start=${encodeURIComponent(startTime)}&end=${encodeURIComponent(endTime)}&eventTypeId=${eventTypeId}`;
 
     try {
         const response = await fetch(url, {
@@ -37,8 +44,8 @@ export async function GET(req: NextRequest) {
 
         // Cal.com devuelve: { data: { [date]: [{ time: "2026-03-15T09:00:00.000Z" }] } }
         const dateSlots = data?.data?.[date] ?? [];
-        const slots: string[] = dateSlots.map((slot: { time: string }) => {
-            const d = new Date(slot.time);
+        const slots: string[] = dateSlots.map((slot: { start: string }) => {
+            const d = new Date(slot.start);
             return d.toLocaleTimeString("es-ES", {
                 hour: "2-digit",
                 minute: "2-digit",
