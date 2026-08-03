@@ -148,7 +148,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) TO authenticated, anon, service_role;
+-- Solo el servidor (service role) invoca esta función, desde
+-- src/lib/rateLimit.ts. Conceder EXECUTE a anon/authenticated permitiría
+-- a cualquiera invocar el RPC directamente con la clave pública y
+-- agotar a propósito la cuota de otra clave (p.ej. la IP de un cliente
+-- legítimo), sin necesidad de pasar por las API routes.
+GRANT EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) TO service_role;
 
 -- ------------------------------------------------------------
 -- 4. INTEGRIDAD CROSS-TENANT: client_id/product_id deben

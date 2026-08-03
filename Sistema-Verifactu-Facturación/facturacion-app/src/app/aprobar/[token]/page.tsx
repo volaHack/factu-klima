@@ -40,7 +40,16 @@ export default function ApprovalPortalPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/aprobar/${token}`);
+      let res: Response;
+      try {
+        res = await fetch(`/api/aprobar/${token}`);
+      } catch {
+        // Fallo de red: sin esto, la promesa rechazada dejaba el spinner
+        // "Cargando tu pedido..." girando indefinidamente.
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
       if (!res.ok) {
         setNotFound(true);
         setLoading(false);
@@ -101,12 +110,19 @@ export default function ApprovalPortalPage() {
       adjustedQuantity: d.adjustedQuantity ?? undefined,
       rejectionReason: d.rejectionReason || undefined,
     }));
-    const res = await fetch(`/api/aprobar/${token}/respond`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: mapped, clientMessage }),
-    });
-    const ok = res.ok;
+    let ok = false;
+    try {
+      const res = await fetch(`/api/aprobar/${token}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: mapped, clientMessage }),
+      });
+      ok = res.ok;
+    } catch {
+      // Fallo de red: sin esto, la promesa rechazada dejaba el botón
+      // atascado en "Enviando..." para siempre.
+      ok = false;
+    }
 
     if (ok && andPay && invoice) {
       const started = await startStripeCheckout(invoice.id);

@@ -60,6 +60,19 @@ export async function POST(
     return NextResponse.json({ error: 'expired' }, { status: 410 });
   }
 
+  // Los lineItemId deben pertenecer a ESTA factura (la resuelta por el
+  // token), no a cualquier UUID que llegue en el body: si no, un item
+  // manipulado podría apuntar a la línea de otra factura ajena.
+  const { data: ownLineItems } = await admin
+    .from('invoice_line_items')
+    .select('id')
+    .eq('invoice_id', approvalRow.invoice_id);
+  const ownLineItemIds = new Set((ownLineItems || []).map(li => li.id));
+
+  if (body.items.some(item => !ownLineItemIds.has(item.lineItemId))) {
+    return NextResponse.json({ error: 'Item de pedido no válido' }, { status: 400 });
+  }
+
   const itemRows = body.items.map(item => ({
     approval_id: approvalRow.id,
     line_item_id: item.lineItemId,
