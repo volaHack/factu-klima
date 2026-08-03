@@ -1,0 +1,24 @@
+{
+  "name": "DistAlSur - Sistema de Facturación",
+  "short_name": "Facturación",
+  "description": "Sistema de facturación profesional multitarea para empresas de distribución y comercio con Verifactu Ready",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0f19",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

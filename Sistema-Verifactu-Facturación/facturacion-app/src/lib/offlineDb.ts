@@ -1,0 +1,206 @@
+// ============================================================
+// OFFLINE DATABASE — IndexedDB Storage Layer
+// Stores: invoices, clients, products, settings, syncQueue
+// No external dependencies — uses native IndexedDB API
+// ============================================================
+
+const DB_NAME = 'facturacion-offline';
+const DB_VERSION = 1;
+
+export type SyncAction = 'upsert' | 'delete';
+export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
+  'invoice_line_items' | 'invoice_tax_breakdown' | 'order_approvals' |
+  'order_approval_items' | 'user_profiles';
+
+export interface SyncQueueItem {
+  id: string;
+  action: SyncAction;
+  table: SyncTable;
+  data: Record<string, unknown>;
+  timestamp: number;
+  retries: number;
+}
+
+// ============================================================
+// DB CONNECTION
+// ============================================================
+
+let dbInstance: IDBDatabase | null = null;
+
+function openDB(): Promise<IDBDatabase> {
+  if (dbInstance) return Promise.resolve(dbInstance);
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+
+      // Entity stores (keyed by id)
+      if (!db.objectStoreNames.contains('invoices')) {
+        db.createObjectStore('invoices', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('clients')) {
+        db.createObjectStore('clients', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('products')) {
+        db.createObjectStore('products', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains('userProfiles')) {
+        db.createObjectStore('userProfiles', { keyPath: 'id' });
+      }
+
+      // Sync queue
+      if (!db.objectStoreNames.contains('syncQueue')) {
+        const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
+        syncStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+
+      // Metadata store for last sync times, etc.
+      if (!db.objectStoreNames.contains('meta')) {
+        db.createObjectStore('meta', { keyPath: 'key' });
+      }
+    };
+
+    request.onsuccess = (event) => {
+      dbInstance = (event.target as IDBOpenDBRequest).result;
+      resolve(dbInstance);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}
+
+// ============================================================
+// GENERIC CRUD HELPERS
+// ============================================================
+
+async function getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
+  const db = await openDB();
+  const tx = db.transaction(storeName, mode);
+  return tx.objectStore(storeName);
+}
+
+function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ============================================================
+// ENTITY OPERATIONS
+// ============================================================
+
+export async function getAll<T>(storeName: string): Promise<T[]> {
+  const store = await getStore(storeName);
+  return promisifyRequest<T[]>(store.getAll());
+}
+
+export async function getById<T>(storeName: string, id: string): Promise<T | undefined> {
+  const store = await getStore(storeName);
+  const result = await promisifyRequest<T | undefined>(store.get(id));
+  return result;
+}
+
+export async function put<T>(storeName: string, data: T): Promise<void> {
+  const store = await getStore(storeName, 'readwrite');
+  await promisifyRequest(store.put(data));
+}
+
+export async function putMany<T>(storeName: string, items: T[]): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  for (const item of items) {
+    store.put(item);
+  }
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function remove(storeName: string, id: string): Promise<void> {
+  const store = await getStore(storeName, 'readwrite');
+  await promisifyRequest(store.delete(id));
+}
+
+export async function clearStore(storeName: string): Promise<void> {
+  const store = await getStore(storeName, 'readwrite');
+  await promisifyRequest(store.clear());
+}
+
+// ============================================================
+// SYNC QUEUE OPERATIONS
+// ============================================================
+
+export async function enqueueSyncAction(
+  action: SyncAction,
+  table: SyncTable,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const item: SyncQueueItem = {
+    id: `${table}_${data.id || 'settings'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    action,
+    table,
+    data,
+    timestamp: Date.now(),
+    retries: 0,
+  };
+  await put('syncQueue', item);
+}
+
+export async function getSyncQueue(): Promise<SyncQueueItem[]> {
+  const db = await openDB();
+  const tx = db.transaction('syncQueue', 'readonly');
+  const store = tx.objectStore('syncQueue');
+  const index = store.index('timestamp');
+  return promisifyRequest<SyncQueueItem[]>(index.getAll());
+}
+
+export async function removeSyncItem(id: string): Promise<void> {
+  await remove('syncQueue', id);
+}
+
+export async function updateSyncItem(item: SyncQueueItem): Promise<void> {
+  await put('syncQueue', item);
+}
+
+export async function getSyncQueueCount(): Promise<number> {
+  const store = await getStore('syncQueue');
+  return promisifyRequest<number>(store.count());
+}
+
+// ============================================================
+// METADATA (last sync, etc.)
+// ============================================================
+
+export async function getMeta(key: string): Promise<unknown | undefined> {
+  const store = await getStore('meta');
+  const result = await promisifyRequest<{ key: string; value: unknown } | undefined>(store.get(key));
+  return result?.value;
+}
+
+export async function setMeta(key: string, value: unknown): Promise<void> {
+  await put('meta', { key, value });
+}
+
+// ============================================================
+// FULL DB INIT CHECK
+// ============================================================
+
+export async function isOfflineDbAvailable(): Promise<boolean> {
+  try {
+    if (typeof indexedDB === 'undefined') return false;
+    await openDB();
+    return true;
+  } catch {
+    return false;
+  }
+}
