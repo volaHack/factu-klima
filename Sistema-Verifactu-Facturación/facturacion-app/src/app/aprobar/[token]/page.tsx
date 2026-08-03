@@ -7,7 +7,6 @@ import {
   Building2, Package, Send, CheckCircle2, XCircle,
   Minus, Plus, ShieldCheck, CreditCard
 } from 'lucide-react';
-import { getApprovalByToken, submitApprovalResponse } from '@/lib/storage';
 import { Invoice, OrderApproval, CompanySettings } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -41,14 +40,15 @@ export default function ApprovalPortalPage() {
 
   useEffect(() => {
     (async () => {
-      const result = await getApprovalByToken(token);
-      if (!result) {
+      const res = await fetch(`/api/aprobar/${token}`);
+      if (!res.ok) {
         setNotFound(true);
         setLoading(false);
         return;
       }
+      const result: { approval: OrderApproval; invoice: Invoice; companySettings: CompanySettings | null } = await res.json();
 
-      const { approval, invoice, items, companySettings } = result;
+      const { approval, invoice, companySettings } = result;
 
       if (new Date(approval.expiresAt) < new Date()) {
         setExpired(true);
@@ -101,7 +101,12 @@ export default function ApprovalPortalPage() {
       adjustedQuantity: d.adjustedQuantity ?? undefined,
       rejectionReason: d.rejectionReason || undefined,
     }));
-    const ok = await submitApprovalResponse(token, mapped, clientMessage);
+    const res = await fetch(`/api/aprobar/${token}/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: mapped, clientMessage }),
+    });
+    const ok = res.ok;
 
     if (ok && andPay && invoice) {
       const started = await startStripeCheckout(invoice.id);

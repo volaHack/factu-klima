@@ -894,7 +894,7 @@ export async function seedInitialData(): Promise<void> {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]): Invoice {
+export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]): Invoice {
   return {
     id: inv.id,
     number: inv.number,
@@ -930,7 +930,7 @@ function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]): Invo
   };
 }
 
-function mapLineItemFromDb(li: any): InvoiceLineItem {
+export function mapLineItemFromDb(li: any): InvoiceLineItem {
   return {
     id: li.id,
     productId: li.product_id || '',
@@ -986,7 +986,7 @@ function mapProductFromDb(p: any): Product {
   };
 }
 
-function mapSettingsFromDb(s: any): CompanySettings {
+export function mapSettingsFromDb(s: any): CompanySettings {
   return {
     businessName: s.business_name || '',
     nif: s.nif || '',
@@ -1051,33 +1051,6 @@ export async function createOrderApproval(invoiceId: string): Promise<OrderAppro
   return mapApprovalFromDb(data);
 }
 
-export async function getApprovalByToken(token: string): Promise<{ approval: OrderApproval; invoice: Invoice; items: OrderApprovalItem[]; companySettings: CompanySettings } | null> {
-  if (!navigator.onLine) return null;
-
-  const { data: approvalData } = await supabase()
-    .from('order_approvals')
-    .select('*')
-    .eq('token', token)
-    .single();
-
-  if (!approvalData) return null;
-
-  const approval = mapApprovalFromDb(approvalData);
-
-  const invoice = await getInvoiceById(approval.invoiceId);
-  if (!invoice) return null;
-
-  const { data: itemsData } = await supabase()
-    .from('order_approval_items')
-    .select('*')
-    .eq('approval_id', approval.id);
-
-  const items = (itemsData || []).map(mapApprovalItemFromDb);
-  const companySettings = await getCompanySettings();
-
-  return { approval, invoice, items, companySettings };
-}
-
 export async function getApprovalByInvoiceId(invoiceId: string): Promise<OrderApproval | null> {
   if (!navigator.onLine) return null;
 
@@ -1103,66 +1076,7 @@ export async function getApprovalItems(approvalId: string): Promise<OrderApprova
   return (data || []).map(mapApprovalItemFromDb);
 }
 
-export async function submitApprovalResponse(
-  token: string,
-  items: { lineItemId: string; accepted: boolean; adjustedQuantity?: number; rejectionReason?: string }[],
-  clientMessage: string
-): Promise<boolean> {
-  if (!navigator.onLine) return false;
-
-  const { data: approvalData } = await supabase()
-    .from('order_approvals')
-    .select('*')
-    .eq('token', token)
-    .single();
-
-  if (!approvalData || approvalData.status !== 'pending') return false;
-  if (new Date(approvalData.expires_at) < new Date()) return false;
-
-  const itemRows = items.map(item => ({
-    approval_id: approvalData.id,
-    line_item_id: item.lineItemId,
-    accepted: item.accepted,
-    adjusted_quantity: item.adjustedQuantity ?? null,
-    rejection_reason: item.rejectionReason || '',
-  }));
-
-  await supabase().from('order_approval_items').insert(itemRows);
-
-  const allAccepted = items.every(i => i.accepted && !i.adjustedQuantity);
-  const allRejected = items.every(i => !i.accepted);
-  let status: string;
-  let invoiceStatus: InvoiceStatus;
-
-  if (allAccepted) {
-    status = 'approved';
-    invoiceStatus = InvoiceStatus.APROBADO;
-  } else if (allRejected) {
-    status = 'rejected';
-    invoiceStatus = InvoiceStatus.RECHAZADO;
-  } else {
-    status = 'partial';
-    invoiceStatus = InvoiceStatus.APROBADO_PARCIAL;
-  }
-
-  await supabase()
-    .from('order_approvals')
-    .update({
-      status,
-      client_message: clientMessage,
-      responded_at: new Date().toISOString(),
-    })
-    .eq('id', approvalData.id);
-
-  await supabase()
-    .from('invoices')
-    .update({ status: invoiceStatus, updated_at: new Date().toISOString() })
-    .eq('id', approvalData.invoice_id);
-
-  return true;
-}
-
-function mapApprovalFromDb(a: any): OrderApproval {
+export function mapApprovalFromDb(a: any): OrderApproval {
   return {
     id: a.id,
     invoiceId: a.invoice_id,
