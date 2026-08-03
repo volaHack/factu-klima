@@ -8,6 +8,7 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ------------------------------------------------------------
 -- 1. USER_PROFILES (onboarding) — acceso solo del propio usuario
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_profiles_owner_policy" ON user_profiles;
 CREATE POLICY "user_profiles_owner_policy" ON user_profiles
   FOR ALL TO authenticated
   USING ((SELECT auth.uid()) = id)
@@ -52,8 +54,10 @@ CREATE TABLE IF NOT EXISTS order_approvals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- No se crea un índice adicional para `token`: la columna ya es UNIQUE
+-- en la definición de la tabla, lo que Postgres respalda con su propio
+-- índice único implícito.
 CREATE INDEX IF NOT EXISTS idx_order_approvals_invoice ON order_approvals(invoice_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_order_approvals_token ON order_approvals(token);
 
 CREATE TABLE IF NOT EXISTS order_approval_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -69,11 +73,13 @@ CREATE INDEX IF NOT EXISTS idx_order_approval_items_approval ON order_approval_i
 ALTER TABLE order_approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_approval_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "order_approvals_owner_policy" ON order_approvals;
 CREATE POLICY "order_approvals_owner_policy" ON order_approvals
   FOR ALL TO authenticated
   USING (invoice_id IN (SELECT id FROM invoices WHERE user_id = (SELECT auth.uid())))
   WITH CHECK (invoice_id IN (SELECT id FROM invoices WHERE user_id = (SELECT auth.uid())));
 
+DROP POLICY IF EXISTS "order_approval_items_owner_policy" ON order_approval_items;
 CREATE POLICY "order_approval_items_owner_policy" ON order_approval_items
   FOR ALL TO authenticated
   USING (approval_id IN (
@@ -129,9 +135,13 @@ BEGIN
   RETURNING hit_count INTO v_count;
 
   -- Limpieza oportunista de ventanas viejas (evita crecer sin límite
-  -- sin necesitar un cron job dedicado).
+  -- sin necesitar un cron job dedicado). El umbral se basa en la propia
+  -- ventana solicitada (con un mínimo de 1h) para no borrar nunca el
+  -- bucket de la ventana en curso si algún caller usa p_window_seconds
+  -- superior a una hora (p.ej. un límite "N por día").
   IF random() < 0.01 THEN
-    DELETE FROM public.rate_limit_hits WHERE window_start < now() - interval '1 hour';
+    DELETE FROM public.rate_limit_hits
+    WHERE window_start < now() - make_interval(secs => GREATEST(p_window_seconds, 3600));
   END IF;
 
   RETURN v_count <= p_max_hits;
