@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 
 const STRIPE_API_VERSION = '2026-01-28';
 
@@ -41,6 +42,13 @@ type InvoiceRow = {
 export async function POST(request: Request) {
   try {
     const { invoiceId, approvalToken } = await request.json();
+
+    if (typeof approvalToken === 'string' && approvalToken.length > 0) {
+      const allowed = await checkRateLimit(`checkout-public:${clientIpFromRequest(request)}`, 10, 3600);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Demasiados intentos. Inténtalo más tarde.' }, { status: 429 });
+      }
+    }
 
     if (!invoiceId || typeof invoiceId !== 'string') {
       return NextResponse.json({ error: 'Falta invoiceId' }, { status: 400 });

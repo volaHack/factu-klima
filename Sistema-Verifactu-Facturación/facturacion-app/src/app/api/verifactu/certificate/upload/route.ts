@@ -35,6 +35,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { encryptCertificateBlob, hashUploadedBytes } from '@/lib/verifactu/certificateEncryption';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 // Un .p12/.pem real pesa como mucho unos pocos KB. 10 MB es generoso y
 // evita que este endpoint se use para volcar payloads enormes en la BD.
@@ -88,6 +89,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'No autenticado' },
         { status: 401 }
+      );
+    }
+
+    const allowed = await checkRateLimit(`cert-upload:${user.id}`, 5, 3600);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas subidas de certificado. Inténtalo de nuevo más tarde.' },
+        { status: 429 }
       );
     }
 
