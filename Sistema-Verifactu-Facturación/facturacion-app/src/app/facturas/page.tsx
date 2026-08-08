@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, FileText, SearchX,
@@ -27,6 +28,7 @@ export default function FacturasPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const { success, error: toastError } = useToast();
 
   useEffect(() => {
@@ -44,9 +46,17 @@ export default function FacturasPage() {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('click', close);
     window.addEventListener('keydown', onKey);
+    // El menú se renderiza en un portal posicionado en las coordenadas del
+    // botón en el momento de abrirse; si la tabla (o la página) se
+    // desplaza sin esto, el menú se queda flotando lejos de su fila.
+    // capture:true porque 'scroll' no burbujea, así que hay que
+    // interceptarlo en la fase de captura para detectar el scroll del
+    // contenedor de la tabla, no solo el de window.
+    window.addEventListener('scroll', close, true);
     return () => {
       window.removeEventListener('click', close);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
     };
   }, [actionMenuId]);
 
@@ -399,17 +409,31 @@ export default function FacturasPage() {
                   </span>
                 </td>
                 <td className="amount">{formatCurrency(inv.total)}</td>
-                <td style={{ position: 'relative' }}>
+                <td>
                   <button
                     className="btn btn-ghost btn-icon btn-sm"
                     aria-label={`Acciones para ${inv.number}`}
                     aria-expanded={actionMenuId === inv.id}
-                    onClick={e => { e.stopPropagation(); setActionMenuId(actionMenuId === inv.id ? null : inv.id); }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (actionMenuId === inv.id) {
+                        setActionMenuId(null);
+                        return;
+                      }
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setActionMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                      setActionMenuId(inv.id);
+                    }}
                   >
                     <MoreHorizontal size={16} />
                   </button>
-                  {actionMenuId === inv.id && (
-                    <div className="action-menu" role="menu" onClick={e => e.stopPropagation()}>
+                  {actionMenuId === inv.id && actionMenuPos && createPortal(
+                    <div
+                      className="action-menu"
+                      role="menu"
+                      style={{ top: actionMenuPos.top, right: actionMenuPos.right }}
+                      onClick={e => e.stopPropagation()}
+                    >
                       <Link href={`/facturas/${inv.id}`} className="action-menu-item" role="menuitem" onClick={() => setActionMenuId(null)}>
                         <Eye /> Ver la factura
                       </Link>
@@ -430,7 +454,8 @@ export default function FacturasPage() {
                       <button className="action-menu-item danger" role="menuitem" onClick={() => handleDelete(inv.id)}>
                         <Trash2 /> Eliminar
                       </button>
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </td>
               </tr>
