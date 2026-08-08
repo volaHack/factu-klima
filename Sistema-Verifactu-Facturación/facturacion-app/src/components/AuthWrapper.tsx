@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = ['/login', '/auth', '/aprobar'];
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -93,13 +94,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={() => {
+          setSidebarOpen(false);
+          menuButtonRef.current?.focus();
+        }}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebarCollapsed}
       />
       <div className="app-main">
         <NetworkStatusBar />
-        <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCmdOpen(true)} />
+        <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCmdOpen(true)} menuButtonRef={menuButtonRef} />
         <main className="app-content animate-fade-in">
           {children}
         </main>

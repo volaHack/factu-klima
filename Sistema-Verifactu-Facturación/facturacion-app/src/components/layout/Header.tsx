@@ -11,6 +11,7 @@ import AccountMenu from './AccountMenu';
 interface HeaderProps {
   onMenuClick: () => void;
   onSearchClick: () => void;
+  menuButtonRef?: React.Ref<HTMLButtonElement>;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -23,7 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/ajustes': 'Ajustes',
 };
 
-export default function Header({ onMenuClick, onSearchClick }: HeaderProps) {
+export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [overdueCount, setOverdueCount] = useState(0);
@@ -57,7 +58,7 @@ export default function Header({ onMenuClick, onSearchClick }: HeaderProps) {
 
   return (
     <header className="header">
-      <button className="header-menu-btn" onClick={onMenuClick}>
+      <button className="header-menu-btn" onClick={onMenuClick} ref={menuButtonRef} aria-label="Abrir menú">
         <Menu size={24} />
       </button>
 
