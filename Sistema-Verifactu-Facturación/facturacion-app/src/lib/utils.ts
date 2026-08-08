@@ -137,10 +137,13 @@ export function validateNIF(nif: string): boolean {
 }
 
 /**
- * Generate a unique ID
+ * Generate a unique ID. Debe ser un UUID válido: los IDs generados aquí
+ * acaban como clave primaria en columnas `uuid` de Postgres (clients,
+ * products, invoices, invoice_line_items...), que rechazan cualquier
+ * otro formato.
  */
 export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+  return crypto.randomUUID();
 }
 
 /**

@@ -20,7 +20,7 @@ export default function ClientesPage() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
 
   // Form state
   const [form, setForm] = useState({
@@ -94,10 +94,14 @@ export default function ClientesPage() {
       createdAt: editingClient?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await persistClient(client);
-    await reload();
-    setShowModal(false);
-    success(editingClient ? 'Cliente actualizado' : 'Cliente creado', form.tradeName || form.businessName);
+    try {
+      await persistClient(client);
+      await reload();
+      setShowModal(false);
+      success(editingClient ? 'Cliente actualizado' : 'Cliente creado', form.tradeName || form.businessName);
+    } catch (err) {
+      toastError('No se pudo guardar el cliente', err instanceof Error ? err.message : 'Error desconocido');
+    }
   };
 
   const handleDelete = async (client: Client) => {

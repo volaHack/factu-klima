@@ -557,11 +557,17 @@ export async function saveClient(client: Client): Promise<void> {
   }
 
   if (navigator.onLine) {
+    // Solo se reencola si la petición ni siquiera llegó al servidor (red
+    // caída). Si el servidor respondió con un error (RLS, NIF duplicado,
+    // id inválido...), reencolar repetiría el mismo rechazo más tarde en
+    // silencio: hay que propagarlo ahora para que la UI lo muestre.
+    let result: { error: unknown } | null = null;
     try {
-      await supabase().from('clients').upsert(row);
+      result = await supabase().from('clients').upsert(row);
     } catch {
       await enqueueSyncAction('upsert', 'clients', row);
     }
+    if (result?.error) throw new Error(translateDbError(result.error));
   } else {
     await enqueueSyncAction('upsert', 'clients', row);
   }
@@ -660,11 +666,13 @@ export async function saveProduct(product: Product): Promise<void> {
   }
 
   if (navigator.onLine) {
+    let result: { error: unknown } | null = null;
     try {
-      await supabase().from('products').upsert(row);
+      result = await supabase().from('products').upsert(row);
     } catch {
       await enqueueSyncAction('upsert', 'products', row);
     }
+    if (result?.error) throw new Error(translateDbError(result.error));
   } else {
     await enqueueSyncAction('upsert', 'products', row);
   }

@@ -101,10 +101,14 @@ export default function ProductosPage() {
       createdAt: editing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await persistProduct(product);
-    await reload();
-    setShowModal(false);
-    success(editing ? 'Producto actualizado' : 'Producto creado', form.name);
+    try {
+      await persistProduct(product);
+      await reload();
+      setShowModal(false);
+      success(editing ? 'Producto actualizado' : 'Producto creado', form.name);
+    } catch (err) {
+      toastError('No se pudo guardar el producto', err instanceof Error ? err.message : 'Error desconocido');
+    }
   };
 
   const handleDeleteProduct = async (p: Product) => {
