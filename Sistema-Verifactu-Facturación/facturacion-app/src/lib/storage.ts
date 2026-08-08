@@ -10,8 +10,9 @@ import {
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
   getMeta, setMeta,
 } from './offlineDb';
-import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, Product, TaxBreakdown, UserProfile } from './types';
+import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TaxBreakdown, UserProfile } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES } from './constants';
+import { generateId } from './utils';
 
 function supabase() {
   return createClient();
@@ -217,6 +218,7 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
     total: invoice.total,
     payment_method: invoice.paymentMethod,
     notes: invoice.notes,
+    pos_session_id: invoice.posSessionId || null,
     // Los campos verifactu_* los calcula y firma el servidor (trigger
     // tr_invoice_seal). Mandarlos desde aquí sería justamente el vector
     // de fraude que estamos cerrando, así que no se envían.
@@ -549,6 +551,7 @@ export async function saveClient(client: Client): Promise<void> {
     default_payment_method: client.defaultPaymentMethod,
     notes: client.notes,
     active: client.active,
+    is_walk_in: client.isWalkIn ?? false,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -658,6 +661,9 @@ export async function saveProduct(product: Product): Promise<void> {
     default_tax_rate: product.defaultTaxRate,
     unit: product.unit,
     active: product.active,
+    barcode: product.barcode || null,
+    stock_quantity: product.stockQuantity ?? 0,
+    low_stock_threshold: product.lowStockThreshold ?? null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -693,6 +699,164 @@ export async function deleteProduct(id: string): Promise<void> {
   } else {
     await enqueueSyncAction('delete', 'products', { id });
   }
+}
+
+// ============================================================
+// TPV (punto de venta)
+// ============================================================
+
+/** Busca un producto por su código de barras exacto (para el escáner). */
+export async function findProductByBarcode(barcode: string): Promise<Product | undefined> {
+  const code = barcode.trim();
+  if (!code) return undefined;
+  const products = await getProducts();
+  return products.find(p => p.barcode === code);
+}
+
+/**
+ * Ajusta el stock de un producto. Online usa fn_pos_adjust_stock (UPDATE
+ * atómico en el servidor: dos ventas simultáneas del mismo producto no se
+ * pisan el descuento). Offline no hay forma de garantizar atomicidad sin
+ * conexión — mejor esfuerzo con recálculo local, aceptable para el
+ * terminal único de una tienda pequeña.
+ */
+export async function adjustStock(productId: string, delta: number): Promise<number> {
+  if (navigator.onLine) {
+    const { data, error } = await supabase().rpc('fn_pos_adjust_stock', {
+      p_product_id: productId,
+      p_delta: delta,
+    });
+    if (error) throw new Error(translateDbError(error));
+    const newStock = Number(data);
+
+    // El RPC no pasa por put(), así que la caché offline se actualiza
+    // aparte para que la siguiente lectura no vea el stock desactualizado.
+    if (await isOfflineDbAvailable()) {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const cached = await getById<any>('products', productId);
+      if (cached) await put('products', { ...cached, stock_quantity: newStock });
+    }
+    return newStock;
+  }
+
+  const product = await getProductById(productId);
+  if (!product) throw new Error('Producto no encontrado.');
+  const newStock = (product.stockQuantity ?? 0) + delta;
+  await saveProduct({ ...product, stockQuantity: newStock });
+  return newStock;
+}
+
+/**
+ * Cliente "Venta al público" para tickets sin NIF (factura simplificada).
+ * Se crea una sola vez por empresa la primera vez que se necesita — el
+ * índice único idx_clients_one_walk_in en Supabase impide duplicados
+ * incluso si dos pestañas intentan crearlo a la vez.
+ */
+export async function ensureWalkInClient(): Promise<Client> {
+  const clients = await getClients();
+  const existing = clients.find(c => c.isWalkIn);
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const walkIn: Client = {
+    id: generateId(),
+    nif: '',
+    businessName: 'Venta al público',
+    tradeName: 'Venta al público',
+    email: '',
+    phone: '',
+    contactPerson: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    province: '',
+    country: 'España',
+    paymentDays: 0,
+    defaultPaymentMethod: PaymentMethod.EFECTIVO,
+    notes: 'Cliente genérico del TPV para tickets sin NIF (factura simplificada).',
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+    isWalkIn: true,
+  };
+  await saveClient(walkIn);
+  return walkIn;
+}
+
+function mapPosSessionFromDb(s: {
+  id: string; opened_at: string; closed_at: string | null; starting_cash: number | string;
+  counted_cash: number | string | null; expected_cash: number | string | null;
+  cash_difference: number | string | null; status: 'open' | 'closed'; notes: string | null;
+}): PosSession {
+  return {
+    id: s.id,
+    openedAt: s.opened_at,
+    closedAt: s.closed_at || undefined,
+    startingCash: Number(s.starting_cash),
+    countedCash: s.counted_cash != null ? Number(s.counted_cash) : undefined,
+    expectedCash: s.expected_cash != null ? Number(s.expected_cash) : undefined,
+    cashDifference: s.cash_difference != null ? Number(s.cash_difference) : undefined,
+    status: s.status,
+    notes: s.notes || undefined,
+  };
+}
+
+/** El turno de caja abierto, si hay uno. Requiere conexión: abrir/cerrar caja es un acto puntual del terminal, no algo que tenga sentido encolar para más tarde. */
+export async function getActivePosSession(): Promise<PosSession | undefined> {
+  if (!navigator.onLine) return undefined;
+  const { data } = await supabase()
+    .from('pos_sessions')
+    .select('*')
+    .eq('status', 'open')
+    .maybeSingle();
+  return data ? mapPosSessionFromDb(data) : undefined;
+}
+
+export async function openPosSession(startingCash: number): Promise<PosSession> {
+  const userId = await requireUserId();
+  const { data, error } = await supabase()
+    .from('pos_sessions')
+    .insert({ user_id: userId, starting_cash: startingCash })
+    .select('*')
+    .single();
+  if (error) throw new Error(translateDbError(error));
+  return mapPosSessionFromDb(data);
+}
+
+/** Ventas en efectivo de un turno, para calcular el efectivo esperado antes de cerrarlo. */
+async function cashSalesTotalForSession(sessionId: string): Promise<number> {
+  const { data } = await supabase()
+    .from('invoices')
+    .select('total')
+    .eq('pos_session_id', sessionId)
+    .eq('payment_method', 'efectivo')
+    .not('status', 'eq', InvoiceStatus.ANULADA);
+  if (!data) return 0;
+  return data.reduce((sum: number, row: { total: number | string }) => sum + Number(row.total), 0);
+}
+
+export async function closePosSession(sessionId: string, countedCash: number): Promise<PosSession> {
+  const session = await supabase().from('pos_sessions').select('starting_cash').eq('id', sessionId).single();
+  if (session.error || !session.data) throw new Error('No se encuentra el turno de caja.');
+
+  const cashSales = await cashSalesTotalForSession(sessionId);
+  const expectedCash = Number(session.data.starting_cash) + cashSales;
+  const cashDifference = countedCash - expectedCash;
+
+  const { data, error } = await supabase()
+    .from('pos_sessions')
+    .update({
+      status: 'closed',
+      closed_at: new Date().toISOString(),
+      counted_cash: countedCash,
+      expected_cash: expectedCash,
+      cash_difference: cashDifference,
+    })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw new Error(translateDbError(error));
+  return mapPosSessionFromDb(data);
 }
 
 // ============================================================
@@ -935,6 +1099,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     } : undefined,
     createdAt: inv.created_at,
     updatedAt: inv.updated_at,
+    posSessionId: inv.pos_session_id || undefined,
   };
 }
 
@@ -975,6 +1140,7 @@ function mapClientFromDb(c: any): Client {
     active: c.active ?? true,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
+    isWalkIn: c.is_walk_in ?? false,
   };
 }
 
@@ -991,6 +1157,9 @@ function mapProductFromDb(p: any): Product {
     active: p.active ?? true,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
+    barcode: p.barcode || undefined,
+    stockQuantity: Number(p.stock_quantity ?? 0),
+    lowStockThreshold: p.low_stock_threshold != null ? Number(p.low_stock_threshold) : undefined,
   };
 }
 

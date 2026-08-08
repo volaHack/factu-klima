@@ -135,6 +135,42 @@ export interface Invoice {
   // Metadata
   createdAt: string;
   updatedAt: string;
+
+  // TPV
+  posSessionId?: string;
+}
+
+// --- TPV (punto de venta) ---
+
+export interface PosSession {
+  id: string;
+  openedAt: string;
+  closedAt?: string;
+  startingCash: number;
+  countedCash?: number;
+  expectedCash?: number;
+  cashDifference?: number;
+  status: 'open' | 'closed';
+  notes?: string;
+}
+
+export interface PosCartLine {
+  productId: string;
+  productName: string;
+  productRef: string;
+  unitPrice: number;
+  unit: UnitOfMeasure;
+  taxRate: TaxRate;
+  quantity: number;
+  discountPercent: number;
+  stockQuantity: number;
+}
+
+export interface PosHeldSale {
+  id: string;
+  label: string;
+  heldAt: string;
+  lines: PosCartLine[];
 }
 
 export interface Client {
@@ -156,6 +192,7 @@ export interface Client {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  isWalkIn?: boolean;
 }
 
 export interface Product {
@@ -170,6 +207,9 @@ export interface Product {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  barcode?: string;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
 }
 
 export interface CustomCategory {
