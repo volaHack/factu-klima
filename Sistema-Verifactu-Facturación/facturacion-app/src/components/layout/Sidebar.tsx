@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
-  Settings, Plus, ChevronLeft, ShieldCheck, Plug,
+  Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -53,6 +53,7 @@ const navItems = [
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
+  { href: '/tpv', label: 'TPV', icon: Store },
 ];
 
 const controlItems = [
