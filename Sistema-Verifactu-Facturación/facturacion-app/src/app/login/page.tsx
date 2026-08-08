@@ -91,10 +91,13 @@ export default function LoginPage() {
       <div className="login-card">
         {/* Logo / Brand */}
         <div className="login-header">
-          <div className="login-logo">
-            <ShieldCheck size={28} color="white" />
-          </div>
-          <h1 className="login-title">{isLogin ? 'Bienvenida de nuevo' : 'Empieza a facturar'}</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/klima-mark.svg" alt="Klima Solutions" className="login-logo" width={56} height={56} />
+          <h1 className="login-title">
+            {isLogin ? (
+              <>Bienvenida de <em className="accent-serif">nuevo</em></>
+            ) : 'Empieza a facturar'}
+          </h1>
           <p className="login-subtitle">
             {isLogin
               ? 'Entra para ver tus facturas, clientes y cobros pendientes.'
