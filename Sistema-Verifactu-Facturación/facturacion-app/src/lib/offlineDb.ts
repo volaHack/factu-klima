@@ -131,6 +131,17 @@ export async function remove(storeName: string, id: string): Promise<void> {
   await promisifyRequest(store.delete(id));
 }
 
+const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta'];
+
+/**
+ * Limpia toda la caché local de IndexedDB. Se llama al cerrar sesión para
+ * que un dispositivo compartido entre varias empresas no siga mostrando
+ * datos de la sesión anterior mientras está offline.
+ */
+export async function clearOfflineCache(): Promise<void> {
+  await Promise.all(ALL_STORE_NAMES.map(name => clearStore(name)));
+}
+
 export async function clearStore(storeName: string): Promise<void> {
   const store = await getStore(storeName, 'readwrite');
   await promisifyRequest(store.clear());

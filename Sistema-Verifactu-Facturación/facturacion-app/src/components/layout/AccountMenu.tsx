@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { User, Settings, LogOut, ChevronDown, Save, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { clearOfflineCache } from '@/lib/offlineDb';
 import { UserProfile } from '@/lib/types';
 
 function initialsFrom(name: string, email: string): string {
@@ -149,7 +150,15 @@ export default function AccountMenu() {
                 <Settings size={16} /> Ajustes de la empresa
               </Link>
               <div className="account-dropdown-divider" />
-              <form action="/auth/signout" method="post">
+              <form
+                action="/auth/signout"
+                method="post"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await clearOfflineCache();
+                  e.currentTarget.submit();
+                }}
+              >
                 <button type="submit" className="account-dropdown-item danger" style={{ width: '100%' }}>
                   <LogOut size={16} /> Cerrar sesión
                 </button>
