@@ -38,14 +38,18 @@ export const STATUS = {
   muted: '#8b8b93',
 } as const;
 
-/** Tinta y cromo del gráfico. El texto NUNCA lleva el color de la serie. */
+/** Tinta y cromo del gráfico. El texto NUNCA lleva el color de la serie.
+    Recalibrado 2026-08-08 para el rediseño blush/vino/rosa — este archivo
+    usa hex literales, no las variables de globals.css, así que el cambio
+    de paleta general no lo tocaba solo; el texto casi blanco y las líneas
+    de cuadrícula blancas se quedaban invisibles sobre el fondo claro. */
 export const INK = {
-  primary: '#fafafa',
-  secondary: '#a1a1aa',
-  muted: '#8b8b93',
-  grid: 'rgba(255, 255, 255, 0.06)',
-  axis: 'rgba(255, 255, 255, 0.12)',
-  surface: '#11131a',
+  primary: '#1a1216',
+  secondary: '#4a3a40',
+  muted: '#6f5d63',
+  grid: 'rgba(26, 18, 22, 0.08)',
+  axis: 'rgba(26, 18, 22, 0.16)',
+  surface: '#fbf6f2',
 } as const;
 
 /** Colores por estado de factura. */
@@ -71,7 +75,7 @@ export const INVOICE_STATUS_COLOR: Record<string, string> = {
  * clase del tema aplicada, se queda sin color y la barra desaparece.
  * Por eso se resuelve a hexadecimal antes de pintar.
  */
-export function resolveAccent(fallback = '#10b981'): string {
+export function resolveAccent(fallback = '#b02a5c'): string {
   if (typeof window === 'undefined') return fallback;
   const value = getComputedStyle(document.body).getPropertyValue('--accent-500').trim();
   return value || fallback;
@@ -79,16 +83,16 @@ export function resolveAccent(fallback = '#10b981'): string {
 
 /** Estilo compartido de los tooltips. */
 export const TOOLTIP_STYLE = {
-  background: '#1a1d27',
-  border: '1px solid rgba(255, 255, 255, 0.12)',
+  background: '#ffffff',
+  border: '1px solid rgba(26, 18, 22, 0.14)',
   borderRadius: '10px',
   color: INK.primary,
   fontSize: '12px',
-  boxShadow: '0 12px 32px -4px rgba(0, 0, 0, 0.5)',
+  boxShadow: '0 12px 32px -4px rgba(76, 26, 40, 0.22)',
   padding: '8px 12px',
 } as const;
 
-export const TOOLTIP_CURSOR = { fill: 'rgba(255, 255, 255, 0.04)' } as const;
+export const TOOLTIP_CURSOR = { fill: 'rgba(26, 18, 22, 0.05)' } as const;
 
 /** Formato compacto para los ticks de importe: 12.400 € → "12k". */
 export function compactEuro(value: number): string {
