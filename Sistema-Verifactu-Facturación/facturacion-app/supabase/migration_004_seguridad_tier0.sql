@@ -73,6 +73,20 @@ CREATE INDEX IF NOT EXISTS idx_order_approval_items_approval ON order_approval_i
 ALTER TABLE order_approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_approval_items ENABLE ROW LEVEL SECURITY;
 
+-- Estas tablas ya existían en producción con políticas heredadas
+-- "Public can ..." (USING (true) / WITH CHECK (true)) que permitían a
+-- CUALQUIER visitante anónimo leer/escribir TODAS las aprobaciones de
+-- TODOS los usuarios, no solo por token. Se eliminan aquí junto con los
+-- grants a anon: el portal público ya pasa por las API routes con
+-- service role, no necesita acceso anónimo directo a estas tablas.
+DROP POLICY IF EXISTS "Public can view approval by token" ON order_approvals;
+DROP POLICY IF EXISTS "Public can update approval by token" ON order_approvals;
+DROP POLICY IF EXISTS "Public can insert approval items" ON order_approval_items;
+DROP POLICY IF EXISTS "Public can view approval items by approval" ON order_approval_items;
+
+REVOKE ALL ON order_approvals FROM anon;
+REVOKE ALL ON order_approval_items FROM anon;
+
 DROP POLICY IF EXISTS "order_approvals_owner_policy" ON order_approvals;
 CREATE POLICY "order_approvals_owner_policy" ON order_approvals
   FOR ALL TO authenticated
@@ -153,6 +167,15 @@ $$ LANGUAGE plpgsql;
 -- a cualquiera invocar el RPC directamente con la clave pública y
 -- agotar a propósito la cuota de otra clave (p.ej. la IP de un cliente
 -- legítimo), sin necesidad de pasar por las API routes.
+--
+-- Supabase configura ALTER DEFAULT PRIVILEGES en el schema public para
+-- conceder EXECUTE explícitamente a anon/authenticated/service_role en
+-- toda función nueva (no es el PUBLIC por defecto de Postgres puro). El
+-- GRANT a service_role de abajo es aditivo y no retira esos grants
+-- automáticos: sin este REVOKE explícito a anon/authenticated, cualquiera
+-- podría invocar el RPC igualmente vía /rest/v1/rpc/fn_check_rate_limit
+-- pese al comentario anterior.
+REVOKE EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) TO service_role;
 
 -- ------------------------------------------------------------
@@ -187,6 +210,13 @@ CREATE TRIGGER tr_invoice_client_ownership
   BEFORE INSERT OR UPDATE OF client_id ON invoices
   FOR EACH ROW EXECUTE FUNCTION fn_check_invoice_client_ownership();
 
+-- Postgres solo permite ejecutar una función que devuelve TRIGGER como
+-- disparador de un trigger, nunca por invocación directa — así que este
+-- REVOKE no cambia el comportamiento observable, pero retira el grant
+-- automático a anon/authenticated (ver nota de ALTER DEFAULT PRIVILEGES
+-- más arriba) y silencia el aviso del linter de seguridad de Supabase.
+REVOKE EXECUTE ON FUNCTION fn_check_invoice_client_ownership() FROM anon, authenticated;
+
 CREATE OR REPLACE FUNCTION fn_check_line_item_product_ownership()
 RETURNS TRIGGER
 SECURITY DEFINER
@@ -213,3 +243,5 @@ DROP TRIGGER IF EXISTS tr_line_item_product_ownership ON invoice_line_items;
 CREATE TRIGGER tr_line_item_product_ownership
   BEFORE INSERT OR UPDATE OF product_id ON invoice_line_items
   FOR EACH ROW EXECUTE FUNCTION fn_check_line_item_product_ownership();
+
+REVOKE EXECUTE ON FUNCTION fn_check_line_item_product_ownership() FROM anon, authenticated;
