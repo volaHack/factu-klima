@@ -322,11 +322,25 @@ a:hover { color: var(--accent-300); }
   box-shadow: 0 2px 8px var(--accent-glow);
 }
 
-.sidebar-logo-text { display: flex; flex-direction: column; overflow: hidden; }
-.sidebar-logo-text h1 { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); white-space: nowrap; line-height: 1.2; letter-spacing: -0.02em; }
-.sidebar-logo-text span { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.sidebar-logo-text { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.sidebar-logo-text h1 { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; letter-spacing: -0.02em; }
+.sidebar-logo-text span { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.sidebar-close-mobile { display: none; }
+/* Sin la clase .btn a propósito: .btn define su propio `display:
+   inline-flex` con la MISMA especificidad que esta regla pero declarado
+   más abajo en la hoja, así que gana él y el botón queda visible en
+   escritorio aunque aquí diga `display: none`. .header-menu-btn (mismo
+   propósito, botón solo-móvil) evita el mismo problema por la misma
+   razón: nunca lleva la clase .btn. */
+.sidebar-close-mobile {
+  display: none;
+  background: none; border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+.sidebar-close-mobile:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 .sidebar-nav {
   flex: 1;
@@ -465,7 +479,17 @@ a:hover { color: var(--accent-300); }
 }
 .header-menu-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
-.header-search-btn-mobile { display: none; }
+/* Ver comentario junto a .sidebar-close-mobile: sin la clase .btn a
+   propósito, por el mismo problema de especificidad/orden con .btn. */
+.header-search-btn-mobile {
+  display: none;
+  background: none; border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+.header-search-btn-mobile:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 /* --- Mobile Navigation --- */
 .mobile-nav {

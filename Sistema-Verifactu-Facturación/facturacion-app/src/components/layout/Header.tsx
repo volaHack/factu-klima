@@ -82,7 +82,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
 
       <div className="header-actions">
         <button
-          className="btn btn-ghost btn-icon header-search-btn-mobile"
+          className="header-search-btn-mobile"
           onClick={onSearchClick}
           aria-label="Buscar"
         >

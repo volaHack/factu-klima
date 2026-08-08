@@ -113,7 +113,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             </span>
           </div>
           <button
-            className="btn btn-ghost btn-icon sidebar-close-mobile"
+            className="sidebar-close-mobile"
             onClick={onClose}
             aria-label="Cerrar menú"
             style={{ marginLeft: 'auto' }}
