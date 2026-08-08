@@ -244,6 +244,10 @@ export interface CompanySettings {
   defaultPaymentDays: number;
   defaultPaymentMethod: PaymentMethod;
   invoiceFooterText: string;
+
+  // TPV — serie separada para tickets de mostrador (factura simplificada)
+  tpvSeries: string;
+  nextTpvNumber: number;
   
   // Banking
   iban: string;

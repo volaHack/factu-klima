@@ -174,6 +174,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   province: 'Sevilla',
   invoiceSeries: 'FAC',
   nextInvoiceNumber: 21,
+  tpvSeries: 'TPV',
+  nextTpvNumber: 1,
   defaultPaymentDays: 30,
   defaultPaymentMethod: PaymentMethod.TRANSFERENCIA,
   invoiceFooterText: 'Factura con registro sellado mediante huella SHA-256 encadenada.',
