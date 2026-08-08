@@ -278,6 +278,17 @@ a:hover { color: var(--accent-300); }
 }
 
 /* --- Sidebar --- */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: var(--bg-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base);
+}
+
 .sidebar {
   position: fixed;
   left: 0; top: 0; bottom: 0;
@@ -314,6 +325,8 @@ a:hover { color: var(--accent-300); }
 .sidebar-logo-text { display: flex; flex-direction: column; overflow: hidden; }
 .sidebar-logo-text h1 { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); white-space: nowrap; line-height: 1.2; letter-spacing: -0.02em; }
 .sidebar-logo-text span { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+.sidebar-close-mobile { display: none; }
 
 .sidebar-nav {
   flex: 1;
@@ -1879,6 +1892,15 @@ a:hover { color: var(--accent-300); }
 
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay { display: block; }
+  .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
+  .sidebar-close-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
   .app-main { margin-left: 0; }
   /* El plegado es un gesto de escritorio. En el cajón móvil siempre se
      ve completo, sin importar la preferencia guardada en escritorio. */
@@ -2694,7 +2716,10 @@ a:focus-visible {
    el padding: un enlace de navegación disfrazado de opción de menú.
    ============================================================ */
 .action-menu {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+  /* fixed + coordenadas inline calculadas en JS a partir del botón: así
+     no lo recorta el overflow-x:auto de .table-container. Renderizado
+     en un portal a document.body por el mismo motivo. */
+  position: fixed; z-index: 50;
   min-width: 208px; padding: var(--space-1);
   background: var(--bg-elevated);
   border: 1px solid var(--border-color-hover);

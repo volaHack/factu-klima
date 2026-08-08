@@ -100,9 +100,10 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             </span>
           </div>
           <button
-            className="btn btn-ghost sidebar-close-mobile"
+            className="btn btn-ghost btn-icon sidebar-close-mobile"
             onClick={onClose}
-            style={{ marginLeft: 'auto', display: 'none' }}
+            aria-label="Cerrar menú"
+            style={{ marginLeft: 'auto' }}
           >
             <ChevronLeft size={20} />
           </button>
