@@ -6,8 +6,8 @@ import { ToastProvider } from '@/hooks/useToast';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Facturación · Verifactu',
-    template: '%s · Facturación',
+    default: 'Klima Solutions · Verifactu',
+    template: '%s · Klima Solutions',
   },
   description:
     'Sistema de facturación con encadenamiento de huella SHA-256, registro de eventos inalterable y control de integridad.',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   icons: { icon: '/favicon.ico' },
   appleWebApp: {
     capable: true,
-    title: 'Facturación',
+    title: 'Klima Solutions',
     statusBarStyle: 'black-translucent',
   },
 };
@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#10b981',
+  themeColor: '#f2e7e0',
 };
 
 export default function RootLayout({

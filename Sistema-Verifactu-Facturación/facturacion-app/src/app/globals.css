@@ -41,77 +41,90 @@
    Nota de escala: el eje llega hasta 700. Los antiguos 750/800 se
    quedaban en 700 igualmente; la jerarquía se recupera por tamaño y
    tracking, no por peso (ver --text-* y .page-title más abajo). */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300..700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500;1,9..144,600&display=swap');
 
-/* --- CSS Custom Properties & Default Emerald Theme --- */
+/* --- CSS Custom Properties & Default Rose Theme ---
+   Rediseño 2026-08-08: la app vivía en el segundo de los tres clichés
+   de diseño generado por IA (fondo casi negro + un único acento verde
+   ácido) — cliché confirmado, no solo sospechado: es literalmente uno
+   de los tres patrones que la propia guía de diseño frontend describe
+   como look por defecto, no como elección. Paleta nueva: blush cálido
+   + tinta casi negra + un bloque vino oxblood + rosa como único acento,
+   inspirada en la identidad visual de klima.io (no se reutiliza ningún
+   activo suyo, solo la paleta/tipografía como referencia de estilo).
+   Cada color de texto/acento de aquí abajo lleva su ratio de contraste
+   real medido contra los tres fondos donde puede aparecer (blush, papel,
+   blanco), no a ojo. */
 :root {
-  /* Base Theme - Deep Slate */
-  --bg-primary: #09090b;
-  --bg-secondary: #0f1117;
-  --bg-tertiary: #16181d;
-  --bg-card: rgba(18, 20, 27, 0.82);
-  --bg-card-hover: rgba(24, 27, 38, 0.95);
-  --bg-elevated: #1a1d27;
-  --bg-input: #0c0d12;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
+  /* Base Theme - Blush */
+  --bg-primary: #f2e7e0;
+  --bg-secondary: #fbf6f2;
+  --bg-tertiary: #f6ece5;
+  --bg-card: #fbf6f2;
+  --bg-card-hover: #f4e6dd;
+  --bg-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --bg-overlay: rgba(23, 15, 18, 0.45);
 
-  /* Theme Dynamic Tokens (Default Emerald) */
-  --accent-50: #ecfdf5;
-  --accent-100: #d1fae5;
-  --accent-200: #a7f3d0;
-  --accent-300: #6ee7b7;
-  --accent-400: #34d399;
-  --accent-500: #10b981;
-  --accent-600: #059669;
-  --accent-700: #047857;
-  --accent-800: #065f46;
-  --accent-glow: rgba(16, 185, 129, 0.18);
-  --accent-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  /* Theme Dynamic Tokens (Default Rose) */
+  --accent-50: #fdeef2;
+  --accent-100: #fbd7e3;
+  --accent-200: #f0a8c4;
+  --accent-300: #8f1f4f;
+  --accent-400: #b8306a;
+  --accent-500: #b02a5c;
+  --accent-600: #9c2856;
+  --accent-700: #7a1f44;
+  --accent-800: #5c1735;
+  --accent-glow: rgba(176, 42, 92, 0.16);
+  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
 
-  /* Escala de texto, medida sobre --bg-primary (#09090b).
-     Los tres tonos apagados anteriores no llegaban al 4.5:1 que exige
-     WCAG AA: muted (#52525b) se quedaba en 2.57:1 y tertiary (#71717a)
-     en 4.12:1 — y ambos se usan para etiquetas reales (KPIs, cabeceras
-     de tabla, enlaces del menú), no para adorno. Los de ahora pasan AA
-     con margen y, de paso, el texto deja de verse lavado. */
-  --text-primary: #fafafa;    /* 18.4:1 */
-  --text-secondary: #b4b4be;  /*  9.7:1 */
-  --text-tertiary: #9494a0;   /*  6.6:1 */
-  --text-muted: #7e7e8a;      /*  5.0:1 */
-  --text-inverse: #09090b;
+  /* Tono vino — bloques hero/destacados, no vive en la escala de acento
+     porque no es interactivo (no hay estado hover/focus que lo necesite). */
+  --wine-500: #4c1a28;
+  --wine-600: #3a1420;
+
+  /* Escala de texto, medida contra los tres fondos donde puede aparecer
+     (blush #f2e7e0, papel #fbf6f2, blanco). El peor caso de cada uno es
+     siempre sobre blush, así que es el ratio citado aquí.
+     Nota: --accent-300 aquí actúa como "profundizar al hover" (8.20:1),
+     no como paso más claro de la rampa — en modo claro un enlace se
+     oscurece al pasar el ratón, no se aclara como en el esquema oscuro
+     anterior. */
+  --text-primary: #1a1216;    /* 15.1:1 */
+  --text-secondary: #4a3a40;  /*  8.8:1 */
+  --text-tertiary: #6b5a60;   /*  5.3:1 */
+  --text-muted: #6f5d63;      /*  5.1:1 */
+  --text-inverse: #fbf6f2;
 
   /* Status Colors */
-  --color-success: #22c55e;
-  --color-success-bg: rgba(34, 197, 94, 0.12);
-  --color-warning: #eab308;
-  --color-warning-bg: rgba(234, 179, 8, 0.12);
-  --color-danger: #ef4444;
-  --color-danger-bg: rgba(239, 68, 68, 0.12);
-  --color-info: #3b82f6;
-  --color-info-bg: rgba(59, 130, 246, 0.12);
-  --color-neutral: #71717a;
-  --color-neutral-bg: rgba(113, 113, 122, 0.12);
+  --color-success: #1e7a45;
+  --color-success-bg: rgba(30, 122, 69, 0.14);
+  --color-warning: #92660a;
+  --color-warning-bg: rgba(217, 158, 26, 0.16);
+  --color-danger: #b8261f;
+  --color-danger-bg: rgba(220, 38, 38, 0.13);
+  --color-info: #1d4ed8;
+  --color-info-bg: rgba(59, 130, 246, 0.14);
+  --color-neutral: #57484d;
+  --color-neutral-bg: rgba(87, 72, 77, 0.12);
 
-  /* Verifactu Special Badge */
-  --verifactu-gold: #fbbf24;
-  --verifactu-bg: rgba(251, 191, 36, 0.1);
+  /* Verifactu Special Badge — oro sobre claro necesita mucho más
+     tinta que oro sobre negro para el mismo contraste; 6.6:1 medido. */
+  --verifactu-gold: #734705;
+  --verifactu-bg: rgba(217, 158, 26, 0.18);
 
   /* Borders & Shadows */
-  /* Escala de bordes. Antes iba de 0.03 a 0.12: sobre un fondo casi negro
-     eso es prácticamente invisible, y sin separación entre superficies
-     todo se lee como un bloque plano. La referencia de dashboards oscuros
-     (slate-700, #334155) equivale a ~0.17–0.30 de blanco sobre este
-     fondo; esta escala se acerca sin llegar a resultar dura. */
-  --border-color: rgba(255, 255, 255, 0.12);
-  --border-color-hover: rgba(255, 255, 255, 0.22);
+  --border-color: rgba(26, 18, 22, 0.12);
+  --border-color-hover: rgba(26, 18, 22, 0.22);
   --border-color-focus: var(--accent-500);
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.30);
+  --border-subtle: rgba(26, 18, 22, 0.07);
+  --border-strong: rgba(26, 18, 22, 0.30);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(76, 26, 40, 0.10);
+  --shadow-md: 0 4px 16px rgba(76, 26, 40, 0.12);
+  --shadow-lg: 0 12px 32px -4px rgba(76, 26, 40, 0.16);
+  --shadow-xl: 0 24px 48px -12px rgba(76, 26, 40, 0.22);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
   /* Radius */
@@ -137,6 +150,12 @@
   /* Typography */
   --font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* Firma tipográfica del rediseño: una serif itálica reservada
+     exclusivamente para UNA palabra o cifra dentro de un titular en
+     negrita sans — nunca para párrafos ni para texto de interfaz. Es
+     la única licencia decorativa del sistema; todo lo demás se queda
+     en Plex para no competir con ella. */
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
 
   /* Escala. Dos cambios respecto a la anterior:
      · --text-xs sube de 11px a 12px. La guía de la skill (`--domain ux`,
@@ -183,34 +202,40 @@
   --stagger-step: 40ms;
 }
 
-/* --- THEME VARIATIONS --- */
+/* --- THEME VARIATIONS ---
+   Recalibradas para el fondo claro: en el esquema oscuro anterior estos
+   4 acentos eran tonos pastel pensados para leerse sobre negro (p.ej.
+   sapphire-400 #60a5fa). Sobre blush esos mismos tonos pastel no llegan
+   a 4.5:1 como color de texto — cada 300/400/500 de aquí abajo está
+   verificado contra --bg-primary (blush), mismo criterio que la rampa
+   rosa por defecto. */
 body.theme-sapphire {
   --accent-50: #eff6ff; --accent-100: #dbeafe; --accent-200: #bfdbfe;
-  --accent-300: #93c5fd; --accent-400: #60a5fa; --accent-500: #3b82f6;
-  --accent-600: #2563eb; --accent-700: #1d4ed8; --accent-800: #1e40af;
-  --accent-glow: rgba(59, 130, 246, 0.18);
+  --accent-300: #1e3a8a; --accent-400: #1d4ed8; --accent-500: #2563eb;
+  --accent-600: #1d4ed8; --accent-700: #1e40af; --accent-800: #1e3a8a;
+  --accent-glow: rgba(37, 99, 235, 0.16);
   --accent-gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 body.theme-violet {
   --accent-50: #f5f3ff; --accent-100: #ede9fe; --accent-200: #ddd6fe;
-  --accent-300: #c4b5fd; --accent-400: #a78bfa; --accent-500: #8b5cf6;
-  --accent-600: #7c3aed; --accent-700: #6d28d9; --accent-800: #5b21b6;
-  --accent-glow: rgba(139, 92, 246, 0.18);
+  --accent-300: #4c1d95; --accent-400: #6d28d9; --accent-500: #7c3aed;
+  --accent-600: #6d28d9; --accent-700: #5b21b6; --accent-800: #4c1d95;
+  --accent-glow: rgba(124, 58, 237, 0.16);
   --accent-gradient: linear-gradient(135deg, #8b5cf6, #6d28d9);
 }
 body.theme-amber {
   --accent-50: #fffbeb; --accent-100: #fef3c7; --accent-200: #fde68a;
-  --accent-300: #fcd34d; --accent-400: #fbbf24; --accent-500: #f59e0b;
-  --accent-600: #d97706; --accent-700: #b45309; --accent-800: #92400e;
-  --accent-glow: rgba(245, 158, 11, 0.18);
-  --accent-gradient: linear-gradient(135deg, #f59e0b, #b45309);
+  --accent-300: #6b3c07; --accent-400: #8a5a0a; --accent-500: #b45309;
+  --accent-600: #92400e; --accent-700: #78350f; --accent-800: #451a03;
+  --accent-glow: rgba(180, 83, 9, 0.16);
+  --accent-gradient: linear-gradient(135deg, #d97706, #92400e);
 }
 body.theme-crimson {
   --accent-50: #fff1f2; --accent-100: #ffe4e6; --accent-200: #fecdd3;
-  --accent-300: #fda4af; --accent-400: #fb7185; --accent-500: #f43f5e;
-  --accent-600: #e11d48; --accent-700: #be123c; --accent-800: #9f1239;
-  --accent-glow: rgba(244, 63, 94, 0.18);
-  --accent-gradient: linear-gradient(135deg, #f43f5e, #be123c);
+  --accent-300: #881337; --accent-400: #be123c; --accent-500: #c11842;
+  --accent-600: #9f1239; --accent-700: #881337; --accent-800: #6b0f2b;
+  --accent-glow: rgba(190, 18, 60, 0.16);
+  --accent-gradient: linear-gradient(135deg, #c11842, #881337);
 }
 
 /* --- Reset & Base --- */
@@ -226,13 +251,11 @@ html {
 
 body {
   font-family: var(--font-family);
-  /* Vacío casi negro plano ⇒ sensación de plantilla. Un resplandor
-     ambiental muy tenue, fijo en la esquina superior, le da profundidad
-     atmosférica sin sacrificar el contraste que ya está validado para
-     el texto ni competir con el contenido. */
+  /* Resplandor ambiental muy tenue, fijo en la esquina superior, para
+     que el blush no se lea como un bloque de color plano. */
   background:
     radial-gradient(1100px 560px at 14% -8%, var(--accent-glow), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.025), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.4), transparent 55%),
     var(--bg-primary);
   background-attachment: fixed;
   color: var(--text-primary);
@@ -244,6 +267,17 @@ body {
      cerrada de origen y con ese valor se apelmazaba en cuerpos de 13px. */
   letter-spacing: var(--tracking-normal);
   font-synthesis-weight: none;
+}
+
+/* Firma tipográfica del rediseño (ver --font-display): UNA palabra o
+   cifra en serif itálica rosa dentro de un titular en negrita sans.
+   Uso: <em class="accent-serif">palabra</em> dentro de <h1>/<h2>. */
+.accent-serif {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-optical-sizing: auto;
+  color: var(--accent-500);
 }
 
 /* Scrollbar */
@@ -456,7 +490,7 @@ a:hover { color: var(--accent-300); }
   top: 0; right: 0;
   left: var(--sidebar-width);
   height: var(--header-height);
-  background: rgba(9, 9, 11, 0.8);
+  background: rgba(251, 246, 242, 0.82);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border-color);
@@ -825,7 +859,7 @@ a:hover { color: var(--accent-300); }
 }
 .table tr:last-child td { border-bottom: none; }
 .table tbody tr { transition: background-color var(--transition-fast); }
-.table tbody tr:hover td { background: rgba(255, 255, 255, 0.035); }
+.table tbody tr:hover td { background: rgba(26, 18, 22, 0.035); }
 /* Filo de acento en el borde izquierdo al pasar por encima: marca la
    fila activa a lo largo de toda su anchura sin teñir el fondo más. */
 .table tbody tr td:first-child { box-shadow: inset 2px 0 0 transparent; transition: box-shadow var(--transition-fast); }
@@ -1370,7 +1404,7 @@ a:hover { color: var(--accent-300); }
 .callout p + p { margin-top: var(--space-2); }
 .callout code {
   font-family: var(--font-mono); font-size: 11px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(26, 18, 22, 0.07);
   padding: 1px 5px; border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
@@ -2084,8 +2118,8 @@ a:hover { color: var(--accent-300); }
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(26, 18, 22, 0.06);
+  border: 1px solid rgba(26, 18, 22, 0.14);
   border-radius: var(--radius-sm);
   color: inherit;
   padding: 3px 10px;
@@ -2096,30 +2130,30 @@ a:hover { color: var(--accent-300); }
 }
 
 .network-bar-action:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(26, 18, 22, 0.1);
 }
 
 /* Offline */
 .network-bar--offline {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%);
-  color: #fbbf24;
+  background: linear-gradient(90deg, rgba(217, 158, 26, 0.18) 0%, rgba(217, 158, 26, 0.08) 100%);
+  color: var(--color-warning);
 }
 
 /* Syncing */
 .network-bar--syncing {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.06) 100%);
-  color: #60a5fa;
+  background: linear-gradient(90deg, rgba(29, 78, 216, 0.16) 0%, rgba(29, 78, 216, 0.07) 100%);
+  color: var(--color-info);
 }
 
 /* Error */
 .network-bar--error {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.06) 100%);
-  color: #f87171;
+  background: linear-gradient(90deg, rgba(184, 38, 31, 0.16) 0%, rgba(184, 38, 31, 0.07) 100%);
+  color: var(--color-danger);
 }
 
 /* Pending */
 .network-bar--pending {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.04) 100%);
+  background: linear-gradient(90deg, rgba(176, 42, 92, 0.14) 0%, rgba(176, 42, 92, 0.05) 100%);
   color: var(--accent-400);
 }
 
@@ -2127,9 +2161,9 @@ a:hover { color: var(--accent-300); }
    cambio que el servidor no va a aceptar nunca. Se distingue en rojo
    sólido para que no se confunda con "ya se reintentará". */
 .network-bar--rejected {
-  background: rgba(239, 68, 68, 0.14);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  background: rgba(184, 38, 31, 0.14);
+  border-bottom: 1px solid rgba(184, 38, 31, 0.35);
+  color: var(--color-danger);
   align-items: flex-start;
   padding-top: var(--space-3);
   padding-bottom: var(--space-3);
@@ -2201,7 +2235,7 @@ a:hover { color: var(--accent-300); }
   height: 500px;
   bottom: -15%;
   right: -10%;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(76, 26, 40, 0.12);
   animation: login-glow-drift 15s ease-in-out infinite alternate-reverse;
 }
 
@@ -2215,8 +2249,8 @@ a:hover { color: var(--accent-300); }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    linear-gradient(rgba(26, 18, 22, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 18, 22, 0.045) 1px, transparent 1px);
   background-size: 64px 64px;
   pointer-events: none;
 }
@@ -2252,11 +2286,8 @@ a:hover { color: var(--accent-300); }
   width: 56px;
   height: 56px;
   margin: 0 auto var(--space-4);
-  background: var(--accent-gradient);
   border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   box-shadow: 0 8px 24px var(--accent-glow);
 }
 
@@ -2282,8 +2313,8 @@ a:hover { color: var(--accent-300); }
   gap: 10px;
   width: 100%;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--text-sm);
@@ -2299,16 +2330,16 @@ a:hover { color: var(--accent-300); }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent);
+  background: linear-gradient(135deg, rgba(26, 18, 22, 0.03), transparent);
   opacity: 0;
   transition: opacity 0.2s;
 }
 
 .btn-google:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--border-color-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-google:hover::before {
@@ -2362,13 +2393,13 @@ a:hover { color: var(--accent-300); }
 .login-alert--error {
   background: var(--color-danger-bg);
   color: var(--color-danger);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(184, 38, 31, 0.25);
 }
 
 .login-alert--success {
   background: var(--color-success-bg);
   color: var(--color-success);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(30, 122, 69, 0.25);
 }
 
 /* Toggle */
@@ -2894,9 +2925,8 @@ a.status-panel--danger:hover  { background: rgba(239, 68, 68, 0.2); }
 .status-panel-icon {
   flex-shrink: 0; display: grid; place-items: center;
   width: 36px; height: 36px; border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(26, 18, 22, 0.06);
   color: var(--text-tertiary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 .status-panel--ok .status-panel-icon      { background: rgba(34, 197, 94, 0.16);  color: var(--color-success); }
 .status-panel--warning .status-panel-icon { background: rgba(234, 179, 8, 0.16);  color: var(--color-warning); }
@@ -2923,13 +2953,13 @@ a.status-panel--danger:hover  { background: rgba(239, 68, 68, 0.2); }
   display: inline-flex; align-items: center; gap: 5px;
   font-size: var(--text-2xs); font-weight: 600;
   padding: 3px 9px; border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(26, 18, 22, 0.05);
   border: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
-.status-panel-fact.is-warning { color: var(--color-warning); border-color: rgba(234, 179, 8, 0.3); background: var(--color-warning-bg); }
-.status-panel-fact.is-success { color: var(--color-success); border-color: rgba(34, 197, 94, 0.3); background: var(--color-success-bg); }
+.status-panel-fact.is-warning { color: var(--color-warning); border-color: rgba(217, 158, 26, 0.35); background: var(--color-warning-bg); }
+.status-panel-fact.is-success { color: var(--color-success); border-color: rgba(30, 122, 69, 0.32); background: var(--color-success-bg); }
 .status-panel-fact svg { width: 12px; height: 12px; }
 .status-panel-chevron {
   flex-shrink: 0; color: var(--text-muted); align-self: center;
@@ -3181,3 +3211,694 @@ a.stats-item:focus-visible {
      de tabla en movil; alli el listado ya se lee de otra forma. */
   .table th { position: static; }
 }
+
+/* ============================================================
+   PRICING PAGE
+   ============================================================ */
+
+.pricing-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* --- Background effects --- */
+.pricing-bg-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+.pricing-bg-glow--1 {
+  width: 600px; height: 600px;
+  top: -200px; left: -100px;
+  background: rgba(176, 42, 92, 0.09);
+}
+.pricing-bg-glow--2 {
+  width: 500px; height: 500px;
+  top: 300px; right: -150px;
+  background: rgba(76, 26, 40, 0.07);
+}
+.pricing-bg-glow--3 {
+  width: 400px; height: 400px;
+  bottom: 100px; left: 30%;
+  background: rgba(176, 42, 92, 0.05);
+}
+.pricing-bg-grid {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(26,18,22,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26,18,22,0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* --- Navbar --- */
+.pricing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  background: rgba(251, 246, 242, 0.82);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pricing-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pricing-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-tight);
+}
+.pricing-nav-logo {
+  width: 32px; height: 32px;
+  display: block;
+  border-radius: var(--radius-md);
+}
+.pricing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pricing-nav-login {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.pricing-nav-login:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+.pricing-nav-cta {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+.pricing-nav-cta:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* --- Hero --- */
+.pricing-hero {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 80px var(--space-6) var(--space-12);
+  max-width: 780px;
+  margin: 0 auto;
+}
+.pricing-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--accent-glow);
+  border: 1px solid rgba(176, 42, 92, 0.3);
+  color: var(--accent-400);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-6);
+  letter-spacing: 0.02em;
+}
+.pricing-hero-title {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 var(--space-5);
+}
+.pricing-hero-accent {
+  font-size: 1.05em;
+}
+.pricing-hero-subtitle {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin: 0 0 var(--space-8);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- Billing Toggle --- */
+.pricing-billing-toggle {
+  display: inline-flex;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+.pricing-billing-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pricing-billing-btn.active {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.pricing-billing-save {
+  background: var(--accent-glow);
+  color: var(--accent-400);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.02em;
+}
+
+/* --- Pricing Cards --- */
+.pricing-cards {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) 80px;
+}
+.pricing-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.pricing-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-color-hover);
+  box-shadow: var(--shadow-lg);
+}
+.pricing-card--popular {
+  border-color: var(--accent-500);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 40px rgba(176, 42, 92, 0.10), var(--shadow-md);
+  transform: scale(1.03);
+}
+.pricing-card--popular:hover {
+  transform: scale(1.03) translateY(-4px);
+  box-shadow: 0 0 60px rgba(176, 42, 92, 0.14), var(--shadow-lg);
+}
+.pricing-card-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-gradient);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(176, 42, 92, 0.35);
+}
+
+/* Card header */
+.pricing-card-header {
+  margin-bottom: var(--space-6);
+}
+.pricing-card-icon {
+  width: 48px; height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+}
+.pricing-card-name {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  margin: 0 0 var(--space-1);
+}
+.pricing-card-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Price */
+.pricing-card-price {
+  margin-bottom: var(--space-6);
+}
+.pricing-card-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.pricing-card-currency {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text-secondary);
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.pricing-card-number {
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.pricing-card-period {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 4px;
+}
+.pricing-card-annual-note {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+}
+.pricing-card-savings {
+  color: var(--accent-400);
+  font-weight: 600;
+}
+
+/* CTA */
+.pricing-card-cta {
+  width: 100%;
+  border: none;
+  color: white;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.pricing-card-cta:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(76, 26, 40, 0.28);
+}
+
+/* Divider */
+.pricing-card-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: var(--space-6) 0;
+}
+
+/* Features */
+.pricing-card-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+.pricing-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.pricing-feature--disabled {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.pricing-feature--highlight {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.pricing-feature-check {
+  color: var(--accent-400);
+  flex-shrink: 0;
+}
+.pricing-feature-x {
+  color: var(--text-muted);
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+/* --- Highlights Section --- */
+.pricing-highlights {
+  position: relative;
+  z-index: 1;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) 80px;
+}
+.pricing-section-title {
+  text-align: center;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-10);
+}
+.pricing-highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+}
+.pricing-highlight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  text-align: center;
+  transition: border-color var(--transition-base), transform var(--transition-base);
+}
+.pricing-highlight-card:hover {
+  border-color: var(--border-color);
+  transform: translateY(-2px);
+}
+.pricing-highlight-icon {
+  width: 44px; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-glow);
+  color: var(--accent-400);
+  border-radius: var(--radius-md);
+  margin: 0 auto var(--space-4);
+}
+.pricing-highlight-card h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+.pricing-highlight-card p {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* --- Comparison Table --- */
+.pricing-comparison {
+  position: relative;
+  z-index: 1;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) 80px;
+}
+.pricing-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+}
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.pricing-table th,
+.pricing-table td {
+  padding: var(--space-3) var(--space-5);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pricing-table th {
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  position: sticky;
+  top: 0;
+}
+.pricing-table td {
+  color: var(--text-secondary);
+}
+.pricing-table td:first-child {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.pricing-table td svg {
+  color: var(--accent-400);
+}
+.pricing-table-section td {
+  background: rgba(26, 18, 22, 0.025);
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  padding-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pricing-table-section td[colspan] {
+  display: flex;
+}
+.pricing-table-popular {
+  background: rgba(176, 42, 92, 0.035);
+}
+.pricing-table-unlimited {
+  color: var(--accent-400);
+  font-weight: 600;
+}
+.pricing-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --- FAQ --- */
+.pricing-faq {
+  position: relative;
+  z-index: 1;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) 80px;
+}
+.pricing-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pricing-faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.pricing-faq-item:hover {
+  border-color: var(--border-color);
+  background: var(--bg-card-hover);
+}
+.pricing-faq-item.open {
+  border-color: var(--border-color-hover);
+}
+.pricing-faq-question {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: var(--text-base);
+  gap: var(--space-4);
+}
+.pricing-faq-toggle {
+  font-size: var(--text-xl);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+.pricing-faq-answer {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* --- Final CTA --- */
+.pricing-final-cta {
+  position: relative;
+  z-index: 1;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) 80px;
+}
+.pricing-final-cta-inner {
+  background: linear-gradient(135deg, rgba(176, 42, 92, 0.10), rgba(76, 26, 40, 0.10));
+  border: 1px solid rgba(176, 42, 92, 0.22);
+  border-radius: var(--radius-2xl);
+  padding: 60px var(--space-8);
+  text-align: center;
+}
+.pricing-final-cta-inner h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-3);
+}
+.pricing-final-cta-inner p {
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  margin: 0 0 var(--space-8);
+}
+.pricing-final-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--accent-gradient);
+  color: white;
+  font-size: var(--text-base);
+  font-weight: 600;
+  padding: var(--space-3) var(--space-8);
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.pricing-final-cta-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(176, 42, 92, 0.28);
+}
+
+/* --- Footer --- */
+.pricing-footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-6);
+}
+.pricing-footer-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.pricing-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.pricing-footer-inner p {
+  margin: 0;
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  .pricing-cards {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
+  .pricing-card--popular {
+    transform: none;
+    order: -1;
+  }
+  .pricing-card--popular:hover {
+    transform: translateY(-4px);
+  }
+  .pricing-highlights-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .pricing-hero {
+    padding: 48px var(--space-4) var(--space-8);
+  }
+  .pricing-cards {
+    padding: 0 var(--space-4) 48px;
+  }
+  .pricing-card {
+    padding: var(--space-6);
+  }
+  .pricing-highlights,
+  .pricing-comparison,
+  .pricing-faq,
+  .pricing-final-cta {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+    padding-bottom: 48px;
+  }
+  .pricing-highlights-grid {
+    grid-template-columns: 1fr;
+  }
+  .pricing-final-cta-inner {
+    padding: var(--space-8) var(--space-5);
+  }
+  .pricing-footer-inner {
+    flex-direction: column;
+    gap: var(--space-3);
+    text-align: center;
+  }
+  .pricing-nav-login {
+    display: none;
+  }
+  .pricing-table th:nth-child(3),
+  .pricing-table td:nth-child(3) {
+    display: none;
+  }
+}
+
