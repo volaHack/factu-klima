@@ -37,12 +37,16 @@ export const BUSINESS_SECTORS: { value: BusinessSector; label: string; icon: str
 ];
 
 // --- Temas de Color ---
+// Las 5 opciones anteriores (esmeralda/zafiro/violeta/ámbar/carmesí) eran
+// colores de plantilla genérica sin relación entre sí ni con la marca —
+// con el rediseño a blush/vino/rosa, un acento azul o violeta neón
+// desentonaba con el resto de la interfaz. Las 4 de ahora son variaciones
+// dentro de la misma familia cálida que ya usa el resto de la app.
 export const ACCENT_THEMES: { value: AccentTheme; label: string; primaryHex: string; glow: string }[] = [
-  { value: 'emerald', label: 'Esmeralda (Verde)', primaryHex: '#10b981', glow: 'rgba(16, 185, 129, 0.25)' },
-  { value: 'sapphire', label: 'Zafiro (Azul)', primaryHex: '#3b82f6', glow: 'rgba(59, 130, 246, 0.25)' },
-  { value: 'violet', label: 'Violeta Neón', primaryHex: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.25)' },
-  { value: 'amber', label: 'Ámbar Cálido', primaryHex: '#f59e0b', glow: 'rgba(245, 158, 11, 0.25)' },
-  { value: 'crimson', label: 'Carmesí Vivo', primaryHex: '#f43f5e', glow: 'rgba(244, 63, 94, 0.25)' },
+  { value: 'rose', label: 'Rosa', primaryHex: '#b02a5c', glow: 'rgba(176, 42, 92, 0.25)' },
+  { value: 'wine', label: 'Vino', primaryHex: '#7a2436', glow: 'rgba(122, 36, 54, 0.25)' },
+  { value: 'terracotta', label: 'Terracota', primaryHex: '#b5502e', glow: 'rgba(181, 80, 46, 0.25)' },
+  { value: 'plum', label: 'Ciruela', primaryHex: '#7c3a5c', glow: 'rgba(124, 58, 92, 0.25)' },
 ];
 
 // --- Tax rates ---
@@ -160,7 +164,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   nif: 'B41567890',
   tradeName: 'DistAlSur',
   sector: 'alimentacion',
-  accentTheme: 'emerald',
+  accentTheme: 'rose',
   email: 'facturacion@distalsur.es',
   phone: '+34 954 123 456',
   website: 'www.distalsur.es',

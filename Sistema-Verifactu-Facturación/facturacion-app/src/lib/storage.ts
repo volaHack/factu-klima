@@ -1000,7 +1000,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     nif: s.nif || '',
     tradeName: s.trade_name || '',
     sector: s.sector || 'alimentacion',
-    accentTheme: s.accent_theme || 'emerald',
+    accentTheme: s.accent_theme || 'rose',
     email: s.email || '',
     phone: s.phone || '',
     website: s.website || '',

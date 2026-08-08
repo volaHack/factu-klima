@@ -57,7 +57,7 @@ export enum UnitOfMeasure {
 }
 
 export type BusinessSector = 'alimentacion' | 'mayorista' | 'bebidas' | 'servicios_industriales';
-export type AccentTheme = 'emerald' | 'sapphire' | 'violet' | 'amber' | 'crimson';
+export type AccentTheme = 'rose' | 'wine' | 'terracotta' | 'plum';
 
 // --- Interfaces ---
 

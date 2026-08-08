@@ -203,39 +203,34 @@
 }
 
 /* --- THEME VARIATIONS ---
-   Recalibradas para el fondo claro: en el esquema oscuro anterior estos
-   4 acentos eran tonos pastel pensados para leerse sobre negro (p.ej.
-   sapphire-400 #60a5fa). Sobre blush esos mismos tonos pastel no llegan
-   a 4.5:1 como color de texto — cada 300/400/500 de aquí abajo está
-   verificado contra --bg-primary (blush), mismo criterio que la rampa
-   rosa por defecto. */
-body.theme-sapphire {
-  --accent-50: #eff6ff; --accent-100: #dbeafe; --accent-200: #bfdbfe;
-  --accent-300: #1e3a8a; --accent-400: #1d4ed8; --accent-500: #2563eb;
-  --accent-600: #1d4ed8; --accent-700: #1e40af; --accent-800: #1e3a8a;
-  --accent-glow: rgba(37, 99, 235, 0.16);
-  --accent-gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
+   Antes había 5 opciones (esmeralda/zafiro/violeta/ámbar/carmesí) que
+   eran colores de plantilla sin relación entre sí — un usuario que
+   elegía "Zafiro" se llevaba un azul frío que desentonaba con el resto
+   de la interfaz (sidebar, insignias, botones), todos en la familia
+   blush/vino/rosa. Las 3 de ahora son variaciones DENTRO de esa misma
+   familia cálida — mismo criterio de contraste verificado contra
+   --bg-primary (blush) que la rampa rosa por defecto ('rose', que es
+   la que vive en :root sin necesitar clase propia). */
+body.theme-wine {
+  --accent-50: #fbeef1; --accent-100: #f3d3da; --accent-200: #e29fac;
+  --accent-300: #5c1420; --accent-400: #7a1f2c; --accent-500: #7a2436;
+  --accent-600: #641d2c; --accent-700: #4c1622; --accent-800: #380f19;
+  --accent-glow: rgba(122, 36, 54, 0.16);
+  --accent-gradient: linear-gradient(135deg, #93304a, #641d2c);
 }
-body.theme-violet {
-  --accent-50: #f5f3ff; --accent-100: #ede9fe; --accent-200: #ddd6fe;
-  --accent-300: #4c1d95; --accent-400: #6d28d9; --accent-500: #7c3aed;
-  --accent-600: #6d28d9; --accent-700: #5b21b6; --accent-800: #4c1d95;
-  --accent-glow: rgba(124, 58, 237, 0.16);
-  --accent-gradient: linear-gradient(135deg, #8b5cf6, #6d28d9);
+body.theme-terracotta {
+  --accent-50: #fdf0ea; --accent-100: #fad9c9; --accent-200: #f0ac8c;
+  --accent-300: #7a3016; --accent-400: #9c4523; --accent-500: #b5502e;
+  --accent-600: #96421f; --accent-700: #78350f; --accent-800: #5c2809;
+  --accent-glow: rgba(181, 80, 46, 0.16);
+  --accent-gradient: linear-gradient(135deg, #c76239, #96421f);
 }
-body.theme-amber {
-  --accent-50: #fffbeb; --accent-100: #fef3c7; --accent-200: #fde68a;
-  --accent-300: #6b3c07; --accent-400: #8a5a0a; --accent-500: #b45309;
-  --accent-600: #92400e; --accent-700: #78350f; --accent-800: #451a03;
-  --accent-glow: rgba(180, 83, 9, 0.16);
-  --accent-gradient: linear-gradient(135deg, #d97706, #92400e);
-}
-body.theme-crimson {
-  --accent-50: #fff1f2; --accent-100: #ffe4e6; --accent-200: #fecdd3;
-  --accent-300: #881337; --accent-400: #be123c; --accent-500: #c11842;
-  --accent-600: #9f1239; --accent-700: #881337; --accent-800: #6b0f2b;
-  --accent-glow: rgba(190, 18, 60, 0.16);
-  --accent-gradient: linear-gradient(135deg, #c11842, #881337);
+body.theme-plum {
+  --accent-50: #f7eef4; --accent-100: #ecd4e3; --accent-200: #d5a3c1;
+  --accent-300: #4f2540; --accent-400: #6b3357; --accent-500: #7c3a5c;
+  --accent-600: #672f4a; --accent-700: #4f2540; --accent-800: #391a2f;
+  --accent-glow: rgba(124, 58, 92, 0.16);
+  --accent-gradient: linear-gradient(135deg, #954a71, #672f4a);
 }
 
 /* --- Reset & Base --- */
@@ -1666,7 +1661,7 @@ a:hover { color: var(--accent-300); }
 .onboarding-sector-label { text-align: center; }
 
 /* Theme Grid */
-.onboarding-theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); }
+.onboarding-theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
 .onboarding-theme-card {
   display: flex; flex-direction: column; align-items: center;
   gap: var(--space-2); padding: var(--space-3);
@@ -1938,7 +1933,7 @@ a:hover { color: var(--accent-300); }
   .detail-layout { grid-template-columns: 1fr; }
   .line-items-header, .line-item-row { grid-template-columns: 1fr 70px 90px 70px 70px 90px 36px; }
   .invoice-preview { padding: 28px; }
-  .onboarding-theme-grid { grid-template-columns: repeat(3, 1fr); }
+  .onboarding-theme-grid { grid-template-columns: repeat(2, 1fr); }
   .onboarding-welcome-features { flex-direction: column; align-items: center; }
 }
 
@@ -2039,7 +2034,7 @@ a:hover { color: var(--accent-300); }
   
   .onboarding-form-row { grid-template-columns: 1fr; }
   .onboarding-sector-grid { grid-template-columns: 1fr; }
-  .onboarding-theme-grid { grid-template-columns: repeat(3, 1fr); }
+  .onboarding-theme-grid { grid-template-columns: repeat(2, 1fr); }
 
   /* Public Approval Portal Mobile Polish */
   .approval-portal { padding: 0 var(--space-3) var(--space-8); }
@@ -3355,6 +3350,24 @@ a.stats-item:focus-visible {
   letter-spacing: -0.03em;
   line-height: 1.15;
   margin: 0 0 var(--space-5);
+}
+.pricing-alert {
+  max-width: 480px;
+  margin: 0 auto var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.pricing-alert--error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid rgba(184, 38, 31, 0.25);
+}
+.pricing-alert--info {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 .pricing-hero-accent {
   font-size: 1.05em;
