@@ -81,6 +81,13 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
       </div>
 
       <div className="header-actions">
+        <button
+          className="btn btn-ghost btn-icon header-search-btn-mobile"
+          onClick={onSearchClick}
+          aria-label="Buscar"
+        >
+          <Search size={20} />
+        </button>
         {verifactuActive && (
           <div className="verifactu-badge" title="Cada factura emitida se sella con una huella SHA-256 encadenada a la anterior">
             <ShieldCheck size={14} /> Registros sellados

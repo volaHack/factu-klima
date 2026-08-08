@@ -465,6 +465,8 @@ a:hover { color: var(--accent-300); }
 }
 .header-menu-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
+.header-search-btn-mobile { display: none; }
+
 /* --- Mobile Navigation --- */
 .mobile-nav {
   display: none;
@@ -1916,6 +1918,13 @@ a:hover { color: var(--accent-300); }
   .header { left: 0; padding: 0 var(--space-4); }
   .header-menu-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; }
   .header-search { display: none; }
+  .header-search-btn-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
   .mobile-nav { display: block; }
   
   .app-content {
