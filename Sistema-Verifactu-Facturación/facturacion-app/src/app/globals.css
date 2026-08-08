@@ -472,7 +472,7 @@ a:hover { color: var(--accent-300); }
   height: var(--mobile-nav-height);
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  z-index: 100;
+  z-index: 95;
   padding: var(--space-1) var(--space-2);
   padding-bottom: env(safe-area-inset-bottom, 8px);
 }
