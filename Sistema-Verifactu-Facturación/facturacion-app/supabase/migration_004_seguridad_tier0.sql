@@ -168,13 +168,16 @@ $$ LANGUAGE plpgsql;
 -- agotar a propósito la cuota de otra clave (p.ej. la IP de un cliente
 -- legítimo), sin necesidad de pasar por las API routes.
 --
--- Supabase configura ALTER DEFAULT PRIVILEGES en el schema public para
--- conceder EXECUTE explícitamente a anon/authenticated/service_role en
--- toda función nueva (no es el PUBLIC por defecto de Postgres puro). El
--- GRANT a service_role de abajo es aditivo y no retira esos grants
--- automáticos: sin este REVOKE explícito a anon/authenticated, cualquiera
--- podría invocar el RPC igualmente vía /rest/v1/rpc/fn_check_rate_limit
--- pese al comentario anterior.
+-- Postgres concede EXECUTE a PUBLIC por defecto en toda función nueva, Y
+-- ADEMÁS Supabase configura ALTER DEFAULT PRIVILEGES en el schema public
+-- para conceder EXECUTE explícitamente a anon/authenticated/service_role
+-- por su nombre — son dos mecanismos de grant independientes, hace falta
+-- revocar los dos o el otro deja el hueco abierto igual. El GRANT a
+-- service_role de abajo es aditivo y no retira ninguno de los dos
+-- automáticos: sin ambos REVOKE, cualquiera podría invocar el RPC
+-- igualmente vía /rest/v1/rpc/fn_check_rate_limit pese al comentario
+-- anterior.
+REVOKE EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION fn_check_rate_limit(TEXT, INT, INT) TO service_role;
 
@@ -212,9 +215,11 @@ CREATE TRIGGER tr_invoice_client_ownership
 
 -- Postgres solo permite ejecutar una función que devuelve TRIGGER como
 -- disparador de un trigger, nunca por invocación directa — así que este
--- REVOKE no cambia el comportamiento observable, pero retira el grant
--- automático a anon/authenticated (ver nota de ALTER DEFAULT PRIVILEGES
--- más arriba) y silencia el aviso del linter de seguridad de Supabase.
+-- REVOKE no cambia el comportamiento observable, pero retira los dos
+-- grants automáticos (PUBLIC de Postgres + anon/authenticated de Supabase,
+-- ver nota de ALTER DEFAULT PRIVILEGES más arriba) y silencia el aviso
+-- del linter de seguridad de Supabase.
+REVOKE EXECUTE ON FUNCTION fn_check_invoice_client_ownership() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION fn_check_invoice_client_ownership() FROM anon, authenticated;
 
 CREATE OR REPLACE FUNCTION fn_check_line_item_product_ownership()
@@ -244,4 +249,5 @@ CREATE TRIGGER tr_line_item_product_ownership
   BEFORE INSERT OR UPDATE OF product_id ON invoice_line_items
   FOR EACH ROW EXECUTE FUNCTION fn_check_line_item_product_ownership();
 
+REVOKE EXECUTE ON FUNCTION fn_check_line_item_product_ownership() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION fn_check_line_item_product_ownership() FROM anon, authenticated;
