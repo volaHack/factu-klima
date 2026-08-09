@@ -221,6 +221,8 @@ export interface Product {
   barcode?: string;
   stockQuantity?: number;
   lowStockThreshold?: number;
+  // Contador de unidades vendidas (base del inventario IA / más vendidos)
+  unitsSold?: number;
 }
 
 export interface CustomCategory {

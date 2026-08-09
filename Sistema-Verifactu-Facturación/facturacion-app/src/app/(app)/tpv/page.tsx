@@ -15,7 +15,7 @@ import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
-  issueInvoice, adjustStock, getOnboardingStatus, getInvoices,
+  issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices,
 } from '@/lib/storage';
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
 import { isTpvEnabled } from '@/lib/constants';
@@ -403,6 +403,12 @@ export default function TpvPage() {
       if (!line.productId.startsWith('custom-')) {
         try {
           await adjustStock(line.productId, -line.quantity);
+          // Inventario IA: contador de unidades vendidas (base del orden
+          // inteligente del grid). saveProduct encola el upsert si está offline.
+          const prod = products.find(p => p.id === line.productId);
+          if (prod) {
+            await saveProduct({ ...prod, unitsSold: (prod.unitsSold ?? 0) + line.quantity });
+          }
         } catch {
           toastError('Aviso de stock', `No se pudo actualizar el stock de ${line.productName}.`);
         }

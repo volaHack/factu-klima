@@ -697,6 +697,7 @@ export async function saveProduct(product: Product): Promise<void> {
     barcode: product.barcode || null,
     stock_quantity: product.stockQuantity ?? 0,
     low_stock_threshold: product.lowStockThreshold ?? null,
+    units_sold: product.unitsSold ?? 0,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -1248,7 +1249,7 @@ function mapClientFromDb(c: any): Client {
   };
 }
 
-function mapProductFromDb(p: any): Product {
+export function mapProductFromDb(p: any): Product {
   return {
     id: p.id,
     ref: p.ref,
@@ -1264,6 +1265,7 @@ function mapProductFromDb(p: any): Product {
     barcode: p.barcode || undefined,
     stockQuantity: Number(p.stock_quantity ?? 0),
     lowStockThreshold: p.low_stock_threshold != null ? Number(p.low_stock_threshold) : undefined,
+    unitsSold: Number(p.units_sold ?? 0),
   };
 }
 
