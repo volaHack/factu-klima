@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm --prefix facturacion-app run build",
+  "buildCommand": "cd facturacion-app && npm run build",
   "outputDirectory": "facturacion-app/.next",
-  "installCommand": "npm --prefix facturacion-app install"
+  "installCommand": "cd facturacion-app && npm install"
 }
