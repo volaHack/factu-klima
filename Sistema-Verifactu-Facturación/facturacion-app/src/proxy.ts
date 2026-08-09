@@ -59,8 +59,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Server-side redirect for authenticated users accessing login or root landing
-  if (isAuthenticated && (pathname === '/login' || pathname === '/')) {
+  // Server-side redirect for authenticated users accessing login
+  if (isAuthenticated && pathname === '/login') {
     const dashboardUrl = new URL('/dashboard', request.url);
     return NextResponse.redirect(dashboardUrl);
   }

@@ -4,13 +4,14 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath('/', 'layout');
+  return NextResponse.redirect(new URL('/login', req.url), { status: 302 });
+}
 
-  const { data: claimsData } = await supabase.auth.getClaims();
-
-  if (claimsData?.claims) {
-    await supabase.auth.signOut();
-  }
-
+export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
   revalidatePath('/', 'layout');
   return NextResponse.redirect(new URL('/login', req.url), { status: 302 });
 }
