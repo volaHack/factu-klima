@@ -993,9 +993,13 @@ export async function getCompanySettings(): Promise<CompanySettings> {
 
   try {
     const { data: authData } = await supabase().auth.getUser();
-    if (authData?.user?.email?.toLowerCase() === 'volitancrooss@gmail.com') {
+    const email = authData?.user?.email?.toLowerCase();
+    if (email === 'volitancrooss@gmail.com') {
       settings.planId = 'sin_limite';
       settings.subscriptionStatus = 'active';
+    } else {
+      // Todas las demás cuentas se inician en 'inactive' (Sin Suscripción)
+      settings.subscriptionStatus = 'inactive';
     }
   } catch {}
 
