@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart,
+  Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Area, AreaChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
 } from 'recharts';
 import { INK, SERIES, TOOLTIP_CURSOR, TOOLTIP_STYLE, compactEuro, resolveAccent } from './theme';
@@ -257,5 +257,126 @@ export function ChartLegend({ items }: { items: { name: string; value: string; c
         </li>
       ))}
     </ul>
+  );
+}
+
+// ============================================================
+// ÁREA / TENDENCIA — comparación de dos series temporales
+// ============================================================
+
+export function AreaTrendChart({
+  data,
+  label1 = 'Total facturado',
+  label2 = 'Base imponible',
+}: {
+  data: { name: string; total: number; base: number }[];
+  label1?: string;
+  label2?: string;
+}) {
+  const accent = useAccent();
+  const reducedMotion = usePrefersReducedMotion();
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="areaTotal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={accent} stopOpacity={0.25} />
+            <stop offset="95%" stopColor={accent} stopOpacity={0.0} />
+          </linearGradient>
+          <linearGradient id="areaBase" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES[0]} stopOpacity={0.2} />
+            <stop offset="95%" stopColor={SERIES[0]} stopOpacity={0.0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={INK.grid} />
+        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
+          formatter={(value, name) => [
+            formatCurrency(Number(value)),
+            name === 'total' ? label1 : label2,
+          ]}
+        />
+        <Area
+          type="monotone"
+          dataKey="total"
+          name="total"
+          stroke={accent}
+          strokeWidth={2}
+          fillOpacity={1}
+          fill="url(#areaTotal)"
+          isAnimationActive={!reducedMotion}
+          animationDuration={CHART_ANIM_MS}
+        />
+        <Area
+          type="monotone"
+          dataKey="base"
+          name="base"
+          stroke={SERIES[0]}
+          strokeWidth={2}
+          fillOpacity={1}
+          fill="url(#areaBase)"
+          isAnimationActive={!reducedMotion}
+          animationDuration={CHART_ANIM_MS}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ============================================================
+// BARRAS DE COMPARACIÓN — dos series por categoría
+// ============================================================
+
+export function ComparisonBarChart({
+  data,
+  name1 = 'Serie 1',
+  name2 = 'Serie 2',
+}: {
+  data: { name: string; series1: number; series2: number }[];
+  name1?: string;
+  name2?: string;
+}) {
+  const accent = useAccent();
+  const reducedMotion = usePrefersReducedMotion();
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="20%">
+        <CartesianGrid vertical={false} stroke={INK.grid} />
+        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          cursor={TOOLTIP_CURSOR}
+          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
+          formatter={(value, name) => [
+            formatCurrency(Number(value)),
+            name === 'series1' ? name1 : name2,
+          ]}
+        />
+        <Bar
+          dataKey="series1"
+          name="series1"
+          fill={accent}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={20}
+          isAnimationActive={!reducedMotion}
+          animationDuration={CHART_ANIM_MS}
+        />
+        <Bar
+          dataKey="series2"
+          name="series2"
+          fill={SERIES[0]}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={20}
+          isAnimationActive={!reducedMotion}
+          animationDuration={CHART_ANIM_MS}
+        />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
