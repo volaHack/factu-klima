@@ -14,7 +14,7 @@ import { getCompanySettings, seedInitialData, isOnboardingCompleted } from '@/li
 import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
 
-const PUBLIC_ROUTES = ['/login', '/auth', '/aprobar'];
+const PUBLIC_ROUTES = ['/', '/login', '/auth', '/aprobar', '/instalar', '/precios'];
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
