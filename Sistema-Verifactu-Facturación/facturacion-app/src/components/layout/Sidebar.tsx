@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
-import { BUSINESS_SECTORS } from '@/lib/constants';
+import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -48,12 +48,11 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
   );
 }
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
-  { href: '/tpv', label: 'TPV', icon: Store },
 ];
 
 const controlItems = [
@@ -68,11 +67,13 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const [brandName, setBrandName] = useState('DistAlSur');
   const [sectorIcon, setSectorIcon] = useState('Apple');
   const [sectorLabel, setSectorLabel] = useState('Distribución');
+  const [tpvActive, setTpvActive] = useState(true);
 
   useEffect(() => {
     (async () => {
       const settings = await getCompanySettings();
       if (settings) {
+        setTpvActive(isTpvEnabled(settings));
         setBrandName(settings.tradeName || settings.businessName || 'Empresa');
         const sec = BUSINESS_SECTORS.find(s => s.value === settings.sector);
         if (sec) {
@@ -126,7 +127,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         {/* Navigation */}
         <nav className="sidebar-nav">
           <span className="sidebar-section-label">Gestión operativa</span>
-          {navItems.map(item => (
+          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV', icon: Store }] : baseNavItems).map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
 

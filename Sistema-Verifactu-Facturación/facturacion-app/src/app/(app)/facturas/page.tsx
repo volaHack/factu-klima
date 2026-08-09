@@ -17,11 +17,13 @@ import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
 import { INVOICE_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
 export default function FacturasPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [deleteTargetInvoice, setDeleteTargetInvoice] = useState<Invoice | null>(null);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus[]>([]);
@@ -242,27 +244,11 @@ export default function FacturasPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     const inv = invoices.find(i => i.id === id);
     setActionMenuId(null);
     if (!inv) return;
-
-    if (isSealed(inv)) {
-      toastError(
-        'No se puede eliminar',
-        `${inv.number} está emitida. Ábrela y anúlala indicando el motivo.`
-      );
-      return;
-    }
-    if (!confirm(`¿Eliminar el borrador ${inv.number}?`)) return;
-
-    try {
-      await removeInvoice(id);
-      await reload();
-      success('Borrador eliminado', inv.number);
-    } catch (err) {
-      toastError('No se pudo eliminar', err instanceof Error ? err.message : 'Error desconocido');
-    }
+    setDeleteTargetInvoice(inv);
   };
 
   const handleBulkPaid = async () => {
@@ -667,6 +653,15 @@ export default function FacturasPage() {
           </div>
         )}
       </div>
+
+      {deleteTargetInvoice && (
+        <DeleteInvoiceModal
+          invoice={deleteTargetInvoice}
+          onClose={() => setDeleteTargetInvoice(null)}
+          onSuccess={(msg) => { success('Operación realizada', msg); reload(); }}
+          onError={(err) => toastError('Error en la operación', err)}
+        />
+      )}
     </div>
   );
 }
