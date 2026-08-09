@@ -11,6 +11,8 @@ import {
   Clock, Headphones, Download, Globe, Loader2, Store,
 } from 'lucide-react';
 import { PLANS, type PlanId } from '@/lib/plans';
+import SiteNav from '@/components/public/SiteNav';
+import SiteFooter from '@/components/public/SiteFooter';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -172,37 +174,17 @@ export default function PricingContent() {
   };
 
   return (
-    <div className="pricing-page">
+    <div className="pricing-page site-page">
       {/* Background effects */}
       <div className="pricing-bg-glow pricing-bg-glow--1" />
       <div className="pricing-bg-glow pricing-bg-glow--2" />
       <div className="pricing-bg-glow pricing-bg-glow--3" />
       <div className="pricing-bg-grid" />
 
-      {/* Navbar */}
-      <nav className="pricing-nav">
-        <div className="pricing-nav-inner">
-          <div className="pricing-nav-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/klima-mark.svg" alt="" className="pricing-nav-logo" width={32} height={32} />
-            <span>Klima Solutions</span>
-          </div>
-          <div className="pricing-nav-actions">
-            <button
-              className="pricing-nav-login"
-              onClick={() => router.push('/login')}
-            >
-              Iniciar sesión
-            </button>
-            <button
-              className="pricing-nav-cta"
-              onClick={() => router.push('/login')}
-            >
-              Crear cuenta
-            </button>
-          </div>
-        </div>
-      </nav>
+      {/* La barra la comparten las tres páginas públicas: cada una tenía
+          su propia copia con enlaces distintos y ninguna tenía menú en
+          móvil. Ver src/components/public/SiteNav.tsx. */}
+      <SiteNav />
 
       {/* Hero Section */}
       <header className="pricing-hero">
@@ -521,16 +503,11 @@ export default function PricingContent() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="pricing-footer">
-        <div className="pricing-footer-inner">
-          <div className="pricing-footer-brand">
-            <ShieldCheck size={16} />
-            <span>Klima Solutions · Verifactu</span>
-          </div>
-          <p>Todos los precios indicados son sin IVA. El IVA se añade según la legislación vigente.</p>
-        </div>
-      </footer>
+      <p className="pricing-iva-note">
+        Todos los precios indicados son sin IVA. El IVA se añade según la legislación vigente.
+      </p>
+
+      <SiteFooter />
     </div>
   );
 }

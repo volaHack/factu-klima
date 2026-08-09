@@ -15,6 +15,18 @@ import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
 import { isPublicRoute } from '@/lib/publicRoutes';
 
+/**
+ * Rutas que exigen sesión pero se dibujan a pantalla completa, sin sidebar,
+ * cabecera ni navegación móvil.
+ *
+ * El TPV es un mostrador de venta, no una página del panel: su .tpv-shell
+ * mide 100dvh y trae su propia barra superior con enlace de vuelta. Metido
+ * dentro del armazón del dashboard quedaba debajo de una cabecera que ya
+ * ocupa alto y con el sidebar comiéndole ancho, así que se desbordaba y se
+ * veía encajonado.
+ */
+const FULLSCREEN_ROUTES = ['/tpv'];
+
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +38,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { toasts, removeToast } = useToast();
 
   const isPublic = isPublicRoute(pathname);
+  const isFullScreen = FULLSCREEN_ROUTES.some(r => pathname.startsWith(r));
 
   useEffect(() => {
     // Se lee tras montar, no en el useState inicial: localStorage no
@@ -87,6 +100,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   if (isPublic) {
     return <main>{children}</main>;
+  }
+
+  // Los efectos de arriba (sincronización, tema, datos iniciales) ya se han
+  // ejecutado: el TPV los necesita igual que el resto de la aplicación. Lo
+  // único que cambia es que no se envuelve en el armazón del panel.
+  //
+  // Tampoco se monta aquí ToastContainer: la página del TPV ya monta el suyo
+  // sobre el mismo contexto, y con los dos salían los avisos duplicados.
+  if (isFullScreen) {
+    return <>{children}</>;
   }
 
   return (

@@ -1,4 +1,4 @@
 interface:
   display_name: "Uizze UI Design"
-  short_description: "Intentional UI with quiet visual evidence"
-  default_prompt: "Make the main task easy and the interface specific to its product. Use Uizze evidence or materials only for one concrete unresolved need."
+  short_description: "Design guidance with quiet visual evidence"
+  default_prompt: "Use the bundled Uizze design stack for design judgment. Retrieve Uizze evidence or materials only for one concrete unresolved need."

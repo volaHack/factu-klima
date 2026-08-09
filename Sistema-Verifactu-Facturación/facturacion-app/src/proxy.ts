@@ -59,8 +59,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Server-side redirect for authenticated users accessing login
-  if (isAuthenticated && pathname === '/login') {
+  // Server-side redirect for authenticated users accessing login or root landing
+  if (isAuthenticated && (pathname === '/login' || pathname === '/')) {
     const dashboardUrl = new URL('/dashboard', request.url);
     return NextResponse.redirect(dashboardUrl);
   }
@@ -76,6 +76,9 @@ export const config = {
     // niega a registrar un service worker cuya descarga redirige. Con sesión
     // sí se registraba, pero su precache pedía /manifest.json — que ya no
     // existe — y se quedaba vacío.
-    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|json|txt|woff|woff2|ttf|eot)$).*)',
+    // /descargas son los instaladores de escritorio que ofrece /instalar, una
+    // página pública: pasando por aquí devolvían un 307 a /login y los
+    // botones de descarga no bajaban nada.
+    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|descargas/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|json|txt|woff|woff2|ttf|eot|exe|dmg|zip|apk)$).*)',
   ],
 };

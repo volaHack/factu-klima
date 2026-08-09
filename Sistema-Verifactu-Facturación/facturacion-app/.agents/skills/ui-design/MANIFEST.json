@@ -1,6 +1,6 @@
 {
   "name": "ui-design",
-  "version": "quiet-expert-v2",
+  "version": "quiet-expert-v5",
   "designStack": {
     "version": "3.5.0",
     "commit": "99fbe4bb10a1453c82027a477503ce240d9b0b47",
@@ -37,7 +37,6 @@
     "reference/quieter.md",
     "reference/shape.md",
     "reference/typeset.md",
-    "scripts/cleanup-deprecated.mjs",
     "scripts/command-metadata.json",
     "scripts/context-signals.mjs",
     "scripts/context.mjs",
