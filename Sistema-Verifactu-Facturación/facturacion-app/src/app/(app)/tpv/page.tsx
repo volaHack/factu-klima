@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp } from 'lucide-react';
 import TpvProductGrid from '@/components/tpv/TpvProductGrid';
 import TpvCart from '@/components/tpv/TpvCart';
 import TpvCheckout from '@/components/tpv/TpvCheckout';
@@ -12,6 +12,7 @@ import TpvCustomItemModal from '@/components/tpv/TpvCustomItemModal';
 import TpvKeyboardHelpModal from '@/components/tpv/TpvKeyboardHelpModal';
 import TpvQuickCreateProductModal from '@/components/tpv/TpvQuickCreateProductModal';
 import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
+import TpvInsightsModal from '@/components/tpv/TpvInsightsModal';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
@@ -61,6 +62,7 @@ export default function TpvPage() {
   const [quickCreateBarcode, setQuickCreateBarcode] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [todaySalesOpen, setTodaySalesOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
   const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -111,8 +113,8 @@ export default function TpvPage() {
   // Atajos de teclado globales para el cajero
   const isAnyModalOpen = useMemo(
     () => checkoutOpen || customItemOpen || quickCreateOpen || shortcutsOpen ||
-      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen,
-    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen],
+      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen,
+    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen],
   );
 
   const holdSale = useCallback(() => {
@@ -488,6 +490,15 @@ export default function TpvPage() {
             <Receipt size={15} style={{ color: 'var(--accent-500)' }} />
             <span>Tickets Hoy (F7)</span>
           </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setInsightsOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+            title="Patrones de consumo: lo más vendido, picos por hora y alertas de reposición"
+          >
+            <TrendingUp size={15} style={{ color: 'var(--accent-500)' }} />
+            <span>Patrones</span>
+          </button>
 
           <button
             className="btn btn-secondary btn-sm"
@@ -545,6 +556,10 @@ export default function TpvPage() {
           }}
           onClose={() => setTodaySalesOpen(false)}
         />
+      )}
+
+      {insightsOpen && (
+        <TpvInsightsModal onClose={() => setInsightsOpen(false)} />
       )}
 
       {checkoutOpen && (
