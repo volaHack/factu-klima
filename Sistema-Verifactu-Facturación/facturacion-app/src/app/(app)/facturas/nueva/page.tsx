@@ -7,7 +7,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
   getClients, getProducts, getCompanySettings, saveInvoice,
-  saveCompanySettings, issueInvoice, getOnboardingStatus
+  saveCompanySettings, issueInvoice, getOnboardingStatus, getInvoices
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
@@ -19,6 +19,8 @@ import {
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getTaxRates, getTaxLabel } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import { evaluatePlanLimit } from '@/lib/planLimits';
+import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -45,6 +47,7 @@ export default function NuevaFacturaPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
 
   // Form state
   const [clientId, setClientId] = useState('');
@@ -152,6 +155,17 @@ export default function NuevaFacturaPage() {
     }
 
     const settings = await getCompanySettings();
+    const existingInvoices = await getInvoices();
+    const check = evaluatePlanLimit(settings, existingInvoices);
+    if (!check.allowed) {
+      setPaywallState({
+        title: 'Límite de Plan Alcanzado',
+        description: check.reason || 'Has alcanzado el límite de uso de tu plan.',
+        requiredPlan: check.requiredPlan || 'pro',
+      });
+      return;
+    }
+
     const invoiceNumber = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
     const client = clients.find(c => c.id === clientId)!;
 
@@ -422,6 +436,15 @@ export default function NuevaFacturaPage() {
           />
         </div>
       </div>
+
+      {paywallState && (
+        <SubscriptionPaywallModal
+          title={paywallState.title}
+          description={paywallState.description}
+          requiredPlan={paywallState.requiredPlan}
+          onClose={() => setPaywallState(null)}
+        />
+      )}
     </div>
   );
 }

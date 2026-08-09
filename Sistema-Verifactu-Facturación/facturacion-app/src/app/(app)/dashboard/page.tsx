@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, DollarSign, Clock, Users, AlertTriangle,
-  ArrowRight, Eye, ShieldCheck, Sparkles, Package, FileText
+  ArrowRight, Eye, ShieldCheck, Sparkles, Package, FileText, Crown
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -19,6 +19,7 @@ import { BUSINESS_SECTORS } from '@/lib/constants';
 import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstStepsModal';
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
 import AvisosTendencias from '@/components/dashboard/AvisosTendencias';
+import { evaluatePlanLimit } from '@/lib/planLimits';
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -236,6 +237,74 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Membership & Plan Usage Banner */}
+      {(() => {
+        const planCheck = evaluatePlanLimit(settings, invoices);
+        const limitStr = planCheck.limit !== null ? `${planCheck.currentCount} / ${planCheck.limit}` : `${planCheck.currentCount} (Sin límite)`;
+        const pct = planCheck.limit !== null ? Math.min(100, Math.round((planCheck.currentCount / planCheck.limit) * 100)) : 100;
+        const isInactive = settings?.subscriptionStatus === 'inactive' || settings?.subscriptionStatus === 'canceled';
+
+        return (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: isInactive ? '1px solid var(--color-danger)' : '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-4) var(--space-5)',
+            marginBottom: 'var(--space-5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 'var(--space-4)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                borderRadius: 'var(--radius-lg)',
+                background: isInactive ? 'var(--color-danger-bg)' : 'var(--accent-50)',
+                color: isInactive ? 'var(--color-danger)' : 'var(--accent-500)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Crown size={24} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span style={{ fontWeight: 800, fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
+                    {planCheck.planName}
+                  </span>
+                  <span className={`badge ${isInactive ? 'badge-danger' : 'badge-success'}`}>
+                    {isInactive ? 'Inactiva / Requiere Pago' : 'Suscripción Activa'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
+                  Uso del período: <strong>{limitStr} facturas emitidas este mes</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: '1 0 auto', justifyContent: 'flex-end' }}>
+              {planCheck.limit !== null && (
+                <div style={{ width: 140 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+                    <span>CAPACIDAD</span>
+                    <span>{pct}%</span>
+                  </div>
+                  <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: pct >= 90 ? 'var(--color-danger)' : 'var(--accent-500)', borderRadius: 'var(--radius-full)' }} />
+                  </div>
+                </div>
+              )}
+              <Link href="/precios" className="btn btn-primary btn-sm">
+                <Crown size={14} /> Cambiar Plan / Suscribirme
+              </Link>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Verifactu Status */}
       <div style={{ marginBottom: 'var(--space-5)' }}>

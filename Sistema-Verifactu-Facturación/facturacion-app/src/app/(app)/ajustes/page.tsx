@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings, saveCompanySettings, resetAllData } from '@/lib/storage';
@@ -249,6 +249,74 @@ export default function AjustesPage() {
               {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* Subscription & Membership Tier Section */}
+      <div className="settings-section">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <Crown size={18} style={{ color: 'var(--accent-500)' }} />
+          <h2 className="settings-section-title">Plan de Suscripción y Membresía</h2>
+        </div>
+        <p className="settings-section-subtitle">Nivel de plan activo, límites de facturación y estado de cuenta</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          {[
+            { id: 'basico', name: 'Básico', price: 49, limit: '15 facturas/mes' },
+            { id: 'pro', name: 'Pro (Recomendado)', price: 79, limit: '100 facturas/mes' },
+            { id: 'sin_limite', name: 'Sin Límite', price: 119, limit: 'Ilimitado' },
+          ].map(p => {
+            const isSelected = (settings.planId || 'pro') === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`choice-card ${isSelected ? 'active' : ''}`}
+                onClick={() => {
+                  updateField('planId', p.id);
+                  updateField('subscriptionStatus', 'active');
+                }}
+                style={{
+                  padding: 'var(--space-4)',
+                  textAlign: 'left',
+                  borderRadius: 'var(--radius-lg)',
+                  border: isSelected ? '2px solid var(--accent-500)' : '1px solid var(--border-color)',
+                  background: isSelected ? 'var(--accent-50)' : 'var(--bg-tertiary)',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: isSelected ? 'var(--accent-500)' : 'var(--text-primary)' }}>
+                    {p.name}
+                  </span>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800 }}>{p.price} €/m</span>
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                  {p.limit}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="status-panel" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
+          <span className="status-panel-icon" style={{ background: 'var(--accent-50)', color: 'var(--accent-500)' }}>
+            <Zap size={19} />
+          </span>
+          <div className="status-panel-body">
+            <div className="status-panel-title">Estado de la suscripción</div>
+            <p className="status-panel-text">
+              Si desactivas la suscripción, se bloqueará la emisión de facturas y cobros en TPV hasta reactivar tu plan.
+            </p>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={(settings.subscriptionStatus || 'active') === 'active'}
+              onChange={e => updateField('subscriptionStatus', e.target.checked ? 'active' : 'inactive')}
+            />
+            <span className="toggle-slider" />
+          </label>
         </div>
       </div>
 

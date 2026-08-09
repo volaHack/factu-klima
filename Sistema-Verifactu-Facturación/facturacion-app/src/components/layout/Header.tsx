@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Search, Bell, ShieldCheck } from 'lucide-react';
+import { Menu, Search, Bell, ShieldCheck, Crown, Zap, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
 import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
+import { getPlan } from '@/lib/plans';
 import AccountMenu from './AccountMenu';
 import NotificationsPopover from './NotificationsPopover';
 
@@ -30,6 +32,9 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
   const [totalAlerts, setTotalAlerts] = useState(0);
   const [verifactuActive, setVerifactuActive] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [planName, setPlanName] = useState('Plan Pro');
+  const [planId, setPlanId] = useState('pro');
+  const [isSubActive, setIsSubActive] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +43,12 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         getProducts(),
         getCompanySettings(),
       ]);
+
+      const pId = settings?.planId || 'pro';
+      const pObj = getPlan(pId);
+      setPlanId(pId);
+      setPlanName(pObj ? `Plan ${pObj.name}` : 'Plan Pro');
+      setIsSubActive((settings?.subscriptionStatus || 'active') === 'active');
 
       const overdue = invoices.filter(inv => {
         if (inv.status === InvoiceStatus.ANULADA || inv.status === InvoiceStatus.PAGADA) return false;
@@ -96,6 +107,30 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         >
           <Search size={20} />
         </button>
+
+        {/* Membership Tier Badge */}
+        <Link
+          href="/precios"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: 'var(--text-2xs)',
+            fontWeight: 700,
+            textDecoration: 'none',
+            background: !isSubActive ? 'var(--color-danger-bg)' : planId === 'sin_limite' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--accent-50)',
+            color: !isSubActive ? 'var(--color-danger)' : planId === 'sin_limite' ? '#ffffff' : 'var(--accent-500)',
+            border: !isSubActive ? '1px solid var(--color-danger)' : '1px solid var(--border-color)',
+            whiteSpace: 'nowrap',
+          }}
+          title="Ver nivel de membresía y cambiar de plan"
+        >
+          {!isSubActive ? <Lock size={12} /> : planId === 'sin_limite' ? <Zap size={12} /> : <Crown size={12} />}
+          <span>{isSubActive ? planName : 'Sin Suscripción'}</span>
+        </Link>
+
         {verifactuActive && (
           <div className="verifactu-badge" title="Cada factura emitida se sella con una huella SHA-256 encadenada a la anterior">
             <ShieldCheck size={14} /> Registros sellados

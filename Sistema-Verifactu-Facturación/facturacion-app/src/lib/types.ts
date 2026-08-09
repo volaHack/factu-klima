@@ -295,6 +295,10 @@ export interface CompanySettings {
   // Cuando igicEnabled = true, el sistema muestra tasas IGIC en
   // todos los formularios, facturas, TPV e informes.
   igicEnabled?: boolean;
+
+  // Suscripción y límites de plan
+  planId?: 'basico' | 'pro' | 'sin_limite';
+  subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled';
 }
 
 // --- Utility Types ---

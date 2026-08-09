@@ -35,6 +35,8 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import ToastContainer from '@/components/ui/ToastContainer';
+import { evaluatePlanLimit } from '@/lib/planLimits';
+import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 
 const HELD_SALES_KEY = 'tpv-held-sales';
 
@@ -81,6 +83,7 @@ export default function TpvPage() {
   // Cuenta que se está cobrando (abre TpvCheckout con sus líneas)
   const [checkoutCheck, setCheckoutCheck] = useState<OpenCheck | null>(null);
   const { toasts, removeToast, success, error: toastError } = useToast();
+  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
 
   // Modo kiosk del instalador TPV (electron expone window.klimaDesktop.mode).
   // En él el cajero no puede salir del terminal: se oculta "Salir del TPV"
@@ -432,6 +435,18 @@ export default function TpvPage() {
    */
   const handleConfirmCheckout = async (method: PaymentMethod, cashGiven?: number, linesOverride?: PosCartLine[]) => {
     if (!settings) throw new Error('No se han cargado los datos de la empresa.');
+
+    const existingInvoices = await getInvoices();
+    const planCheck = evaluatePlanLimit(settings, existingInvoices);
+    if (!planCheck.allowed) {
+      setCheckoutOpen(false);
+      setPaywallState({
+        title: 'Límite de Plan Alcanzado',
+        description: planCheck.reason || 'Suscripción inactiva o límite de facturación alcanzado.',
+        requiredPlan: planCheck.requiredPlan || 'pro',
+      });
+      throw new Error(planCheck.reason);
+    }
 
     const onboarding = await getOnboardingStatus();
     if (!onboarding.isComplete) {
@@ -921,6 +936,14 @@ export default function TpvPage() {
             </div>
           </div>
         </div>
+      )}
+      {paywallState && (
+        <SubscriptionPaywallModal
+          title={paywallState.title}
+          description={paywallState.description}
+          requiredPlan={paywallState.requiredPlan}
+          onClose={() => setPaywallState(null)}
+        />
       )}
     </div>
   );
