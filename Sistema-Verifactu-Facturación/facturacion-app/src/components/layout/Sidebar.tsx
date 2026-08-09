@@ -70,7 +70,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const [tpvActive, setTpvActive] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const updateState = async () => {
       const settings = await getCompanySettings();
       if (settings) {
         setTpvActive(isTpvEnabled(settings));
@@ -81,7 +81,26 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           setSectorLabel(sec.label);
         }
       }
-    })();
+    };
+
+    updateState();
+
+    const handleCustomEvent = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (customEvt.detail) {
+        setTpvActive(isTpvEnabled(customEvt.detail));
+      } else {
+        updateState();
+      }
+    };
+
+    window.addEventListener('klima-settings-updated', handleCustomEvent);
+    window.addEventListener('storage', updateState);
+
+    return () => {
+      window.removeEventListener('klima-settings-updated', handleCustomEvent);
+      window.removeEventListener('storage', updateState);
+    };
   }, [pathname]);
 
   useEffect(() => {

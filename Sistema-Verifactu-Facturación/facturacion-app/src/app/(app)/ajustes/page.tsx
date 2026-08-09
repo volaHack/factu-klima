@@ -55,6 +55,9 @@ export default function AjustesPage() {
     if (!settings) return;
     const next = { ...settings, [field]: value };
     setSettings(next);
+    saveCompanySettings(next).then(() => {
+      window.dispatchEvent(new CustomEvent('klima-settings-updated', { detail: next }));
+    });
   };
 
   const handleSave = async () => {

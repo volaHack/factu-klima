@@ -814,31 +814,111 @@ export default function TpvPage() {
       )}
 
       {heldListOpen && (
-        <div className="modal-overlay" onClick={() => setHeldListOpen(false)}>
-          <div className="modal tpv-held-modal" onClick={e => e.stopPropagation()}>
-            <div className="tpv-checkout-header">
-              <h3><List size={18} /> Ventas aparcadas</h3>
-              <button className="btn btn-ghost btn-icon" onClick={() => setHeldListOpen(false)} aria-label="Cerrar">
-                <X size={18} />
+        <div className="modal-overlay animate-fade-in" onClick={() => setHeldListOpen(false)} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
+          <div
+            className="modal tpv-held-modal"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 480,
+              width: '92vw',
+              padding: 0,
+              borderRadius: 'var(--radius-xl)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-xl)',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: 'var(--space-5) var(--space-6)',
+              background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                }}>
+                  <List size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#ffffff' }}>
+                    Ventas Aparcadas ({heldSales.length})
+                  </h3>
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
+                    Tickets en espera de cobro
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn btn-ghost btn-icon"
+                onClick={() => setHeldListOpen(false)}
+                style={{ color: '#ffffff', opacity: 0.8 }}
+                aria-label="Cerrar"
+              >
+                <X size={20} />
               </button>
             </div>
-            {heldSales.length === 0 ? (
-              <p className="tpv-checkout-note">No hay ventas aparcadas.</p>
-            ) : (
-              <ul className="tpv-held-list">
-                {heldSales.map(h => (
-                  <li key={h.id}>
-                    <button className="tpv-held-item" onClick={() => resumeHeld(h.id)}>
-                      <span>{h.label}</span>
-                      <span>{h.lines.length} {h.lines.length === 1 ? 'artículo' : 'artículos'}</span>
-                    </button>
-                    <button className="btn btn-ghost btn-icon" onClick={() => discardHeld(h.id)} aria-label="Descartar">
-                      <X size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+
+            <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
+              {heldSales.length === 0 ? (
+                <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                  No hay ventas aparcadas en este momento.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  {heldSales.map(h => (
+                    <div
+                      key={h.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 14px',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border-color)',
+                      }}
+                    >
+                      <button
+                        onClick={() => resumeHeld(h.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          flex: 1,
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
+                          {h.label}
+                        </div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-500)', fontWeight: 600, marginTop: 2 }}>
+                          {h.lines.length} {h.lines.length === 1 ? 'artículo' : 'artículos'} · Recuperar ticket
+                        </div>
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => discardHeld(h.id)}
+                        style={{ color: 'var(--color-danger)' }}
+                        title="Descartar venta"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

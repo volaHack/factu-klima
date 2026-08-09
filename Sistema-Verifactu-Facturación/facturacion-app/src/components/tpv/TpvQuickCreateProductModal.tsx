@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { X, PackagePlus, Barcode, Check } from 'lucide-react';
+import { X, PackagePlus, Barcode, Check, Loader2 } from 'lucide-react';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
 import { getTaxRates, getTaxLabel, UNITS_OF_MEASURE } from '@/lib/constants';
 import { generateId } from '@/lib/utils';
@@ -38,7 +40,7 @@ export default function TpvQuickCreateProductModal({
     (async () => {
       const s = await getCompanySettings();
       setSettings(s);
-      if (s.igicEnabled) {
+      if (s?.igicEnabled) {
         setTaxRate(TaxRate.IGIC_GENERAL);
       }
     })();
@@ -88,35 +90,81 @@ export default function TpvQuickCreateProductModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal tpv-quick-create-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-        <div className="tpv-checkout-header">
-          <h3><PackagePlus size={22} className="text-accent" /> Dar de alta nuevo producto</h3>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Cerrar (Esc)">
-            <X size={18} />
+    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
+      <div
+        className="modal tpv-quick-create-modal"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 500,
+          width: '92vw',
+          padding: 0,
+          borderRadius: 'var(--radius-xl)',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-xl)',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: 'var(--space-5) var(--space-6)',
+          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
+          color: '#ffffff',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 'var(--radius-lg)',
+              background: 'rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+            }}>
+              <PackagePlus size={22} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>
+                Dar de Alta Nuevo Producto
+              </h3>
+              <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
+                Registro exprés en catálogo desde la caja TPV
+              </p>
+            </div>
+          </div>
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={onClose}
+            style={{ color: '#ffffff', opacity: 0.8 }}
+            aria-label="Cerrar"
+          >
+            <X size={20} />
           </button>
         </div>
 
-        {initialBarcode && (
-          <div style={{
-            background: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.25)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--space-3) var(--space-4)',
-            marginTop: 'var(--space-3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            color: '#3b82f6',
-            fontSize: 'var(--text-sm)'
-          }}>
-            <Barcode size={20} />
-            <span>Código de barras escaneado: <strong style={{ fontFamily: 'var(--font-mono)' }}>{initialBarcode}</strong></span>
-          </div>
-        )}
+        <form onSubmit={handleSubmit} style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
+          {initialBarcode && (
+            <div style={{
+              background: 'var(--accent-50)',
+              border: '1px solid var(--accent-500)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-3) var(--space-4)',
+              marginBottom: 'var(--space-4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              color: 'var(--accent-500)',
+              fontSize: 'var(--text-xs)',
+              fontWeight: 600,
+            }}>
+              <Barcode size={20} />
+              <span>Código escaneado: <strong style={{ fontFamily: 'var(--font-mono)' }}>{initialBarcode}</strong></span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} style={{ marginTop: 'var(--space-4)' }}>
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
             <label className="form-label required">Nombre del producto</label>
             <input
               type="text"
@@ -126,14 +174,14 @@ export default function TpvQuickCreateProductModal({
               placeholder="ej. Leche Entera 1L, Detergente Líquido..."
               autoFocus
               required
+              style={{ fontSize: 'var(--text-md)' }}
             />
           </div>
 
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+          <div className="form-row" style={{ marginBottom: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label required">Precio de venta (€)</label>
-              <div className="field-affix has-prefix">
-                <span className="field-affix-prefix">€</span>
+              <div style={{ position: 'relative' }}>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -142,7 +190,11 @@ export default function TpvQuickCreateProductModal({
                   onChange={e => setUnitPriceInput(e.target.value)}
                   placeholder="0,00"
                   required
+                  style={{ fontSize: '1.2rem', fontWeight: 700, paddingLeft: 34 }}
                 />
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-tertiary)' }}>
+                  €
+                </span>
               </div>
             </div>
 
@@ -160,7 +212,7 @@ export default function TpvQuickCreateProductModal({
             </div>
           </div>
 
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+          <div className="form-row" style={{ marginBottom: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label">Tipo de {getTaxLabel(settings)}</label>
               <select
@@ -188,9 +240,9 @@ export default function TpvQuickCreateProductModal({
             </div>
           </div>
 
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+          <div className="form-row" style={{ marginBottom: 'var(--space-5)' }}>
             <div className="form-group">
-              <label className="form-label">Código de barras</label>
+              <label className="form-label">Código de barras EAN</label>
               <input
                 type="text"
                 className="form-input"
@@ -213,17 +265,17 @@ export default function TpvQuickCreateProductModal({
           </div>
 
           {error && (
-            <div className="login-alert login-alert--error" style={{ marginTop: 'var(--space-4)' }}>
-              {error}
+            <div className="status-panel" style={{ background: 'var(--color-danger-bg)', borderColor: 'var(--color-danger)', marginBottom: 'var(--space-4)', padding: 'var(--space-3)' }}>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>{error}</span>
             </div>
           )}
 
-          <div className="tpv-checkout-actions" style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-3)' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+            <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} onClick={onClose} disabled={submitting}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={submitting}>
-              <Check size={16} /> {submitting ? 'Guardando…' : 'Guardar y añadir al ticket (Enter)'}
+            <button type="submit" className="btn btn-primary" style={{ flex: 1.4, padding: '12px', justifyContent: 'center', fontWeight: 700 }} disabled={submitting}>
+              {submitting ? <Loader2 size={18} className="spin" /> : <><Check size={18} /> Guardar e Incluir</>}
             </button>
           </div>
         </form>
