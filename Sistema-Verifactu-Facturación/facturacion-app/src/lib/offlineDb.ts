@@ -5,12 +5,12 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
   'invoice_line_items' | 'invoice_tax_breakdown' | 'order_approvals' |
-  'order_approval_items' | 'user_profiles';
+  'order_approval_items' | 'user_profiles' | 'pos_sessions';
 
 export interface SyncQueueItem {
   id: string;
@@ -62,6 +62,14 @@ function openDB(): Promise<IDBDatabase> {
       // Metadata store for last sync times, etc.
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' });
+      }
+
+      // Stores nuevas (v2) — migración no destructiva: sólo se crean si faltan.
+      if (!db.objectStoreNames.contains('pos_sessions')) {
+        db.createObjectStore('pos_sessions', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('open_checks')) {
+        db.createObjectStore('open_checks', { keyPath: 'id' });
       }
     };
 
@@ -131,7 +139,7 @@ export async function remove(storeName: string, id: string): Promise<void> {
   await promisifyRequest(store.delete(id));
 }
 
-const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta'];
+const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks'];
 
 /**
  * Limpia toda la caché local de IndexedDB. Se llama al cerrar sesión para

@@ -103,6 +103,7 @@ const TABLE_MAP: Record<SyncTable, string> = {
   order_approvals: 'order_approvals',
   order_approval_items: 'order_approval_items',
   user_profiles: 'user_profiles',
+  pos_sessions: 'pos_sessions',
 };
 
 // ============================================================
