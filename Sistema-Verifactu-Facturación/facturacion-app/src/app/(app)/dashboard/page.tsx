@@ -94,8 +94,6 @@ export default function DashboardPage() {
   const monthlyData = useMemo(() => {
     const now = new Date();
     const data = [];
-    const hasRealData = invoices.some(inv => inv.status !== InvoiceStatus.ANULADA);
-    const demoValues = [1450, 2100, 3200, 2850, 4300, 3900, 5100, 4750, 6200, 6900, 7500, 8400];
 
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -109,8 +107,8 @@ export default function DashboardPage() {
 
       data.push({
         name: getShortMonthName(month),
-        total: hasRealData ? Number(realTotal.toFixed(2)) : demoValues[11 - i],
-        count: hasRealData ? monthInvs.length : Math.ceil(demoValues[11 - i] / 500),
+        total: Number(realTotal.toFixed(2)),
+        count: monthInvs.length,
       });
     }
     return data;
@@ -125,23 +123,13 @@ export default function DashboardPage() {
       { name: 'Vencidas', status: InvoiceStatus.VENCIDA },
       { name: 'Borradores', status: InvoiceStatus.BORRADOR },
     ];
-    const realBuckets = buckets
+    return buckets
       .map(b => ({
         name: b.name,
         value: invoices.filter(i => i.status === b.status).length,
         color: INVOICE_STATUS_COLOR[b.status],
       }))
       .filter(s => s.value > 0);
-
-    if (realBuckets.length > 0) return realBuckets;
-
-    return [
-      { name: 'Pagadas', value: 14, color: INVOICE_STATUS_COLOR.pagada },
-      { name: 'Pendientes', value: 5, color: INVOICE_STATUS_COLOR.pendiente },
-      { name: 'Emitidas', value: 3, color: INVOICE_STATUS_COLOR.emitida },
-      { name: 'Vencidas', value: 1, color: INVOICE_STATUS_COLOR.vencida },
-      { name: 'Borradores', value: 2, color: INVOICE_STATUS_COLOR.borrador },
-    ];
   }, [invoices]);
 
   // Recent invoices
@@ -161,30 +149,18 @@ export default function DashboardPage() {
       existing.count += 1;
       clientRevenue.set(inv.clientId, existing);
     });
-    const realTop = Array.from(clientRevenue.entries())
+    // Sólo facturación real. Antes, sin datos, se inventaban clientes — y
+    // peor: con clientes reales se les colgaba un importe ficticio
+    // (total: (5 - i) * 1250), así que el panel enseñaba el nombre de un
+    // cliente de verdad junto a una cifra facturada que no existía. En una
+    // aplicación fiscal eso no es un hueco que rellenar: es un dato falso
+    // con toda la pinta de ser bueno. Sin datos, ChartCard enseña su estado
+    // vacío, igual que hace /informes.
+    return Array.from(clientRevenue.entries())
       .map(([id, data]) => ({ id, name: data.name, total: Number(data.total.toFixed(2)), count: data.count }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
-
-    if (realTop.length > 0) return realTop;
-
-    if (clients.length > 0) {
-      return clients.slice(0, 5).map((c, i) => ({
-        id: c.id,
-        name: c.tradeName || c.businessName,
-        total: (5 - i) * 1250,
-        count: (5 - i) * 2
-      }));
-    }
-
-    return [
-      { id: '1', name: 'Klima Solutions S.L.', total: 6850, count: 5 },
-      { id: '2', name: 'Hostelería Norte S.A.', total: 4900, count: 4 },
-      { id: '3', name: 'Construcciones Rivas', total: 3400, count: 3 },
-      { id: '4', name: 'Comercial Ibérica S.L.', total: 2150, count: 2 },
-      { id: '5', name: 'Tech Consultores S.L.', total: 1200, count: 1 },
-    ];
-  }, [invoices, clients]);
+  }, [invoices]);
 
   // Top products by sales volume
   const topProducts = useMemo(() => {
@@ -199,30 +175,14 @@ export default function DashboardPage() {
         productSales.set(key, existing);
       });
     });
-    const realTop = Array.from(productSales.values())
+    // Igual que con los clientes: sólo lo realmente vendido. Los productos
+    // del catálogo con unidades inventadas daban un ranking de ventas que
+    // nunca ocurrieron.
+    return Array.from(productSales.values())
       .map(p => ({ ...p, total: Number(p.total.toFixed(2)) }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
-
-    if (realTop.length > 0) return realTop;
-
-    if (products.length > 0) {
-      return products.slice(0, 5).map((p, i) => ({
-        ref: p.ref,
-        name: p.name,
-        quantity: (5 - i) * 15,
-        total: (5 - i) * p.unitPrice * 15 || (5 - i) * 850
-      }));
-    }
-
-    return [
-      { ref: 'PRD-001', name: 'Aceite de Oliva 1L', quantity: 75, total: 3750 },
-      { ref: 'PRD-002', name: 'Jamón Ibérico Reserva', quantity: 24, total: 2880 },
-      { ref: 'PRD-003', name: 'Vino D.O. Ribera 75cl', quantity: 60, total: 1980 },
-      { ref: 'PRD-004', name: 'Queso Manchego Curado 1kg', quantity: 35, total: 1400 },
-      { ref: 'PRD-005', name: 'Café Arábica Grano 1kg', quantity: 40, total: 960 },
-    ];
-  }, [invoices, products]);
+  }, [invoices]);
 
   // Upcoming due invoices
   const upcomingDue = useMemo(() => {
@@ -345,9 +305,11 @@ export default function DashboardPage() {
       <div className="charts-grid">
         <ChartCard
           title="Evolución de facturación"
-          subtitle={invoices.length > 0 ? "Importe emitido en los últimos 12 meses" : "Datos ilustrativos · Evolución de facturación"}
+          subtitle="Importe emitido en los últimos 12 meses"
           height={300}
-          isEmpty={false}
+          isEmpty={monthlyData.every(m => m.total === 0)}
+          emptyLabel="Aún no has emitido ninguna factura"
+          emptyHint={<>Cuando emitas la primera, aquí verás tu facturación mes a mes. <Link href="/facturas/nueva">Crear factura</Link>.</>}
           tableColumns={[
             { key: 'name', label: 'Mes' },
             { key: 'count', label: 'Facturas', align: 'right' },
@@ -360,9 +322,11 @@ export default function DashboardPage() {
 
         <ChartCard
           title="Reparto por estado"
-          subtitle={invoices.length > 0 ? `${invoices.length} facturas en total` : "Datos ilustrativos · Distribución por estado"}
+          subtitle={`${invoices.length} ${invoices.length === 1 ? 'factura' : 'facturas'} en total`}
           height={300}
-          isEmpty={false}
+          isEmpty={statusData.length === 0}
+          emptyLabel="Todavía no hay facturas que repartir"
+          emptyHint={<>Aquí verás cuántas están pagadas, pendientes o vencidas.</>}
           tableColumns={[
             { key: 'name', label: 'Estado' },
             { key: 'value', label: 'Facturas', align: 'right' },
@@ -453,7 +417,9 @@ export default function DashboardPage() {
             title="Clientes por facturación"
             subtitle="Los cinco clientes con mayor volumen (€)"
             height={220}
-            isEmpty={false}
+            isEmpty={topClients.length === 0}
+            emptyLabel="Todavía no hay facturación por cliente"
+            emptyHint={<>Se calcula con las facturas emitidas, sin contar las anuladas.</>}
             tableColumns={[
               { key: 'name', label: 'Cliente' },
               { key: 'count', label: 'Facturas', align: 'right' },
@@ -469,7 +435,9 @@ export default function DashboardPage() {
             title="Productos más vendidos"
             subtitle="Por importe acumulado facturado (€)"
             height={220}
-            isEmpty={false}
+            isEmpty={topProducts.length === 0}
+            emptyLabel="Todavía no hay productos vendidos"
+            emptyHint={<>Se ordena por importe facturado, no por unidades sueltas.</>}
             tableColumns={[
               { key: 'name', label: 'Producto' },
               { key: 'quantity', label: 'Unidades', align: 'right' },

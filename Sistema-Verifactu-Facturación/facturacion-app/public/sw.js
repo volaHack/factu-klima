@@ -2,21 +2,32 @@
 // SERVICE WORKER — Offline-First PWA (Network First for Build Chunks & HTML)
 // ============================================================
 
-const CACHE_NAME = 'facturacion-pwa-v4';
+const CACHE_NAME = 'facturacion-pwa-v5';
 const STATIC_ASSETS = [
   '/',
-  '/manifest.json',
+  '/login',
+  '/manifest.webmanifest',
   '/favicon.ico',
 ];
 
-// Install: precache static assets
+// Install: precache static assets.
+//
+// Se cachea uno a uno en vez de con cache.addAll porque addAll es atómico: si
+// UN solo recurso falla, se pierde el precache entero. Pasó de verdad —
+// /manifest.json se borró (ahora lo genera app/manifest.ts como
+// /manifest.webmanifest), su petición fallaba, y la caché quedaba vacía. Sin
+// nada cacheado, el fallback de navegación no encontraba nada que servir.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    }).catch((err) => {
-      console.warn('SW: Precache failed:', err);
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        STATIC_ASSETS.map((asset) =>
+          cache.add(asset).catch((err) => {
+            console.warn('SW: no se pudo precachear', asset, err);
+          })
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -59,10 +70,22 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => {
-          return caches.match(event.request).then((cachedResponse) => {
-            return cachedResponse || caches.match('/dashboard');
-          });
+        .catch(async () => {
+          // NUNCA se puede resolver a undefined: respondWith(undefined) hace
+          // que Chrome aborte la navegación y pinte su propia pantalla de
+          // "This page couldn't load", que es justo lo que se veía al entrar
+          // al dashboard después de iniciar sesión.
+          const cached =
+            (await caches.match(event.request)) || (await caches.match('/'));
+          if (cached) return cached;
+          return new Response(
+            '<!doctype html><meta charset="utf-8">' +
+              '<title>Sin conexión</title>' +
+              '<p style="font:16px system-ui;padding:2rem">' +
+              'No hay conexión y esta página no está guardada sin conexión. ' +
+              'Vuelve a intentarlo cuando recuperes la red.</p>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
         })
     );
     return;
@@ -85,8 +108,8 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => {
-          return caches.match(event.request);
+        .catch(async () => {
+          return (await caches.match(event.request)) || offlineResponse();
         })
     );
     return;
@@ -104,11 +127,19 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request);
+      .catch(async () => {
+        return (await caches.match(event.request)) || offlineResponse();
       })
   );
 });
+
+// Un fallo de red sin nada en caché tiene que devolver una Response de verdad.
+// Si respondWith recibe undefined, el navegador da la petición por fallida: en
+// una navegación pinta su pantalla de error, y en un chunk de Next provoca un
+// ChunkLoadError que tumba la página entera.
+function offlineResponse() {
+  return new Response('', { status: 503, statusText: 'Sin conexión' });
+}
 
 // Background sync support
 self.addEventListener('sync', (event) => {

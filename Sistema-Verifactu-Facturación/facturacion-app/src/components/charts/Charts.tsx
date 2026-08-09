@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Area, AreaChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
@@ -147,10 +147,27 @@ export function RankedBars({
   const reducedMotion = usePrefersReducedMotion();
   const fill = color ?? accent;
 
+  // Recharts reparte las claves de cada entrada de datos sobre los elementos
+  // que dibuja, así que una entrada con una clave `ref` termina puesta como
+  // ref de un nodo del DOM — y React 19, que ya no admite refs de texto,
+  // aborta la página entera con el error #284.
+  //
+  // Pasó de verdad en el dashboard: los productos llevan su referencia de
+  // catálogo en `ref` ('PRD-001'), y TypeScript no lo detecta porque el
+  // control de propiedades sobrantes sólo se aplica a literales, no a una
+  // variable que se pasa como argumento.
+  //
+  // Por eso se proyecta aquí a los dos campos que el gráfico usa: así ningún
+  // llamante puede colar props reservadas, ni ahora ni más adelante.
+  const plotData = useMemo(
+    () => data.map(({ name, total }) => ({ name, total })),
+    [data]
+  );
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
-        data={data}
+        data={plotData}
         layout="vertical"
         margin={{ top: 4, right: 56, left: 0, bottom: 0 }}
         barCategoryGap="26%"

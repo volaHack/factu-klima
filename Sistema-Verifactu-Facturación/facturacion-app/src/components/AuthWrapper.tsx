@@ -13,8 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { getCompanySettings, seedInitialData, isOnboardingCompleted } from '@/lib/storage';
 import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
-
-const PUBLIC_ROUTES = ['/login', '/auth', '/aprobar', '/instalar', '/precios'];
+import { isPublicRoute } from '@/lib/publicRoutes';
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,10 +25,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const [settingsForOnboarding, setSettingsForOnboarding] = useState<CompanySettings | null>(null);
   const { toasts, removeToast } = useToast();
 
-  // La landing ('/') se compara exacta: con startsWith cualquier ruta la
-  // cumpliría y el dashboard entero se quedaría sin sidebar ni cabecera.
-  const isPublicRoute =
-    pathname === '/' || PUBLIC_ROUTES.some(r => pathname.startsWith(r));
+  const isPublic = isPublicRoute(pathname);
 
   useEffect(() => {
     // Se lee tras montar, no en el useState inicial: localStorage no
@@ -50,7 +46,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   };
 
   useEffect(() => {
-    if (!isPublicRoute) {
+    if (!isPublic) {
       // Initialize offline sync engine
       initAutoSync();
 
@@ -87,9 +83,9 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPublicRoute]);
+  }, [isPublic]);
 
-  if (isPublicRoute) {
+  if (isPublic) {
     return <main>{children}</main>;
   }
 

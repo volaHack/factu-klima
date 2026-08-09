@@ -11,7 +11,9 @@ export const metadata: Metadata = {
   },
   description:
     'Sistema de facturación con encadenamiento de huella SHA-256, registro de eventos inalterable y control de integridad.',
-  manifest: '/manifest.json',
+  // El manifiesto lo genera src/app/manifest.ts y se sirve en
+  // /manifest.webmanifest. Aquí apuntaba a /manifest.json, que se borró.
+  manifest: '/manifest.webmanifest',
   icons: { icon: '/favicon.ico' },
   appleWebApp: {
     capable: true,
