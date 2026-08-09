@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair } from 'lucide-react';
 import TpvProductGrid from '@/components/tpv/TpvProductGrid';
 import TpvCart from '@/components/tpv/TpvCart';
 import TpvCheckout from '@/components/tpv/TpvCheckout';
@@ -14,11 +14,15 @@ import TpvQuickCreateProductModal from '@/components/tpv/TpvQuickCreateProductMo
 import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
 import TpvInsightsModal from '@/components/tpv/TpvInsightsModal';
 import TpvWeightModal from '@/components/tpv/TpvWeightModal';
+import TpvTables from '@/components/tpv/TpvTables';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
   issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices,
 } from '@/lib/storage';
+import {
+  getOpenChecks, createOpenCheck, saveOpenCheck, deleteOpenCheck, addLineToCheck, OpenCheck,
+} from '@/lib/openChecks';
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
 import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
 import { nextOfflineNumber } from '@/lib/tpvOffline';
@@ -68,6 +72,14 @@ export default function TpvPage() {
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
   const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // --- Mesas (modo restaurante) ---
+  const [tpvView, setTpvView] = useState<'products' | 'tables'>('products');
+  const [checks, setChecks] = useState<OpenCheck[]>([]);
+  // Mesa activa cuya cuenta se está editando (panel lateral derecho)
+  const [activeCheck, setActiveCheck] = useState<OpenCheck | null>(null);
+  // Cuenta que se está cobrando (abre TpvCheckout con sus líneas)
+  const [checkoutCheck, setCheckoutCheck] = useState<OpenCheck | null>(null);
   const { toasts, removeToast, success, error: toastError } = useToast();
 
   // Modo kiosk del instalador TPV (electron expone window.klimaDesktop.mode).
@@ -101,6 +113,10 @@ export default function TpvPage() {
     setCategories(cats);
   }, []);
 
+  const loadChecks = useCallback(async () => {
+    setChecks(await getOpenChecks());
+  }, []);
+
   useEffect(() => {
     (async () => {
       const [stg, active] = await Promise.all([getCompanySettings(), getActivePosSession()]);
@@ -108,15 +124,15 @@ export default function TpvPage() {
       setSession(active);
       setSessionChecked(true);
       setHeldSales(loadHeldSales());
-      await loadProducts();
+      await Promise.all([loadProducts(), loadChecks()]);
     })();
-  }, [loadProducts]);
+  }, [loadProducts, loadChecks]);
 
   // Atajos de teclado globales para el cajero
   const isAnyModalOpen = useMemo(
     () => checkoutOpen || customItemOpen || quickCreateOpen || shortcutsOpen ||
-      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen || weightProduct !== null,
-    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen, weightProduct],
+      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen || weightProduct !== null || activeCheck !== null,
+    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen, weightProduct, activeCheck],
   );
 
   const holdSale = useCallback(() => {
@@ -250,9 +266,42 @@ export default function TpvPage() {
     success('Producto registrado', `${newProduct.name} añadido al catálogo y al ticket.`);
   };
 
+  // Añade un producto a la cuenta activa (modo mesa)
+  const addToCheck = async (product: Product, quantity = 1) => {
+    if (!activeCheck) return;
+    const qty = product.unit === UnitOfMeasure.KG
+      ? Math.round(quantity * 1000) / 1000
+      : quantity;
+    const base: PosCartLine = {
+      productId: product.id,
+      productName: product.name,
+      productRef: product.ref,
+      unitPrice: product.unitPrice,
+      unit: product.unit,
+      taxRate: product.defaultTaxRate,
+      quantity: qty,
+      discountPercent: 0,
+      stockQuantity: product.stockQuantity ?? 0,
+    };
+    const updated = await addLineToCheck(activeCheck, base);
+    setActiveCheck(updated);
+    setChecks(prev => prev.map(c => c.id === updated.id ? updated : c));
+    posAudio.playScan();
+  };
+
+  // Selector unificado: va a la cuenta activa si hay una, si no al carrito
+  const handleSelectProduct = (product: Product) => {
+    if (activeCheck) { addToCheck(product).then(); return; }
+    addProductToCart(product);
+  };
+
   const handleAddWeight = (kg: number) => {
     if (!weightProduct) return;
-    addProductToCart(weightProduct, kg);
+    if (activeCheck) {
+      addToCheck(weightProduct, kg).then();
+    } else {
+      addProductToCart(weightProduct, kg);
+    }
     setWeightProduct(null);
   };
 
@@ -277,7 +326,7 @@ export default function TpvPage() {
       setQuickCreateOpen(true);
       return false;
     }
-    addProductToCart(match);
+    handleSelectProduct(match);
     return true;
   };
 
@@ -305,6 +354,37 @@ export default function TpvPage() {
   const setLineDiscount = (productId: string, discountPercent: number) =>
     setCart(prev => prev.map(l => l.productId === productId ? { ...l, discountPercent } : l));
   const clearCart = () => setCart([]);
+
+  // --- Operaciones sobre líneas de cuenta de mesa ---
+  const updateCheckLines = async (fn: (ls: PosCartLine[]) => PosCartLine[]) => {
+    if (!activeCheck) return;
+    const updated = { ...activeCheck, lines: fn(activeCheck.lines) };
+    await saveOpenCheck(updated);
+    setActiveCheck(updated);
+    setChecks(prev => prev.map(c => c.id === updated.id ? updated : c));
+  };
+  const incCheckLine = (productId: string) =>
+    updateCheckLines(ls => ls.map(l => l.productId === productId ? { ...l, quantity: l.quantity + 1 } : l));
+  const decCheckLine = (productId: string) =>
+    updateCheckLines(ls =>
+      ls.map(l => l.productId === productId ? { ...l, quantity: Math.max(0.001, l.quantity - 1) } : l)
+        .filter(l => l.quantity > 0.001));
+  const removeCheckLine = (productId: string) =>
+    updateCheckLines(ls => ls.filter(l => l.productId !== productId));
+  const setCheckDiscount = (productId: string, d: number) =>
+    updateCheckLines(ls => ls.map(l => l.productId === productId ? { ...l, discountPercent: d } : l));
+  const clearCheckLines = () => updateCheckLines(() => []);
+
+  // --- Handlers de mesas ---
+  const handleOpenTable = async (tableId: string) => {
+    const check = await createOpenCheck(tableId);
+    await loadChecks();
+    setActiveCheck(check);
+  };
+
+  const handleSelectCheck = (check: OpenCheck) => {
+    setActiveCheck(check);
+  };
 
   // --- Aparcar venta ---
 
@@ -345,7 +425,12 @@ export default function TpvPage() {
 
   // --- Cobro ---
 
-  const handleConfirmCheckout = async (method: PaymentMethod, cashGiven?: number) => {
+  /**
+   * Emite una factura de TPV.
+   * @param linesOverride - Si se pasa, se cobran esas líneas en lugar del carrito
+   *                        (uso: cobro de cuenta de mesa). El carrito no se limpia.
+   */
+  const handleConfirmCheckout = async (method: PaymentMethod, cashGiven?: number, linesOverride?: PosCartLine[]) => {
     if (!settings) throw new Error('No se han cargado los datos de la empresa.');
 
     const onboarding = await getOnboardingStatus();
@@ -356,7 +441,10 @@ export default function TpvPage() {
     const client = await ensureWalkInClient();
     const now = new Date().toISOString();
 
-    const lineItems: InvoiceLineItem[] = cart.map(l => {
+    // Usar las líneas proporcionadas (mesa) o el carrito actual (venta normal)
+    const lines = linesOverride ?? cart;
+
+    const lineItems: InvoiceLineItem[] = lines.map(l => {
       const gross = l.quantity * l.unitPrice;
       const discount = gross * (l.discountPercent / 100);
       const subtotal = Number((gross - discount).toFixed(2));
@@ -378,7 +466,7 @@ export default function TpvPage() {
     });
 
     const totals = calculateInvoiceTotals(lineItems);
-    
+
     // Calcular el número real de ticket TPV para evitar duplicados o errores.
     // Offline se genera como SERIE-AÑO-0000-SUFIJO (sufijo por dispositivo):
     // dos cajas pueden coincidir en el correlativo pero el servidor renumerá
@@ -407,7 +495,7 @@ export default function TpvPage() {
       lineItems,
       ...totals,
       paymentMethod: method,
-      notes: 'Venta de TPV',
+      notes: linesOverride ? `Cuenta mesa ${checkoutCheck?.tableId ?? ''}` : 'Venta de TPV',
       createdAt: now,
       updatedAt: now,
       posSessionId: session?.id,
@@ -424,7 +512,7 @@ export default function TpvPage() {
       console.warn('Could not update nextTpvNumber in backend, but invoice was emitted.');
     }
 
-    for (const line of cart) {
+    for (const line of lines) {
       if (!line.productId.startsWith('custom-')) {
         try {
           await adjustStock(line.productId, -line.quantity);
@@ -442,8 +530,24 @@ export default function TpvPage() {
 
     setLastSale({ invoice: issued, cashGiven });
     setCheckoutOpen(false);
-    setCart([]);
+
+    if (!linesOverride) {
+      // Venta de carrito normal: limpiar el carrito
+      setCart([]);
+    }
+    // Si es cobro de mesa, el borrado del check lo hace handleChargeCheck
+
     loadProducts();
+  };
+
+  /** Cobra la cuenta de una mesa: llama a handleConfirmCheckout con sus líneas y elimina el check. */
+  const handleChargeCheck = async (method: PaymentMethod, cashGiven?: number) => {
+    if (!checkoutCheck) return;
+    await handleConfirmCheckout(method, cashGiven, checkoutCheck.lines);
+    await deleteOpenCheck(checkoutCheck.id);
+    setCheckoutCheck(null);
+    setActiveCheck(null);
+    await loadChecks();
   };
 
   const showSessionGate = sessionChecked && !session && !sessionDismissed;
@@ -545,19 +649,45 @@ export default function TpvPage() {
       </header>
 
       <div className="tpv-main">
-        <TpvProductGrid
-          products={products}
-          categories={categories}
-          mode={settings?.tpvMode ?? defaultTpvModeForSector(settings?.sector ?? 'tienda')}
-          onSelectProduct={addProductToCart}
-          onScan={handleScan}
-          onOpenCustomItem={() => setCustomItemOpen(true)}
-          onOpenQuickCreateProduct={(code) => {
-            setQuickCreateBarcode(code || '');
-            setQuickCreateOpen(true);
-          }}
-          searchInputRef={searchInputRef}
-        />
+        <div className="tpv-left-panel">
+          {settings?.tpvMode === 'restaurante' && (
+            <div className="tpv-view-tabs">
+              <button
+                className={`tpv-view-tab${tpvView === 'products' ? ' is-active' : ''}`}
+                onClick={() => setTpvView('products')}
+              >
+                <Store size={15} /> Productos
+              </button>
+              <button
+                className={`tpv-view-tab${tpvView === 'tables' ? ' is-active' : ''}`}
+                onClick={() => { setTpvView('tables'); loadChecks().then(); }}
+              >
+                <Armchair size={15} /> Mesas
+              </button>
+            </div>
+          )}
+          {(tpvView === 'products' || settings?.tpvMode !== 'restaurante') ? (
+            <TpvProductGrid
+              products={products}
+              categories={categories}
+              mode={settings?.tpvMode ?? defaultTpvModeForSector(settings?.sector ?? 'tienda')}
+              onSelectProduct={handleSelectProduct}
+              onScan={handleScan}
+              onOpenCustomItem={() => setCustomItemOpen(true)}
+              onOpenQuickCreateProduct={(code) => {
+                setQuickCreateBarcode(code || '');
+                setQuickCreateOpen(true);
+              }}
+              searchInputRef={searchInputRef}
+            />
+          ) : (
+            <TpvTables
+              checks={checks}
+              onCreateCheck={handleOpenTable}
+              onOpenCheck={handleSelectCheck}
+            />
+          )}
+        </div>
         <TpvCart
           lines={cart}
           onIncrement={incrementLine}
@@ -595,7 +725,49 @@ export default function TpvPage() {
       )}
 
       {checkoutOpen && (
-        <TpvCheckout total={total} onConfirm={handleConfirmCheckout} onClose={() => setCheckoutOpen(false)} />
+        checkoutCheck ? (
+          <TpvCheckout
+            total={checkoutCheck.lines.reduce((sum, l) => {
+              const gross = l.quantity * l.unitPrice;
+              const disc = gross * (l.discountPercent / 100);
+              const sub = gross - disc;
+              return sum + sub + sub * (l.taxRate / 100);
+            }, 0)}
+            onConfirm={handleChargeCheck}
+            onClose={() => { setCheckoutOpen(false); setCheckoutCheck(null); }}
+          />
+        ) : (
+          <TpvCheckout total={total} onConfirm={handleConfirmCheckout} onClose={() => setCheckoutOpen(false)} />
+        )
+      )}
+
+      {/* Panel de cuenta de mesa (modal) */}
+      {activeCheck && (
+        <div className="modal-overlay" onClick={() => setActiveCheck(null)}>
+          <div
+            className="modal tpv-check-modal"
+            onClick={e => e.stopPropagation()}
+          >
+            <TpvCart
+              tableMode
+              title={`Mesa ${activeCheck.tableId}`}
+              lines={activeCheck.lines}
+              onIncrement={pid => incCheckLine(pid)}
+              onDecrement={pid => decCheckLine(pid)}
+              onRemove={pid => removeCheckLine(pid)}
+              onSetDiscount={(pid, d) => setCheckDiscount(pid, d)}
+              onClear={clearCheckLines}
+              onHold={() => {}}
+              onCheckout={() => {
+                setCheckoutCheck(activeCheck);
+                setActiveCheck(null);
+                setCheckoutOpen(true);
+              }}
+              heldCount={0}
+              onShowHeld={() => {}}
+            />
+          </div>
+        </div>
       )}
 
       {customItemOpen && (

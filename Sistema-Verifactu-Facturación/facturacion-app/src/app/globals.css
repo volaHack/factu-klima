@@ -5244,6 +5244,102 @@ a.stats-item:focus-visible {
   .tpv-ticket { width: 80mm; box-shadow: none; border-radius: 0; }
 }
 
+/* --- Panel izquierdo (envuelve pestaña mesas + grid de productos) --- */
+.tpv-left-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* --- Pestañas Productos / Mesas --- */
+.tpv-view-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5) 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.tpv-view-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  position: relative; bottom: -1px;
+}
+.tpv-view-tab:hover { color: var(--text-primary); }
+.tpv-view-tab.is-active {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--accent-500);
+}
+
+/* --- Grid de mesas --- */
+.tpv-tables-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+.tpv-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--space-3);
+  align-content: start;
+}
+.tpv-table {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-height: 110px;
+}
+.tpv-table:hover { transform: translateY(-2px); border-color: var(--accent-500); box-shadow: var(--shadow-md); }
+.tpv-table:active { transform: scale(0.97); }
+.tpv-table.is-occupied {
+  background: var(--accent-glow);
+  border-color: var(--accent-500);
+  color: var(--accent-500);
+}
+.tpv-table-id {
+  font-weight: 800; font-size: var(--text-base); color: var(--text-primary);
+}
+.tpv-table-free {
+  font-size: var(--text-xs); color: var(--text-muted); font-weight: 500;
+}
+.tpv-table-total {
+  font-family: var(--font-mono); font-weight: 800;
+  font-size: var(--text-sm); color: var(--accent-500);
+}
+
+/* --- Modal panel de cuenta de mesa --- */
+.tpv-check-modal {
+  padding: 0;
+  width: 420px;
+  max-width: 95vw;
+  height: 72vh;
+  max-height: 640px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tpv-check-modal .tpv-cart {
+  width: 100%; border-left: none; border-radius: var(--radius-xl);
+  height: 100%;
+}
+
 /* --- Responsive: en móvil el carrito pasa debajo, no al lado --- */
 @media (max-width: 900px) {
   .tpv-main { flex-direction: column; overflow-y: auto; }
