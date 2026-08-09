@@ -250,8 +250,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   stripePublishableKey: '',
   tpvEnabled: undefined,
   igicEnabled: false,
-  planId: 'pro',
-  subscriptionStatus: 'active',
+  planId: 'basico',
+  subscriptionStatus: 'inactive',
 };
 
 /**
