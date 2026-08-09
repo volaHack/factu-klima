@@ -1,43 +1,27 @@
 // ============================================================
-// SERVICE WORKER — Offline-First PWA
-// Cache First for static assets, Network First for API
-// Precaches all app routes for full offline navigation
+// SERVICE WORKER — Offline-First PWA (Network First for Build Chunks & HTML)
 // ============================================================
 
-const CACHE_NAME = 'facturacion-pwa-v2';
+const CACHE_NAME = 'facturacion-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/favicon.ico',
 ];
 
-const APP_ROUTES = [
-  '/dashboard',
-  '/facturas',
-  '/clientes',
-  '/productos',
-  '/informes',
-  '/ajustes',
-  '/login',
-];
-
-// Install: precache essential assets
+// Install: precache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([...STATIC_ASSETS, ...APP_ROUTES]);
+      return cache.addAll(STATIC_ASSETS);
     }).catch((err) => {
-      console.warn('SW: Some assets failed to precache:', err);
-      // Still cache what we can
-      return caches.open(CACHE_NAME).then((cache) => {
-        return cache.addAll(STATIC_ASSETS);
-      });
+      console.warn('SW: Precache failed:', err);
     })
   );
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: delete ALL old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -59,8 +43,8 @@ self.addEventListener('fetch', (event) => {
   // Skip Supabase API calls — handled by the sync engine
   if (url.hostname.includes('supabase.co')) return;
 
-  // Skip OAuth callbacks
-  if (url.pathname.startsWith('/auth/callback')) return;
+  // Skip OAuth & auth routes
+  if (url.pathname.startsWith('/auth/')) return;
 
   // For navigation requests (HTML pages): Network First with cache fallback
   if (event.request.mode === 'navigate') {
@@ -77,7 +61,6 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(event.request).then((cachedResponse) => {
-            // Return cached page, or fallback to dashboard
             return cachedResponse || caches.match('/dashboard');
           });
         })
@@ -85,28 +68,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets (JS, CSS, images): Cache First
+  // For Next.js build assets & static files: Network First with cache fallback
+  // (Prevents stale build chunk 404s when deploying new versions to Vercel)
   if (
     url.pathname.startsWith('/_next/') ||
     url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff2?|ttf|eot)$/)
   ) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) return cachedResponse;
-        return fetch(event.request).then((response) => {
-          if (!response || response.status !== 200) return response;
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
           return response;
-        });
-      })
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
     );
     return;
   }
 
-  // For everything else: Network First with cache fallback
+  // For everything else: Network First
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -137,7 +123,6 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Push notification support (future)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
