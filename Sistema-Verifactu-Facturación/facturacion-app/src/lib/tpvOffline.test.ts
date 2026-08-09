@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nextOfflineNumber, expectedCashForSession, pluToKg,
+  nextOfflineNumber, expectedCashForSession, pluToKg, pluKgToPrice,
   sortByUnitsSold, daysUntilOutOfStock,
 } from './tpvOffline';
 
@@ -19,6 +19,14 @@ describe('nextOfflineNumber', () => {
     const existing = ['TPV-2026-0001-F3K2', 'TPV-2026-0002-9X4Q'];
     expect(nextOfflineNumber(existing, 'TPV', 2026, 'F3K2')).toBe('TPV-2026-0003-F3K2');
   });
+
+  it('ignora un sufijo numérico: el correlativo es siempre el 3er segmento', () => {
+    expect(nextOfflineNumber(['TPV-2026-0001-1234'], 'TPV', 2026)).toBe('TPV-2026-0002');
+  });
+
+  it('solo cuenta números del mismo año para el correlativo', () => {
+    expect(nextOfflineNumber(['TPV-2025-0010', 'TPV-2026-0001'], 'TPV', 2026)).toBe('TPV-2026-0002');
+  });
 });
 
 describe('expectedCashForSession', () => {
@@ -34,12 +42,21 @@ describe('pluToKg', () => {
   });
 });
 
+describe('pluKgToPrice', () => {
+  it('calcula el precio de un artículo a peso y redondea a 2 decimales', () => {
+    expect(pluKgToPrice(3.99, 0.333)).toBe(1.33);
+    expect(pluKgToPrice(10, 0.5)).toBe(5);
+  });
+});
+
 describe('sortByUnitsSold', () => {
   it('ordena los más vendidos arriba sin mutar el original', () => {
     const a = { id: 'a', unitsSold: 5 };
     const b = { id: 'b', unitsSold: 50 };
     const c = { id: 'c', unitsSold: 2 };
-    expect(sortByUnitsSold([a, c, b]).map(p => p.id)).toEqual(['b', 'a', 'c']);
+    const original = [a, c, b];
+    expect(sortByUnitsSold(original).map(p => p.id)).toEqual(['b', 'a', 'c']);
+    expect(original).toEqual([a, c, b]);
   });
 });
 
@@ -48,5 +65,9 @@ describe('daysUntilOutOfStock', () => {
     expect(daysUntilOutOfStock(10, 5, 5)).toBe(2); // 10 ud / 5 ud por día
     expect(daysUntilOutOfStock(0, 5, 5)).toBe(0);
     expect(daysUntilOutOfStock(10, 5, 0)).toBe(Infinity);
+  });
+
+  it('no acorta la cuenta atrás con el umbral: usa stock total entre ritmo diario', () => {
+    expect(daysUntilOutOfStock(10, 8, 5)).toBe(2);
   });
 });
