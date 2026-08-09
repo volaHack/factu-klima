@@ -312,17 +312,16 @@ export default function ClientesPage() {
                 </tr>
               );
             })}
+            {filtered.length === 0 && (
+              <TableEmpty
+                colSpan={8}
+                icon={SearchX}
+                title="No hay clientes"
+                hint="Prueba a buscar con otro término o crea un nuevo cliente."
+              />
+            )}
           </tbody>
         </table>
-
-        {filtered.length === 0 && (
-          <TableEmpty
-            colSpan={8}
-            icon={SearchX}
-            title="No hay clientes"
-            hint="Prueba a buscar con otro término o crea un nuevo cliente."
-          />
-        )}
       </div>
 
       {/* Modal */}
