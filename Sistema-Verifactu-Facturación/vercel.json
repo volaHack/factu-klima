@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd facturacion-app && npm run build",
+  "outputDirectory": "facturacion-app/.next",
+  "devCommand": "cd facturacion-app && npm run dev",
+  "cleanUrls": true,
+  "framework": "nextjs"
+}
