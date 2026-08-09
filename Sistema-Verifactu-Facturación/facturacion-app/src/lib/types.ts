@@ -40,10 +40,17 @@ export enum ProductCategory {
 }
 
 export enum TaxRate {
+  // --- IVA (Régimen General — Península e Islas Baleares) ---
   GENERAL = 21,
   REDUCIDO = 10,
   SUPERREDUCIDO = 4,
   EXENTO = 0,
+
+  // --- IGIC (Impuesto General Indirecto Canario — Canarias) ---
+  IGIC_GENERAL = 7,
+  IGIC_REDUCIDO = 3,
+  IGIC_INCREMENTADO = 13,
+  // IGIC exento también usa 0, compartido con EXENTO
 }
 
 export enum UnitOfMeasure {
@@ -56,7 +63,7 @@ export enum UnitOfMeasure {
   PACK = 'pack',
 }
 
-export type BusinessSector = 'alimentacion' | 'mayorista' | 'bebidas' | 'servicios_industriales';
+export type BusinessSector = 'alimentacion' | 'supermercado' | 'mayorista' | 'bebidas' | 'servicios_industriales';
 export type AccentTheme = 'rose' | 'wine' | 'terracotta' | 'plum';
 
 // --- Interfaces ---
@@ -217,6 +224,8 @@ export interface CustomCategory {
   name: string;
   icon: string;
   sector?: BusinessSector;
+  // true = la categoría por defecto con este id ha sido eliminada por el usuario
+  hidden?: boolean;
 }
 
 export interface CompanySettings {
@@ -246,6 +255,7 @@ export interface CompanySettings {
   invoiceFooterText: string;
 
   // TPV — serie separada para tickets de mostrador (factura simplificada)
+  tpvEnabled?: boolean;
   tpvSeries: string;
   nextTpvNumber: number;
   
@@ -268,6 +278,11 @@ export interface CompanySettings {
   // STRIPE_WEBHOOK_SECRET): esta tabla la puede leer el navegador.
   stripeEnabled?: boolean;
   stripePublishableKey?: string;
+
+  // Régimen fiscal: IVA (Península + Baleares) o IGIC (Canarias)
+  // Cuando igicEnabled = true, el sistema muestra tasas IGIC en
+  // todos los formularios, facturas, TPV e informes.
+  igicEnabled?: boolean;
 }
 
 // --- Utility Types ---

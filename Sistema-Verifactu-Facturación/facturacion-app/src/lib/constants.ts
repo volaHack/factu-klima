@@ -11,6 +11,12 @@ import {
 // --- Sectores de Negocio ---
 export const BUSINESS_SECTORS: { value: BusinessSector; label: string; icon: string; description: string }[] = [
   {
+    value: 'supermercado',
+    label: 'Supermercado / Comercio al por Menor',
+    icon: 'ShoppingCart',
+    description: 'Venta directa en mostrador, TPV de caja rápida, tickets simplificados y control de caja diario.',
+  },
+  {
     value: 'alimentacion',
     label: 'Distribución Alimentaria',
     icon: 'Apple',
@@ -50,12 +56,44 @@ export const ACCENT_THEMES: { value: AccentTheme; label: string; primaryHex: str
 ];
 
 // --- Tax rates ---
+// IVA (régimen peninsular y balear)
 export const TAX_RATES = [
   { value: TaxRate.GENERAL, label: 'IVA 21% (General)', rate: 21 },
   { value: TaxRate.REDUCIDO, label: 'IVA 10% (Reducido)', rate: 10 },
   { value: TaxRate.SUPERREDUCIDO, label: 'IVA 4% (Superreducido)', rate: 4 },
   { value: TaxRate.EXENTO, label: 'Exento (0%)', rate: 0 },
 ];
+
+// IGIC (régimen canario)
+export const IGIC_TAX_RATES = [
+  { value: TaxRate.IGIC_GENERAL, label: 'IGIC 7% (General)', rate: 7 },
+  { value: TaxRate.IGIC_REDUCIDO, label: 'IGIC 3% (Reducido)', rate: 3 },
+  { value: TaxRate.IGIC_INCREMENTADO, label: 'IGIC 13% (Incrementado)', rate: 13 },
+  { value: TaxRate.EXENTO, label: 'Exento (0%)', rate: 0 },
+];
+
+/**
+ * Devuelve 'IVA' o 'IGIC' según la configuración de la empresa.
+ * Usar en etiquetas de formularios, facturas, informes y TPV.
+ */
+export function getTaxLabel(settings?: { igicEnabled?: boolean } | null): string {
+  return settings?.igicEnabled ? 'IGIC' : 'IVA';
+}
+
+/**
+ * Devuelve las tasas impositivas correctas según el régimen fiscal
+ * configurado (IVA para la península, IGIC para Canarias).
+ */
+export function getTaxRates(settings?: { igicEnabled?: boolean } | null) {
+  return settings?.igicEnabled ? IGIC_TAX_RATES : TAX_RATES;
+}
+
+/**
+ * Devuelve la tasa por defecto del régimen activo (21% IVA ó 7% IGIC).
+ */
+export function getDefaultTaxRate(settings?: { igicEnabled?: boolean } | null): TaxRate {
+  return settings?.igicEnabled ? TaxRate.IGIC_GENERAL : TaxRate.GENERAL;
+}
 
 // --- Invoice statuses ---
 export const INVOICE_STATUSES = [
@@ -83,6 +121,15 @@ export const PAYMENT_METHODS = [
 
 // --- Categorías por defecto según Sector de negocio (Lucide icon names) ---
 export const SECTOR_DEFAULT_CATEGORIES: Record<string, { value: string; label: string; icon: string }[]> = {
+  supermercado: [
+    { value: 'frescos', label: 'Alimentos Frescos', icon: 'Apple' },
+    { value: 'despensa', label: 'Despensa y Granel', icon: 'Package' },
+    { value: 'bebidas', label: 'Bebidas y Licores', icon: 'GlassWater' },
+    { value: 'limpieza', label: 'Limpieza e Higiene', icon: 'Sparkles' },
+    { value: 'panaderia', label: 'Panadería del Día', icon: 'Croissant' },
+    { value: 'ofertas', label: 'Cajas de Oferta', icon: 'Tag' },
+    { value: 'otros', label: 'Otros Artículos', icon: 'ShoppingCart' },
+  ],
   alimentacion: [
     { value: 'frutas', label: 'Frutas Frescas', icon: 'Apple' },
     { value: 'verduras', label: 'Verduras y Hortalizas', icon: 'Carrot' },
@@ -185,7 +232,24 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   logoUrl: '',
   stripeEnabled: false,
   stripePublishableKey: '',
+  tpvEnabled: undefined,
+  igicEnabled: false,
 };
+
+/**
+ * Comprueba si el módulo TPV está activo para la empresa.
+ * Si el usuario lo ha activado/desactivado explícitamente en Ajustes (tpvEnabled),
+ * prevalece esa preferencia. De lo contrario, se activa por defecto si el sector
+ * es supermercado, alimentación o bebidas (hostelería).
+ */
+export function isTpvEnabled(settings: CompanySettings | null): boolean {
+  if (!settings) return false;
+  if (settings.tpvEnabled !== undefined) {
+    return settings.tpvEnabled;
+  }
+  return ['supermercado', 'alimentacion', 'bebidas'].includes(settings.sector);
+}
+
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export const DEFAULT_PAGE_SIZE = 10;
