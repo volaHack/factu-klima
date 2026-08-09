@@ -145,6 +145,10 @@ export interface Invoice {
 
   // TPV
   posSessionId?: string;
+  // true = ticket emitido offline con número temporal (SERIE-AÑO-0000-SUFIJO).
+  // El servidor lo renumerá a la siguiente secuencia libre si hay colisión al
+  // sincronizar; la fecha real de venta se conserva.
+  numberTemporary?: boolean;
 }
 
 // --- TPV (punto de venta) ---

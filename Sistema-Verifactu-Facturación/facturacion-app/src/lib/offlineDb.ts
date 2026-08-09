@@ -211,6 +211,32 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 }
 
 // ============================================================
+// DEVICE SUFFIX (numeración offline)
+// ============================================================
+
+let cachedDeviceSuffix: string | null = null;
+
+/**
+ * Sufijo corto y estable por dispositivo (4 caracteres, ej. `F3K2`), usado
+ * para numerar tickets offline sin colisionar entre varias cajas: el número
+ * es SERIE-AÑO-0000-SUFIJO. El servidor lo descarta al renumerar si el
+ * correlativo ya lo ocupa otro dispositivo. Se persiste en `meta` para que
+ * todas las ventas offline del mismo terminal compartan sufijo.
+ */
+export async function getDeviceSuffix(): Promise<string> {
+  if (cachedDeviceSuffix) return cachedDeviceSuffix;
+  const existing = await getMeta('deviceSuffix');
+  if (typeof existing === 'string' && existing) {
+    cachedDeviceSuffix = existing;
+    return existing;
+  }
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  await setMeta('deviceSuffix', suffix);
+  cachedDeviceSuffix = suffix;
+  return suffix;
+}
+
+// ============================================================
 // FULL DB INIT CHECK
 // ============================================================
 

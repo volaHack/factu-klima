@@ -242,6 +242,7 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
     payment_method: invoice.paymentMethod,
     notes: invoice.notes,
     pos_session_id: invoice.posSessionId || null,
+    number_temporary: invoice.numberTemporary ?? false,
     // Los campos verifactu_* los calcula y firma el servidor (trigger
     // tr_invoice_seal). Mandarlos desde aquí sería justamente el vector
     // de fraude que estamos cerrando, así que no se envían.
@@ -1202,6 +1203,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     createdAt: inv.created_at,
     updatedAt: inv.updated_at,
     posSessionId: inv.pos_session_id || undefined,
+    numberTemporary: !!inv.number_temporary,
   };
 }
 
