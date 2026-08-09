@@ -13,6 +13,7 @@ import TpvKeyboardHelpModal from '@/components/tpv/TpvKeyboardHelpModal';
 import TpvQuickCreateProductModal from '@/components/tpv/TpvQuickCreateProductModal';
 import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
 import TpvInsightsModal from '@/components/tpv/TpvInsightsModal';
+import TpvWeightModal from '@/components/tpv/TpvWeightModal';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
@@ -63,6 +64,7 @@ export default function TpvPage() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [todaySalesOpen, setTodaySalesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [weightProduct, setWeightProduct] = useState<Product | null>(null);
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
   const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -113,8 +115,8 @@ export default function TpvPage() {
   // Atajos de teclado globales para el cajero
   const isAnyModalOpen = useMemo(
     () => checkoutOpen || customItemOpen || quickCreateOpen || shortcutsOpen ||
-      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen,
-    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen],
+      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen || weightProduct !== null,
+    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen, weightProduct],
   );
 
   const holdSale = useCallback(() => {
@@ -195,11 +197,14 @@ export default function TpvPage() {
 
   // --- Carrito ---
 
-  const addProductToCart = (product: Product) => {
+  const addProductToCart = (product: Product, quantity: number = 1) => {
     setCart(prev => {
       const existing = prev.find(l => l.productId === product.id);
       if (existing) {
-        return prev.map(l => l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l);
+        const nextQty = product.unit === UnitOfMeasure.KG
+          ? Math.round((existing.quantity + quantity) * 1000) / 1000
+          : existing.quantity + quantity;
+        return prev.map(l => l.productId === product.id ? { ...l, quantity: nextQty } : l);
       }
       const line: PosCartLine = {
         productId: product.id,
@@ -208,7 +213,7 @@ export default function TpvPage() {
         unitPrice: product.unitPrice,
         unit: product.unit,
         taxRate: product.defaultTaxRate,
-        quantity: 1,
+        quantity: product.unit === UnitOfMeasure.KG ? Math.round(quantity * 1000) / 1000 : quantity,
         discountPercent: 0,
         stockQuantity: product.stockQuantity ?? 0,
       };
@@ -245,7 +250,25 @@ export default function TpvPage() {
     success('Producto registrado', `${newProduct.name} añadido al catálogo y al ticket.`);
   };
 
+  const handleAddWeight = (kg: number) => {
+    if (!weightProduct) return;
+    addProductToCart(weightProduct, kg);
+    setWeightProduct(null);
+  };
+
   const handleScan = (code: string): boolean => {
+    // Código de báscula (PLU): empieza por 2 + 5 dígitos de producto, con
+    // peso y dígito de control opcionales (EAN de 6-13 dígitos).
+    const pluMatch = /^2\d{5}/.exec(code);
+    if (pluMatch && code.length >= 6 && code.length <= 13) {
+      const base = code.slice(0, 6);
+      const weighted = products.find(p => p.barcode === code || p.barcode === base || p.ref === base);
+      if (weighted && weighted.unit === UnitOfMeasure.KG) {
+        setWeightProduct(weighted);
+        return true;
+      }
+    }
+
     const match = products.find(p => p.barcode === code || p.ref.toLowerCase() === code.toLowerCase());
     if (!match) {
       posAudio.playError();
@@ -561,6 +584,14 @@ export default function TpvPage() {
 
       {insightsOpen && (
         <TpvInsightsModal onClose={() => setInsightsOpen(false)} />
+      )}
+
+      {weightProduct && (
+        <TpvWeightModal
+          product={weightProduct}
+          onAdd={handleAddWeight}
+          onClose={() => setWeightProduct(null)}
+        />
       )}
 
       {checkoutOpen && (
