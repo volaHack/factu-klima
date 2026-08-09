@@ -1,0 +1,32 @@
+appId: com.klima.facturacion
+productName: Klima Facturación
+directories:
+  output: dist/app
+files:
+  - main.js
+  - preload.js
+  - icon.ico
+  - package.json
+  - "!dist/**"
+extraResources:
+  - from: config.app.json
+    to: config.json
+protocols:
+  name: Klima Auth
+  schemes:
+    - klima
+win:
+  icon: icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+  artifactName: Klima-Facturacion-Setup-${version}.${ext}
+  shortcutName: Klima Facturación
+electronDownload:
+  cache: .electron-cache

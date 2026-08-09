@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "Stripe Payments": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "stripe-payments/SKILL.md",
+      "computedHash": "3cefdc8cadf053e2a9d3666df9e2d09ea2a0c0f1c3cb05b4ac118f7bc9a5381c"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "93f53fd1c0352d3d7ec17b8f73d7351bf76f4821e55d123c9d2abc2c53ba48e4"
+    },
+    "sleek-design-mobile-apps": {
+      "source": "design-layers/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/design-mobile-apps/SKILL.md",
+      "computedHash": "c2860e4f6c0c352fa4ae5c7c597ceb56dfe40a6b898b83fb13754d914aa946bb"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "19fca56d93a6d212c6373ad921dcaeddf2ff13e3558e6bfd6e63acb063255f86"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "768f9a7532780a72165f79c91d71a4bf82abd9ed31045238c2acb40322fc1d0a"
+    }
+  }
+}
