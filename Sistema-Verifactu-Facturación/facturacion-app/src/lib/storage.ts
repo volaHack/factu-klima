@@ -842,24 +842,24 @@ function posSessionToRow(s: PosSession, userId: string) {
   };
 }
 
-/** El turno de caja abierto, si hay uno. Lee primero de IndexedDB (funciona offline); si no hay caché y hay conexión, lo busca en Supabase. */
+/** El turno de caja abierto, si hay uno. Lee primero de IndexedDB (funciona offline); si no hay un turno abierto en caché y hay conexión, lo busca en Supabase (visibilidad entre terminales). */
 export async function getActivePosSession(): Promise<PosSession | undefined> {
   const offlineAvail = await isOfflineDbAvailable();
   let sessions: Array<Record<string, unknown>> = [];
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   if (offlineAvail) sessions = await getAll<any>('pos_sessions');
-  if (navigator.onLine && sessions.length === 0) {
+  const open = sessions.find(s => s.status === 'open');
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  if (open) return mapPosSessionFromDb(open as any);
+  if (navigator.onLine) {
     const { data } = await supabase().from('pos_sessions').select('*').eq('status', 'open').maybeSingle();
     if (data) {
       if (offlineAvail) await put('pos_sessions', data);
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       return mapPosSessionFromDb(data as any);
     }
-    return undefined;
   }
-  const open = sessions.find(s => s.status === 'open');
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return open ? mapPosSessionFromDb(open as any) : undefined;
+  return undefined;
 }
 
 /**
