@@ -324,11 +324,20 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
  * de la anterior y la sella. A partir de aquí ya no se puede editar.
  */
 export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
-  if (isSealed(invoice)) {
-    throw new Error(`La factura ${invoice.number} ya está emitida.`);
-  }
   if (invoice.lineItems.length === 0) {
     throw new Error('No se puede emitir una factura sin líneas.');
+  }
+
+  // Lo que decide si la factura ya está emitida es el estado PERSISTIDO, no
+  // el que el llamador marque en el objeto en memoria: los formularios pasan
+  // status EMITIDA porque es el estado al que quieren llegar. Emitir dos veces
+  // la misma factura rompería la cadena de integridad, así que se comprueba
+  // contra la fuente autoritativa antes de sellar.
+  const persisted = navigator.onLine
+    ? await getInvoiceFromSupabase(invoice.id)
+    : await getInvoiceById(invoice.id);
+  if (persisted && isSealed(persisted)) {
+    throw new Error(`La factura ${invoice.number} ya está emitida.`);
   }
 
   // Primero se consolidan las líneas como borrador (con la factura aún
