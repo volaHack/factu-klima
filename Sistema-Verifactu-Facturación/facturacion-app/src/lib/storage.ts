@@ -13,6 +13,7 @@ import {
 import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TaxBreakdown, UserProfile } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES } from './constants';
 import { generateId } from './utils';
+import { expectedCashForSession } from './tpvOffline';
 
 function supabase() {
   return createClient();
@@ -801,62 +802,104 @@ function mapPosSessionFromDb(s: {
   };
 }
 
-/** El turno de caja abierto, si hay uno. Requiere conexión: abrir/cerrar caja es un acto puntual del terminal, no algo que tenga sentido encolar para más tarde. */
-export async function getActivePosSession(): Promise<PosSession | undefined> {
-  if (!navigator.onLine) return undefined;
-  const { data } = await supabase()
-    .from('pos_sessions')
-    .select('*')
-    .eq('status', 'open')
-    .maybeSingle();
-  return data ? mapPosSessionFromDb(data) : undefined;
+function posSessionToRow(s: PosSession, userId: string) {
+  return {
+    id: s.id, user_id: userId, opened_at: s.openedAt, closed_at: s.closedAt || null,
+    starting_cash: s.startingCash, counted_cash: s.countedCash ?? null,
+    expected_cash: s.expectedCash ?? null, cash_difference: s.cashDifference ?? null,
+    status: s.status, notes: s.notes || null,
+  };
 }
 
+/** El turno de caja abierto, si hay uno. Lee primero de IndexedDB (funciona offline); si no hay caché y hay conexión, lo busca en Supabase. */
+export async function getActivePosSession(): Promise<PosSession | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  let sessions: Array<Record<string, unknown>> = [];
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  if (offlineAvail) sessions = await getAll<any>('pos_sessions');
+  if (navigator.onLine && sessions.length === 0) {
+    const { data } = await supabase().from('pos_sessions').select('*').eq('status', 'open').maybeSingle();
+    if (data) {
+      if (offlineAvail) await put('pos_sessions', data);
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      return mapPosSessionFromDb(data as any);
+    }
+    return undefined;
+  }
+  const open = sessions.find(s => s.status === 'open');
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  return open ? mapPosSessionFromDb(open as any) : undefined;
+}
+
+/**
+ * Abre un turno de caja. Escribe primero en IndexedDB y, si hay conexión,
+ * también en Supabase; si no, encola el alta para sincronizarla al volver.
+ */
 export async function openPosSession(startingCash: number): Promise<PosSession> {
   const userId = await requireUserId();
-  const { data, error } = await supabase()
-    .from('pos_sessions')
-    .insert({ user_id: userId, starting_cash: startingCash })
-    .select('*')
-    .single();
-  if (error) throw new Error(translateDbError(error));
-  return mapPosSessionFromDb(data);
+  const session: PosSession = {
+    id: generateId(), openedAt: new Date().toISOString(),
+    startingCash, status: 'open',
+  };
+  const row = posSessionToRow(session, userId);
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) await put('pos_sessions', row);
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await supabase().from('pos_sessions').insert(row).select('*').single();
+      if (error) throw error;
+      return mapPosSessionFromDb(data);
+    } catch {
+      await enqueueSyncAction('upsert', 'pos_sessions', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'pos_sessions', row);
+  }
+  return session;
 }
 
-/** Ventas en efectivo de un turno, para calcular el efectivo esperado antes de cerrarlo. */
-async function cashSalesTotalForSession(sessionId: string): Promise<number> {
-  const { data } = await supabase()
-    .from('invoices')
-    .select('total')
-    .eq('pos_session_id', sessionId)
-    .eq('payment_method', 'efectivo')
-    .not('status', 'eq', InvoiceStatus.ANULADA);
-  if (!data) return 0;
-  return data.reduce((sum: number, row: { total: number | string }) => sum + Number(row.total), 0);
-}
-
+/**
+ * Cierra el turno de caja: hace el arqueo desde las ventas en efectivo LOCALES
+ * del turno (facturas no anuladas), persiste el cierre en IndexedDB y, si no
+ * hay conexión, encola el update para sincronizarlo al volver.
+ */
 export async function closePosSession(sessionId: string, countedCash: number): Promise<PosSession> {
-  const session = await supabase().from('pos_sessions').select('starting_cash').eq('id', sessionId).single();
-  if (session.error || !session.data) throw new Error('No se encuentra el turno de caja.');
+  const userId = await requireUserId();
+  const offlineAvail = await isOfflineDbAvailable();
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const cached = offlineAvail ? await getById<any>('pos_sessions', sessionId) : undefined;
+  if (!cached) throw new Error('No se encuentra el turno de caja.');
 
-  const cashSales = await cashSalesTotalForSession(sessionId);
-  const expectedCash = Number(session.data.starting_cash) + cashSales;
-  const cashDifference = countedCash - expectedCash;
+  // Arqueo desde las ventas en efectivo LOCALES del turno.
+  const invoices = await getInvoices();
+  const cashSales = invoices
+    .filter(i => i.posSessionId === sessionId
+      && i.paymentMethod === PaymentMethod.EFECTIVO
+      && i.status !== InvoiceStatus.ANULADA)
+    .reduce((sum, i) => sum + i.total, 0);
+  const expectedCash = expectedCashForSession(Number(cached.starting_cash), [cashSales]);
 
-  const { data, error } = await supabase()
-    .from('pos_sessions')
-    .update({
-      status: 'closed',
-      closed_at: new Date().toISOString(),
-      counted_cash: countedCash,
-      expected_cash: expectedCash,
-      cash_difference: cashDifference,
-    })
-    .eq('id', sessionId)
-    .select('*')
-    .single();
-  if (error) throw new Error(translateDbError(error));
-  return mapPosSessionFromDb(data);
+  const session: PosSession = {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    ...mapPosSessionFromDb(cached as any),
+    countedCash, expectedCash,
+    cashDifference: Number((countedCash - expectedCash).toFixed(2)),
+    closedAt: new Date().toISOString(), status: 'closed',
+  };
+  const row = posSessionToRow(session, userId);
+  if (offlineAvail) await put('pos_sessions', row);
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await supabase().from('pos_sessions').update(row).eq('id', sessionId).select('*').single();
+      if (error) throw error;
+      return mapPosSessionFromDb(data);
+    } catch {
+      await enqueueSyncAction('upsert', 'pos_sessions', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'pos_sessions', row);
+  }
+  return session;
 }
 
 // ============================================================

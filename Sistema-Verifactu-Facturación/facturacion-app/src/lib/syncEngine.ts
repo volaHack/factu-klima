@@ -106,6 +106,16 @@ const TABLE_MAP: Record<SyncTable, string> = {
   pos_sessions: 'pos_sessions',
 };
 
+/**
+ * Tablas hijas que deben sincronizarse ANTES que su padre.
+ * Una factura se emite con un trigger (fn_invoice_seal) que recalcula los
+ * totales desde invoice_line_items: si la factura llega antes que sus líneas,
+ * el servidor la rechaza (ANTIFRAUDE: no se puede emitir sin líneas).
+ */
+const CHILD_TABLES: Record<string, string[]> = {
+  invoices: ['invoice_line_items', 'invoice_tax_breakdown'],
+};
+
 // ============================================================
 // PROCESS SYNC QUEUE
 // ============================================================
@@ -130,6 +140,18 @@ export async function processSyncQueue(): Promise<void> {
 
   for (const item of queue) {
     try {
+      // Antes de sincronizar una factura, se vuelcan primero sus hijos
+      // pendientes (líneas y desglose de impuestos): el trigger de sellado
+      // recalcula los totales desde ellos y rechaza la factura si llega sola.
+      if (item.action === 'upsert' && item.table === 'invoices') {
+        const pending = queue.filter(q => q.id !== item.id &&
+          CHILD_TABLES.invoices.includes(q.table) &&
+          (q.data as { invoice_id?: string }).invoice_id === (item.data as { id?: string }).id);
+        for (const child of pending) {
+          try { await processItem(supabase, child); await removeSyncItem(child.id); }
+          catch { /* se deja en cola, se reintentará en la siguiente pasada */ }
+        }
+      }
       await processItem(supabase, item);
       await removeSyncItem(item.id);
     } catch (err) {
