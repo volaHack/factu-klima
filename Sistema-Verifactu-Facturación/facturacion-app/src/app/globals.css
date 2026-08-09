@@ -6072,6 +6072,26 @@ a.stats-item:focus-visible {
   overflow: hidden;
 }
 .home-hero picture { display: contents; }
+.home-hero-video-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+}
+.home-hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(1.1) saturate(1.05);
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
 .home-hero-img {
   position: absolute;
   inset: 0;
@@ -6079,9 +6099,6 @@ a.stats-item:focus-visible {
   height: 100%;
   object-fit: cover;
   object-position: 58% 52%;
-  /* La toma es de tarde y va deliberadamente subexpuesta; con el velo
-     encima se apagaba del todo. Se levanta aquí en vez de rehacer el
-     archivo para no tocar el original. */
   filter: brightness(1.14) saturate(1.06);
   z-index: -2;
 }

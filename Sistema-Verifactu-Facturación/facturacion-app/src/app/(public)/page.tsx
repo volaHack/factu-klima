@@ -8,6 +8,7 @@ import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import ChainDemo from '@/components/public/ChainDemo';
 import Reveal from '@/components/public/Reveal';
+import HeroVideoScroll from '@/components/public/HeroVideoScroll';
 import { PLANS } from '@/lib/plans';
 
 /* ------------------------------------------------------------------ *
@@ -135,25 +136,7 @@ export default function HomePage() {
 
       {/* ───────────────────────── Héroe ───────────────────────── */}
       <header className="home-hero">
-        <picture>
-          <source
-            media="(max-width: 640px)"
-            srcSet="/img/mostrador-760.webp 760w, /img/mostrador-1200.webp 1200w"
-            sizes="100vw"
-          />
-          <img
-            className="home-hero-img"
-            src="/img/mostrador-1920.webp"
-            srcSet="/img/mostrador-1200.webp 1200w, /img/mostrador-1920.webp 1920w"
-            sizes="100vw"
-            alt="Un rollo de tickets recién impreso cae por el borde de un mostrador de madera mientras unas manos lo separan, en la luz de media tarde de una tienda de barrio."
-            width={1920}
-            height={1080}
-            fetchPriority="high"
-            decoding="async"
-          />
-        </picture>
-        <div className="home-hero-scrim" />
+        <HeroVideoScroll videoSrc="/hero-video.mp4" posterSrc="/img/mostrador-1920.webp" />
 
         <div className="home-hero-inner">
           <p className="home-hero-kicker">Ley Antifraude · Reglamento Verifactu</p>
