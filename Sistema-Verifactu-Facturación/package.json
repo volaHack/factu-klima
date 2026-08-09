@@ -2,7 +2,7 @@
   "name": "factu-klima-root",
   "private": true,
   "scripts": {
-    "vercel-build": "cd facturacion-app && npm run build",
-    "build": "cd facturacion-app && npm run build"
+    "vercel-build": "npm --prefix facturacion-app run build",
+    "build": "npm --prefix facturacion-app run build"
   }
 }
