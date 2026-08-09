@@ -146,7 +146,7 @@ export default function FacturasPage() {
     });
 
     return result;
-  }, [invoices, search, statusFilter, sortField, sortDir]);
+  }, [invoices, search, docTypeFilter, statusFilter, sortField, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -164,8 +164,8 @@ export default function FacturasPage() {
     };
   }, [invoices]);
 
-  const hasFilters = search.length > 0 || statusFilter.length > 0;
-  const clearFilters = () => { setSearch(''); setStatusFilter([]); setPage(1); };
+  const hasFilters = search.length > 0 || statusFilter.length > 0 || docTypeFilter !== 'all';
+  const clearFilters = () => { setSearch(''); setStatusFilter([]); setDocTypeFilter('all'); setPage(1); };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

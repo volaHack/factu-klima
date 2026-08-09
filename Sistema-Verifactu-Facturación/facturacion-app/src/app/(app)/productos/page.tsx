@@ -442,17 +442,16 @@ export default function ProductosPage() {
                     </tr>
                   );
                 })}
+                {filteredProducts.length === 0 && (
+                  <TableEmpty
+                    colSpan={8}
+                    icon={SearchX}
+                    title="No hay productos que coincidan"
+                    hint="Prueba a cambiar el texto de búsqueda o el filtro de categoría."
+                  />
+                )}
               </tbody>
             </table>
-
-            {filteredProducts.length === 0 && (
-              <TableEmpty
-                colSpan={8}
-                icon={SearchX}
-                title="No hay productos que coincidan"
-                hint="Prueba a cambiar el texto de búsqueda o el filtro de categoría."
-              />
-            )}
           </div>
         </>
       )}
