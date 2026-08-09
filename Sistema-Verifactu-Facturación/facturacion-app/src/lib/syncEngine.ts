@@ -116,6 +116,87 @@ const CHILD_TABLES: Record<string, string[]> = {
   invoices: ['invoice_line_items', 'invoice_tax_breakdown'],
 };
 
+/**
+ * Colecciona los hijos pendientes de una factura en la cola, SIN duplicados:
+ * las líneas se identifican por su id; el desglose de impuestos por
+ * (invoice_id, rate), porque el desglose no lleva id propio. Los duplicados
+ * (p.ej. el desglose encolado dos veces por el guardado borrador + emitida)
+ * se descartan de la cola para que la siguiente pasada no los re-procese.
+ */
+async function collectInvoiceChildren(
+  queue: SyncQueueItem[],
+  invoiceId: string,
+  processedIds: Set<string>,
+): Promise<SyncQueueItem[]> {
+  const seen = new Set<string>();
+  const children: SyncQueueItem[] = [];
+  for (const q of queue) {
+    if (processedIds.has(q.id)) continue;
+    if (!CHILD_TABLES.invoices.includes(q.table)) continue;
+    if ((q.data as { invoice_id?: string }).invoice_id !== invoiceId) continue;
+    const key = q.table === 'invoice_line_items'
+      ? `li:${q.data.id}`
+      : `tb:${(q.data as { rate?: number }).rate}`;
+    if (seen.has(key)) {
+      processedIds.add(q.id);
+      await removeSyncItem(q.id);
+      continue;
+    }
+    seen.add(key);
+    children.push(q);
+  }
+  return children;
+}
+
+/**
+ * Sincroniza una factura y su detalle en el orden que exige el servidor:
+ * 1) la fila padre como BORRADOR (si aún no existe), 2) líneas y desglose,
+ * 3) la fila con su estado real (EMITIDA → el trigger la sella con líneas).
+ * Si el padre ya está sellado, los items pendientes son copias obsoletas y
+ * se descartan. Ante cualquier error se aborta el grupo (nada se marca como
+ * procesado salvo lo ya sincronizado) para reintentarlo en la siguiente pasada.
+ */
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+async function syncInvoiceGroup(supabase: any, item: SyncQueueItem, queue: SyncQueueItem[], processedIds: Set<string>): Promise<void> {
+  const row = item.data as Record<string, unknown>;
+  const invoiceId = row.id as string;
+  const children = await collectInvoiceChildren(queue, invoiceId, processedIds);
+
+  const { data: existing } = await supabase.from('invoices').select('id, sealed_at').eq('id', invoiceId).maybeSingle();
+  if (existing?.sealed_at) {
+    for (const c of children) { await removeSyncItem(c.id); processedIds.add(c.id); }
+    await removeSyncItem(item.id);
+    processedIds.add(item.id);
+    return;
+  }
+
+  // 1. Garantizar que la fila padre exista antes de tocar las líneas.
+  if (!existing) {
+    const { error } = await supabase.from('invoices').upsert({ ...row, status: 'borrador' });
+    if (error) throw error;
+  }
+
+  // 2. Reescribir el detalle completo (mismo patrón que el path online de
+  //    saveInvoice: delete + insert) → idempotente entre pasadas.
+  if (children.length > 0) {
+    for (const table of CHILD_TABLES.invoices) {
+      const { error } = await supabase.from(table).delete().eq('invoice_id', invoiceId);
+      if (error) throw error;
+    }
+    for (const child of children) {
+      await processItem(supabase, child);
+      await removeSyncItem(child.id);
+      processedIds.add(child.id);
+    }
+  }
+
+  // 3. Estado real → el trigger de sellado ya encuentra las líneas.
+  const { error } = await supabase.from('invoices').upsert(row);
+  if (error) throw error;
+  await removeSyncItem(item.id);
+  processedIds.add(item.id);
+}
+
 // ============================================================
 // PROCESS SYNC QUEUE
 // ============================================================
@@ -137,23 +218,19 @@ export async function processSyncQueue(): Promise<void> {
 
   let errored = false;
   const rejections: SyncRejection[] = [];
+  const processedIds = new Set<string>();
 
   for (const item of queue) {
+    if (processedIds.has(item.id)) continue;
     try {
-      // Antes de sincronizar una factura, se vuelcan primero sus hijos
-      // pendientes (líneas y desglose de impuestos): el trigger de sellado
-      // recalcula los totales desde ellos y rechaza la factura si llega sola.
+      // Las facturas se sincronizan como grupo (padre + líneas + desglose)
+      // en el orden que exige el servidor; el resto, item a item.
       if (item.action === 'upsert' && item.table === 'invoices') {
-        const pending = queue.filter(q => q.id !== item.id &&
-          CHILD_TABLES.invoices.includes(q.table) &&
-          (q.data as { invoice_id?: string }).invoice_id === (item.data as { id?: string }).id);
-        for (const child of pending) {
-          try { await processItem(supabase, child); await removeSyncItem(child.id); }
-          catch { /* se deja en cola, se reintentará en la siguiente pasada */ }
-        }
+        await syncInvoiceGroup(supabase, item, queue, processedIds);
+      } else {
+        await processItem(supabase, item);
+        await removeSyncItem(item.id);
       }
-      await processItem(supabase, item);
-      await removeSyncItem(item.id);
     } catch (err) {
       console.error(`[SyncEngine] Failed to sync item ${item.id}:`, err);
 
@@ -162,6 +239,13 @@ export async function processSyncQueue(): Promise<void> {
         // deja constancia para poder enseñárselo al usuario.
         rejections.push({ table: item.table, reason: readableReason(err), at: Date.now() });
         await removeSyncItem(item.id);
+        // Si la factura se rechaza, sus hijos huérfanos también se descartan.
+        if (item.table === 'invoices') {
+          for (const c of await collectInvoiceChildren(queue, item.data.id as string, processedIds)) {
+            await removeSyncItem(c.id);
+            processedIds.add(c.id);
+          }
+        }
         continue;
       }
 
