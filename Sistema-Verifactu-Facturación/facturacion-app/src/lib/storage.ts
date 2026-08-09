@@ -10,8 +10,8 @@ import {
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
   getMeta, setMeta,
 } from './offlineDb';
-import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TaxBreakdown, UserProfile } from './types';
-import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES } from './constants';
+import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TaxBreakdown, TpvMode, UserProfile } from './types';
+import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { generateId } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 
@@ -1007,6 +1007,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     next_invoice_number: settings.nextInvoiceNumber,
     tpv_series: settings.tpvSeries,
     next_tpv_number: settings.nextTpvNumber,
+    tpv_mode: settings.tpvMode ?? defaultTpvModeForSector(settings.sector),
     default_payment_days: settings.defaultPaymentDays,
     default_payment_method: settings.defaultPaymentMethod,
     invoice_footer_text: settings.invoiceFooterText,
@@ -1287,6 +1288,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     nextInvoiceNumber: s.next_invoice_number || 1,
     tpvSeries: s.tpv_series || 'TPV',
     nextTpvNumber: s.next_tpv_number || 1,
+    tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),
     defaultPaymentDays: s.default_payment_days || 30,
     defaultPaymentMethod: s.default_payment_method || 'transferencia',
     invoiceFooterText: s.invoice_footer_text || '',

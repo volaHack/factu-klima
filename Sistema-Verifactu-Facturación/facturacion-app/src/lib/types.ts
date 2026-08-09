@@ -64,6 +64,10 @@ export enum UnitOfMeasure {
 }
 
 export type BusinessSector = 'alimentacion' | 'supermercado' | 'mayorista' | 'bebidas' | 'servicios_industriales';
+
+// Modo de uso del TPV: afecta al grid de productos (denso IA), la venta por
+// peso (PLU) y las mesas con cuentas abiertas.
+export type TpvMode = 'tienda' | 'supermercado' | 'restaurante';
 export type AccentTheme = 'rose' | 'wine' | 'terracotta' | 'plum';
 
 // --- Interfaces ---
@@ -264,6 +268,8 @@ export interface CompanySettings {
   tpvEnabled?: boolean;
   tpvSeries: string;
   nextTpvNumber: number;
+  // Cómo se usa el TPV: tienda (estándar), supermercado (grid denso + PLU) o restaurante (mesas).
+  tpvMode?: TpvMode;
   
   // Banking
   iban: string;

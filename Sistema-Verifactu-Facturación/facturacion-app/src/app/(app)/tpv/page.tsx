@@ -19,7 +19,7 @@ import {
   issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices,
 } from '@/lib/storage';
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
-import { isTpvEnabled } from '@/lib/constants';
+import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
 import { nextOfflineNumber } from '@/lib/tpvOffline';
 import { getDeviceSuffix } from '@/lib/offlineDb';
 import { posAudio } from '@/lib/posAudio';
@@ -525,6 +525,7 @@ export default function TpvPage() {
         <TpvProductGrid
           products={products}
           categories={categories}
+          mode={settings?.tpvMode ?? defaultTpvModeForSector(settings?.sector ?? 'tienda')}
           onSelectProduct={addProductToCart}
           onScan={handleScan}
           onOpenCustomItem={() => setCustomItemOpen(true)}

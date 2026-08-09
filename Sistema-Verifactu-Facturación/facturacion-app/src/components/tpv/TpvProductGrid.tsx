@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, PackageX, PlusCircle, Tag, Star } from 'lucide-react';
-import { Product } from '@/lib/types';
+import { Product, TpvMode } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { sortByUnitsSold } from '@/lib/tpvOffline';
 
@@ -14,6 +14,7 @@ interface CategoryOption {
 interface TpvProductGridProps {
   products: Product[];
   categories: CategoryOption[];
+  mode: TpvMode;
   onSelectProduct: (product: Product) => void;
   onScan: (barcode: string) => boolean;
   onOpenCustomItem: () => void;
@@ -24,6 +25,7 @@ interface TpvProductGridProps {
 export default function TpvProductGrid({
   products,
   categories,
+  mode,
   onSelectProduct,
   onScan,
   onOpenCustomItem,
@@ -122,7 +124,7 @@ export default function TpvProductGrid({
         ))}
       </div>
 
-      <div className="tpv-product-grid">
+      <div className={`tpv-product-grid ${mode === 'supermercado' ? 'is-dense' : ''}`}>
         {filtered.length === 0 ? (
           <div className="tpv-product-empty">
             <PackageX size={32} />

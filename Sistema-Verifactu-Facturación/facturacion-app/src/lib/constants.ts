@@ -5,8 +5,24 @@
 
 import {
   InvoiceStatus, PaymentMethod, ProductCategory, TaxRate, UnitOfMeasure,
-  BusinessSector, AccentTheme, CompanySettings
+  BusinessSector, AccentTheme, CompanySettings, TpvMode
 } from './types';
+
+// --- Modos de TPV ---
+// 'tienda' es el modo por defecto: tiles grandes con categorías en chips.
+// 'supermercado' prioriza densidad (grid, orden IA, venta por peso/PLU) y
+// 'restaurante' añade mesas con cuentas abiertas.
+export const TPV_MODES: { value: TpvMode; label: string; description: string }[] = [
+  { value: 'tienda', label: 'Tienda / Estándar', description: 'Tiles grandes y categorías en chips.' },
+  { value: 'supermercado', label: 'Supermercado', description: 'Grid denso, orden IA y venta por peso (PLU).' },
+  { value: 'restaurante', label: 'Restaurante', description: 'Mesas y cuentas abiertas.' },
+];
+
+export function defaultTpvModeForSector(sector: string): TpvMode {
+  if (sector === 'supermercado') return 'supermercado';
+  if (sector === 'bebidas') return 'restaurante';
+  return 'tienda';
+}
 
 // --- Sectores de Negocio ---
 export const BUSINESS_SECTORS: { value: BusinessSector; label: string; icon: string; description: string }[] = [
