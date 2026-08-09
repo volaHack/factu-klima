@@ -43,6 +43,28 @@ async function backgroundRefresh<T>(
 }
 
 // ============================================================
+// CACHÉ DE SETTINGS — LOCK DE ESCRITURA
+// ============================================================
+
+/**
+ * Serializa las escrituras a la fila `settings/company` de IndexedDB.
+ *
+ * Sin este lock, un background refresh que lea la caché justo antes de que
+ * una edición de categorías se materialice, puede acabar escribiendo DESPUÉS
+ * la fila de BD (que aún no trae custom_categories) y clobberear la edición.
+ * Con el lock, el read+write del refresh es atómico frente al write del edit:
+ * o pasa entero antes (y gana el edit) o entero después (y el no-clobber
+ * conserva las categorías locales).
+ */
+let settingsCacheChain: Promise<unknown> = Promise.resolve();
+
+function withSettingsCacheLock<T>(fn: () => Promise<T>): Promise<T> {
+  const next = settingsCacheChain.then(fn, fn);
+  settingsCacheChain = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+// ============================================================
 // INVOICES
 // ============================================================
 
@@ -918,7 +940,17 @@ export async function getCompanySettings(): Promise<CompanySettings> {
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         supabase().from('company_settings').select('*').limit(1).single().then((res: any) => {
           if (res?.data) {
-            put('settings', { ...res.data, key: 'company' });
+            withSettingsCacheLock(async () => {
+              /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+              const prev = await getById<any>('settings', 'company');
+              const data = { ...res.data };
+              // No clobber: si la fila de BD aún no trae custom_categories
+              // (migración 008 sin aplicar), conserva las que haya localmente.
+              if (prev?.custom_categories && !Array.isArray(data.custom_categories)) {
+                data.custom_categories = prev.custom_categories;
+              }
+              await put('settings', { ...data, key: 'company' });
+            });
           }
         }).catch(() => {});
       }
@@ -937,7 +969,7 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   if (!data) return DEFAULT_COMPANY_SETTINGS as CompanySettings;
 
   if (await isOfflineDbAvailable()) {
-    await put('settings', { ...data, key: 'company' });
+    await withSettingsCacheLock(() => put('settings', { ...data, key: 'company' }));
   }
 
   return mapSettingsFromDb(data);
@@ -973,9 +1005,12 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     logo_url: settings.logoUrl,
   };
 
+  // Categorías personalizadas: van en la misma fila de company_settings.
+  const fullRow = { ...row, custom_categories: settings.customCategories || [] };
+
   const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
-    await put('settings', { ...row, key: 'company' });
+    await withSettingsCacheLock(() => put('settings', { ...fullRow, key: 'company' }));
   }
 
   if (navigator.onLine) {
@@ -987,10 +1022,23 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
         .limit(1)
         .single();
 
-      if (existing) {
-        await supabase().from('company_settings').update(row).eq('id', existing.id);
-      } else {
-        await supabase().from('company_settings').insert(row);
+      const write = async (payload: typeof row | typeof fullRow) => {
+        if (existing) {
+          return supabase().from('company_settings').update(payload).eq('id', existing.id);
+        }
+        return supabase().from('company_settings').insert(payload);
+      };
+
+      const res = await write(fullRow);
+      if (res?.error) {
+        // Si la columna custom_categories aún no existe en BD (migración 008
+        // sin aplicar), reintenta sin ella para no romper el resto del guardado.
+        if (/custom_categories/i.test(String(res.error.message))) {
+          const retry = await write(row);
+          if (retry?.error) await enqueueSyncAction('upsert', 'company_settings', row);
+        } else {
+          await enqueueSyncAction('upsert', 'company_settings', row);
+        }
       }
     } catch {
       await enqueueSyncAction('upsert', 'company_settings', row);
@@ -1233,6 +1281,15 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     bankName: s.bank_name || '',
     verifactuEnabled: s.verifactu_enabled ?? true,
     logoUrl: s.logo_url || '',
+    customCategories: Array.isArray(s.custom_categories)
+      ? s.custom_categories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon || 'Package',
+          sector: c.sector,
+          hidden: !!c.hidden,
+        }))
+      : [],
   };
 }
 
@@ -1398,21 +1455,48 @@ function mapProfileFromDb(p: any): UserProfile {
 // DYNAMIC CATEGORIES PER SECTOR & CUSTOM CATEGORIES
 // ============================================================
 
-export async function getCompanyCategories(): Promise<{ value: string; label: string; icon: string }[]> {
+export interface CategoryOption {
+  value: string;
+  label: string;
+  icon: string;
+  isCustom?: boolean;
+}
+
+export async function getCompanyCategories(): Promise<CategoryOption[]> {
   const settings = await getCompanySettings();
   const sector = settings?.sector || 'alimentacion';
   const defaults = SECTOR_DEFAULT_CATEGORIES[sector] || SECTOR_DEFAULT_CATEGORIES.alimentacion;
 
-  const custom = (settings?.customCategories || []).map(c => ({
-    value: c.id,
-    label: c.name,
-    icon: c.icon,
-  }));
+  const customs = settings?.customCategories || [];
+  const byId = new Map<string, CustomCategory>();
+  for (const c of customs) byId.set(c.id, c);
 
-  return [...defaults, ...custom];
+  const out: CategoryOption[] = [];
+
+  // Categorías por defecto del sector: una custom con el mismo id la
+  // renombra/recategoriza (edición); hidden=true la oculta (eliminación).
+  for (const d of defaults) {
+    const override = byId.get(d.value);
+    if (override?.hidden) continue;
+    out.push({
+      value: d.value,
+      label: override?.name ?? d.label,
+      icon: override?.icon ?? d.icon,
+      isCustom: override ? true : undefined,
+    });
+  }
+
+  // Categorías adicionales creadas por el usuario.
+  for (const c of customs) {
+    if (c.hidden) continue;
+    if (defaults.some(d => d.value === c.id)) continue; // ya aplicada como override
+    out.push({ value: c.id, label: c.name, icon: c.icon, isCustom: true });
+  }
+
+  return out;
 }
 
-export async function addCustomCategory(name: string, icon: string): Promise<{ value: string; label: string; icon: string }> {
+export async function addCustomCategory(name: string, icon: string): Promise<CategoryOption> {
   const settings = await getCompanySettings();
   if (!settings) throw new Error('No company settings found');
 
@@ -1435,18 +1519,47 @@ export async function addCustomCategory(name: string, icon: string): Promise<{ v
     value: newCat.id,
     label: newCat.name,
     icon: newCat.icon,
+    isCustom: true,
   };
 }
 
 export async function deleteCustomCategory(categoryId: string): Promise<void> {
   const settings = await getCompanySettings();
-  if (!settings || !settings.customCategories) return;
+  if (!settings) return;
 
-  const updatedCategories = settings.customCategories.filter(c => c.id !== categoryId);
-  await saveCompanySettings({
-    ...settings,
-    customCategories: updatedCategories,
-  });
+  const sector = settings.sector || 'alimentacion';
+  const defaults = SECTOR_DEFAULT_CATEGORIES[sector] || SECTOR_DEFAULT_CATEGORIES.alimentacion;
+  const isDefault = defaults.some(d => d.value === categoryId);
+  const customs = settings.customCategories || [];
+
+  let next: CustomCategory[];
+  if (isDefault) {
+    // Eliminar una categoría por defecto = ocultarla. Así los productos que
+    // la referencian por value no se rompen, y puede restaurarse editando.
+    const def = defaults.find(d => d.value === categoryId)!;
+    const existing = customs.find(c => c.id === categoryId);
+    next = existing
+      ? customs.map(c => c.id === categoryId ? { ...c, hidden: true } : c)
+      : [...customs, { id: def.value, name: def.label, icon: def.icon, sector: settings.sector, hidden: true }];
+  } else {
+    next = customs.filter(c => c.id !== categoryId);
+  }
+
+  await saveCompanySettings({ ...settings, customCategories: next });
+}
+
+export async function updateCustomCategory(categoryId: string, name: string, icon: string): Promise<void> {
+  const settings = await getCompanySettings();
+  if (!settings) return;
+
+  const customs = settings.customCategories || [];
+  const existing = customs.find(c => c.id === categoryId);
+  const next = existing
+    ? customs.map(c => c.id === categoryId ? { ...c, name, icon, hidden: false } : c)
+    // Editar una categoría por defecto = crear un override con su mismo id.
+    : [...customs, { id: categoryId, name, icon, sector: settings.sector, hidden: false }];
+
+  await saveCompanySettings({ ...settings, customCategories: next });
 }
 
 // ============================================================
