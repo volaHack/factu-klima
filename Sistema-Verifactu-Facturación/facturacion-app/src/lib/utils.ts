@@ -57,6 +57,15 @@ export function generateInvoiceNumber(series: string, nextNumber: number, year?:
 }
 
 /**
+ * Extrae la secuencia numérica final de un número de documento.
+ * "FAC-2026-0007" → 7. Se usa para recomponer el contador al guardar.
+ */
+export function sequenceFromNumber(number: string): number {
+  const match = /-(\d+)$/.exec(number);
+  return match ? Number(match[1]) : 0;
+}
+
+/**
  * Calculate line item subtotal
  */
 export function calculateLineSubtotal(

@@ -1011,31 +1011,78 @@ export async function getAlbaranById(id: string): Promise<Albaran | undefined> {
   return mapped;
 }
 
-export async function saveAlbaran(albaran: Albaran): Promise<void> {
+/** Avanza un número de documento (SERIE-AAAA-NNNN) a la siguiente secuencia. */
+function incrementDocumentNumber(number: string, series: string): string {
+  const match = /^(.*)-(\d{4})-(\d+)$/.exec(number);
+  if (!match) return generateInvoiceNumber(series, 1);
+  const year = Number(match[2]);
+  const seq = Number(match[3]) + 1;
+  return generateInvoiceNumber(series, seq, year);
+}
+
+/**
+ * Si el número solicitado para el albarán ya existe en BD (contador de settings
+ * desincronizado, trabajo en varios dispositivos…), devuelve el albarán con el
+ * siguiente número libre de la serie. En caso contrario, sin cambios.
+ */
+async function nextFreeAlbaranNumber(
+  userId: string,
+  series: string,
+  requestedNumber: string,
+  albaran: Albaran,
+): Promise<Albaran> {
+  const { data } = await supabase()
+    .from('albaranes')
+    .select('number')
+    .eq('user_id', userId)
+    .eq('series', series);
+
+  const used = new Set((data ?? []).map((r: { number: string }) => r.number as string));
+  if (!used.has(requestedNumber)) return albaran;
+
+  let candidate = requestedNumber;
+  for (let i = 0; i < 1000 && used.has(candidate); i++) {
+    candidate = incrementDocumentNumber(candidate, series);
+  }
+  if (used.has(candidate)) {
+    throw new Error('No se pudo asignar un número libre a este albarán. Revisa la numeración.');
+  }
+  return { ...albaran, number: candidate };
+}
+
+export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
   const userId = await requireUserId();
 
-  const row = {
-    id: albaran.id,
+  const buildRow = (a: Albaran) => ({
+    id: a.id,
     user_id: userId,
-    number: albaran.number,
-    series: albaran.series,
-    client_id: albaran.clientId || null,
-    client_name: albaran.clientName,
-    client_nif: albaran.clientNif,
-    client_address: albaran.clientAddress,
-    issue_date: albaran.issueDate,
-    status: albaran.status,
-    subtotal: albaran.subtotal,
-    total_discount: albaran.totalDiscount,
-    total_tax: albaran.totalTax,
-    total: albaran.total,
-    notes: albaran.notes,
-    invoice_id: albaran.invoiceId || null,
-  };
+    number: a.number,
+    series: a.series,
+    client_id: a.clientId || null,
+    client_name: a.clientName,
+    client_nif: a.clientNif,
+    client_address: a.clientAddress,
+    issue_date: a.issueDate,
+    status: a.status,
+    subtotal: a.subtotal,
+    total_discount: a.totalDiscount,
+    total_tax: a.totalTax,
+    total: a.total,
+    notes: a.notes,
+    invoice_id: a.invoiceId || null,
+  });
 
-  const lineRows = albaran.lineItems.map((li, idx) => ({
+  // Numeración auto-reparable: si el número del borrador ya existe, se avanza
+  // al siguiente libre en vez de chocar con uq_albaranes_user_series_number
+  // (que devolvería 23505 y el error "Ese registro ya existe").
+  let current: Albaran = albaran;
+  if (albaran.status === 'borrador' && navigator.onLine) {
+    current = await nextFreeAlbaranNumber(userId, albaran.series, albaran.number, albaran);
+  }
+
+  const lineRows = current.lineItems.map((li, idx) => ({
     id: li.id,
-    albaran_id: albaran.id,
+    albaran_id: current.id,
     product_id: li.productId || null,
     product_name: li.productName,
     product_ref: li.productRef,
@@ -1052,24 +1099,38 @@ export async function saveAlbaran(albaran: Albaran): Promise<void> {
 
   const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
-    await put('albaranes', { ...row, _lineItems: lineRows });
+    await put('albaranes', { ...buildRow(current), _lineItems: lineRows });
   }
 
   if (navigator.onLine) {
-    const { error: headerError } = await supabase().from('albaranes').upsert(row);
-    if (headerError) throw new Error(translateDbError(headerError));
+    // Reintento acotado ante una carrera de numeración entre dispositivos:
+    // si el servidor sigue rechazando el número, se re-numera y se reintenta.
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const { error: headerError } = await supabase().from('albaranes').upsert(buildRow(current));
+      if (!headerError) break;
+      if (current.status === 'borrador' && headerError?.code === '23505') {
+        current = await nextFreeAlbaranNumber(userId, current.series, current.number, current);
+        if (offlineAvail) {
+          await put('albaranes', { ...buildRow(current), _lineItems: lineRows });
+        }
+        continue;
+      }
+      throw new Error(translateDbError(headerError));
+    }
 
-    await supabase().from('albaran_line_items').delete().eq('albaran_id', albaran.id);
+    await supabase().from('albaran_line_items').delete().eq('albaran_id', current.id);
     if (lineRows.length > 0) {
       const { error } = await supabase().from('albaran_line_items').insert(lineRows);
       if (error) throw new Error(translateDbError(error));
     }
   } else {
-    await enqueueSyncAction('upsert', 'albaranes', row);
+    await enqueueSyncAction('upsert', 'albaranes', buildRow(current));
     for (const lr of lineRows) {
       await enqueueSyncAction('upsert', 'albaran_line_items', lr);
     }
   }
+
+  return current;
 }
 
 /** Sólo se borran albaranes en borrador: un albarán expedido/facturado es un registro de entrega. */
@@ -1754,18 +1815,19 @@ export async function getCompanySettings(): Promise<CompanySettings> {
       // Background refresh
       if (navigator.onLine) {
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        supabase().from('company_settings').select('*').limit(1).single().then((res: any) => {
-          if (res?.data) {
+        supabase().from('company_settings').select('*').order('updated_at', { ascending: false }).limit(1).then((res: any) => {
+          const data = res?.data?.[0];
+          if (data) {
             withSettingsCacheLock(async () => {
               /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
               const prev = await getById<any>('settings', 'company');
-              const data = { ...res.data };
+              const merged = { ...data };
               // No clobber: si la fila de BD aún no trae custom_categories
               // (migración 008 sin aplicar), conserva las que haya localmente.
-              if (prev?.custom_categories && !Array.isArray(data.custom_categories)) {
-                data.custom_categories = prev.custom_categories;
+              if (prev?.custom_categories && !Array.isArray(merged.custom_categories)) {
+                merged.custom_categories = prev.custom_categories;
               }
-              await put('settings', { ...data, key: 'company' });
+              await put('settings', { ...merged, key: 'company' });
             });
           }
         }).catch(() => {});
@@ -1779,17 +1841,22 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   }
 
   if (!settings) {
+    // Se lee la fila más reciente SIN .single(): si existen filas duplicadas
+    // de company_settings (guardados offline antiguos), un .single() devolvería
+    // 406 y el contador caería a los valores por defecto, provocando choques
+    // de numeración al crear albaranes, facturas, devoluciones y abonos.
     const { data } = await supabase()
       .from('company_settings')
       .select('*')
-      .limit(1)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1);
 
-    if (data) {
+    const row = data?.[0];
+    if (row) {
       if (await isOfflineDbAvailable()) {
-        await withSettingsCacheLock(() => put('settings', { ...data, key: 'company' }));
+        await withSettingsCacheLock(() => put('settings', { ...row, key: 'company' }));
       }
-      settings = mapSettingsFromDb(data);
+      settings = mapSettingsFromDb(row);
     } else {
       settings = { ...DEFAULT_COMPANY_SETTINGS };
     }
@@ -1862,12 +1929,14 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
 
   if (navigator.onLine) {
     try {
-      // Check if settings exist
-      const { data: existing } = await supabase()
+      // Comprobar si existen settings. Sin .single(): filas duplicadas no
+      // deben romper el guardado ni provocar la creación de otra fila nueva.
+      const { data: existingRows } = await supabase()
         .from('company_settings')
         .select('id')
-        .limit(1)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      const existing = existingRows?.[0];
 
       const write = async (payload: typeof row | typeof fullRow) => {
         if (existing) {

@@ -17,9 +17,9 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 
 import { createClient } from '@/lib/supabase/client';
-import { convertirAlbaranesAFactura, expedirAlbaran, createDevolucion, applyAbonoToInvoice } from './storage';
+import { saveAlbaran, convertirAlbaranesAFactura, expedirAlbaran, createDevolucion, applyAbonoToInvoice } from './storage';
 import { DEFAULT_COMPANY_SETTINGS } from './constants';
-import { Devolucion, DevolucionReason, InvoiceStatus, TaxRate, UnitOfMeasure } from './types';
+import { Albaran, Devolucion, DevolucionReason, InvoiceStatus, TaxRate, UnitOfMeasure } from './types';
 
 type Row = Record<string, unknown>;
 type Store = Record<string, Row[]>;
@@ -131,6 +131,43 @@ function albaranRow(id: string, clientId: string, status = 'expedido'): Row {
   };
 }
 
+function albaranDraft(overrides: Partial<Albaran> = {}): Albaran {
+  return {
+    id: 'a-draft',
+    number: `ALB-${year}-0001`,
+    series: 'ALB',
+    clientId: 'c1',
+    clientName: 'Cliente Uno',
+    clientNif: 'B12345678',
+    clientAddress: 'Calle 1',
+    issueDate: '2026-02-01',
+    status: 'borrador',
+    lineItems: [{
+      id: 'li-draft-0',
+      productId: 'p-1',
+      productName: 'Producto 1',
+      productRef: 'P-1',
+      quantity: 1,
+      unitPrice: 10,
+      unit: UnitOfMeasure.UNIDAD,
+      taxRate: TaxRate.GENERAL,
+      discountPercent: 0,
+      subtotal: 10,
+      taxAmount: 2.1,
+      total: 12.1,
+    }],
+    subtotal: 10,
+    totalDiscount: 0,
+    taxBreakdown: [],
+    totalTax: 2.1,
+    total: 12.1,
+    notes: '',
+    createdAt: '2026-02-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 function devolucion(overrides: Partial<Devolucion> = {}): Devolucion {
   return {
     id: 'dev-1',
@@ -189,6 +226,28 @@ describe('Albaranes', () => {
     expect(rpcCalls).toHaveLength(1);
     expect(rpcCalls[0].fn).toBe('fn_pos_adjust_stock');
     expect(rpcCalls[0].args).toMatchObject({ p_product_id: 'p-1', p_delta: -2 });
+  });
+
+  it('re-numera automáticamente un borrador cuyo número ya existe en BD', async () => {
+    const store: Store = {
+      albaranes: [albaranRow('a1', 'c1', 'borrador')],
+      albaran_line_items: [lineRow('a1', 1)],
+    };
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    const saved = await saveAlbaran(albaranDraft({ id: 'a2', number: `ALB-${year}-0001` }));
+
+    expect(saved.number).toBe(`ALB-${year}-0002`);
+    expect(store.albaranes.find(a => a.id === 'a2')!.number).toBe(`ALB-${year}-0002`);
+  });
+
+  it('conserva el número de un borrador cuando está libre', async () => {
+    const store: Store = {};
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    const saved = await saveAlbaran(albaranDraft());
+
+    expect(saved.number).toBe(`ALB-${year}-0001`);
   });
 
   it('agrupa albaranes expedidos por cliente en facturas borrador', async () => {

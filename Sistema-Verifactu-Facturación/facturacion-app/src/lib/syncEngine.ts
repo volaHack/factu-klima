@@ -297,8 +297,24 @@ async function processItem(supabase: any, item: SyncQueueItem): Promise<void> {
   }
 
   if (item.action === 'upsert') {
-    const { error } = await supabase.from(table).upsert(item.data);
-    if (error) throw error;
+    if (item.table === 'company_settings') {
+      // company_settings NO tiene índice único por user_id: un upsert sin id
+      // (los guardados offline no llevan id de BD) insertaría una fila nueva
+      // en cada pasada, acumulando duplicados que rompen las lecturas .single()
+      // y reinician los contadores de numeración (choques de número). Por eso
+      // se resuelve la fila existente y se actualiza.
+      const { data } = await supabase.from(table).select('id').order('updated_at', { ascending: false }).limit(1);
+      if (data?.length) {
+        const { error } = await supabase.from(table).update(item.data).eq('id', data[0].id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(table).insert(item.data);
+        if (error) throw error;
+      }
+    } else {
+      const { error } = await supabase.from(table).upsert(item.data);
+      if (error) throw error;
+    }
   } else if (item.action === 'delete') {
     const id = item.data.id as string;
     if (id) {

@@ -12,7 +12,7 @@ import {
 import {
   Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, TaxRate, CompanySettings
 } from '@/lib/types';
-import { generateId, generateInvoiceNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
+import { generateId, generateInvoiceNumber, sequenceFromNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
 import { getTaxRates, getTaxLabel } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
@@ -138,15 +138,17 @@ export default function NuevoAlbaranPage() {
 
     setSaving(true);
     try {
-      await saveAlbaran(albaran);
-      settings.nextAlbaranNumber = (settings.nextAlbaranNumber || 1) + 1;
+      // saveAlbaran devuelve el albarán con el número final: si el número
+      // propuesto ya existía (contador desincronizado), se re-numera solo.
+      const saved = await saveAlbaran(albaran);
+      settings.nextAlbaranNumber = sequenceFromNumber(saved.number) + 1;
       await saveCompanySettings(settings);
 
       if (expedir) {
         await expedirAlbaran(albaran.id);
-        success('Albarán creado y expedido', `${number} · stock descontado`);
+        success('Albarán creado y expedido', `${saved.number} · stock descontado`);
       } else {
-        success('Albarán guardado', `${number} · queda en borrador`);
+        success('Albarán guardado', `${saved.number} · queda en borrador`);
       }
       router.push('/albaranes');
     } catch (err) {
