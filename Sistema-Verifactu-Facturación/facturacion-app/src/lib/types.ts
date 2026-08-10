@@ -299,6 +299,132 @@ export interface CompanySettings {
   // Suscripción y límites de plan
   planId?: 'basico' | 'pro' | 'sin_limite';
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled';
+
+  // Albaranes (documento de entrega/preparación)
+  albaranSeries?: string;
+  nextAlbaranNumber?: number;
+
+  // Devoluciones (mercancía devuelta: roturas, defectos…)
+  devolucionSeries?: string;
+  nextDevolucionNumber?: number;
+
+  // Abonos (nota de crédito a favor del cliente)
+  abonoSeries?: string;
+  nextAbonoNumber?: number;
+}
+
+// --- Albaranes (documento de entrega) ---
+
+export type AlbaranStatus = 'borrador' | 'expedido' | 'facturado' | 'anulado';
+
+export interface AlbaranLineItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productRef: string;
+  quantity: number;
+  unitPrice: number;
+  unit: UnitOfMeasure;
+  taxRate: TaxRate;
+  discountPercent: number;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+}
+
+export interface Albaran {
+  id: string;
+  number: string;
+  series: string;
+  clientId: string;
+  clientName: string;
+  clientNif: string;
+  clientAddress: string;
+  issueDate: string;
+  status: AlbaranStatus;
+  lineItems: AlbaranLineItem[];
+  subtotal: number;
+  totalDiscount: number;
+  taxBreakdown: TaxBreakdown[];
+  totalTax: number;
+  total: number;
+  notes: string;
+  // Factura resultante de la conversión (individual o agrupada)
+  invoiceId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Devoluciones ---
+
+export type DevolucionReason = 'rotura' | 'defecto' | 'error' | 'vencido' | 'otro';
+export type DevolucionOrigin = 'albaran' | 'factura' | 'manual';
+
+export interface DevolucionLineItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productRef: string;
+  quantity: number;
+  unitPrice: number;
+  unit: UnitOfMeasure;
+  taxRate: TaxRate;
+  total: number;
+  // true = la mercancía vuelve a la nave (se suma al stock)
+  restock: boolean;
+}
+
+export interface Devolucion {
+  id: string;
+  number: string;
+  series: string;
+  origin: DevolucionOrigin;
+  originId?: string;
+  originNumber?: string;
+  clientId: string;
+  clientName: string;
+  clientNif: string;
+  issueDate: string;
+  reason: DevolucionReason;
+  reasonNote: string;
+  status: 'registrada' | 'abonada';
+  lineItems: DevolucionLineItem[];
+  total: number;
+  notes: string;
+  abonoId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Abonos (nota de crédito) ---
+
+export type AbonoStatus = 'emitido' | 'parcial' | 'usado' | 'anulado';
+
+export interface Abono {
+  id: string;
+  number: string;
+  series: string;
+  clientId: string;
+  clientName: string;
+  clientNif: string;
+  issueDate: string;
+  total: number;
+  usedAmount: number;
+  status: AbonoStatus;
+  devolucionId?: string;
+  reason: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AbonoAplicacion {
+  id: string;
+  abonoId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  amount: number;
+  appliedAt: string;
 }
 
 // --- Utility Types ---

@@ -241,9 +241,18 @@ export default function DashboardPage() {
       {/* Membership & Plan Usage Banner */}
       {(() => {
         const planCheck = evaluatePlanLimit(settings, invoices);
-        const limitStr = planCheck.limit !== null ? `${planCheck.currentCount} / ${planCheck.limit}` : `${planCheck.currentCount} (Sin límite)`;
-        const pct = planCheck.limit !== null ? Math.min(100, Math.round((planCheck.currentCount / planCheck.limit) * 100)) : 100;
         const isInactive = settings?.subscriptionStatus === 'inactive' || settings?.subscriptionStatus === 'canceled';
+        const limitStr = isInactive
+          ? '0 facturas disponibles (Requiere activar suscripción)'
+          : planCheck.limit !== null
+            ? `${planCheck.currentCount} / ${planCheck.limit} facturas emitidas este mes`
+            : `${planCheck.currentCount} facturas emitidas este mes (Sin límite)`;
+
+        const pct = isInactive
+          ? 100
+          : planCheck.limit !== null
+            ? Math.min(100, Math.round((planCheck.currentCount / planCheck.limit) * 100))
+            : 0;
 
         return (
           <div style={{
@@ -277,29 +286,28 @@ export default function DashboardPage() {
                     {planCheck.planName}
                   </span>
                   <span className={`badge ${isInactive ? 'badge-danger' : 'badge-success'}`}>
-                    {isInactive ? 'Inactiva / Requiere Pago' : 'Suscripción Activa'}
+                    {isInactive ? 'Sin Suscripción / Inactiva' : 'Suscripción Activa'}
                   </span>
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  Uso del período: <strong>{limitStr} facturas emitidas este mes</strong>
+                  Uso del período: <strong>{limitStr}</strong>
                 </div>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: '1 0 auto', justifyContent: 'flex-end' }}>
-              {planCheck.limit !== null && (
-                <div style={{ width: 140 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4 }}>
-                    <span>CAPACIDAD</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: pct >= 90 ? 'var(--color-danger)' : 'var(--accent-500)', borderRadius: 'var(--radius-full)' }} />
-                  </div>
+              <div style={{ width: 140 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+                  <span>CAPACIDAD</span>
+                  <span>{isInactive ? 'BLOQUEADO' : `${pct}%`}</span>
                 </div>
-              )}
+                <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: isInactive || pct >= 90 ? 'var(--color-danger)' : 'var(--accent-500)', borderRadius: 'var(--radius-full)' }} />
+                </div>
+              </div>
+
               <Link href="/precios" className="btn btn-primary btn-sm">
-                <Crown size={14} /> Cambiar Plan / Suscribirme
+                <Crown size={14} /> Activar Suscripción / Ver Planes
               </Link>
             </div>
           </div>

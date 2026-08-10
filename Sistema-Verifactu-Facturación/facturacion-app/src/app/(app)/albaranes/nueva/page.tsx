@@ -2,29 +2,21 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Send, ArrowLeft } from 'lucide-react';
-import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
+import { Plus, Trash2, Save, Truck, ArrowLeft } from 'lucide-react';
+import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
-  getClients, getProducts, getCompanySettings, saveInvoice,
-  saveCompanySettings, issueInvoice, getOnboardingStatus, getInvoices,
-  applyAbonoToInvoice
+  getClients, getProducts, getCompanySettings, saveAlbaran, expedirAlbaran,
+  saveCompanySettings
 } from '@/lib/storage';
 import {
-  Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
-  PaymentMethod, TaxRate, UnitOfMeasure, CompanySettings
+  Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, TaxRate, CompanySettings
 } from '@/lib/types';
-import {
-  generateId, generateInvoiceNumber, getToday, addDays,
-  formatCurrency, calculateInvoiceTotals
-} from '@/lib/utils';
-import { PAYMENT_METHODS, getTaxRates } from '@/lib/constants';
+import { generateId, generateInvoiceNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
+import { getTaxRates, getTaxLabel } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
-import { evaluatePlanLimit } from '@/lib/planLimits';
-import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
-import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 
-function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
+function createEmptyLine(settings?: CompanySettings | null): AlbaranLineItem {
   return {
     id: generateId(),
     productId: '',
@@ -41,58 +33,34 @@ function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   };
 }
 
-export default function NuevaFacturaPage() {
+export default function NuevoAlbaranPage() {
   const router = useRouter();
-  const { success, error } = useToast();
+  const { success, error: toastError } = useToast();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
-  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
 
-  // Form state
   const [clientId, setClientId] = useState('');
   const [issueDate, setIssueDate] = useState(getToday());
-  const [dueDate, setDueDate] = useState(addDays(getToday(), 30));
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
   const [notes, setNotes] = useState('');
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([createEmptyLine()]);
-  const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
+  const [lineItems, setLineItems] = useState<AlbaranLineItem[]>([createEmptyLine()]);
 
   useEffect(() => {
     (async () => {
-      const [c, p, settings] = await Promise.all([
-        getClients(),
-        getProducts(),
-        getCompanySettings()
-      ]);
+      const [c, p, settings] = await Promise.all([getClients(), getProducts(), getCompanySettings()]);
       setClients(c.filter(cl => cl.active));
       setProducts(p.filter(pr => pr.active));
       setSettings(settings);
-      setPaymentMethod(settings.defaultPaymentMethod);
-      setDueDate(addDays(getToday(), settings.defaultPaymentDays));
       setLineItems([createEmptyLine(settings)]);
       setMounted(true);
     })();
   }, []);
 
-  // When client changes, update payment terms
-  const handleClientChange = (cId: string) => {
-    setClientId(cId);
-    setAbonoSelection(null);
-    const client = clients.find(c => c.id === cId);
-    if (client) {
-      setPaymentMethod(client.defaultPaymentMethod);
-      setDueDate(addDays(issueDate, client.paymentDays));
-    }
-  };
-
-  // When product selected on a line
   const handleProductSelect = (lineIndex: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
-
     setLineItems(prev => {
       const next = [...prev];
       next[lineIndex] = {
@@ -116,7 +84,7 @@ export default function NuevaFacturaPage() {
     });
   };
 
-  const recalcLines = (lines: InvoiceLineItem[]): InvoiceLineItem[] => {
+  const recalcLines = (lines: AlbaranLineItem[]): AlbaranLineItem[] => {
     return lines.map(line => {
       const gross = line.quantity * line.unitPrice;
       const discount = gross * (line.discountPercent / 100);
@@ -133,60 +101,36 @@ export default function NuevaFacturaPage() {
     setLineItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Totals
   const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
-
   const selectedClient = clients.find(c => c.id === clientId);
 
-  const handleSave = async (status: InvoiceStatus) => {
+  const handleSave = async (expedir: boolean) => {
     if (!clientId) {
-      error('Error', 'Selecciona un cliente');
+      toastError('Error', 'Selecciona un cliente');
       return;
     }
     const validLines = lineItems.filter(l => l.productId && l.quantity > 0);
     if (validLines.length === 0) {
-      error('Error', 'Añade al menos un producto');
+      toastError('Error', 'Añade al menos un producto');
       return;
-    }
-
-    // Bloquear emisión si falta completar datos críticos
-    if (status === InvoiceStatus.EMITIDA) {
-      const obStatus = await getOnboardingStatus();
-      if (!obStatus.isComplete) {
-        error('Completa los primeros pasos', obStatus.message);
-        return;
-      }
     }
 
     const settings = await getCompanySettings();
-    const existingInvoices = await getInvoices();
-    const check = evaluatePlanLimit(settings, existingInvoices);
-    if (!check.allowed) {
-      setPaywallState({
-        title: 'Límite de Plan Alcanzado',
-        description: check.reason || 'Has alcanzado el límite de uso de tu plan.',
-        requiredPlan: check.requiredPlan || 'pro',
-      });
-      return;
-    }
-
-    const invoiceNumber = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
+    const number = generateInvoiceNumber(settings.albaranSeries || 'ALB', settings.nextAlbaranNumber || 1);
     const client = clients.find(c => c.id === clientId)!;
 
-    const invoice: Invoice = {
+    const albaran: Albaran = {
       id: generateId(),
-      number: invoiceNumber,
-      series: settings.invoiceSeries,
+      number,
+      series: settings.albaranSeries || 'ALB',
       clientId: client.id,
       clientName: client.tradeName || client.businessName,
       clientNif: client.nif,
       clientAddress: `${client.address}, ${client.postalCode} ${client.city}`,
       issueDate,
-      dueDate,
-      status,
+      status: 'borrador',
       lineItems: validLines,
       ...totals,
-      paymentMethod,
       notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -194,90 +138,60 @@ export default function NuevaFacturaPage() {
 
     setSaving(true);
     try {
-      if (status === InvoiceStatus.BORRADOR) {
-        await saveInvoice(invoice);
-        success('Borrador guardado', `${invoiceNumber} · ${client.tradeName || client.businessName}`);
-      } else {
-        // Emitir es un proceso en dos pasos: primero se consolidan las
-        // líneas como borrador y después el servidor sella la cabecera.
-        // Al revés, la factura quedaría sellada antes de tener líneas y
-        // el servidor rechazaría escribirlas.
-        const issued = await issueInvoice(invoice);
-
-        let abonoNote = '';
-        if (abonoSelection && abonoSelection.amount > 0) {
-          await applyAbonoToInvoice(abonoSelection.abono.id, invoice.id, invoiceNumber, abonoSelection.amount);
-          const restante = Number((invoice.total - abonoSelection.amount).toFixed(2));
-          if (restante <= 0.01) {
-            await saveInvoice({
-              ...issued,
-              status: InvoiceStatus.PAGADA,
-              paidDate: new Date().toISOString().split('T')[0],
-              updatedAt: new Date().toISOString(),
-            });
-            abonoNote = ' · abono aplicado, factura cobrada';
-          } else {
-            abonoNote = ' · abono aplicado';
-          }
-        }
-
-        success(
-          'Factura emitida y sellada',
-          `${invoiceNumber} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
-        );
-      }
-
-      // El contador sólo avanza si la factura se ha guardado de verdad.
-      settings.nextInvoiceNumber += 1;
+      await saveAlbaran(albaran);
+      settings.nextAlbaranNumber = (settings.nextAlbaranNumber || 1) + 1;
       await saveCompanySettings(settings);
 
-      router.push('/facturas');
+      if (expedir) {
+        await expedirAlbaran(albaran.id);
+        success('Albarán creado y expedido', `${number} · stock descontado`);
+      } else {
+        success('Albarán guardado', `${number} · queda en borrador`);
+      }
+      router.push('/albaranes');
     } catch (err) {
-      error('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
+      toastError('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setSaving(false);
     }
   };
 
   if (!mounted) {
-    return <PageSkeleton variant="form" label="Preparando la factura" />;
+    return <PageSkeleton variant="form" label="Preparando el albarán" />;
   }
 
   return (
     <div className="animate-fade-in">
-      {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <Link href="/facturas" className="page-back">
-            <ArrowLeft /> Facturas
+          <Link href="/albaranes" className="page-back">
+            <ArrowLeft /> Albaranes
           </Link>
-          <h1 className="page-title">Nueva factura</h1>
+          <h1 className="page-title">Nuevo albarán</h1>
           <p className="page-subtitle">
-            Puedes guardarla como borrador y seguir después. Al emitirla se sella y ya no se podrá
-            modificar.
+            Prepara la entrega como borrador. Al expedirlo se descuenta el stock y queda listo para facturar.
           </p>
         </div>
         <div className="page-header-actions">
           <button
             className="btn btn-secondary"
-            onClick={() => handleSave(InvoiceStatus.BORRADOR)}
+            onClick={() => handleSave(false)}
             disabled={saving}
           >
             <Save size={16} /> Guardar borrador
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+            onClick={() => handleSave(true)}
             disabled={saving}
-            title="Al emitir, la factura se sella y no podrá modificarse"
+            title="Descuenta el stock de los productos y marca el albarán como entregado"
           >
-            <Send size={16} /> {saving ? 'Sellando…' : 'Emitir factura'}
+            <Truck size={16} /> {saving ? 'Guardando…' : 'Guardar y expedir'}
           </button>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-6)', maxWidth: '900px' }}>
-        {/* Client & Dates */}
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos generales</h3>
           <div className="form-row">
@@ -286,7 +200,7 @@ export default function NuevaFacturaPage() {
               <select
                 className="form-select"
                 value={clientId}
-                onChange={e => handleClientChange(e.target.value)}
+                onChange={e => setClientId(e.target.value)}
               >
                 <option value="">-- Seleccionar cliente --</option>
                 {clients.map(c => (
@@ -297,35 +211,12 @@ export default function NuevaFacturaPage() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Forma de pago</label>
-              <select
-                className="form-select"
-                value={paymentMethod}
-                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-              >
-                {PAYMENT_METHODS.map(pm => (
-                  <option key={pm.value} value={pm.value}>{pm.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
-            <div className="form-group">
-              <label className="form-label required">Fecha de emisión</label>
+              <label className="form-label required">Fecha del albarán</label>
               <input
                 type="date"
                 className="form-input"
                 value={issueDate}
                 onChange={e => setIssueDate(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label required">Fecha de vencimiento</label>
-              <input
-                type="date"
-                className="form-input"
-                value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
               />
             </div>
           </div>
@@ -343,16 +234,15 @@ export default function NuevaFacturaPage() {
           )}
         </div>
 
-        {/* Line Items */}
         <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Líneas de factura</h3>
+          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Líneas del albarán</h3>
 
           <div className="line-items">
             <div className="line-items-header">
               <span>Producto</span>
               <span>Cantidad</span>
               <span>Precio ud.</span>
-              <span>IVA</span>
+              <span>{getTaxLabel(settings)}</span>
               <span>Dto. %</span>
               <span style={{ textAlign: 'right' }}>Subtotal</span>
               <span></span>
@@ -419,7 +309,6 @@ export default function NuevaFacturaPage() {
             </div>
           </div>
 
-          {/* Totals */}
           <div className="invoice-totals">
             <div className="invoice-totals-table">
               <div className="invoice-totals-row">
@@ -434,7 +323,7 @@ export default function NuevaFacturaPage() {
               )}
               {totals.taxBreakdown.map(tb => (
                 <div className="invoice-totals-row" key={tb.rate}>
-                  <span className="label">IVA {tb.rate}% (base {formatCurrency(tb.base)})</span>
+                  <span className="label">{getTaxLabel(settings)} {tb.rate}% (base {formatCurrency(tb.base)})</span>
                   <span className="value">{formatCurrency(tb.amount)}</span>
                 </div>
               ))}
@@ -446,31 +335,17 @@ export default function NuevaFacturaPage() {
           </div>
         </div>
 
-        {/* Notes */}
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Observaciones</h3>
           <textarea
             className="form-textarea"
-            placeholder="Notas adicionales que aparecerán en la factura..."
+            placeholder="Notas que aparecerán en el albarán..."
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={3}
           />
         </div>
-
-        {clientId && (
-          <AbonoPanel key={clientId} clientId={clientId} invoiceTotal={totals.total} onSelection={setAbonoSelection} />
-        )}
       </div>
-
-      {paywallState && (
-        <SubscriptionPaywallModal
-          title={paywallState.title}
-          description={paywallState.description}
-          requiredPlan={paywallState.requiredPlan}
-          onClose={() => setPaywallState(null)}
-        />
-      )}
     </div>
   );
 }

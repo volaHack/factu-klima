@@ -6,7 +6,8 @@ import { Plus, Trash2, Save, Send, ArrowLeft, Lock } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
-  getInvoiceById, getClients, getProducts, saveInvoice, issueInvoice, isSealed, getOnboardingStatus
+  getInvoiceById, getClients, getProducts, saveInvoice, issueInvoice, isSealed, getOnboardingStatus,
+  applyAbonoToInvoice
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
@@ -15,6 +16,7 @@ import {
 import { formatCurrency, calculateInvoiceTotals, generateId } from '@/lib/utils';
 import { TAX_RATES, PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 
 function createEmptyLine(): InvoiceLineItem {
   return {
@@ -40,6 +42,7 @@ export default function EditInvoicePage() {
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([createEmptyLine()]);
   const [originalInvoice, setOriginalInvoice] = useState<Invoice | null>(null);
+  const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -130,9 +133,27 @@ export default function EditInvoicePage() {
         success('Borrador actualizado', originalInvoice.number);
       } else {
         const issued = await issueInvoice(updated);
+
+        let abonoNote = '';
+        if (abonoSelection && abonoSelection.amount > 0) {
+          await applyAbonoToInvoice(abonoSelection.abono.id, updated.id, originalInvoice.number, abonoSelection.amount);
+          const restante = Number((updated.total - abonoSelection.amount).toFixed(2));
+          if (restante <= 0.01) {
+            await saveInvoice({
+              ...issued,
+              status: InvoiceStatus.PAGADA,
+              paidDate: new Date().toISOString().split('T')[0],
+              updatedAt: new Date().toISOString(),
+            });
+            abonoNote = ' · abono aplicado, factura cobrada';
+          } else {
+            abonoNote = ' · abono aplicado';
+          }
+        }
+
         success(
           'Factura emitida y sellada',
-          `${originalInvoice.number} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…`
+          `${originalInvoice.number} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
         );
       }
       router.push(`/facturas/${originalInvoice.id}`);
@@ -211,7 +232,7 @@ export default function EditInvoicePage() {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label required">Cliente</label>
-              <select className="form-select" value={clientId} onChange={e => setClientId(e.target.value)}>
+              <select className="form-select" value={clientId} onChange={e => { setClientId(e.target.value); setAbonoSelection(null); }}>
                 <option value="">-- Seleccionar --</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.tradeName || c.businessName} ({c.nif})</option>)}
               </select>
@@ -279,6 +300,12 @@ export default function EditInvoicePage() {
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Observaciones</h3>
           <textarea className="form-textarea" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Notas..." />
         </div>
+
+        {clientId && (
+          <div style={{ marginTop: 'var(--space-6)' }}>
+            <AbonoPanel key={clientId} clientId={clientId} invoiceTotal={totals.total} onSelection={setAbonoSelection} />
+          </div>
+        )}
       </div>
     </div>
   );

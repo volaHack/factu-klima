@@ -5,12 +5,15 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
   'invoice_line_items' | 'invoice_tax_breakdown' | 'order_approvals' |
-  'order_approval_items' | 'user_profiles' | 'pos_sessions';
+  'order_approval_items' | 'user_profiles' | 'pos_sessions' |
+  'albaranes' | 'albaran_line_items' |
+  'devoluciones' | 'devolucion_line_items' |
+  'abonos' | 'abono_aplicaciones';
 
 export interface SyncQueueItem {
   id: string;
@@ -70,6 +73,20 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('open_checks')) {
         db.createObjectStore('open_checks', { keyPath: 'id' });
+      }
+
+      // Stores nuevas (v3) — albaranes, devoluciones y abonos (offline-first).
+      for (const storeName of [
+        'albaranes',
+        'albaran_line_items',
+        'devoluciones',
+        'devolucion_line_items',
+        'abonos',
+        'abono_aplicaciones',
+      ]) {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'id' });
+        }
       }
     };
 
@@ -139,7 +156,7 @@ export async function remove(storeName: string, id: string): Promise<void> {
   await promisifyRequest(store.delete(id));
 }
 
-const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks'];
+const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks', 'albaranes', 'albaran_line_items', 'devoluciones', 'devolucion_line_items', 'abonos', 'abono_aplicaciones'];
 
 /**
  * Limpia toda la caché local de IndexedDB. Se llama al cerrar sesión para

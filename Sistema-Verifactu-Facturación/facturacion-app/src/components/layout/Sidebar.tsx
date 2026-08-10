@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
+  ClipboardList, RotateCcw,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -53,6 +54,8 @@ const baseNavItems = [
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
+  { href: '/albaranes', label: 'Albaranes', icon: ClipboardList },
+  { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw },
 ];
 
 const controlItems = [
@@ -146,7 +149,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         {/* Navigation */}
         <nav className="sidebar-nav">
           <span className="sidebar-section-label">Gestión operativa</span>
-          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV', icon: Store }] : baseNavItems).map(item => (
+          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV (Caja)', icon: Store }] : baseNavItems).map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
 

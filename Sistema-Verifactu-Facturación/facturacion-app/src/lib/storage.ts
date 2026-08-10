@@ -8,11 +8,10 @@ import { createClient } from '@/lib/supabase/client';
 import {
   getAll, getById, put, putMany, remove as removeFromDb,
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
-  getMeta, setMeta,
 } from './offlineDb';
-import { Client, CompanySettings, CustomCategory, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TaxBreakdown, TpvMode, UserProfile } from './types';
+import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TpvMode, UserProfile } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
-import { generateId } from './utils';
+import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 
 function supabase() {
@@ -936,6 +935,811 @@ export async function closePosSession(sessionId: string, countedCash: number): P
 }
 
 // ============================================================
+// ALBARANES (documento de entrega / preparación)
+// ============================================================
+
+export async function getAlbaranes(): Promise<Albaran[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('albaranes');
+    if (cached.length > 0) {
+      backgroundRefresh('albaranes', () =>
+        supabase().from('albaranes').select('*').order('issue_date', { ascending: false })
+      );
+      return cached.map((a) => mapAlbaranFromDb(a, a._lineItems || []));
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('albaranes')
+    .select('*')
+    .order('issue_date', { ascending: false });
+  if (error || !data) return [];
+
+  const ids = data.map((a: { id: string }) => a.id);
+  const { data: lineItems } = await supabase()
+    .from('albaran_line_items')
+    .select('*')
+    .in('albaran_id', ids)
+    .order('sort_order', { ascending: true });
+
+  const out = data.map((a: { id: string }) =>
+    mapAlbaranFromDb(a, (lineItems || []).filter((li: { albaran_id: string }) => li.albaran_id === a.id)));
+
+  if (offlineAvail) {
+    await clearStore('albaranes');
+    await putMany('albaranes', data.map((a: { id: string }) => ({
+      ...a,
+      _lineItems: (lineItems || []).filter((li: { albaran_id: string }) => li.albaran_id === a.id),
+    })));
+  }
+
+  return out;
+}
+
+export async function getAlbaranById(id: string): Promise<Albaran | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getById<any>('albaranes', id);
+    if (cached) return mapAlbaranFromDb(cached, cached._lineItems || []);
+  }
+
+  if (!navigator.onLine) return undefined;
+
+  const { data: albaran } = await supabase()
+    .from('albaranes')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (!albaran) return undefined;
+
+  const { data: lineItems } = await supabase()
+    .from('albaran_line_items')
+    .select('*')
+    .eq('albaran_id', id)
+    .order('sort_order', { ascending: true });
+
+  const mapped = mapAlbaranFromDb(albaran, lineItems || []);
+  if (offlineAvail) {
+    await put('albaranes', { ...albaran, _lineItems: lineItems || [] });
+  }
+  return mapped;
+}
+
+export async function saveAlbaran(albaran: Albaran): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: albaran.id,
+    user_id: userId,
+    number: albaran.number,
+    series: albaran.series,
+    client_id: albaran.clientId || null,
+    client_name: albaran.clientName,
+    client_nif: albaran.clientNif,
+    client_address: albaran.clientAddress,
+    issue_date: albaran.issueDate,
+    status: albaran.status,
+    subtotal: albaran.subtotal,
+    total_discount: albaran.totalDiscount,
+    total_tax: albaran.totalTax,
+    total: albaran.total,
+    notes: albaran.notes,
+    invoice_id: albaran.invoiceId || null,
+  };
+
+  const lineRows = albaran.lineItems.map((li, idx) => ({
+    id: li.id,
+    albaran_id: albaran.id,
+    product_id: li.productId || null,
+    product_name: li.productName,
+    product_ref: li.productRef,
+    quantity: li.quantity,
+    unit_price: li.unitPrice,
+    unit: li.unit,
+    tax_rate: li.taxRate,
+    discount_percent: li.discountPercent,
+    subtotal: li.subtotal,
+    tax_amount: li.taxAmount,
+    total: li.total,
+    sort_order: idx,
+  }));
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('albaranes', { ...row, _lineItems: lineRows });
+  }
+
+  if (navigator.onLine) {
+    const { error: headerError } = await supabase().from('albaranes').upsert(row);
+    if (headerError) throw new Error(translateDbError(headerError));
+
+    await supabase().from('albaran_line_items').delete().eq('albaran_id', albaran.id);
+    if (lineRows.length > 0) {
+      const { error } = await supabase().from('albaran_line_items').insert(lineRows);
+      if (error) throw new Error(translateDbError(error));
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'albaranes', row);
+    for (const lr of lineRows) {
+      await enqueueSyncAction('upsert', 'albaran_line_items', lr);
+    }
+  }
+}
+
+/** Sólo se borran albaranes en borrador: un albarán expedido/facturado es un registro de entrega. */
+export async function deleteAlbaran(id: string): Promise<void> {
+  const albaran = await getAlbaranById(id);
+  if (albaran && albaran.status !== 'borrador') {
+    throw new Error(`El albarán ${albaran.number} ya está ${albaran.status}. Sólo se pueden borrar borradores.`);
+  }
+  if (!navigator.onLine) {
+    throw new Error('Eliminar un albarán requiere conexión.');
+  }
+
+  const { error } = await supabase().from('albaranes').delete().eq('id', id);
+  if (error) throw new Error(translateDbError(error));
+
+  if (await isOfflineDbAvailable()) {
+    await removeFromDb('albaranes', id);
+  }
+}
+
+/**
+ * Expide el albarán: lo marca como entregado y descuenta el stock de los
+ * productos despachados. Es el único momento en que el albarán toca el
+ * stock (la conversión a factura no vuelve a descontar).
+ */
+export async function expedirAlbaran(id: string): Promise<Albaran> {
+  const albaran = await getAlbaranById(id);
+  if (!albaran) throw new Error('Albarán no encontrado.');
+  if (albaran.status !== 'borrador') {
+    throw new Error(`El albarán ${albaran.number} ya no está en borrador.`);
+  }
+  if (albaran.lineItems.length === 0) {
+    throw new Error('No se puede expedir un albarán sin líneas.');
+  }
+
+  const updated: Albaran = {
+    ...albaran,
+    status: 'expedido',
+    updatedAt: new Date().toISOString(),
+  };
+  await saveAlbaran(updated);
+
+  // Descuento de stock (mejor esfuerzo: si una línea no tiene producto
+  // asociado — venta sin ficha — simplemente se omite).
+  for (const li of albaran.lineItems) {
+    if (!li.productId || li.quantity <= 0) continue;
+    try {
+      await adjustStock(li.productId, -li.quantity);
+    } catch (err) {
+      console.warn(`Stock no actualizado para ${li.productName}:`, err);
+    }
+  }
+
+  return updated;
+}
+
+export async function anularAlbaran(id: string): Promise<Albaran> {
+  const albaran = await getAlbaranById(id);
+  if (!albaran) throw new Error('Albarán no encontrado.');
+  if (albaran.status === 'facturado') {
+    throw new Error(`El albarán ${albaran.number} ya está facturado. No se puede anular.`);
+  }
+  const updated: Albaran = {
+    ...albaran,
+    status: 'anulado',
+    updatedAt: new Date().toISOString(),
+  };
+  await saveAlbaran(updated);
+  return updated;
+}
+
+/**
+ * Convierte albaranes EXPEDIDOS en facturas borrador.
+ * - Si todos los albaranes son del mismo cliente, genera una única factura.
+ * - Si hay varios clientes, genera una factura por cliente (facturación
+ *   agrupada: todos los albaranes del mes de un cliente van a una factura).
+ * Cada albarán queda con estado 'facturado' y enlazado a su factura.
+ */
+export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<Invoice[]> {
+  if (albaranIds.length === 0) return [];
+
+  const all = await getAlbaranes();
+  const seleccionados = all.filter(a => albaranIds.includes(a.id) && a.status === 'expedido');
+  if (seleccionados.length === 0) {
+    throw new Error('No hay albaranes expedidos en la selección.');
+  }
+
+  const settings = await getCompanySettings();
+  // Agrupamos por cliente para facturar "en conjunto".
+  const porCliente = new Map<string, Albaran[]>();
+  for (const a of seleccionados) {
+    const list = porCliente.get(a.clientId) || [];
+    list.push(a);
+    porCliente.set(a.clientId, list);
+  }
+
+  const invoices: Invoice[] = [];
+
+  for (const [, grupo] of porCliente) {
+    const numero = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
+    const primero = grupo[0];
+    const lineItems: InvoiceLineItem[] = grupo.flatMap(a => a.lineItems.map(li => ({
+      id: generateId(),
+      productId: li.productId,
+      productName: li.productName,
+      productRef: li.productRef,
+      quantity: li.quantity,
+      unitPrice: li.unitPrice,
+      unit: li.unit,
+      taxRate: li.taxRate,
+      discountPercent: li.discountPercent,
+      subtotal: li.subtotal,
+      taxAmount: li.taxAmount,
+      total: li.total,
+    })));
+
+    const totals = calculateInvoiceTotals(lineItems);
+    const issueDate = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    const invoice: Invoice = {
+      id: generateId(),
+      number: numero,
+      series: settings.invoiceSeries,
+      clientId: primero.clientId,
+      clientName: primero.clientName,
+      clientNif: primero.clientNif,
+      clientAddress: primero.clientAddress,
+      issueDate,
+      dueDate: addDays(issueDate, settings.defaultPaymentDays),
+      status: InvoiceStatus.BORRADOR,
+      lineItems,
+      ...totals,
+      paymentMethod: settings.defaultPaymentMethod,
+      notes: `Factura agrupada de albaranes: ${grupo.map(a => a.number).join(', ')}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await saveInvoice(invoice);
+    settings.nextInvoiceNumber += 1;
+    invoices.push(invoice);
+
+    for (const a of grupo) {
+      await saveAlbaran({
+        ...a,
+        status: 'facturado',
+        invoiceId: invoice.id,
+        updatedAt: now,
+      });
+    }
+  }
+
+  await saveCompanySettings(settings);
+  return invoices;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapAlbaranFromDb(a: any, lineItems: any[]): Albaran {
+  const lines = lineItems.map(mapLineItemFromDb);
+  const totals = calculateInvoiceTotals(lines);
+  return {
+    id: a.id,
+    number: a.number,
+    series: a.series,
+    clientId: a.client_id || '',
+    clientName: a.client_name,
+    clientNif: a.client_nif || '',
+    clientAddress: a.client_address || '',
+    issueDate: a.issue_date,
+    status: a.status,
+    lineItems: lines,
+    subtotal: Number(a.subtotal ?? totals.subtotal),
+    totalDiscount: Number(a.total_discount ?? totals.totalDiscount),
+    taxBreakdown: totals.taxBreakdown,
+    totalTax: Number(a.total_tax ?? totals.totalTax),
+    total: Number(a.total ?? totals.total),
+    notes: a.notes || '',
+    invoiceId: a.invoice_id || undefined,
+    createdAt: a.created_at,
+    updatedAt: a.updated_at,
+  };
+}
+
+// ============================================================
+// DEVOLUCIONES (mercancía devuelta: roturas, defectos…)
+// ============================================================
+
+export async function getDevoluciones(): Promise<Devolucion[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('devoluciones');
+    if (cached.length > 0) {
+      backgroundRefresh('devoluciones', () =>
+        supabase().from('devoluciones').select('*').order('issue_date', { ascending: false })
+      );
+      return cached.map(d => mapDevolucionFromDb(d, d._lineItems || []));
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('devoluciones')
+    .select('*')
+    .order('issue_date', { ascending: false });
+  if (error || !data) return [];
+
+  const ids = data.map((d: { id: string }) => d.id);
+  const { data: lineItems } = await supabase()
+    .from('devolucion_line_items')
+    .select('*')
+    .in('devolucion_id', ids)
+    .order('sort_order', { ascending: true });
+
+  const out = data.map((d: { id: string }) =>
+    mapDevolucionFromDb(d, (lineItems || []).filter((li: { devolucion_id: string }) => li.devolucion_id === d.id)));
+
+  if (offlineAvail) {
+    await clearStore('devoluciones');
+    await putMany('devoluciones', data.map((d: { id: string }) => ({
+      ...d,
+      _lineItems: (lineItems || []).filter((li: { devolucion_id: string }) => li.devolucion_id === d.id),
+    })));
+  }
+
+  return out;
+}
+
+export async function getDevolucionById(id: string): Promise<Devolucion | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getById<any>('devoluciones', id);
+    if (cached) return mapDevolucionFromDb(cached, cached._lineItems || []);
+  }
+
+  if (!navigator.onLine) return undefined;
+
+  const { data: devolucion } = await supabase()
+    .from('devoluciones')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (!devolucion) return undefined;
+
+  const { data: lineItems } = await supabase()
+    .from('devolucion_line_items')
+    .select('*')
+    .eq('devolucion_id', id)
+    .order('sort_order', { ascending: true });
+
+  const mapped = mapDevolucionFromDb(devolucion, lineItems || []);
+  if (offlineAvail) {
+    await put('devoluciones', { ...devolucion, _lineItems: lineItems || [] });
+  }
+  return mapped;
+}
+
+export async function saveDevolucion(devolucion: Devolucion): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: devolucion.id,
+    user_id: userId,
+    number: devolucion.number,
+    series: devolucion.series,
+    origin: devolucion.origin,
+    origin_id: devolucion.originId || null,
+    origin_number: devolucion.originNumber || null,
+    client_id: devolucion.clientId || null,
+    client_name: devolucion.clientName,
+    client_nif: devolucion.clientNif,
+    issue_date: devolucion.issueDate,
+    reason: devolucion.reason,
+    reason_note: devolucion.reasonNote,
+    status: devolucion.status,
+    total: devolucion.total,
+    notes: devolucion.notes,
+    abono_id: devolucion.abonoId || null,
+  };
+
+  const lineRows = devolucion.lineItems.map((li, idx) => ({
+    id: li.id,
+    devolucion_id: devolucion.id,
+    product_id: li.productId || null,
+    product_name: li.productName,
+    product_ref: li.productRef,
+    quantity: li.quantity,
+    unit_price: li.unitPrice,
+    unit: li.unit,
+    tax_rate: li.taxRate,
+    total: li.total,
+    restock: li.restock,
+    sort_order: idx,
+  }));
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('devoluciones', { ...row, _lineItems: lineRows });
+  }
+
+  if (navigator.onLine) {
+    const { error: headerError } = await supabase().from('devoluciones').upsert(row);
+    if (headerError) throw new Error(translateDbError(headerError));
+
+    await supabase().from('devolucion_line_items').delete().eq('devolucion_id', devolucion.id);
+    if (lineRows.length > 0) {
+      const { error } = await supabase().from('devolucion_line_items').insert(lineRows);
+      if (error) throw new Error(translateDbError(error));
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'devoluciones', row);
+    for (const lr of lineRows) {
+      await enqueueSyncAction('upsert', 'devolucion_line_items', lr);
+    }
+  }
+}
+
+export async function deleteDevolucion(id: string): Promise<void> {
+  if (!navigator.onLine) {
+    throw new Error('Eliminar una devolución requiere conexión.');
+  }
+  const { error } = await supabase().from('devoluciones').delete().eq('id', id);
+  if (error) throw new Error(translateDbError(error));
+
+  if (await isOfflineDbAvailable()) {
+    await removeFromDb('devoluciones', id);
+  }
+}
+
+/**
+ * Registra una devolución: opcionalmente repone el stock de las líneas
+ * marcadas para re-stock y genera un abono (nota de crédito) a favor del
+ * cliente por el importe total devuelto.
+ */
+export async function createDevolucion(
+  devolucion: Devolucion,
+  opts: { restock?: boolean; generateAbono?: boolean } = {},
+): Promise<Devolucion> {
+  const restock = opts.restock ?? true;
+  const generateAbono = opts.generateAbono ?? false;
+
+  // Reposición de stock antes de persistir: si algo falla no queda media devolución.
+  if (restock) {
+    for (const li of devolucion.lineItems) {
+      if (!li.productId || li.quantity <= 0 || !li.restock) continue;
+      await adjustStock(li.productId, li.quantity);
+    }
+  }
+
+  let final: Devolucion = devolucion;
+
+  if (generateAbono) {
+    const settings = await getCompanySettings();
+    const abono: Abono = {
+      id: generateId(),
+      number: generateInvoiceNumber(settings.abonoSeries || 'ABO', settings.nextAbonoNumber || 1),
+      series: settings.abonoSeries || 'ABO',
+      clientId: devolucion.clientId,
+      clientName: devolucion.clientName,
+      clientNif: devolucion.clientNif,
+      issueDate: devolucion.issueDate,
+      total: Number(devolucion.total.toFixed(2)),
+      usedAmount: 0,
+      status: 'emitido',
+      devolucionId: devolucion.id,
+      reason: `Abono de la devolución ${devolucion.number}`,
+      notes: devolucion.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveAbono(abono);
+    settings.nextAbonoNumber = (settings.nextAbonoNumber || 1) + 1;
+    await saveCompanySettings(settings);
+
+    final = {
+      ...devolucion,
+      status: 'abonada',
+      abonoId: abono.id,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  await saveDevolucion(final);
+  return final;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapDevolucionFromDb(d: any, lineItems: any[]): Devolucion {
+  return {
+    id: d.id,
+    number: d.number,
+    series: d.series,
+    origin: d.origin || 'manual',
+    originId: d.origin_id || undefined,
+    originNumber: d.origin_number || undefined,
+    clientId: d.client_id || '',
+    clientName: d.client_name,
+    clientNif: d.client_nif || '',
+    issueDate: d.issue_date,
+    reason: d.reason || 'otro',
+    reasonNote: d.reason_note || '',
+    status: d.status,
+    lineItems: (lineItems || []).map(li => ({
+      id: li.id,
+      productId: li.product_id || '',
+      productName: li.product_name,
+      productRef: li.product_ref || '',
+      quantity: Number(li.quantity),
+      unitPrice: Number(li.unit_price),
+      unit: li.unit,
+      taxRate: li.tax_rate,
+      total: Number(li.total),
+      restock: li.restock ?? true,
+    })),
+    total: Number(d.total),
+    notes: d.notes || '',
+    abonoId: d.abono_id || undefined,
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+  };
+}
+
+// ============================================================
+// ABONOS (nota de crédito a favor del cliente)
+// ============================================================
+
+export async function getAbonos(): Promise<Abono[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('abonos');
+    if (cached.length > 0) {
+      backgroundRefresh('abonos', () =>
+        supabase().from('abonos').select('*').order('issue_date', { ascending: false })
+      );
+      return cached.map(mapAbonoFromDb);
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('abonos')
+    .select('*')
+    .order('issue_date', { ascending: false });
+  if (error || !data) return [];
+
+  if (offlineAvail) {
+    await clearStore('abonos');
+    await putMany('abonos', data);
+  }
+
+  return data.map(mapAbonoFromDb);
+}
+
+export async function getAbonoById(id: string): Promise<Abono | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getById<any>('abonos', id);
+    if (cached) return mapAbonoFromDb(cached);
+  }
+
+  if (!navigator.onLine) return undefined;
+
+  const { data } = await supabase()
+    .from('abonos')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (data && offlineAvail) {
+    await put('abonos', data);
+  }
+  return data ? mapAbonoFromDb(data) : undefined;
+}
+
+/** Abonos activos de un cliente (no anulados y con saldo disponible). */
+export async function getAbonosByClient(clientId: string): Promise<Abono[]> {
+  const all = await getAbonos();
+  return all.filter(a =>
+    a.clientId === clientId &&
+    a.status !== 'anulado' &&
+    a.usedAmount < a.total
+  );
+}
+
+export async function getClientAbonoBalance(clientId: string): Promise<number> {
+  const abonos = await getAbonosByClient(clientId);
+  return Number(abonos.reduce((sum, a) => sum + (a.total - a.usedAmount), 0).toFixed(2));
+}
+
+export async function saveAbono(abono: Abono): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: abono.id,
+    user_id: userId,
+    number: abono.number,
+    series: abono.series,
+    client_id: abono.clientId || null,
+    client_name: abono.clientName,
+    client_nif: abono.clientNif,
+    issue_date: abono.issueDate,
+    total: abono.total,
+    used_amount: abono.usedAmount,
+    status: abono.status,
+    devolucion_id: abono.devolucionId || null,
+    reason: abono.reason,
+    notes: abono.notes,
+  };
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('abonos', row);
+  }
+
+  if (navigator.onLine) {
+    try {
+      const { error } = await supabase().from('abonos').upsert(row);
+      if (error) await enqueueSyncAction('upsert', 'abonos', row);
+    } catch {
+      await enqueueSyncAction('upsert', 'abonos', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'abonos', row);
+  }
+}
+
+/** Sólo se pueden borrar abonos emitidos sin uso. */
+export async function deleteAbono(id: string): Promise<void> {
+  const abono = await getAbonoById(id);
+  if (abono && abono.usedAmount > 0) {
+    throw new Error(`El abono ${abono.number} ya tiene ${formatCurrency(abono.usedAmount)} aplicados. No se puede borrar.`);
+  }
+  if (!navigator.onLine) {
+    throw new Error('Eliminar un abono requiere conexión.');
+  }
+  const { error } = await supabase().from('abonos').delete().eq('id', id);
+  if (error) throw new Error(translateDbError(error));
+
+  if (await isOfflineDbAvailable()) {
+    await removeFromDb('abonos', id);
+  }
+}
+
+export async function anularAbono(id: string): Promise<Abono> {
+  const abono = await getAbonoById(id);
+  if (!abono) throw new Error('Abono no encontrado.');
+  if (abono.usedAmount > 0) {
+    throw new Error(`El abono ${abono.number} ya tiene ${formatCurrency(abono.usedAmount)} aplicados. No se puede anular.`);
+  }
+  const updated: Abono = { ...abono, status: 'anulado', updatedAt: new Date().toISOString() };
+  await saveAbono(updated);
+  return updated;
+}
+
+/**
+ * Aplica un abono sobre una factura: registra la aplicación y descuenta el
+ * saldo usado del abono. La factura NO cambia su total sellado (el abono es
+ * una nota de crédito que compensa la deuda, no una rebaja del documento).
+ */
+export async function applyAbonoToInvoice(
+  abonoId: string,
+  invoiceId: string,
+  invoiceNumber: string,
+  amount: number,
+): Promise<void> {
+  const abono = await getAbonoById(abonoId);
+  if (!abono) throw new Error('Abono no encontrado.');
+  if (abono.status === 'anulado') throw new Error('No se puede aplicar un abono anulado.');
+  const disponible = Number((abono.total - abono.usedAmount).toFixed(2));
+  if (amount <= 0) throw new Error('El importe a aplicar debe ser mayor que cero.');
+  if (amount > disponible) {
+    throw new Error(`El abono ${abono.number} sólo tiene ${formatCurrency(disponible)} disponibles.`);
+  }
+
+  const aplicacion: AbonoAplicacion = {
+    id: generateId(),
+    abonoId,
+    invoiceId,
+    invoiceNumber,
+    amount: Number(amount.toFixed(2)),
+    appliedAt: new Date().toISOString(),
+  };
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('abono_aplicaciones', aplicacion);
+  }
+
+  if (navigator.onLine) {
+    try {
+      const { error } = await supabase().from('abono_aplicaciones').insert({
+        id: aplicacion.id,
+        abono_id: aplicacion.abonoId,
+        invoice_id: aplicacion.invoiceId,
+        invoice_number: aplicacion.invoiceNumber,
+        amount: aplicacion.amount,
+        applied_at: aplicacion.appliedAt,
+      });
+      if (error) await enqueueSyncAction('upsert', 'abono_aplicaciones', aplicacion as unknown as Record<string, unknown>);
+    } catch {
+      await enqueueSyncAction('upsert', 'abono_aplicaciones', aplicacion as unknown as Record<string, unknown>);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'abono_aplicaciones', aplicacion as unknown as Record<string, unknown>);
+  }
+
+  const newUsed = Number((abono.usedAmount + aplicacion.amount).toFixed(2));
+  const status: Abono['status'] = newUsed >= abono.total ? 'usado' : 'parcial';
+  await saveAbono({ ...abono, usedAmount: newUsed, status, updatedAt: new Date().toISOString() });
+}
+
+export async function getAbonoAplicacionesByInvoice(invoiceId: string): Promise<AbonoAplicacion[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const all = await getAll<any>('abono_aplicaciones');
+    return all.filter(a => a.invoice_id === invoiceId).map(mapAplicacionFromDb);
+  }
+  if (!navigator.onLine) return [];
+  const { data } = await supabase()
+    .from('abono_aplicaciones')
+    .select('*')
+    .eq('invoice_id', invoiceId);
+  return (data || []).map(mapAplicacionFromDb);
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapAbonoFromDb(a: any): Abono {
+  return {
+    id: a.id,
+    number: a.number,
+    series: a.series,
+    clientId: a.client_id || '',
+    clientName: a.client_name,
+    clientNif: a.client_nif || '',
+    issueDate: a.issue_date,
+    total: Number(a.total),
+    usedAmount: Number(a.used_amount ?? 0),
+    status: a.status,
+    devolucionId: a.devolucion_id || undefined,
+    reason: a.reason || '',
+    notes: a.notes || '',
+    createdAt: a.created_at,
+    updatedAt: a.updated_at,
+  };
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapAplicacionFromDb(ap: any): AbonoAplicacion {
+  return {
+    id: ap.id || ap._id,
+    abonoId: ap.abono_id,
+    invoiceId: ap.invoice_id,
+    invoiceNumber: ap.invoice_number,
+    amount: Number(ap.amount),
+    appliedAt: ap.applied_at || ap.appliedAt,
+  };
+}
+
+// ============================================================
+// COMPANY SETTINGS
+// ============================================================
 // COMPANY SETTINGS
 // ============================================================
 
@@ -1028,6 +1832,15 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     tpv_series: settings.tpvSeries,
     next_tpv_number: settings.nextTpvNumber,
     tpv_mode: settings.tpvMode ?? defaultTpvModeForSector(settings.sector),
+    tpv_enabled: settings.tpvEnabled === undefined ? null : settings.tpvEnabled,
+    igic_enabled: settings.igicEnabled ?? false,
+    stripe_enabled: settings.stripeEnabled ?? false,
+    albaran_series: settings.albaranSeries || 'ALB',
+    next_albaran_number: settings.nextAlbaranNumber || 1,
+    devolucion_series: settings.devolucionSeries || 'DEV',
+    next_devolucion_number: settings.nextDevolucionNumber || 1,
+    abono_series: settings.abonoSeries || 'ABO',
+    next_abono_number: settings.nextAbonoNumber || 1,
     default_payment_days: settings.defaultPaymentDays,
     default_payment_method: settings.defaultPaymentMethod,
     invoice_footer_text: settings.invoiceFooterText,
@@ -1311,6 +2124,15 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     tpvSeries: s.tpv_series || 'TPV',
     nextTpvNumber: s.next_tpv_number || 1,
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),
+    tpvEnabled: s.tpv_enabled == null ? undefined : Boolean(s.tpv_enabled),
+    igicEnabled: s.igic_enabled ?? false,
+    stripeEnabled: s.stripe_enabled ?? false,
+    albaranSeries: s.albaran_series || 'ALB',
+    nextAlbaranNumber: s.next_albaran_number || 1,
+    devolucionSeries: s.devolucion_series || 'DEV',
+    nextDevolucionNumber: s.next_devolucion_number || 1,
+    abonoSeries: s.abono_series || 'ABO',
+    nextAbonoNumber: s.next_abono_number || 1,
     defaultPaymentDays: s.default_payment_days || 30,
     defaultPaymentMethod: s.default_payment_method || 'transferencia',
     invoiceFooterText: s.invoice_footer_text || '',

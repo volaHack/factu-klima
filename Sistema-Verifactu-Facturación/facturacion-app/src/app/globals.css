@@ -908,6 +908,16 @@ a:hover { color: var(--accent-300); }
 .badge-pagada { background: var(--color-success-bg); color: var(--color-success); }
 .badge-vencida { background: var(--color-danger-bg); color: var(--color-danger); }
 .badge-anulada { background: rgba(113, 113, 122, 0.08); color: var(--text-muted); text-decoration: line-through; }
+/* Albaranes (borrador reutiliza badge-borrador) */
+.badge-expedido { background: var(--color-info-bg); color: var(--color-info); }
+.badge-facturado { background: var(--color-success-bg); color: var(--color-success); }
+/* Devoluciones y abonos */
+.badge-emitido { background: var(--color-info-bg); color: var(--color-info); }
+.badge-registrada { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge-abonada { background: var(--color-success-bg); color: var(--color-success); }
+.badge-parcial { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge-usado { background: var(--color-success-bg); color: var(--color-success); }
+.badge-anulado { background: rgba(113, 113, 122, 0.08); color: var(--text-muted); text-decoration: line-through; }
 /* Activo/Inactivo: no reutiliza badge-anulada (factura anulada) porque esa
    trae tachado — visualmente incorrecto para un simple registro inactivo. */
 .badge-activo { background: var(--color-success-bg); color: var(--color-success); }

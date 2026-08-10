@@ -104,6 +104,12 @@ const TABLE_MAP: Record<SyncTable, string> = {
   order_approval_items: 'order_approval_items',
   user_profiles: 'user_profiles',
   pos_sessions: 'pos_sessions',
+  albaranes: 'albaranes',
+  albaran_line_items: 'albaran_line_items',
+  devoluciones: 'devoluciones',
+  devolucion_line_items: 'devolucion_line_items',
+  abonos: 'abonos',
+  abono_aplicaciones: 'abono_aplicaciones',
 };
 
 /**

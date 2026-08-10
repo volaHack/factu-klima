@@ -4,7 +4,7 @@
 // ============================================================
 
 import {
-  InvoiceStatus, PaymentMethod, ProductCategory, TaxRate, UnitOfMeasure,
+  InvoiceStatus, PaymentMethod, TaxRate, UnitOfMeasure,
   BusinessSector, AccentTheme, CompanySettings, TpvMode
 } from './types';
 
@@ -125,10 +125,39 @@ export const INVOICE_STATUSES = [
   { value: InvoiceStatus.ANULADA, label: 'Anulada', color: 'var(--color-neutral)' },
 ];
 
+// --- Albaranes (documento de entrega) ---
+export const ALBARAN_STATUSES = [
+  { value: 'borrador', label: 'Borrador', color: 'var(--color-neutral)' },
+  { value: 'expedido', label: 'Expedido', color: 'var(--color-info)' },
+  { value: 'facturado', label: 'Facturado', color: 'var(--color-success)' },
+  { value: 'anulado', label: 'Anulado', color: 'var(--color-neutral)' },
+] as const;
+
+// --- Devoluciones ---
+export const DEVOLUCION_STATUSES = [
+  { value: 'registrada', label: 'Registrada', color: 'var(--color-info)' },
+  { value: 'abonada', label: 'Abonada', color: 'var(--color-success)' },
+] as const;
+
+export const DEVOLUCION_REASONS = [
+  { value: 'rotura', label: 'Rotura / avería', color: 'var(--color-danger)' },
+  { value: 'defecto', label: 'Defecto de fábrica', color: 'var(--color-warning)' },
+  { value: 'error', label: 'Error del pedido', color: 'var(--color-info)' },
+  { value: 'vencido', label: 'Producto caducado', color: 'var(--color-warning)' },
+  { value: 'otro', label: 'Otro', color: 'var(--color-neutral)' },
+] as const;
+
+// --- Abonos (nota de crédito) ---
+export const ABONO_STATUSES = [
+  { value: 'emitido', label: 'Emitido', color: 'var(--color-info)' },
+  { value: 'parcial', label: 'Aplicado parcial', color: 'var(--color-warning)' },
+  { value: 'usado', label: 'Aplicado por completo', color: 'var(--color-success)' },
+  { value: 'anulado', label: 'Anulado', color: 'var(--color-neutral)' },
+] as const;
+
 // --- Payment methods ---
 export const PAYMENT_METHODS = [
-  { value: PaymentMethod.TRANSFERENCIA, label: 'Transferencia bancaria' },
-  { value: PaymentMethod.EFECTIVO, label: 'Efectivo' },
+  { value: PaymentMethod.TRANSFERENCIA, label: 'Transferencia bancaria' },  { value: PaymentMethod.EFECTIVO, label: 'Efectivo' },
   { value: PaymentMethod.DOMICILIACION, label: 'Domiciliación bancaria' },
   { value: PaymentMethod.PAGARE, label: 'Pagaré' },
   { value: PaymentMethod.TARJETA, label: 'Tarjeta de crédito/débito' },
@@ -252,6 +281,12 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   igicEnabled: false,
   planId: 'basico',
   subscriptionStatus: 'inactive',
+  albaranSeries: 'ALB',
+  nextAlbaranNumber: 1,
+  devolucionSeries: 'DEV',
+  nextDevolucionNumber: 1,
+  abonoSeries: 'ABO',
+  nextAbonoNumber: 1,
 };
 
 /**

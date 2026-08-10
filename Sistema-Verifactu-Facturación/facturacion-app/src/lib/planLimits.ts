@@ -11,8 +11,8 @@ export interface PlanLimitResult {
 }
 
 /**
-  * Calcula cuántas facturas se han emitido en el mes actual.
-  */
+ * Calcula cuántas facturas se han emitido en el mes actual.
+ */
 export function countMonthlyInvoices(invoices: Invoice[]): number {
   const now = new Date();
   const year = now.getFullYear();
@@ -26,33 +26,34 @@ export function countMonthlyInvoices(invoices: Invoice[]): number {
 }
 
 /**
-  * Evalúa si la empresa puede emitir una nueva factura según su plan y estado de suscripción.
-  */
+ * Evalúa si la empresa puede emitir una nueva factura según su plan y estado de suscripción.
+ */
 export function evaluatePlanLimit(
   settings: CompanySettings | null,
   invoices: Invoice[]
 ): PlanLimitResult {
-  const planId: PlanId = settings?.planId || 'pro';
-  const status = settings?.subscriptionStatus || 'active';
-  const plan = getPlan(planId) || PLANS[1]; // fallback a Pro
+  const status = settings?.subscriptionStatus || 'inactive';
+  const planId: PlanId = settings?.planId || 'basico';
   const currentCount = countMonthlyInvoices(invoices);
 
   if (status === 'inactive' || status === 'canceled') {
     return {
       allowed: false,
-      reason: 'Tu suscripción está inactiva o cancelada. Suscríbete a un plan para emitir facturas y usar el TPV.',
+      reason: 'No dispones de una suscripción activa. Elige y activa un plan (Básico, Pro o Sin Límite) para comenzar a emitir facturas y cobrar en TPV.',
       currentCount,
-      limit: plan.invoiceLimit,
-      planName: 'Sin Suscripción Activa',
+      limit: 0,
+      planName: 'Sin Suscripción',
       requiredPlan: 'basico',
     };
   }
+
+  const plan = getPlan(planId) || PLANS[0]; // Plan Básico fallback
 
   if (plan.invoiceLimit !== null && currentCount >= plan.invoiceLimit) {
     const nextPlan: PlanId = planId === 'basico' ? 'pro' : 'sin_limite';
     return {
       allowed: false,
-      reason: `Has alcanzado el límite de ${plan.invoiceLimit} facturas mensuales de tu Plan ${plan.name}.`,
+      reason: `Has alcanzado el límite de ${plan.invoiceLimit} facturas mensuales de tu Plan ${plan.name}. Suscríbete a un plan superior para continuar.`,
       currentCount,
       limit: plan.invoiceLimit,
       planName: `Plan ${plan.name}`,
