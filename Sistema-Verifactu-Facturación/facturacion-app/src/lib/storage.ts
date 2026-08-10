@@ -11,7 +11,7 @@ import {
 } from './offlineDb';
 import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TpvMode, UserProfile } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
-import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber } from './utils';
+import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 
 function supabase() {
@@ -216,40 +216,71 @@ export function isSealed(invoice: Pick<Invoice, 'status'>): boolean {
   return SEALED_STATUSES.includes(invoice.status);
 }
 
-export async function saveInvoice(invoice: Invoice): Promise<void> {
+/**
+ * Si el número solicitado para la factura borrador ya existe en BD (contador desincronizado,
+ * trabajo multiterminal...), asigna automáticamente el siguiente número libre de la serie.
+ */
+async function nextFreeInvoiceNumber(
+  userId: string,
+  series: string,
+  requestedNumber: string,
+  invoice: Invoice,
+): Promise<Invoice> {
+  const { data } = await supabase()
+    .from('invoices')
+    .select('number')
+    .eq('user_id', userId)
+    .eq('series', series);
+
+  const used = new Set((data ?? []).map((r: { number: string }) => r.number as string));
+  if (!used.has(requestedNumber)) return invoice;
+
+  let candidate = requestedNumber;
+  for (let i = 0; i < 1000 && used.has(candidate); i++) {
+    candidate = incrementDocumentNumber(candidate, series);
+  }
+  if (used.has(candidate)) {
+    throw new Error('No se pudo asignar un número libre a esta factura. Revisa la numeración.');
+  }
+  return { ...invoice, number: candidate };
+}
+
+export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
   const userId = await requireUserId();
 
   const sealed = isSealed(invoice);
 
-  const invRow = {
-    id: invoice.id,
-    user_id: userId,
-    number: invoice.number,
-    series: invoice.series,
-    client_id: invoice.clientId || null,
-    client_name: invoice.clientName,
-    client_nif: invoice.clientNif,
-    client_address: invoice.clientAddress,
-    issue_date: invoice.issueDate,
-    due_date: invoice.dueDate,
-    paid_date: invoice.paidDate || null,
-    status: invoice.status,
-    subtotal: invoice.subtotal,
-    total_discount: invoice.totalDiscount,
-    total_tax: invoice.totalTax,
-    total: invoice.total,
-    payment_method: invoice.paymentMethod,
-    notes: invoice.notes,
-    pos_session_id: invoice.posSessionId || null,
-    number_temporary: invoice.numberTemporary ?? false,
-    // Los campos verifactu_* los calcula y firma el servidor (trigger
-    // tr_invoice_seal). Mandarlos desde aquí sería justamente el vector
-    // de fraude que estamos cerrando, así que no se envían.
-  };
+  let current: Invoice = invoice;
+  if (invoice.status === InvoiceStatus.BORRADOR && navigator.onLine) {
+    current = await nextFreeInvoiceNumber(userId, invoice.series, invoice.number, invoice);
+  }
 
-  const lineRows = invoice.lineItems.map((li, idx) => ({
+  const buildInvRow = (inv: Invoice) => ({
+    id: inv.id,
+    user_id: userId,
+    number: inv.number,
+    series: inv.series,
+    client_id: inv.clientId || null,
+    client_name: inv.clientName,
+    client_nif: inv.clientNif,
+    client_address: inv.clientAddress,
+    issue_date: inv.issueDate,
+    due_date: inv.dueDate,
+    paid_date: inv.paidDate || null,
+    status: inv.status,
+    subtotal: inv.subtotal,
+    total_discount: inv.totalDiscount,
+    total_tax: inv.totalTax,
+    total: inv.total,
+    payment_method: inv.paymentMethod,
+    notes: inv.notes,
+    pos_session_id: inv.posSessionId || null,
+    number_temporary: inv.numberTemporary ?? false,
+  });
+
+  const lineRows = current.lineItems.map((li, idx) => ({
     id: li.id,
-    invoice_id: invoice.id,
+    invoice_id: current.id,
     product_id: li.productId || null,
     product_name: li.productName,
     product_ref: li.productRef,
@@ -264,8 +295,8 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
     sort_order: idx,
   }));
 
-  const taxRows = invoice.taxBreakdown.map(tb => ({
-    invoice_id: invoice.id,
+  const taxRows = current.taxBreakdown.map(tb => ({
+    invoice_id: current.id,
     rate: tb.rate,
     base_amount: tb.base,
     tax_amount: tb.amount,
@@ -275,7 +306,7 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
   const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
     await put('invoices', {
-      ...invRow,
+      ...buildInvRow(current),
       _lineItems: lineRows,
       _taxBreakdown: taxRows,
     });
@@ -283,22 +314,28 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
 
   // 2. If online, save directly to Supabase
   if (navigator.onLine) {
-    const { error: invError } = await supabase().from('invoices').upsert(invRow);
-    // Un rechazo del servidor aquí suele ser una regla antifraude
-    // (factura sellada, fecha retroactiva, número duplicado). Se propaga
-    // para que la UI lo enseñe en vez de tragárselo en silencio.
-    if (invError) throw new Error(translateDbError(invError));
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const { error: invError } = await supabase().from('invoices').upsert(buildInvRow(current));
+      if (!invError) break;
+      if (current.status === InvoiceStatus.BORRADOR && invError?.code === '23505') {
+        current = await nextFreeInvoiceNumber(userId, current.series, current.number, current);
+        if (offlineAvail) {
+          await put('invoices', { ...buildInvRow(current), _lineItems: lineRows, _taxBreakdown: taxRows });
+        }
+        continue;
+      }
+      throw new Error(translateDbError(invError));
+    }
 
-    // Las líneas y el desglose sólo se reescriben mientras es borrador:
-    // en una factura sellada el servidor los rechaza, y con razón.
+    // Las líneas y el desglose sólo se reescriben mientras es borrador
     if (!sealed) {
-      await supabase().from('invoice_line_items').delete().eq('invoice_id', invoice.id);
+      await supabase().from('invoice_line_items').delete().eq('invoice_id', current.id);
       if (lineRows.length > 0) {
         const { error } = await supabase().from('invoice_line_items').insert(lineRows);
         if (error) throw new Error(translateDbError(error));
       }
 
-      await supabase().from('invoice_tax_breakdown').delete().eq('invoice_id', invoice.id);
+      await supabase().from('invoice_tax_breakdown').delete().eq('invoice_id', current.id);
       if (taxRows.length > 0) {
         const { error } = await supabase().from('invoice_tax_breakdown').insert(taxRows);
         if (error) throw new Error(translateDbError(error));
@@ -306,7 +343,7 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
     }
   } else {
     // 3. Queue for later sync
-    await enqueueSyncAction('upsert', 'invoices', invRow);
+    await enqueueSyncAction('upsert', 'invoices', buildInvRow(current));
     if (!sealed) {
       for (const lr of lineRows) {
         await enqueueSyncAction('upsert', 'invoice_line_items', lr);
@@ -316,6 +353,8 @@ export async function saveInvoice(invoice: Invoice): Promise<void> {
       }
     }
   }
+
+  return current;
 }
 
 /**
@@ -945,13 +984,15 @@ export async function getAlbaranes(): Promise<Albaran[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('albaranes');
     if (cached.length > 0) {
-      backgroundRefresh('albaranes', () =>
-        supabase().from('albaranes').select('*').order('issue_date', { ascending: false })
-      );
+      refreshAlbaranesFromSupabase();
       return cached.map((a) => mapAlbaranFromDb(a, a._lineItems || []));
     }
   }
 
+  return getAlbaranesFromSupabase();
+}
+
+async function getAlbaranesFromSupabase(): Promise<Albaran[]> {
   if (!navigator.onLine) return [];
 
   const { data, error } = await supabase()
@@ -970,6 +1011,7 @@ export async function getAlbaranes(): Promise<Albaran[]> {
   const out = data.map((a: { id: string }) =>
     mapAlbaranFromDb(a, (lineItems || []).filter((li: { albaran_id: string }) => li.albaran_id === a.id)));
 
+  const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
     await clearStore('albaranes');
     await putMany('albaranes', data.map((a: { id: string }) => ({
@@ -1201,7 +1243,6 @@ export async function anularAlbaran(id: string): Promise<Albaran> {
   await saveAlbaran(updated);
   return updated;
 }
-
 /**
  * Convierte albaranes EXPEDIDOS en facturas borrador.
  * - Si todos los albaranes son del mismo cliente, genera una única factura.
@@ -1214,12 +1255,12 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
 
   const all = await getAlbaranes();
   const seleccionados = all.filter(a => albaranIds.includes(a.id) && a.status === 'expedido');
+
   if (seleccionados.length === 0) {
     throw new Error('No hay albaranes expedidos en la selección.');
   }
 
   const settings = await getCompanySettings();
-  // Agrupamos por cliente para facturar "en conjunto".
   const porCliente = new Map<string, Albaran[]>();
   for (const a of seleccionados) {
     const list = porCliente.get(a.clientId) || [];
@@ -1232,7 +1273,7 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
   for (const [, grupo] of porCliente) {
     const numero = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
     const primero = grupo[0];
-    const lineItems: InvoiceLineItem[] = grupo.flatMap(a => a.lineItems.map(li => ({
+    const lineItems: InvoiceLineItem[] = grupo.flatMap(a => (a.lineItems || []).map(li => ({
       id: generateId(),
       productId: li.productId,
       productName: li.productName,
@@ -1265,20 +1306,20 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
       lineItems,
       ...totals,
       paymentMethod: settings.defaultPaymentMethod,
-      notes: `Factura agrupada de albaranes: ${grupo.map(a => a.number).join(', ')}`,
+      notes: `Factura de albaranes: ${grupo.map(a => a.number).join(', ')}`,
       createdAt: now,
       updatedAt: now,
     };
 
-    await saveInvoice(invoice);
-    settings.nextInvoiceNumber += 1;
-    invoices.push(invoice);
+    const savedInvoice = await saveInvoice(invoice);
+    settings.nextInvoiceNumber = sequenceFromNumber(savedInvoice.number) + 1;
+    invoices.push(savedInvoice);
 
     for (const a of grupo) {
       await saveAlbaran({
         ...a,
         status: 'facturado',
-        invoiceId: invoice.id,
+        invoiceId: savedInvoice.id,
         updatedAt: now,
       });
     }
@@ -2116,17 +2157,17 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
 export function mapLineItemFromDb(li: any): InvoiceLineItem {
   return {
     id: li.id,
-    productId: li.product_id || '',
-    productName: li.product_name,
-    productRef: li.product_ref || '',
-    quantity: Number(li.quantity),
-    unitPrice: Number(li.unit_price),
-    unit: li.unit,
-    taxRate: li.tax_rate,
-    discountPercent: Number(li.discount_percent),
-    subtotal: Number(li.subtotal),
-    taxAmount: Number(li.tax_amount),
-    total: Number(li.total),
+    productId: li.product_id ?? li.productId ?? '',
+    productName: li.product_name ?? li.productName ?? '',
+    productRef: li.product_ref ?? li.productRef ?? '',
+    quantity: Number(li.quantity ?? 0),
+    unitPrice: Number(li.unit_price ?? li.unitPrice ?? 0),
+    unit: li.unit ?? 'ud',
+    taxRate: Number(li.tax_rate ?? li.taxRate ?? 21),
+    discountPercent: Number(li.discount_percent ?? li.discountPercent ?? 0),
+    subtotal: Number(li.subtotal ?? 0),
+    taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
+    total: Number(li.total ?? 0),
   };
 }
 
