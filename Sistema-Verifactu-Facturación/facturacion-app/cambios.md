@@ -2,6 +2,12 @@
 
 Registro de cada cambio aplicado, con su sección de pendientes.
 
+## 2026-08-11 — Rediseño del badge de serie/numeración en el dashboard
+
+- **Dónde:** `src/app/(app)/dashboard/page.tsx` · `src/app/globals.css` (`.hero-panel-series`).
+- **Cambio:** la línea de texto "Serie FAC · la siguiente factura saldrá con el número…" pasa a ser un chip visual propio: icono sobre gradiente de acento, etiqueta "Serie FAC" en versalitas y el número en fuente mono tabular, con la pista "siguiente factura" separada. En móvil muy estrecho (≤480px) se oculta la pista para no apretar el chip.
+- **Nota:** el año del número se calcula con el año actual en vez del literal `2026` que estaba fijo.
+
 ## 2026-08-11 — Numeración de albaranes y sincronización de company_settings
 
 ### Cambio 1: Numeración auto-reparable al guardar albaranes

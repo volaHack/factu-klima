@@ -212,13 +212,21 @@ export default function DashboardPage() {
           <h2 className="hero-panel-name">
             {settings?.tradeName || settings?.businessName}
           </h2>
-          <p className="hero-panel-meta">
-            Serie <strong>{settings?.invoiceSeries}</strong> · la siguiente factura saldrá con el
-            número{' '}
-            <strong>
-              {settings?.invoiceSeries}-2026-{String(settings?.nextInvoiceNumber).padStart(4, '0')}
-            </strong>
-          </p>
+          <div className="hero-panel-series">
+            <span className="hero-panel-series-icon">
+              <FileText size={14} />
+            </span>
+            <div className="hero-panel-series-text">
+              <span className="hero-panel-series-label">
+                Serie {settings?.invoiceSeries}
+              </span>
+              <span className="hero-panel-series-number">
+                {settings?.invoiceSeries}-{new Date().getFullYear()}-
+                {String(settings?.nextInvoiceNumber).padStart(4, '0')}
+              </span>
+            </div>
+            <span className="hero-panel-series-hint">siguiente factura</span>
+          </div>
         </div>
 
         <div className="hero-panel-aside">
