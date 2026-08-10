@@ -32,6 +32,12 @@
       "skillPath": "skills/frontend-design/SKILL.md",
       "computedHash": "93f53fd1c0352d3d7ec17b8f73d7351bf76f4821e55d123c9d2abc2c53ba48e4"
     },
+    "gpt-image-2": {
+      "source": "pilioai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/gpt-image-2/SKILL.md",
+      "computedHash": "1748298d7cffd47c5e943f76a7e2f36bd96188198db6a25708033bf522d5794a"
+    },
     "hyperframes": {
       "source": "heygen-com/hyperframes",
       "sourceType": "github",
@@ -43,6 +49,12 @@
       "sourceType": "github",
       "skillPath": ".agents/skills/impeccable/SKILL.md",
       "computedHash": "b83d8c84a9974ab785ada2a88a09b756637ac92fe1f208302a2749a8b0c8428e"
+    },
+    "nano-banana-pro": {
+      "source": "pilioai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nano-banana-pro/SKILL.md",
+      "computedHash": "4481d18685cc5fe56417f7ac1bedb367e220502f73ab6fb64eb999719223dc99"
     },
     "sleek-design-mobile-apps": {
       "source": "design-layers/agent-skills",

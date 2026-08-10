@@ -1,5 +1,6 @@
 {
+  "framework": null,
   "buildCommand": "cd facturacion-app && npm run build",
-  "outputDirectory": "facturacion-app/.next",
-  "installCommand": "cd facturacion-app && npm install"
+  "installCommand": "cd facturacion-app && npm install",
+  "outputDirectory": "facturacion-app/.next"
 }
