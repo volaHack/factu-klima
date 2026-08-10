@@ -977,6 +977,13 @@ export async function closePosSession(sessionId: string, countedCash: number): P
 // ALBARANES (documento de entrega / preparación)
 // ============================================================
 
+async function refreshAlbaranesFromSupabase(): Promise<void> {
+  if (!navigator.onLine) return;
+  try {
+    await getAlbaranesFromSupabase();
+  } catch { /* silent */ }
+}
+
 export async function getAlbaranes(): Promise<Albaran[]> {
   const offlineAvail = await isOfflineDbAvailable();
 
