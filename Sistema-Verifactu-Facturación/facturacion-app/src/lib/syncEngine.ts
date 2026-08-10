@@ -283,9 +283,16 @@ export async function processSyncQueue(): Promise<void> {
   });
 }
 
-/** Descarta los rechazos ya mostrados al usuario. */
-export function clearSyncRejections(): void {
-  updateState({ rejections: [] });
+/** Descarta los rechazos e inconsistencias de sincronización y limpia items fallidos de la cola. */
+export async function clearSyncRejections(): Promise<void> {
+  const queue = await getSyncQueue();
+  for (const item of queue) {
+    if (item.retries >= MAX_RETRIES) {
+      await removeSyncItem(item.id);
+    }
+  }
+  const remaining = await getSyncQueueCount();
+  updateState({ rejections: [], lastError: null, pendingCount: remaining });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

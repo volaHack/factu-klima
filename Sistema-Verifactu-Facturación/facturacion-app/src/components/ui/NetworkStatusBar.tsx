@@ -100,7 +100,7 @@ export default function NetworkStatusBar() {
               </>
             )}
           </div>
-          {isOnline && pendingChanges > 0 && !isSyncing && (
+          {isOnline && pendingChanges > 0 && !isSyncing && !lastError && (
             <button
               className="network-bar-action"
               onClick={triggerSync}
@@ -109,6 +109,26 @@ export default function NetworkStatusBar() {
               <RefreshCw size={12} />
               <span>Sincronizar</span>
             </button>
+          )}
+          {lastError && (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                className="network-bar-action"
+                onClick={triggerSync}
+                title="Reintentar sincronización"
+              >
+                <RefreshCw size={12} />
+                <span>Reintentar</span>
+              </button>
+              <button
+                className="network-bar-action"
+                onClick={dismissRejections}
+                title="Descartar aviso de error"
+              >
+                <X size={12} />
+                <span>Entendido</span>
+              </button>
+            </div>
           )}
         </div>
       )}
