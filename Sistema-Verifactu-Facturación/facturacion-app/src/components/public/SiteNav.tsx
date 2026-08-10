@@ -23,14 +23,49 @@ export default function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const cerrar = () => setOpen(false);
 
-  // La barra sólo dibuja su línea inferior y su sombra cuando hay
-  // contenido pasando por debajo; sobre el hero se apoya sin marco.
+  // La barra sólo se apoya en papel translúcido cuando hay papel por
+  // debajo; sobre fotografía va sin marco y con los textos en crema.
+  //
+  // Antes eso se decidía con `scrollY > 8`, que en la home dejaba la
+  // barra en tinta oscura a los nueve píxeles de scroll, todavía sobre
+  // la foto del mostrador. Con el héroe clavado el fallo duraba ya dos
+  // pantallas y media. Ahora la home marca su zona oscura con
+  // `[data-nav-oscura]` y un IntersectionObserver mira si sigue debajo:
+  // sin listener de scroll y sin un render por fotograma.
+  //
+  // El estado inicial se queda siempre en `false`, igual que en el
+  // servidor: leer `window.scrollY` aquí para arrancar «ya corregido»
+  // desincroniza el HTML del cliente del que mandó el servidor en cuanto
+  // la página se recarga a media altura. No hace falta arreglarlo — en
+  // las páginas donde de verdad se usa este `if` (precios, instalar),
+  // `.site-page:not(.home) .site-nav` ya fuerza el aspecto de papel para
+  // cualquier valor de `scrolled`, así que el primer frame no se nota.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    const zona = document.querySelector('[data-nav-oscura]');
+
+    if (!zona) {
+      const onScroll = () => setScrolled(window.scrollY > 8);
+      // `requestAnimationFrame`, no una llamada directa: así la primera
+      // lectura de `scrollY` también ocurre dentro de un callback, no en
+      // el cuerpo del efecto — el mismo motivo por el que el branch del
+      // IntersectionObserver de abajo no dispara este mismo aviso.
+      const raf = requestAnimationFrame(onScroll);
+      window.addEventListener('scroll', onScroll, { passive: true });
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener('scroll', onScroll);
+      };
+    }
+
+    // El margen recorta el alto de la barra por arriba: en cuanto la
+    // zona oscura deja de tocar ese borde, la barra ya está sobre papel.
+    const io = new IntersectionObserver(
+      ([entrada]) => setScrolled(!entrada.isIntersecting),
+      { rootMargin: '-62px 0px 0px 0px', threshold: 0 },
+    );
+    io.observe(zona);
+    return () => io.disconnect();
+  }, [pathname]);
 
   // El panel de móvil se cierra con Escape; al navegar lo cierra el
   // propio enlace (onClick), que es donde ocurre el evento — cerrarlo
@@ -44,6 +79,12 @@ export default function SiteNav() {
 
   return (
     <nav className={`site-nav ${scrolled ? 'is-scrolled' : ''}`}>
+      {/* El hilo de la cadena: crece con el scroll de toda la página, no
+          con un `scroll` listener — es una `animation-timeline: scroll()`
+          nativa. Sin ese soporte, o con `prefers-reduced-motion`, se
+          queda en `scaleX(0)` y no se nota que está ahí. */}
+      <div className="site-nav-progress" aria-hidden="true" />
+
       <div className="site-nav-inner">
         <Link href="/" className="site-nav-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}

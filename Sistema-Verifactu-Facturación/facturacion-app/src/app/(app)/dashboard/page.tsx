@@ -255,54 +255,35 @@ export default function DashboardPage() {
             : 0;
 
         return (
-          <div style={{
-            background: 'var(--bg-card)',
-            border: isInactive ? '1px solid var(--color-danger)' : '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-4) var(--space-5)',
-            marginBottom: 'var(--space-5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 'var(--space-4)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: 'var(--radius-lg)',
-                background: isInactive ? 'var(--color-danger-bg)' : 'var(--accent-50)',
-                color: isInactive ? 'var(--color-danger)' : 'var(--accent-500)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
+          <div className={`plan-banner ${isInactive ? 'is-inactive' : ''}`}>
+            <div className="plan-banner-info">
+              <div className={`plan-banner-icon ${isInactive ? 'is-inactive' : ''}`}>
                 <Crown size={24} />
               </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <span style={{ fontWeight: 800, fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
-                    {planCheck.planName}
-                  </span>
+              <div className="plan-banner-body">
+                <div className="plan-banner-name">
+                  <span>{planCheck.planName}</span>
                   <span className={`badge ${isInactive ? 'badge-danger' : 'badge-success'}`}>
                     {isInactive ? 'Sin Suscripción / Inactiva' : 'Suscripción Activa'}
                   </span>
                 </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div className="plan-banner-usage">
                   Uso del período: <strong>{limitStr}</strong>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: '1 0 auto', justifyContent: 'flex-end' }}>
-              <div style={{ width: 140 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+            <div className="plan-banner-meter-wrap">
+              <div className="plan-banner-meter">
+                <div className="plan-banner-meter-label">
                   <span>CAPACIDAD</span>
                   <span>{isInactive ? 'BLOQUEADO' : `${pct}%`}</span>
                 </div>
-                <div style={{ height: 6, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: isInactive || pct >= 90 ? 'var(--color-danger)' : 'var(--accent-500)', borderRadius: 'var(--radius-full)' }} />
+                <div className="plan-banner-meter-track">
+                  <div
+                    className={`plan-banner-meter-fill ${isInactive || pct >= 90 ? 'is-critical' : ''}`}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
               </div>
 

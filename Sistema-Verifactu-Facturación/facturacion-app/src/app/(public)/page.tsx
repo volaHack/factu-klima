@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Minus, Plus } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Plus } from 'lucide-react';
 
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import ChainDemo from '@/components/public/ChainDemo';
+import Cinta from '@/components/public/Cinta';
 import Reveal from '@/components/public/Reveal';
 import { PLANS } from '@/lib/plans';
 
@@ -26,33 +27,13 @@ import { PLANS } from '@/lib/plans';
  * factura sellada. Una sola familia de color (blush · vino · rosa), una
  * fotografía que manda en el héroe y, en el centro de la página, la
  * cadena de huellas funcionando de verdad en vez de contada.
+ *
+ * El héroe va clavado (`.hero-scene` alta, `.home-hero` en `sticky`)
+ * mientras el rollo se paga hacia abajo y va imprimiendo registros. El
+ * gesto lo hace entero la CSS con `animation-timeline`; ver `Cinta`.
  * ------------------------------------------------------------------ */
 
 const PRECIO_ENTRADA = Math.min(...PLANS.map((p) => p.priceMonthly));
-
-/* --- Sello de lacre. Marca decorativa, no un icono: el texto va
-   curvado sobre una circunferencia con <textPath>, que es algo que
-   ninguna librería de iconos trae hecho. --- */
-function Sello() {
-  return (
-    <svg className="home-seal" viewBox="0 0 120 120" role="img" aria-label="Registro sellado con SHA-256">
-      <defs>
-        <path id="seal-arc" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0" fill="none" />
-      </defs>
-      <circle cx="60" cy="60" r="58" className="home-seal-disc" />
-      <circle cx="60" cy="60" r="47" className="home-seal-ring" />
-      <text className="home-seal-text">
-        <textPath href="#seal-arc" startOffset="0%">
-          REGISTRO SELLADO · SHA-256 · CADENA ÍNTEGRA ·
-        </textPath>
-      </text>
-      <g className="home-seal-core">
-        <path d="M60 40 L76 46 v12 c0 10-7 18-16 22-9-4-16-12-16-22V46z" />
-        <path d="M53 59 l5 5 10-11" className="home-seal-check" />
-      </g>
-    </svg>
-  );
-}
 
 const NORMAS = [
   {
@@ -133,53 +114,67 @@ export default function HomePage() {
     <div className="site-page home">
       <SiteNav />
 
-      {/* ───────────────────────── Héroe ───────────────────────── */}
-      <header className="home-hero">
-        <picture>
-          <source
-            media="(max-width: 640px)"
-            srcSet="/img/mostrador-760.webp 760w, /img/mostrador-1200.webp 1200w"
-            sizes="100vw"
-          />
-          <img
-            className="home-hero-img"
-            src="/img/mostrador-1920.webp"
-            srcSet="/img/mostrador-1200.webp 1200w, /img/mostrador-1920.webp 1920w"
-            sizes="100vw"
-            alt="Un rollo de tickets recién impreso cae por el borde de un mostrador de madera mientras unas manos lo separan, en la luz de media tarde de una tienda de barrio."
-            width={1920}
-            height={1080}
-            fetchPriority="high"
-            decoding="async"
-          />
-        </picture>
-        <div className="home-hero-scrim" />
-
-        <div className="home-hero-inner">
-          <p className="home-hero-kicker">Ley Antifraude · Reglamento Verifactu</p>
-          <h1 className="home-hero-title">
-            Una factura que ya no<br />se puede <em className="accent-serif">tocar</em>.
-          </h1>
-          <p className="home-hero-lead">
-            Klima sella cada factura con su huella SHA-256 y la encadena a la anterior.
-            Cambiar un importe o borrar un registro deja de ser algo que se pueda hacer
-            sin que se note: la cadena se rompe, y la rotura queda a la vista.
-          </p>
-          <div className="home-hero-actions">
-            <Link href="/login" className="btn-primary btn-lg">
-              Crear cuenta <ArrowRight size={17} />
-            </Link>
-            <a href="#cadena" className="btn-ghost-light btn-lg">
-              Ver cómo se rompe una cadena
-            </a>
+      {/* ───────────────────────── Héroe ─────────────────────────
+          `.hero-scene` sólo existe para dar recorrido: es el alto que
+          consume el héroe clavado mientras se imprime la cinta. Sin
+          soporte de scroll-driven animations la CSS la deja en `auto` y
+          esto vuelve a ser un héroe normal de una pantalla. */}
+      <div className="hero-scene" data-nav-oscura>
+        <header className="home-hero">
+          <div className="home-hero-foto">
+            <picture>
+              <source
+                media="(max-width: 640px)"
+                srcSet="/img/mostrador-760.webp 760w, /img/mostrador-1200.webp 1200w"
+                sizes="100vw"
+              />
+              <img
+                className="home-hero-img"
+                src="/img/mostrador-1920.webp"
+                srcSet="/img/mostrador-1200.webp 1200w, /img/mostrador-1920.webp 1920w"
+                sizes="100vw"
+                alt="Un rollo de tickets recién impreso cae por el borde de un mostrador de madera mientras unas manos lo separan, en la luz de media tarde de una tienda de barrio."
+                width={1920}
+                height={1080}
+                fetchPriority="high"
+                decoding="async"
+              />
+            </picture>
+            <div className="home-hero-scrim" />
           </div>
-          <p className="home-hero-meta">
-            Desde {PRECIO_ENTRADA} €/mes · Sin permanencia · Se instala desde el navegador
-          </p>
-        </div>
 
-        <Sello />
-      </header>
+          <div className="home-hero-inner">
+            <div className="home-hero-copy">
+              <p className="home-hero-kicker">Ley Antifraude · Reglamento Verifactu</p>
+              <h1 className="home-hero-title">
+                Una factura que ya no<br />se puede <em className="accent-serif">tocar</em>.
+              </h1>
+              <p className="home-hero-lead">
+                Cada factura sale sellada con su huella SHA-256 y encadenada a la
+                anterior. Si alguien toca un importe, la rotura queda a la vista.
+              </p>
+              <div className="home-hero-actions">
+                <Link href="/login" className="btn-primary btn-lg">
+                  Crear cuenta <ArrowRight size={17} />
+                </Link>
+                <a href="#cadena" className="btn-ghost-light btn-lg">
+                  Romper una cadena
+                </a>
+              </div>
+              <p className="home-hero-meta">
+                Desde {PRECIO_ENTRADA} €/mes · Sin permanencia
+              </p>
+            </div>
+
+            <Cinta />
+            <p className="oculto-visualmente">
+              Al lado del texto se imprime un rollo con cinco registros de ejemplo. Cada
+              uno lleva la huella SHA-256 del anterior, y la cadena entera se puede
+              comprobar más abajo, en «Rompe la cadena».
+            </p>
+          </div>
+        </header>
+      </div>
 
       {/* ─────────────────── Lo que pide la norma ─────────────────── */}
       <Reveal className="home-norma">
@@ -218,7 +213,7 @@ export default function HomePage() {
             src="/img/bodegon-1200.webp"
             srcSet="/img/bodegon-720.webp 720w, /img/bodegon-1200.webp 1200w"
             sizes="(max-width: 900px) 100vw, 44vw"
-            alt="Sobre un mostrador de roble: un rollo de papel térmico, un taco de albaranes sujeto con una pinza roja, un datáfono y un platillo de monedas."
+            alt="Sobre un mostrador de madera clara: un rollo de papel térmico, un datáfono inalámbrico moderno y un taco de albaranes sujeto con una pinza."
             width={1200}
             height={900}
             loading="lazy"
@@ -257,7 +252,7 @@ export default function HomePage() {
           ))}
         </dl>
         <Link href="/precios" className="home-inline-link">
-          Ver qué incluye cada plan <ArrowUpRight size={15} />
+          Ver los planes <ArrowUpRight size={15} />
         </Link>
       </Reveal>
 
@@ -285,7 +280,7 @@ export default function HomePage() {
             src="/img/mercado-1200.webp"
             srcSet="/img/mercado-720.webp 720w, /img/mercado-1200.webp 1200w"
             sizes="(max-width: 900px) 100vw, 46vw"
-            alt="Un puesto de mercado bajo un toldo rosa: cajas de tomates y cebollas, un cuaderno de cuentas y un móvil apoyado en el mostrador."
+            alt="Un puesto de mercado moderno bajo un toldo rosa: cajas de madera clara con tomates y cebollas, y una tablet con el TPV encendida junto a ellas."
             width={1200}
             height={800}
             loading="lazy"
@@ -310,10 +305,12 @@ export default function HomePage() {
                   onClick={() => setAbierta(open ? null : i)}
                 >
                   <span>{faq.q}</span>
-                  {open ? <Minus size={17} /> : <Plus size={17} />}
+                  <Plus size={17} className="home-faq-icon" />
                 </button>
-                <div id={`faq-panel-${i}`} className="home-faq-a" role="region" hidden={!open}>
-                  <p>{faq.a}</p>
+                <div id={`faq-panel-${i}`} className="home-faq-a" role="region" aria-hidden={!open}>
+                  <div>
+                    <p>{faq.a}</p>
+                  </div>
                 </div>
               </li>
             );

@@ -269,7 +269,7 @@ export default function VerifactuPage() {
           {/* Environment selector */}
           <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
             <label className="form-label">Servidor / Entorno de la AEAT</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <div className="choice-grid">
               <button
                 type="button"
                 className={`choice-card ${aeatEnvironment === 'test' ? 'active' : ''}`}
