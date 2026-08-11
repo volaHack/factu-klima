@@ -12,6 +12,10 @@ describe('plans', () => {
     expect(getPlan('pro')?.invoiceLimit).toBe(100);
   });
 
+  it('el plan básico permite 25 facturas al mes', () => {
+    expect(getPlan('basico')?.invoiceLimit).toBe(25);
+  });
+
   it('getPlan devuelve undefined para un id desconocido', () => {
     expect(getPlan('inventado')).toBeUndefined();
   });

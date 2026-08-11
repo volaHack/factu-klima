@@ -20,7 +20,7 @@ export const PLANS: Plan[] = [
   {
     id: 'basico', name: 'Básico',
     priceMonthly: 49, priceAnnual: 490,
-    invoiceLimit: 15, featured: false,
+    invoiceLimit: 25, featured: false,
     stripePriceEnvMonthly: 'STRIPE_PRICE_BASICO_MENSUAL',
     stripePriceEnvAnnual: 'STRIPE_PRICE_BASICO_ANUAL',
   },
