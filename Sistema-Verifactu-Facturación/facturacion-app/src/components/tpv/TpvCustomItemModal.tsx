@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { X, PlusCircle, Tag, ShoppingBag } from 'lucide-react';
 import { TaxRate, CompanySettings } from '@/lib/types';
-import { getTaxRates, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import { getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
 import { getCompanySettings } from '@/lib/storage';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 interface TpvCustomItemModalProps {
   onAdd: (item: {
@@ -182,18 +183,11 @@ export default function TpvCustomItemModal({ onAdd, onClose }: TpvCustomItemModa
           </div>
 
           <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
-            <label className="form-label">Tipo de {getTaxLabel(settings)} aplicado</label>
-            <select
-              className="form-select"
+            <TaxRateSlider
+              label={`${getTaxLabel(settings)} aplicado (%)`}
               value={taxRate}
-              onChange={e => setTaxRate(Number(e.target.value))}
-            >
-              {getTaxRates(settings).map(tr => (
-                <option key={tr.value} value={tr.rate}>
-                  {tr.label}
-                </option>
-              ))}
-            </select>
+              onChange={setTaxRate}
+            />
           </div>
 
           {error && (

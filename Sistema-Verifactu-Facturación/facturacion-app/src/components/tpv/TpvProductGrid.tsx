@@ -148,19 +148,26 @@ export default function TpvProductGrid({
                 className={`tpv-product-tile ${outOfStock ? 'is-out' : ''}`}
                 onClick={() => onSelectProduct(p)}
               >
-                {p.unitsSold != null && p.unitsSold > 0 && (
-                  <span className={`tpv-sold-rank ${rank <= 3 ? 'is-top' : ''}`} title={`Más vendido · Nº ${rank}`}>
-                    <Star size={9} fill="currentColor" /> {rank}
+                {p.imageUrl && (
+                  <span className="tpv-product-tile-image">
+                    <img src={p.imageUrl} alt="" loading="lazy" />
                   </span>
                 )}
+                <span className="tpv-product-tile-badges">
+                  {p.unitsSold != null && p.unitsSold > 0 && (
+                    <span className={`tpv-sold-rank ${rank <= 3 ? 'is-top' : ''}`} title={`Más vendido · Nº ${rank}`}>
+                      <Star size={9} fill="currentColor" /> {rank}
+                    </span>
+                  )}
+                  {(lowStock || outOfStock) && (
+                    <span className={`tpv-stock-badge ${outOfStock ? 'is-out' : 'is-low'}`}>
+                      {outOfStock ? 'Sin stock' : `Quedan ${p.stockQuantity}`}
+                    </span>
+                  )}
+                </span>
                 <span className="tpv-product-tile-name">{p.name}</span>
                 <span className="tpv-product-tile-price">{formatCurrency(p.unitPrice)}</span>
                 <span className="tpv-product-tile-ref">{p.ref}</span>
-                {(lowStock || outOfStock) && (
-                  <span className={`tpv-stock-badge ${outOfStock ? 'is-out' : 'is-low'}`}>
-                    {outOfStock ? 'Sin stock' : `Quedan ${p.stockQuantity}`}
-                  </span>
-                )}
               </button>
             );
           })

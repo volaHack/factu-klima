@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Info, ShieldCheck, X } from 'lucide-react';
 import { getNifErrorDetails, formatNif } from '@/lib/validation/nif';
-import { getTaxRates } from '@/lib/constants';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 /**
  * Alta mínima obligatoria (NIF, razón social, domicilio fiscal).
@@ -205,17 +205,11 @@ export function FirstStepsModal({ onClose, onComplete, isDismissible = true }: F
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="fs-iva">IVA que aplicas normalmente</label>
-                <select
-                  id="fs-iva"
-                  className="form-select"
-                  value={ivaTaxRate}
-                  onChange={e => setIvaTaxRate(e.target.value)}
-                >
-                  {getTaxRates(null).map(rate => (
-                    <option key={rate.value} value={rate.value}>{rate.label}</option>
-                  ))}
-                </select>
+                <TaxRateSlider
+                  label="IVA que aplicas normalmente (%)"
+                  value={Number(ivaTaxRate)}
+                  onChange={v => setIvaTaxRate(String(v))}
+                />
                 <span className="form-hint">
                   Se propone al crear productos nuevos. Puedes cambiarlo línea a línea al facturar.
                 </span>

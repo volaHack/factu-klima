@@ -1365,7 +1365,7 @@ a:hover { color: var(--accent-300); }
 /* --- Line Items (Invoice Form) --- */
 .line-items { border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; }
 .line-items-header {
-  display: grid; grid-template-columns: 1fr 80px 100px 80px 80px 100px 40px;
+  display: grid; grid-template-columns: 1fr 80px 100px 120px 80px 100px 40px;
   gap: var(--space-2); padding: var(--space-3) var(--space-4);
   background: var(--bg-tertiary);
   font-size: 11px; font-weight: 600; color: var(--text-primary);
@@ -1373,7 +1373,7 @@ a:hover { color: var(--accent-300); }
   border-bottom: 1px solid var(--border-subtle);
 }
 .line-item-row {
-  display: grid; grid-template-columns: 1fr 80px 100px 80px 80px 100px 40px;
+  display: grid; grid-template-columns: 1fr 80px 100px 120px 80px 100px 40px;
   gap: var(--space-2); padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-subtle); align-items: center;
 }
@@ -1386,7 +1386,21 @@ a:hover { color: var(--accent-300); }
 .line-item-subtotal { font-family: var(--font-mono); font-weight: 700; font-size: var(--text-sm); color: var(--text-primary); text-align: right; }
 .line-item-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: var(--space-1); border-radius: var(--radius-sm); }
 .line-item-delete:hover { color: var(--color-danger); background: var(--color-danger-bg); }
+.line-item-row input[type="range"] { padding: 0; border: none; background: none; }
 .line-items-add { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-color); }
+
+/* --- Tax Rate Slider (impuesto libre 0-99%) --- */
+.tax-rate-slider { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.tax-rate-slider-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.tax-rate-slider-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.tax-rate-slider-value {
+  font-family: var(--font-mono); font-weight: 800; font-size: var(--text-sm);
+  color: var(--accent-500); min-width: 34px; text-align: right;
+}
+.tax-rate-slider-control { display: flex; align-items: center; gap: var(--space-2); }
+.tax-rate-slider-control input[type="range"] { flex: 1; width: 100%; min-width: 0; accent-color: var(--accent-500); }
+.tax-rate-slider.compact { gap: 0; }
+.tax-rate-slider.compact .tax-rate-slider-value { font-size: var(--text-xs); min-width: 30px; }
 
 /* --- Invoice Totals Summary --- */
 .invoice-totals { display: flex; justify-content: flex-end; margin-top: var(--space-4); }
@@ -1988,7 +2002,7 @@ a:hover { color: var(--accent-300); }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .charts-grid { grid-template-columns: 1fr; }
   .detail-layout { grid-template-columns: 1fr; }
-  .line-items-header, .line-item-row { grid-template-columns: 1fr 70px 90px 70px 70px 90px 36px; }
+  .line-items-header, .line-item-row { grid-template-columns: 1fr 70px 90px 90px 70px 90px 36px; }
   .invoice-preview { padding: 28px; }
   .onboarding-theme-grid { grid-template-columns: repeat(2, 1fr); }
   .onboarding-welcome-features { flex-direction: column; align-items: center; }
@@ -4914,11 +4928,22 @@ a.stats-item:focus-visible {
 .tpv-product-tile:hover { transform: translateY(-2px); border-color: var(--accent-500); box-shadow: var(--shadow-md); }
 .tpv-product-tile:active { transform: scale(0.97); }
 .tpv-product-tile.is-out { opacity: 0.55; }
+.tpv-product-tile-image {
+  width: 100%; height: 52px; margin-bottom: 4px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow: hidden;
+}
+.tpv-product-tile-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* Los badges van en su propia fila (no absolutos) para no tapar el nombre ni el precio. */
+.tpv-product-tile-badges {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  min-height: 18px; margin-bottom: 2px;
+}
 .tpv-product-tile-name { font-weight: 700; font-size: var(--text-sm); color: var(--text-primary); line-height: 1.3; }
 .tpv-product-tile-price { font-family: var(--font-mono); font-weight: 700; color: var(--accent-500); font-size: var(--text-base); }
 .tpv-product-tile-ref { font-size: var(--text-2xs); color: var(--text-muted); }
 .tpv-stock-badge {
-  position: absolute; top: 8px; right: 8px;
+  display: inline-flex; align-items: center;
   font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
   padding: 2px 7px; border-radius: var(--radius-full);
   background: var(--color-warning-bg); color: var(--color-warning);
@@ -4926,7 +4951,6 @@ a.stats-item:focus-visible {
 .tpv-stock-badge.is-out { background: var(--color-danger-bg); color: var(--color-danger); }
 
 .tpv-sold-rank {
-  position: absolute; top: 8px; left: 8px;
   display: inline-flex; align-items: center; gap: 3px;
   font-size: 9px; font-weight: 800; letter-spacing: 0.02em;
   padding: 2px 6px; border-radius: var(--radius-full);
@@ -4935,14 +4959,14 @@ a.stats-item:focus-visible {
 .tpv-sold-rank.is-top { background: rgba(245, 158, 11, 0.16); color: #f59e0b; }
 
 /* Modo supermercado: grid denso para pantallas táctiles con mucho catálogo */
-.tpv-product-grid.is-dense { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); }
-.tpv-product-grid.is-dense .tpv-product-tile { padding: var(--space-2); min-height: 74px; gap: 2px; }
+.tpv-product-grid.is-dense { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: var(--space-2); }
+.tpv-product-grid.is-dense .tpv-product-tile { padding: var(--space-2); min-height: 88px; gap: 2px; }
 .tpv-product-grid.is-dense .tpv-product-tile-name { font-size: var(--text-2xs); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tpv-product-grid.is-dense .tpv-product-tile-price { font-size: var(--text-sm); }
 .tpv-product-grid.is-dense .tpv-product-tile-ref { display: none; }
+.tpv-product-grid.is-dense .tpv-product-tile-image { height: 40px; margin-bottom: 3px; }
 .tpv-product-grid.is-dense .tpv-stock-badge,
-.tpv-product-grid.is-dense .tpv-sold-rank { top: 4px; right: 4px; font-size: 8px; padding: 1px 5px; }
-.tpv-product-grid.is-dense .tpv-sold-rank { left: 4px; }
+.tpv-product-grid.is-dense .tpv-sold-rank { font-size: 8px; padding: 1px 5px; }
 
 .tpv-product-empty, .tpv-cart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--space-3);

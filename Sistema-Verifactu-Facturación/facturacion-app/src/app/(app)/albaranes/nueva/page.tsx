@@ -13,8 +13,9 @@ import {
   Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, CompanySettings
 } from '@/lib/types';
 import { generateId, generateInvoiceNumber, sequenceFromNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
-import { getTaxRates, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import { getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 function createEmptyLine(settings?: CompanySettings | null): AlbaranLineItem {
   return {
@@ -279,14 +280,7 @@ export default function NuevoAlbaranPage() {
                   onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                   style={{ textAlign: 'right' }}
                 />
-                <select
-                  value={line.taxRate}
-                  onChange={e => handleLineChange(index, 'taxRate', parseInt(e.target.value))}
-                >
-                  {getTaxRates(settings).map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
                 <input
                   type="number"
                   min={0}

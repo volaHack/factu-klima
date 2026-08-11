@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, PackagePlus, Barcode, Check, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, PackagePlus, Barcode, Check, Loader2, ImagePlus, ImageOff } from 'lucide-react';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
-import { getTaxRates, getTaxLabel, getDefaultTaxRate, UNITS_OF_MEASURE } from '@/lib/constants';
-import { generateId } from '@/lib/utils';
+import { getTaxLabel, getDefaultTaxRate, UNITS_OF_MEASURE } from '@/lib/constants';
+import { generateId, processImageFile } from '@/lib/utils';
 import { saveProduct, getCompanySettings } from '@/lib/storage';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 interface CategoryOption {
   value: string;
@@ -32,9 +33,20 @@ export default function TpvQuickCreateProductModal({
   const [taxRate, setTaxRate] = useState<number>(TaxRate.GENERAL);
   const [unit, setUnit] = useState<UnitOfMeasure>(UnitOfMeasure.UNIDAD);
   const [stockQuantity, setStockQuantity] = useState(50);
+  const [imageUrl, setImageUrl] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handlePickImage = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      setImageUrl(await processImageFile(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar la imagen');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -76,6 +88,7 @@ export default function TpvQuickCreateProductModal({
         barcode: barcode.trim() || undefined,
         stockQuantity: Number(stockQuantity) || 0,
         lowStockThreshold: 5,
+        imageUrl: imageUrl || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -214,16 +227,11 @@ export default function TpvQuickCreateProductModal({
 
           <div className="form-row" style={{ marginBottom: 'var(--space-4)' }}>
             <div className="form-group">
-              <label className="form-label">Tipo de {getTaxLabel(settings)}</label>
-              <select
-                className="form-select"
+              <TaxRateSlider
+                label={`${getTaxLabel(settings)} aplicado (%)`}
                 value={taxRate}
-                onChange={e => setTaxRate(Number(e.target.value))}
-              >
-                {getTaxRates(settings).map(tr => (
-                  <option key={tr.value} value={tr.rate}>{tr.label}</option>
-                ))}
-              </select>
+                onChange={setTaxRate}
+              />
             </div>
 
             <div className="form-group">
@@ -269,6 +277,38 @@ export default function TpvQuickCreateProductModal({
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>{error}</span>
             </div>
           )}
+
+          <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
+            <label className="form-label">Imagen del producto (opcional)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              {imageUrl ? (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt="Vista previa"
+                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)' }}
+                  />
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setImageUrl('')}>
+                    <ImageOff size={14} /> Quitar imagen
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => imageInputRef.current?.click()}>
+                  <ImagePlus size={14} /> Añadir foto
+                </button>
+              )}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={e => {
+                  handlePickImage(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }} onClick={onClose} disabled={submitting}>

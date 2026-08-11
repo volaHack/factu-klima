@@ -227,6 +227,8 @@ export interface Product {
   lowStockThreshold?: number;
   // Contador de unidades vendidas (base del inventario IA / más vendidos)
   unitsSold?: number;
+  // Miniatura del producto (data URL comprimida; ligera para offline y sync)
+  imageUrl?: string;
 }
 
 export interface CustomCategory {

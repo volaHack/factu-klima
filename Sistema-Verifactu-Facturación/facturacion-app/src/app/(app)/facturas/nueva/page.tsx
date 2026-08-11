@@ -18,11 +18,12 @@ import {
   generateId, generateInvoiceNumber, getToday, addDays,
   formatCurrency, calculateInvoiceTotals
 } from '@/lib/utils';
-import { PAYMENT_METHODS, getTaxRates, getDefaultTaxRate } from '@/lib/constants';
+import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -48,7 +49,6 @@ export default function NuevaFacturaPage() {
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
 
   // Form state
@@ -69,7 +69,6 @@ export default function NuevaFacturaPage() {
       ]);
       setClients(c.filter(cl => cl.active));
       setProducts(p.filter(pr => pr.active));
-      setSettings(settings);
       setPaymentMethod(settings.defaultPaymentMethod);
       setDueDate(addDays(getToday(), settings.defaultPaymentDays));
       setLineItems([createEmptyLine(settings)]);
@@ -387,14 +386,7 @@ export default function NuevaFacturaPage() {
                   onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                   style={{ textAlign: 'right' }}
                 />
-                <select
-                  value={line.taxRate}
-                  onChange={e => handleLineChange(index, 'taxRate', parseInt(e.target.value))}
-                >
-                  {getTaxRates(settings).map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
                 <input
                   type="number"
                   min={0}

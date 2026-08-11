@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Sparkles, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -16,8 +16,9 @@ import {
   getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings
 } from '@/lib/storage';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
-import { formatCurrency, generateId } from '@/lib/utils';
-import { UNITS_OF_MEASURE, ICON_PRESETS, getTaxRates, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import { formatCurrency, generateId, processImageFile } from '@/lib/utils';
+import { UNITS_OF_MEASURE, ICON_PRESETS, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
 
 interface CategoryOption {
@@ -55,14 +56,26 @@ export default function ProductosPage() {
   const [form, setForm] = useState({
     ref: '', name: '', description: '', category: 'otros',
     unitPrice: 0, defaultTaxRate: TaxRate.REDUCIDO as TaxRate, unit: UnitOfMeasure.KG as UnitOfMeasure,
-    active: true, stockQuantity: 100, lowStockThreshold: 10
+    active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: ''
   });
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const updateForm = (field: string, value: string | number) => {
     setForm(prev => ({
       ...prev,
       [field]: typeof prev[field as keyof typeof prev] === 'number' ? Number(value) : value
     }));
+  };
+
+  const handlePickImage = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      const dataUrl = await processImageFile(file);
+      updateForm('imageUrl', dataUrl);
+    } catch (err) {
+      toastError('No se pudo cargar la imagen', err instanceof Error ? err.message : 'Error desconocido');
+    }
   };
 
   const loadData = async () => {
@@ -105,7 +118,7 @@ export default function ProductosPage() {
       ref: `PRD-${String(products.length + 1).padStart(3, '0')}`,
       name: '', description: '', category: defaultCat,
       unitPrice: 0, defaultTaxRate: getDefaultTaxRate(settings), unit: UnitOfMeasure.UNIDAD, active: true,
-      stockQuantity: 50, lowStockThreshold: 5
+      stockQuantity: 50, lowStockThreshold: 5, imageUrl: ''
     });
     setShowModal(true);
   };
@@ -115,7 +128,8 @@ export default function ProductosPage() {
     setForm({
       ref: p.ref, name: p.name, description: p.description, category: p.category,
       unitPrice: p.unitPrice, defaultTaxRate: p.defaultTaxRate, unit: p.unit, active: p.active,
-      stockQuantity: p.stockQuantity ?? 50, lowStockThreshold: p.lowStockThreshold ?? 5
+      stockQuantity: p.stockQuantity ?? 50, lowStockThreshold: p.lowStockThreshold ?? 5,
+      imageUrl: p.imageUrl || ''
     });
     setShowModal(true);
   };
@@ -125,6 +139,7 @@ export default function ProductosPage() {
     const product: Product = {
       id: editing?.id || generateId(),
       ...form,
+      imageUrl: form.imageUrl || undefined,
       createdAt: editing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -406,8 +421,23 @@ export default function ProductosPage() {
                     <tr key={p.id}>
                       <td className="mono">{p.ref}</td>
                       <td>
-                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.name}</div>
-                        {p.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.description}</div>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt=""
+                              style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', flexShrink: 0 }}
+                            />
+                          ) : (
+                            <span style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <ImageOff size={15} style={{ color: 'var(--text-tertiary)' }} />
+                            </span>
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{p.name}</div>
+                            {p.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.description}</div>}
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -536,19 +566,11 @@ export default function ProductosPage() {
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
-                  <label className="form-label">Tipo de IVA / IGIC</label>
-                  <select className="form-select" value={form.defaultTaxRate} onChange={e => updateForm('defaultTaxRate', e.target.value)}>
-                    {(() => {
-                      const rates = getTaxRates(settings);
-                      const current = Number(form.defaultTaxRate) || 0;
-                      const options = rates.some(r => r.rate === current)
-                        ? rates
-                        : [...rates, { value: current, label: `${getTaxLabel(settings)} ${current}%`, rate: current }];
-                      return options.map(tr => (
-                        <option key={tr.rate} value={tr.rate}>{tr.label} ({tr.rate}%)</option>
-                      ));
-                    })()}
-                  </select>
+                  <TaxRateSlider
+                    label={`${getTaxLabel(settings)} aplicado por defecto (%)`}
+                    value={Number(form.defaultTaxRate)}
+                    onChange={v => updateForm('defaultTaxRate', v)}
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unidad de Medida</label>
@@ -572,6 +594,39 @@ export default function ProductosPage() {
               <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                 <label className="form-label">Descripción corta (opcional)</label>
                 <textarea className="form-textarea" rows={2} value={form.description} onChange={e => updateForm('description', e.target.value)} />
+              </div>
+
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label">Imagen del producto (opcional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  {form.imageUrl ? (
+                    <>
+                      <img
+                        src={form.imageUrl}
+                        alt="Vista previa"
+                        style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)' }}
+                      />
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => updateForm('imageUrl', '')}>
+                        <ImageOff size={14} /> Quitar imagen
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => imageInputRef.current?.click()}>
+                      <ImagePlus size={14} /> Añadir foto
+                    </button>
+                  )}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={e => {
+                      handlePickImage(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+                <span className="form-hint">La imagen se reduce y comprime en el navegador para que apenas ocupe espacio.</span>
               </div>
             </div>
             <div className="modal-footer">

@@ -736,6 +736,7 @@ export async function saveProduct(product: Product): Promise<void> {
     stock_quantity: product.stockQuantity ?? 0,
     low_stock_threshold: product.lowStockThreshold ?? null,
     units_sold: product.unitsSold ?? 0,
+    image: product.imageUrl || null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2227,6 +2228,7 @@ export function mapProductFromDb(p: any): Product {
     stockQuantity: Number(p.stock_quantity ?? 0),
     lowStockThreshold: p.low_stock_threshold != null ? Number(p.low_stock_threshold) : undefined,
     unitsSold: Number(p.units_sold ?? 0),
+    imageUrl: p.image || undefined,
   };
 }
 

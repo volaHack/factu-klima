@@ -7,16 +7,17 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
   getInvoiceById, getClients, getProducts, saveInvoice, issueInvoice, isSealed, getOnboardingStatus,
-  applyAbonoToInvoice, getCompanySettings
+  applyAbonoToInvoice
 } from '@/lib/storage';
 import {
-  Client, Product, Invoice, InvoiceLineItem, InvoiceStatus, CompanySettings,
+  Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, TaxRate, UnitOfMeasure
 } from '@/lib/types';
 import { formatCurrency, calculateInvoiceTotals, generateId } from '@/lib/utils';
-import { PAYMENT_METHODS, getTaxRates, getTaxLabel } from '@/lib/constants';
+import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
+import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 function createEmptyLine(): InvoiceLineItem {
   return {
@@ -34,7 +35,6 @@ export default function EditInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
 
   const [clientId, setClientId] = useState('');
   const [issueDate, setIssueDate] = useState('');
@@ -66,7 +66,6 @@ export default function EditInvoicePage() {
       ]);
       setClients(clients);
       setProducts(products);
-      setSettings(await getCompanySettings());
       setMounted(true);
     })();
   }, [params.id, router]);
@@ -105,15 +104,6 @@ export default function EditInvoicePage() {
     setLineItems(prev => prev.filter((_, i) => i !== index));
   };
   const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
-
-  // Opciones de impuesto del régimen activo. Si una línea ya guardada usa un
-  // porcentaje que ya no está en la lista configurada, se añade para no perderlo.
-  const taxOptionsFor = (line: InvoiceLineItem) => {
-    const base = getTaxRates(settings);
-    return base.some(r => r.value === line.taxRate)
-      ? base
-      : [...base, { value: line.taxRate, label: `${getTaxLabel(settings)} ${line.taxRate}%`, rate: line.taxRate }];
-  };
 
   const handleSave = async (status: InvoiceStatus) => {
     if (!clientId) { showError('Error', 'Selecciona un cliente'); return; }
@@ -284,9 +274,7 @@ export default function EditInvoicePage() {
                 </select>
                 <input type="number" min={0} step={0.01} value={line.quantity} onChange={e => handleLineChange(i, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
                 <input type="number" min={0} step={0.01} value={line.unitPrice} onChange={e => handleLineChange(i, 'unitPrice', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
-                <select value={line.taxRate} onChange={e => handleLineChange(i, 'taxRate', parseInt(e.target.value))}>
-                  {taxOptionsFor(line).map(t => <option key={t.value} value={t.value}>{t.rate}%</option>)}
-                </select>
+                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(i, 'taxRate', v)} />
                 <input type="number" min={0} max={100} step={0.5} value={line.discountPercent} onChange={e => handleLineChange(i, 'discountPercent', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
                 <div className="line-item-subtotal">{formatCurrency(line.subtotal)}</div>
                 <button className="line-item-delete" onClick={() => removeLine(i)} disabled={lineItems.length <= 1}><Trash2 size={14} /></button>
