@@ -1404,6 +1404,12 @@ a:hover { color: var(--accent-300); }
 .settings-section-subtitle { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-5); }
 .form-hint { display: block; font-size: 11px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
 
+/* Editor de porcentajes de IVA/IGIC (Ajustes) */
+.tax-rate-editor { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tax-rate-editor-item { display: flex; align-items: center; gap: 4px; }
+.tax-rate-editor-item .form-input { width: 76px; text-align: right; padding-right: var(--space-2); }
+.tax-rate-editor-actions { display: flex; flex-direction: column; gap: 6px; margin-left: var(--space-1); }
+
 /* ============================================================
    CALLOUTS — avisos con jerarquía, no párrafos sueltos
    ============================================================ */
@@ -3484,22 +3490,23 @@ a:focus-visible {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: var(--text-2xs); font-weight: 600;
   text-transform: uppercase; letter-spacing: var(--tracking-caps);
-  color: var(--accent-400); margin-bottom: var(--space-2);
+  color: var(--accent-200); margin-bottom: var(--space-2);
 }
 .hero-panel-name {
   font-size: var(--text-xl); font-weight: 650;
-  color: var(--text-primary); letter-spacing: var(--tracking-display);
+  color: var(--text-inverse); letter-spacing: var(--tracking-display);
   line-height: 1.15;
 }
-/* Chip de serie / próxima numeración del hero. */
+/* Chip de serie / próxima numeración del hero. El panel es oscuro en
+   ambos temas, así que el chip se re-viste con blanco translúcido. */
 .hero-panel-series {
   display: inline-flex; align-items: center; gap: var(--space-2);
   margin-top: var(--space-3);
   padding: 7px var(--space-3);
   border-radius: var(--radius-lg);
-  background: var(--accent-50);
-  border: 1px solid var(--accent-200);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   max-width: 100%;
 }
 .hero-panel-series-icon {
@@ -3515,16 +3522,16 @@ a:focus-visible {
 .hero-panel-series-label {
   font-size: var(--text-2xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: var(--tracking-caps);
-  color: var(--accent-700); white-space: nowrap;
+  color: var(--accent-200); white-space: nowrap;
 }
 .hero-panel-series-number {
   font-family: var(--font-mono); font-size: var(--text-sm);
-  font-weight: 600; color: var(--text-primary);
+  font-weight: 600; color: var(--text-inverse);
   font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
 }
 .hero-panel-series-hint {
-  font-size: var(--text-2xs); color: var(--text-tertiary);
-  padding-left: var(--space-2); border-left: 1px solid var(--accent-200);
+  font-size: var(--text-2xs); color: rgba(255, 255, 255, 0.6);
+  padding-left: var(--space-2); border-left: 1px solid rgba(255, 255, 255, 0.18);
   line-height: 1.3;
 }
 .hero-panel-aside {
@@ -3537,8 +3544,8 @@ a:focus-visible {
   display: flex; align-items: center; gap: var(--space-2);
   padding: 7px var(--space-3);
   border-radius: var(--radius-lg);
-  background: var(--verifactu-bg);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(217, 158, 26, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.35);
 }
 .seal-chip svg { color: var(--verifactu-gold); flex-shrink: 0; }
 .seal-chip-title {
@@ -3546,7 +3553,7 @@ a:focus-visible {
   color: var(--verifactu-gold);
   text-transform: uppercase; letter-spacing: 0.05em;
 }
-.seal-chip-sub { font-size: var(--text-2xs); color: var(--text-tertiary); line-height: 1.3; }
+.seal-chip-sub { font-size: var(--text-2xs); color: rgba(255, 255, 255, 0.7); line-height: 1.3; }
 
 /* ============================================================
    BANNER DE SUSCRIPCIÓN / PLAN (dashboard)
@@ -6953,4 +6960,48 @@ a.stats-item:focus-visible {
   font-size: var(--text-xs);
   color: var(--text-muted);
   text-align: center;
+}
+
+/* ============================================================
+   RESPONSIVE FIXES — contención de overflow en pantallas pequeñas
+   ============================================================ */
+
+/* Pestañas tipo catálogo (productos) y filas de acciones parecidas:
+   que envuelvan en vez de forzar una fila que no cabe en móvil. */
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-3);
+}
+
+/* Los tracks de grid `1fr` no se encogen por debajo del min-content de sus
+   items. En los formularios (Nueva factura / Nuevo albarán) cada tarjeta
+   cuelga de un grid de una columna, así que el min-content de .form-row
+   (dos columnas de 200px) y del select de cada línea forzaba la tarjeta a
+   ~500px y la página desbordaba el viewport. En móvil se fuerza una sola
+   columna y se permite que los campos se encojan de verdad. */
+@media (max-width: 768px) {
+  .form-row { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+  .line-item-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .line-item-row input,
+  .line-item-row select,
+  .line-item-row .line-item-subtotal,
+  .line-item-row .line-item-delete { min-width: 0; }
+  .line-item-row input,
+  .line-item-row select { width: 100%; }
+  .invoice-totals-table { min-width: 0; width: 100%; }
+  .detail-sidebar { min-width: 0; }
+
+  /* Barra de estado de red: en móvil el detalle largo más los botones de
+     acción no cabían en una línea y sobresalían ~5px del viewport. Se
+     permite partir el contenido y se acorta el detalle. */
+  .network-bar { flex-wrap: wrap; gap: 4px 8px; }
+  .network-bar-content { min-width: 0; flex: 1 1 auto; }
+  .network-bar-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .network-bar-action { flex-shrink: 0; }
+
+  .tab-bar .btn { flex: 1 1 auto; justify-content: center; }
 }

@@ -80,7 +80,7 @@ export interface InvoiceLineItem {
   quantity: number;
   unitPrice: number;
   unit: UnitOfMeasure;
-  taxRate: TaxRate;
+  taxRate: number;
   discountPercent: number;
   subtotal: number;
   taxAmount: number;
@@ -88,7 +88,7 @@ export interface InvoiceLineItem {
 }
 
 export interface TaxBreakdown {
-  rate: TaxRate;
+  rate: number;
   base: number;
   amount: number;
 }
@@ -175,7 +175,7 @@ export interface PosCartLine {
   productRef: string;
   unitPrice: number;
   unit: UnitOfMeasure;
-  taxRate: TaxRate;
+  taxRate: number;
   quantity: number;
   discountPercent: number;
   stockQuantity: number;
@@ -217,7 +217,7 @@ export interface Product {
   description: string;
   category: string;
   unitPrice: number;
-  defaultTaxRate: TaxRate;
+  defaultTaxRate: number;
   unit: UnitOfMeasure;
   active: boolean;
   createdAt: string;
@@ -296,6 +296,12 @@ export interface CompanySettings {
   // todos los formularios, facturas, TPV e informes.
   igicEnabled?: boolean;
 
+  // Porcentajes disponibles para elegir en facturas, TPV e informes.
+  // La empresa los configura en Ajustes sin necesidad de informático.
+  // Si están vacíos se usan los del régimen activo (IVA 21/10/4/0 o IGIC 7/3/13/0).
+  ivaRates?: number[];
+  igicRates?: number[];
+
   // Suscripción y límites de plan
   planId?: 'basico' | 'pro' | 'sin_limite';
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled';
@@ -325,7 +331,7 @@ export interface AlbaranLineItem {
   quantity: number;
   unitPrice: number;
   unit: UnitOfMeasure;
-  taxRate: TaxRate;
+  taxRate: number;
   discountPercent: number;
   subtotal: number;
   taxAmount: number;
@@ -368,7 +374,7 @@ export interface DevolucionLineItem {
   quantity: number;
   unitPrice: number;
   unit: UnitOfMeasure;
-  taxRate: TaxRate;
+  taxRate: number;
   total: number;
   // true = la mercancía vuelve a la nave (se suma al stock)
   restock: boolean;

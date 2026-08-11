@@ -10,7 +10,7 @@ import {
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
 } from './offlineDb';
 import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TpvMode, UserProfile } from './types';
-import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
+import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 
@@ -1967,8 +1967,15 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     subscription_status: settings.subscriptionStatus || 'inactive',
   };
 
-  // Categorías personalizadas: van en la misma fila de company_settings.
-  const fullRow = { ...row, custom_categories: settings.customCategories || [] };
+  // Categorías personalizadas y porcentajes de IVA/IGIC configurables: van
+  // en la misma fila de company_settings. Si las columnas aún no existen en
+  // la BD (migración 013 sin aplicar) se reintenta sin ellas.
+  const fullRow = {
+    ...row,
+    custom_categories: settings.customCategories || [],
+    iva_rates: settings.ivaRates || DEFAULT_IVA_RATES,
+    igic_rates: settings.igicRates || DEFAULT_IGIC_RATES,
+  };
 
   const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
@@ -1995,9 +2002,10 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
 
       const res = await write(fullRow);
       if (res?.error) {
-        // Si la columna custom_categories aún no existe en BD (migración 008
-        // sin aplicar), reintenta sin ella para no romper el resto del guardado.
-        if (/custom_categories/i.test(String(res.error.message))) {
+        // Si alguna columna aún no existe en BD (migración sin aplicar),
+        // reintenta sin custom_categories ni iva_rates/igic_rates para no
+        // romper el resto del guardado.
+        if (/custom_categories|iva_rates|igic_rates/i.test(String(res.error.message))) {
           const retry = await write(row);
           if (retry?.error) await enqueueSyncAction('upsert', 'company_settings', row);
         } else {
@@ -2243,6 +2251,8 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),
     tpvEnabled: s.tpv_enabled == null ? undefined : Boolean(s.tpv_enabled),
     igicEnabled: s.igic_enabled ?? false,
+    ivaRates: Array.isArray(s.iva_rates) ? s.iva_rates.map(Number) : undefined,
+    igicRates: Array.isArray(s.igic_rates) ? s.igic_rates.map(Number) : undefined,
     stripeEnabled: s.stripe_enabled ?? false,
     albaranSeries: s.albaran_series || 'ALB',
     nextAlbaranNumber: s.next_albaran_number || 1,

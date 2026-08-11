@@ -279,7 +279,7 @@ export default function ProductosPage() {
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-3)' }}>
+      <div className="tab-bar">
         <button
           className={`btn ${activeTab === 'products' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveTab('products')}
@@ -538,9 +538,16 @@ export default function ProductosPage() {
                 <div className="form-group">
                   <label className="form-label">Tipo de IVA / IGIC</label>
                   <select className="form-select" value={form.defaultTaxRate} onChange={e => updateForm('defaultTaxRate', e.target.value)}>
-                    {getTaxRates(settings).map(tr => (
-                      <option key={tr.rate} value={tr.rate}>{tr.label} ({tr.rate}%)</option>
-                    ))}
+                    {(() => {
+                      const rates = getTaxRates(settings);
+                      const current = Number(form.defaultTaxRate) || 0;
+                      const options = rates.some(r => r.rate === current)
+                        ? rates
+                        : [...rates, { value: current, label: `${getTaxLabel(settings)} ${current}%`, rate: current }];
+                      return options.map(tr => (
+                        <option key={tr.rate} value={tr.rate}>{tr.label} ({tr.rate}%)</option>
+                      ));
+                    })()}
                   </select>
                 </div>
                 <div className="form-group">

@@ -12,13 +12,13 @@ import {
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
-  PaymentMethod, TaxRate, UnitOfMeasure, CompanySettings
+  PaymentMethod, UnitOfMeasure, CompanySettings
 } from '@/lib/types';
 import {
   generateId, generateInvoiceNumber, getToday, addDays,
   formatCurrency, calculateInvoiceTotals
 } from '@/lib/utils';
-import { PAYMENT_METHODS, getTaxRates } from '@/lib/constants';
+import { PAYMENT_METHODS, getTaxRates, getDefaultTaxRate } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
@@ -33,7 +33,7 @@ function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
     quantity: 1,
     unitPrice: 0,
     unit: UnitOfMeasure.KG,
-    taxRate: settings?.igicEnabled ? TaxRate.IGIC_GENERAL : TaxRate.REDUCIDO,
+    taxRate: getDefaultTaxRate(settings),
     discountPercent: 0,
     subtotal: 0,
     taxAmount: 0,

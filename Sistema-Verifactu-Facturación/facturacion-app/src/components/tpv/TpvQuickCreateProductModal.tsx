@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, PackagePlus, Barcode, Check, Loader2 } from 'lucide-react';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
-import { getTaxRates, getTaxLabel, UNITS_OF_MEASURE } from '@/lib/constants';
+import { getTaxRates, getTaxLabel, getDefaultTaxRate, UNITS_OF_MEASURE } from '@/lib/constants';
 import { generateId } from '@/lib/utils';
 import { saveProduct, getCompanySettings } from '@/lib/storage';
 
@@ -40,8 +40,8 @@ export default function TpvQuickCreateProductModal({
     (async () => {
       const s = await getCompanySettings();
       setSettings(s);
-      if (s?.igicEnabled) {
-        setTaxRate(TaxRate.IGIC_GENERAL);
+      if (s) {
+        setTaxRate(getDefaultTaxRate(s));
       }
     })();
   }, []);

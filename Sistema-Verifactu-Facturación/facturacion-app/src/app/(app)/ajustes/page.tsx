@@ -1,13 +1,75 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings, saveCompanySettings, resetAllData } from '@/lib/storage';
 import { CompanySettings, BusinessSector, AccentTheme } from '@/lib/types';
-import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector } from '@/lib/constants';
+import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+
+/* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
+   sin que el informático tenga que tocar el código. Se guarda en
+   company_settings (ivaRates / igicRates). El commit limpia vacíos,
+   duplicados y valores fuera de rango, y persiste en cuanto el campo se
+   desenfoca o se añade/elimina un tipo. */
+function TaxRateEditor({ label, rates, onChange, onCommit, onReset }: {
+  label: string;
+  rates: (number | null)[];
+  onChange: (next: (number | null)[]) => void;
+  onCommit: (next: number[]) => void;
+  onReset: () => void;
+}) {
+  const commit = (draft: (number | null)[]) => {
+    const cleaned = [...new Set(draft.filter((r): r is number => r !== null && r >= 0 && r <= 100))];
+    onCommit(cleaned);
+  };
+
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      <div className="tax-rate-editor">
+        {rates.map((r, i) => (
+          <div className="tax-rate-editor-item" key={`${i}-${r === null ? 'nuevo' : r}`}>
+            <input
+              className="form-input"
+              type="number"
+              min={0}
+              max={100}
+              placeholder="%"
+              value={r === null ? '' : r}
+              onChange={e => {
+                const val = e.target.value;
+                const next = rates.map((x, j) => j === i ? (val === '' ? null : Math.min(100, Math.max(0, Number(val)))) : x);
+                onChange(next);
+              }}
+              onBlur={() => commit(rates)}
+              onKeyDown={e => { if (e.key === 'Enter') commit(rates); }}
+            />
+            <button
+              type="button"
+              className="btn btn-icon btn-ghost"
+              aria-label={`Quitar el tipo ${r === null ? 'nuevo' : r + '%'}`}
+              onClick={() => commit(rates.filter((_, j) => j !== i))}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        <div className="tax-rate-editor-actions">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...rates, null])}>
+            <Plus size={14} /> Añadir tipo
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onReset}>
+            <RotateCcw size={14} /> Restablecer
+          </button>
+        </div>
+      </div>
+      <span className="form-hint">Estos porcentajes aparecen al facturar, en el TPV y en los informes. Incluye el 0% si haces ventas exentas.</span>
+    </div>
+  );
+}
 
 export default function AjustesPage() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -23,10 +85,18 @@ export default function AjustesPage() {
   const [saving, setSaving] = useState(false);
   const { success, warning, error: toastError } = useToast();
 
+  // Borradores locales de los porcentajes de impuesto: se editan sin
+  // guardar por tecla y se persisten al desenfocar o añadir/quitar tipo.
+  const [ivaRatesDraft, setIvaRatesDraft] = useState<(number | null)[]>(DEFAULT_IVA_RATES.map(r => r));
+  const [igicRatesDraft, setIgicRatesDraft] = useState<(number | null)[]>(DEFAULT_IGIC_RATES.map(r => r));
+
   useEffect(() => {
     (async () => {
       const data = await getCompanySettings();
       setSettings(data);
+      // Borradores iniciales de los porcentajes de impuesto
+      setIvaRatesDraft((data.ivaRates?.length ? data.ivaRates : DEFAULT_IVA_RATES).map(r => r));
+      setIgicRatesDraft((data.igicRates?.length ? data.igicRates : DEFAULT_IGIC_RATES).map(r => r));
       
       try {
         const res = await fetch('/api/stripe/tenant-keys');
@@ -50,6 +120,16 @@ export default function AjustesPage() {
       document.body.className = `theme-${settings.accentTheme}`;
     }
   }, [settings?.accentTheme]);
+
+  const commitRates = (field: 'ivaRates' | 'igicRates', next: number[]) => {
+    updateField(field, next);
+  };
+
+  const resetRates = (field: 'ivaRates' | 'igicRates') => {
+    const next = field === 'ivaRates' ? [...DEFAULT_IVA_RATES] : [...DEFAULT_IGIC_RATES];
+    if (field === 'ivaRates') setIvaRatesDraft(next); else setIgicRatesDraft(next);
+    updateField(field, next);
+  };
 
   const updateField = (field: keyof CompanySettings, value: unknown) => {
     if (!settings) return;
@@ -378,7 +458,7 @@ export default function AjustesPage() {
           </span>
           <div className="status-panel-body">
             <div className="status-panel-title">Régimen Fiscal IGIC (Islas Canarias)</div>
-            <p className="status-panel-text">Activa esta casilla para aplicar las tasas de Canarias (IGIC 7% General, 3% Reducido, 13% Incrementado, 0% Exento) en todas tus facturas, TPV e informes.</p>
+            <p className="status-panel-text">Activa esta casilla para facturar con el régimen canario. Los porcentajes (por defecto IGIC 7%, 3%, 13% y 0% exento) los eliges tú justo debajo.</p>
           </div>
           <label className="toggle-switch">
             <input
@@ -388,6 +468,35 @@ export default function AjustesPage() {
             />
             <span className="toggle-slider" />
           </label>
+        </div>
+
+        {/* Porcentajes de IVA / IGIC configurables */}
+        <div style={{ marginTop: 'var(--space-5)' }}>
+          <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+            <FileText size={16} />
+            <h3 className="settings-section-title">Porcentajes de impuesto</h3>
+          </div>
+          <p className="settings-section-subtitle">
+            Elige los tipos de IVA e IGIC que podrás aplicar al facturar. Los del régimen
+            activo aparecen en facturas, TPV, albaranes e informes; los del otro régimen
+            quedan listos para cuando cambies el interruptor de Canarias.
+          </p>
+          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+            <TaxRateEditor
+              label="Tipos de IVA (%)"
+              rates={ivaRatesDraft}
+              onChange={setIvaRatesDraft}
+              onCommit={next => commitRates('ivaRates', next)}
+              onReset={() => resetRates('ivaRates')}
+            />
+            <TaxRateEditor
+              label="Tipos de IGIC (%) — Canarias"
+              rates={igicRatesDraft}
+              onChange={setIgicRatesDraft}
+              onCommit={next => commitRates('igicRates', next)}
+              onReset={() => resetRates('igicRates')}
+            />
+          </div>
         </div>
 
         <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>

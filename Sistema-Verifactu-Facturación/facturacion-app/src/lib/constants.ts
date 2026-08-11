@@ -73,7 +73,8 @@ export const ACCENT_THEMES: { value: AccentTheme; label: string; primaryHex: str
 
 // --- Tax rates ---
 // IVA (régimen peninsular y balear)
-export const TAX_RATES = [
+export const DEFAULT_IVA_RATES = [21, 10, 4, 0];
+export const TAX_RATES: { value: number; label: string; rate: number }[] = [
   { value: TaxRate.GENERAL, label: 'IVA 21% (General)', rate: 21 },
   { value: TaxRate.REDUCIDO, label: 'IVA 10% (Reducido)', rate: 10 },
   { value: TaxRate.SUPERREDUCIDO, label: 'IVA 4% (Superreducido)', rate: 4 },
@@ -81,7 +82,8 @@ export const TAX_RATES = [
 ];
 
 // IGIC (régimen canario)
-export const IGIC_TAX_RATES = [
+export const DEFAULT_IGIC_RATES = [7, 3, 13, 0];
+export const IGIC_TAX_RATES: { value: number; label: string; rate: number }[] = [
   { value: TaxRate.IGIC_GENERAL, label: 'IGIC 7% (General)', rate: 7 },
   { value: TaxRate.IGIC_REDUCIDO, label: 'IGIC 3% (Reducido)', rate: 3 },
   { value: TaxRate.IGIC_INCREMENTADO, label: 'IGIC 13% (Incrementado)', rate: 13 },
@@ -97,18 +99,38 @@ export function getTaxLabel(settings?: { igicEnabled?: boolean } | null): string
 }
 
 /**
- * Devuelve las tasas impositivas correctas según el régimen fiscal
- * configurado (IVA para la península, IGIC para Canarias).
+ * Porcentajes disponibles según el régimen activo. Si la empresa ha
+ * configurado sus propios tipos en Ajustes, se usan esos; si no, los del
+ * régimen por defecto (IVA 21/10/4/0 ó IGIC 7/3/13/0).
  */
-export function getTaxRates(settings?: { igicEnabled?: boolean } | null) {
-  return settings?.igicEnabled ? IGIC_TAX_RATES : TAX_RATES;
+export function getConfiguredTaxRates(settings?: { igicEnabled?: boolean; ivaRates?: number[]; igicRates?: number[] } | null): number[] {
+  if (settings?.igicEnabled) {
+    return settings?.igicRates?.length ? settings.igicRates : DEFAULT_IGIC_RATES;
+  }
+  return settings?.ivaRates?.length ? settings.ivaRates : DEFAULT_IVA_RATES;
 }
 
 /**
- * Devuelve la tasa por defecto del régimen activo (21% IVA ó 7% IGIC).
+ * Devuelve las tasas impositivas correctas según el régimen fiscal
+ * configurado (IVA para la península, IGIC para Canarias), respetando
+ * los porcentajes que la empresa eligió en Ajustes.
  */
-export function getDefaultTaxRate(settings?: { igicEnabled?: boolean } | null): TaxRate {
-  return settings?.igicEnabled ? TaxRate.IGIC_GENERAL : TaxRate.GENERAL;
+export function getTaxRates(settings?: { igicEnabled?: boolean; ivaRates?: number[]; igicRates?: number[] } | null) {
+  const label = getTaxLabel(settings);
+  return getConfiguredTaxRates(settings).map((rate) => ({
+    value: rate,
+    label: rate === 0 ? 'Exento (0%)' : `${label} ${rate}%`,
+    rate,
+  }));
+}
+
+/**
+ * Devuelve la tasa por defecto del régimen activo (el porcentaje más alto
+ * configurado: 21% IVA ó 7% IGIC por defecto).
+ */
+export function getDefaultTaxRate(settings?: { igicEnabled?: boolean; ivaRates?: number[]; igicRates?: number[] } | null): number {
+  const rates = getConfiguredTaxRates(settings).filter((r) => r > 0);
+  return rates.length ? Math.max(...rates) : (settings?.igicEnabled ? TaxRate.IGIC_GENERAL : TaxRate.GENERAL);
 }
 
 // --- Invoice statuses ---
@@ -279,6 +301,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   stripePublishableKey: '',
   tpvEnabled: undefined,
   igicEnabled: false,
+  ivaRates: [...DEFAULT_IVA_RATES],
+  igicRates: [...DEFAULT_IGIC_RATES],
   planId: 'basico',
   subscriptionStatus: 'inactive',
   albaranSeries: 'ALB',

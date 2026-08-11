@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, PlusCircle, Tag, ShoppingBag } from 'lucide-react';
 import { TaxRate, CompanySettings } from '@/lib/types';
-import { getTaxRates, getTaxLabel } from '@/lib/constants';
+import { getTaxRates, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
 import { getCompanySettings } from '@/lib/storage';
 
 interface TpvCustomItemModalProps {
@@ -28,8 +28,8 @@ export default function TpvCustomItemModal({ onAdd, onClose }: TpvCustomItemModa
     (async () => {
       const s = await getCompanySettings();
       setSettings(s);
-      if (s?.igicEnabled) {
-        setTaxRate(TaxRate.IGIC_GENERAL);
+      if (s) {
+        setTaxRate(getDefaultTaxRate(s));
       }
     })();
   }, []);

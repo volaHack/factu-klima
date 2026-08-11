@@ -26,11 +26,11 @@ interface Registro {
 }
 
 const LIBRO: Registro[] = [
-  { num: 'FAC-2026-0038', fecha: '2026-02-03', cliente: 'Panadería Sanchís',     base: 340 },
-  { num: 'FAC-2026-0039', fecha: '2026-02-04', cliente: 'Talleres Verdú',        base: 1120 },
+  { num: 'FAC-2026-0038', fecha: '2026-02-03', cliente: 'Panadería San Miguel',  base: 340 },
+  { num: 'FAC-2026-0039', fecha: '2026-02-04', cliente: 'Talleres del Norte',    base: 1120 },
   { num: 'FAC-2026-0040', fecha: '2026-02-06', cliente: 'Distribuciones García', base: 1250 },
   { num: 'FAC-2026-0041', fecha: '2026-02-09', cliente: 'Café Central',          base: 96.5 },
-  { num: 'FAC-2026-0042', fecha: '2026-02-11', cliente: 'Frutas del Turia',      base: 780 },
+  { num: 'FAC-2026-0042', fecha: '2026-02-11', cliente: 'Frutas del Sur',        base: 780 },
 ];
 
 /** El registro que se altera en la demostración, y su importe falseado. */

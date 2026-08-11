@@ -10,10 +10,10 @@ import {
   saveCompanySettings
 } from '@/lib/storage';
 import {
-  Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, TaxRate, CompanySettings
+  Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, CompanySettings
 } from '@/lib/types';
 import { generateId, generateInvoiceNumber, sequenceFromNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
-import { getTaxRates, getTaxLabel } from '@/lib/constants';
+import { getTaxRates, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
 function createEmptyLine(settings?: CompanySettings | null): AlbaranLineItem {
@@ -25,7 +25,7 @@ function createEmptyLine(settings?: CompanySettings | null): AlbaranLineItem {
     quantity: 1,
     unitPrice: 0,
     unit: UnitOfMeasure.KG,
-    taxRate: settings?.igicEnabled ? TaxRate.IGIC_GENERAL : TaxRate.REDUCIDO,
+    taxRate: getDefaultTaxRate(settings),
     discountPercent: 0,
     subtotal: 0,
     taxAmount: 0,

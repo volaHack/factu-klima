@@ -2,7 +2,7 @@
 // UTILIDADES DEL SISTEMA
 // ============================================================
 
-import { InvoiceLineItem, TaxBreakdown, TaxRate, InvoiceStatus } from './types';
+import { InvoiceLineItem, TaxBreakdown, InvoiceStatus } from './types';
 import { INVOICE_STATUSES } from './constants';
 
 /**
@@ -81,7 +81,7 @@ export function calculateLineSubtotal(
 /**
  * Calculate line item tax amount
  */
-export function calculateLineTax(subtotal: number, taxRate: TaxRate): number {
+export function calculateLineTax(subtotal: number, taxRate: number): number {
   return Number((subtotal * (taxRate / 100)).toFixed(2));
 }
 
@@ -97,7 +97,7 @@ export function calculateInvoiceTotals(lineItems: InvoiceLineItem[]): {
 } {
   let subtotal = 0;
   let totalDiscount = 0;
-  const taxMap = new Map<TaxRate, { base: number; amount: number }>();
+  const taxMap = new Map<number, { base: number; amount: number }>();
 
   for (const item of lineItems) {
     const gross = item.quantity * item.unitPrice;

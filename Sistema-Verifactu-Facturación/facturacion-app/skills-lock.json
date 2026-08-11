@@ -56,6 +56,12 @@
       "skillPath": "skills/nano-banana-pro/SKILL.md",
       "computedHash": "4481d18685cc5fe56417f7ac1bedb367e220502f73ab6fb64eb999719223dc99"
     },
+    "responsive-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/responsive-design/SKILL.md",
+      "computedHash": "155eff4b1bc8d867ae6bea9900c485ab1081de0b4873c1900adb66bf62466aed"
+    },
     "sleek-design-mobile-apps": {
       "source": "design-layers/agent-skills",
       "sourceType": "github",

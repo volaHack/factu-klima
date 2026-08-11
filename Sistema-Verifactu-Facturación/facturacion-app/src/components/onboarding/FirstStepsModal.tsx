@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Info, ShieldCheck, X } from 'lucide-react';
 import { getNifErrorDetails, formatNif } from '@/lib/validation/nif';
-import { TAX_RATES } from '@/lib/constants';
+import { getTaxRates } from '@/lib/constants';
 
 /**
  * Alta mínima obligatoria (NIF, razón social, domicilio fiscal).
@@ -212,7 +212,7 @@ export function FirstStepsModal({ onClose, onComplete, isDismissible = true }: F
                   value={ivaTaxRate}
                   onChange={e => setIvaTaxRate(e.target.value)}
                 >
-                  {TAX_RATES.map(rate => (
+                  {getTaxRates(null).map(rate => (
                     <option key={rate.value} value={rate.value}>{rate.label}</option>
                   ))}
                 </select>
