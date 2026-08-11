@@ -18,11 +18,13 @@ import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalIt
 import { formatCurrency, formatDate, generateId, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { success, error: toastError } = useToast();
+  const { rejections } = useOnlineStatus();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [mounted, setMounted] = useState(false);
   const [copiedIban, setCopiedIban] = useState(false);
@@ -248,6 +250,9 @@ export default function InvoiceDetailPage() {
   // estaba sellada cuando no lo estaba.
   const chainedHash = invoice.verifactu?.chainedHash ?? null;
   const sealed = isSealed(invoice);
+  const rechazo = invoice
+    ? rejections.find(r => r.table === 'invoices' && r.id === invoice.id)
+    : undefined;
 
   return (
     <div className="animate-fade-in">
@@ -267,6 +272,12 @@ export default function InvoiceDetailPage() {
             </span>
             {sealed && (
               <span className="verifactu-badge"><Fingerprint size={11} /> Sellada</span>
+            )}
+            {rechazo && (
+              <span className="badge badge-warning" title={rechazo.reason}>
+                <AlertTriangle size={11} style={{ verticalAlign: '-1px', marginRight: 2 }} />
+                No registrada en el servidor
+              </span>
             )}
           </div>
           <p className="page-subtitle">

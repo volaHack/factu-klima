@@ -22,6 +22,8 @@ export interface SyncQueueItem {
   data: Record<string, unknown>;
   timestamp: number;
   retries: number;
+  /** Último intento fallido: se usa para espaciar los reintentos (backoff). */
+  lastAttemptAt?: number;
 }
 
 // ============================================================

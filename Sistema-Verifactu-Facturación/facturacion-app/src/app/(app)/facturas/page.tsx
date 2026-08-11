@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, FileText, SearchX,
-  Eye, Edit, Copy, Trash2, MoreHorizontal, CheckCircle, Download, Store, BarChart3
+  Eye, Edit, Copy, Trash2, MoreHorizontal, CheckCircle, Download, Store, BarChart3,
+  AlertTriangle,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -17,6 +18,7 @@ import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
 import { INVOICE_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
@@ -37,6 +39,17 @@ export default function FacturasPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const { success, error: toastError } = useToast();
+  const { rejections } = useOnlineStatus();
+
+  // Facturas que el servidor rechazó de forma definitiva: se marcan en el
+  // listado con un aviso discreto en lugar de una barra global.
+  const rechazadas = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rejections) {
+      if (r.table === 'invoices' && r.id) map.set(r.id, r.reason);
+    }
+    return map;
+  }, [rejections]);
 
   const comparisonData = useMemo(() => {
     const now = new Date();
@@ -537,6 +550,16 @@ export default function FacturasPage() {
                     <span className="badge-dot" />
                     {getStatusInfo(inv.status).label}
                   </span>
+                  {rechazadas.has(inv.id) && (
+                    <span
+                      className="badge badge-warning"
+                      style={{ fontSize: '10px', padding: '1px 6px', marginLeft: 6, verticalAlign: 'middle' }}
+                      title={rechazadas.get(inv.id)}
+                    >
+                      <AlertTriangle size={10} style={{ verticalAlign: '-1px', marginRight: 2 }} />
+                      No registrada
+                    </span>
+                  )}
                 </td>
                 <td className="amount">{formatCurrency(inv.total)}</td>
                 <td>

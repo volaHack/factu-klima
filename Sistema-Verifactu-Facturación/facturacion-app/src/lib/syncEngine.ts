@@ -9,19 +9,27 @@ import {
   removeSyncItem,
   updateSyncItem,
   getSyncQueueCount,
+  getMeta,
   setMeta,
   type SyncQueueItem,
   type SyncTable,
 } from './offlineDb';
 
-const MAX_RETRIES = 5;
+/**
+ * Reintento exponencial: 1 s, 2 s, 4 s … hasta 64 s entre pasadas. Los
+ * fallos pasajeros nunca se descartan: el item se queda en la cola y se
+ * vuelve a intentar solo, sin molestar al usuario.
+ */
 const RETRY_DELAY_BASE_MS = 1000;
+const BACKOFF_MAX_POWER = 6;
 
 let isSyncing = false;
 let syncListeners: Array<(state: SyncState) => void> = [];
 
 export interface SyncRejection {
   table: string;
+  /** Id del registro rechazado, para poder marcarlo en su ficha/listado. */
+  id: string | null;
   reason: string;
   at: number;
 }
@@ -67,6 +75,11 @@ function readableReason(err: any): string {
   if (message.includes('ANTIFRAUDE:')) return message.split('ANTIFRAUDE:')[1].trim();
   if (err?.code === '23505') return 'Registro duplicado: ya existe otro con la misma numeración.';
   return message;
+}
+
+/** Retardo de reintento según los intentos fallidos acumulados. */
+function backoffDelayMs(retries: number): number {
+  return RETRY_DELAY_BASE_MS * 2 ** Math.min(retries - 1, BACKOFF_MAX_POWER);
 }
 
 // ============================================================
@@ -222,12 +235,19 @@ export async function processSyncQueue(): Promise<void> {
     return;
   }
 
-  let errored = false;
   const rejections: SyncRejection[] = [];
   const processedIds = new Set<string>();
 
   for (const item of queue) {
     if (processedIds.has(item.id)) continue;
+
+    // Backoff: un item que acaba de fallar no se reintenta hasta que pase
+    // su retardo (hasta 64 s). Se queda en la cola, así que no se pierde
+    // nada: el contador de pendientes lo sigue reflejando.
+    if (item.retries > 0 && item.lastAttemptAt) {
+      if (Date.now() - item.lastAttemptAt < backoffDelayMs(item.retries)) continue;
+    }
+
     try {
       // Las facturas se sincronizan como grupo (padre + líneas + desglose)
       // en el orden que exige el servidor; el resto, item a item.
@@ -242,8 +262,13 @@ export async function processSyncQueue(): Promise<void> {
 
       if (isPermanentRejection(err)) {
         // El servidor no lo va a aceptar nunca. Se saca de la cola y se
-        // deja constancia para poder enseñárselo al usuario.
-        rejections.push({ table: item.table, reason: readableReason(err), at: Date.now() });
+        // deja constancia para poder marcar el documento afectado.
+        rejections.push({
+          table: item.table,
+          id: (item.data.id as string) ?? null,
+          reason: readableReason(err),
+          at: Date.now(),
+        });
         await removeSyncItem(item.id);
         // Si la factura se rechaza, sus hijos huérfanos también se descartan.
         if (item.table === 'invoices') {
@@ -255,42 +280,36 @@ export async function processSyncQueue(): Promise<void> {
         continue;
       }
 
-      errored = true;
-      if (item.retries >= MAX_RETRIES) {
-        rejections.push({
-          table: item.table,
-          reason: 'No se pudo sincronizar tras varios intentos. Revisa la conexión.',
-          at: Date.now(),
-        });
-        await removeSyncItem(item.id);
-      } else {
-        await updateSyncItem({ ...item, retries: item.retries + 1 });
-      }
+      // Fallo pasajero (red, servidor…): no se enseña ningún error ni se
+      // descarta nada. El item se queda en la cola con un reintento más y
+      // el motor volverá a intentarlo solo, con backoff.
+      await updateSyncItem({ ...item, retries: item.retries + 1, lastAttemptAt: Date.now() });
     }
   }
 
   const remaining = await getSyncQueueCount();
   const now = Date.now();
+  const allRejections = [...currentState.rejections, ...rejections].slice(-20);
+
+  // Los rechazos se guardan en el dispositivo para que la marca del
+  // documento siga apareciendo tras recargar la página.
   await setMeta('lastSyncTime', now);
+  await setMeta('syncRejections', allRejections);
 
   isSyncing = false;
   updateState({
     isSyncing: false,
     pendingCount: remaining,
     lastSyncTime: now,
-    lastError: errored ? 'Algunos cambios no se pudieron sincronizar' : null,
-    rejections: [...currentState.rejections, ...rejections].slice(-20),
+    lastError: null,
+    rejections: allRejections,
   });
 }
 
-/** Descarta los rechazos e inconsistencias de sincronización y limpia items fallidos de la cola. */
+/** Descarta los avisos de rechazo. Los items en espera de reintento NO se
+ *  tocan: un fallo pasajero se queda en la cola hasta sincronizarse. */
 export async function clearSyncRejections(): Promise<void> {
-  const queue = await getSyncQueue();
-  for (const item of queue) {
-    if (item.retries >= MAX_RETRIES) {
-      await removeSyncItem(item.id);
-    }
-  }
+  await setMeta('syncRejections', []);
   const remaining = await getSyncQueueCount();
   updateState({ rejections: [], lastError: null, pendingCount: remaining });
 }
@@ -410,6 +429,12 @@ let autoSyncSetup = false;
 export function initAutoSync(): void {
   if (autoSyncSetup || typeof window === 'undefined') return;
   autoSyncSetup = true;
+
+  // Recupera los rechazos guardados para que la marca del documento
+  // siga visible después de recargar.
+  getMeta('syncRejections').then(v => {
+    if (Array.isArray(v) && v.length) updateState({ rejections: v as SyncRejection[] });
+  });
 
   // Process queue when coming back online
   window.addEventListener('online', () => {
