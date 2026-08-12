@@ -483,3 +483,69 @@ export function columnasDePlantilla(plantilla: Template): (string | null)[] {
   }
   return COLUMNAS_LINEAS.slice(0, 5).map(c => c.clave);
 }
+
+/**
+ * Normaliza y sanea cualquier objeto Template (incluso los guardados previamente en BD)
+ * para asegurar compatibilidad total con pdfme y evitar errores al componer el PDF.
+ */
+export function normalizarPlantilla(plantilla: Template): Template {
+  if (!plantilla || typeof plantilla !== 'object') return plantilla;
+  const copia: Template = JSON.parse(JSON.stringify(plantilla));
+  const paginas = copia.schemas || [];
+  const baseStatic = (copia.basePdf && typeof copia.basePdf === 'object' && 'staticSchema' in copia.basePdf)
+    ? ((copia.basePdf as { staticSchema?: Schema[] }).staticSchema || [])
+    : [];
+
+  const normalizarFont = (nombre?: string, negrita = false) => {
+    if (!nombre || nombre === 'Helvetica' || nombre === 'Arial' || nombre === 'sans') {
+      return negrita ? 'sans-bold' : 'sans';
+    }
+    if (nombre === 'Helvetica-Bold' || nombre === 'sans-bold') return 'sans-bold';
+    if (nombre === 'Times-Roman' || nombre === 'serif') return negrita ? 'serif-bold' : 'serif';
+    return nombre;
+  };
+
+  const normalizarCajaDimension = (caja?: Partial<{ top: number; right: number; bottom: number; left: number }>) => ({
+    top: typeof caja?.top === 'number' ? caja.top : 0,
+    right: typeof caja?.right === 'number' ? caja.right : 0,
+    bottom: typeof caja?.bottom === 'number' ? caja.bottom : 0,
+    left: typeof caja?.left === 'number' ? caja.left : 0,
+  });
+
+  for (const esq of [...paginas.flat(), ...baseStatic] as unknown as Record<string, unknown>[]) {
+    if (!esq || typeof esq !== 'object') continue;
+
+    if (esq.type === 'table') {
+      // 1. Corregir columnStyles si viene como array { alignment: [...] }
+      const colStyles = esq.columnStyles as Record<string, unknown> | undefined;
+      if (colStyles && Array.isArray((colStyles as { alignment?: unknown }).alignment)) {
+        const arr = (colStyles as { alignment: string[] }).alignment;
+        const map: Record<number, { alignment: string }> = {};
+        arr.forEach((a, i) => { map[i] = { alignment: a || 'left' }; });
+        esq.columnStyles = map;
+      }
+
+      // 2. Saneamiento de fuentes y propiedades en cabecera y cuerpo
+      const headStyles = (esq.headStyles as Record<string, unknown>) ?? {};
+      headStyles.fontName = normalizarFont(headStyles.fontName as string | undefined, true);
+      headStyles.borderWidth = normalizarCajaDimension(headStyles.borderWidth as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      headStyles.padding = normalizarCajaDimension(headStyles.padding as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      esq.headStyles = headStyles;
+
+      const bodyStyles = (esq.bodyStyles as Record<string, unknown>) ?? {};
+      bodyStyles.fontName = normalizarFont(bodyStyles.fontName as string | undefined, false);
+      bodyStyles.borderWidth = normalizarCajaDimension(bodyStyles.borderWidth as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      bodyStyles.padding = normalizarCajaDimension(bodyStyles.padding as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      esq.bodyStyles = bodyStyles;
+
+      // 3. Cabecera limpia
+      if (Array.isArray(esq.head)) {
+        esq.head = (esq.head as unknown[]).map(h => (h != null ? String(h) : ''));
+      }
+    } else if (esq.type === 'text') {
+      esq.fontName = normalizarFont(esq.fontName as string | undefined, Boolean(esq.bold));
+    }
+  }
+
+  return copia;
+}

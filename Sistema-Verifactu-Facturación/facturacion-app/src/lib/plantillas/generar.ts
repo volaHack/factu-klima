@@ -12,7 +12,7 @@ import type { Template } from '@pdfme/common';
 import { TABLA_LINEAS } from './contrato';
 import type { DatosDocumento } from './datos';
 import { cargarFuentes } from './fuentes';
-import { columnasDePlantilla } from './plantilla';
+import { columnasDePlantilla, normalizarPlantilla } from './plantilla';
 
 export class ErrorGeneracion extends Error {}
 
@@ -39,10 +39,11 @@ export interface OpcionesPdf {
 }
 
 export async function generarPdf(
-  plantilla: Template,
+  plantillaBruta: Template,
   datos: DatosDocumento,
   opciones: OpcionesPdf = {},
 ): Promise<Uint8Array> {
+  const plantilla = normalizarPlantilla(plantillaBruta);
   const [{ generate }, esquemas, fuentes] = await Promise.all([
     import('@pdfme/generator'),
     import('@pdfme/schemas'),
