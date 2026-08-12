@@ -39,6 +39,8 @@ export interface OpcionesDatos {
    * daría al cliente una garantía que no existe.
    */
   qrCotejo?: string;
+  /** Valores para los datos libres/manuales configurados en la plantilla. */
+  datosExtras?: Record<string, string>;
 }
 
 // ============================================================
@@ -192,6 +194,13 @@ export function construirDatos(
       ? 'Factura con registro de facturación encadenado (SHA-256).'
       : '',
     verifactu_qr: opciones.qrCotejo || factura?.verifactu?.qrCodeUrl || '',
+
+    // Datos libres / manuales
+    custom_1: opciones.datosExtras?.custom_1 ?? '',
+    custom_2: opciones.datosExtras?.custom_2 ?? '',
+    custom_3: opciones.datosExtras?.custom_3 ?? '',
+    custom_4: opciones.datosExtras?.custom_4 ?? '',
+    custom_5: opciones.datosExtras?.custom_5 ?? '',
   };
 
   // Red de seguridad: cualquier clave del contrato que no se haya rellenado

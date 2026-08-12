@@ -48,7 +48,7 @@ type Arrastre =
   | { tipo: 'tamano-zona'; id: string; a0: number; h0: number; rx: number; ry: number }
   | { tipo: 'mover-tabla'; x0: number; y0: number; rx: number; ry: number }
   | { tipo: 'tamano-tabla'; a0: number; h0: number; rx: number; ry: number }
-  | { tipo: 'columna'; indice: number; anchoIzq: number; anchoDer: number; rx: number }
+  | { tipo: 'columna'; indice: number; anchoIzq: number; xDer0: number; anchoDer: number; rx: number }
   | { tipo: 'dibujar'; modo: 'campo' | 'zona'; desdeX: number; desdeY: number; hastaX: number; hastaY: number };
 
 function claseConfianza(confianza: number): string {
@@ -230,12 +230,12 @@ export default function RevisorPlantilla({
         const delta = (evento.clientX - arrastre.rx) * escala;
         const izquierda = arrastre.anchoIzq + delta;
         const derecha = arrastre.anchoDer - delta;
-        if (izquierda < 8 || derecha < 8) return;
+        if (izquierda < 6 || derecha < 6) return;
         onCambiarTabla({
           ...tabla,
           columnas: tabla.columnas.map((c, i) => {
             if (i === arrastre.indice) return { ...c, ancho: izquierda };
-            if (i === arrastre.indice + 1) return { ...c, x: c.x + delta, ancho: derecha };
+            if (i === arrastre.indice + 1) return { ...c, x: arrastre.xDer0 + delta, ancho: derecha };
             return c;
           }),
         });
@@ -635,6 +635,7 @@ export default function RevisorPlantilla({
                         tipo: 'columna',
                         indice,
                         anchoIzq: columna.ancho,
+                        xDer0: tabla.columnas[indice + 1].x,
                         anchoDer: tabla.columnas[indice + 1].ancho,
                         rx: evento.clientX,
                       });

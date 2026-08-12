@@ -7143,9 +7143,14 @@ a.stats-item:focus-visible {
   pointer-events: none;
 }
 
-.campo-caja:hover .campo-caja-etiqueta,
 .campo-caja--activa .campo-caja-etiqueta { opacity: 1; }
 .campo-caja--sin-asignar .campo-caja-etiqueta { opacity: 1; background: var(--color-danger); }
+
+/* Al hacer hover sobre el campo, se oculta la etiqueta para que no tape el texto del documento original */
+.campo-caja:hover .campo-caja-etiqueta {
+  opacity: 0 !important;
+  visibility: hidden;
+}
 
 .campo-caja-tirador {
   position: absolute;
