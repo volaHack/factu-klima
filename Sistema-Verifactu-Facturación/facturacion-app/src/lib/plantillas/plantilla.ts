@@ -226,8 +226,10 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
   const masAncha = porcentajes.indexOf(Math.max(...porcentajes));
   porcentajes[masAncha] += 100 - suma;
 
-  const alineaciones: Record<number, Alineacion> = {};
-  columnas.forEach((c, i) => { alineaciones[i] = c.alineacion; });
+  const stylesColumna: Record<number, { alignment: string }> = {};
+  columnas.forEach((col, idx) => {
+    stylesColumna[idx] = { alignment: col.alineacion };
+  });
 
   const fuenteBase = familia === 'serif' ? FUENTES.serif : FUENTES.sans;
   const fuenteCabecera = tabla.estilo.cabeceraNegrita
@@ -252,7 +254,7 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
     // La cabecera se repite en cada página nueva: una factura de tres hojas
     // sin títulos de columna en la segunda no hay quien la lea.
     repeatHead: true,
-    head: columnas.map(c => c.cabecera),
+    head: columnas.map(c => c.cabecera || ''),
     headWidthPercentages: porcentajes.map(p => redondear(p)),
     tableStyles: { borderColor: tabla.estilo.bordeColor, borderWidth: tabla.estilo.bordeAncho },
     headStyles: {
@@ -280,9 +282,9 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
       borderColor: tabla.estilo.bordeColor,
       borderWidth: { ...bordeCelda },
       padding: rellenoComoCaja(tabla.estilo.relleno),
-      alternateBackgroundColor: tabla.estilo.filaAlterna === 'transparent' ? '' : tabla.estilo.filaAlterna,
+      alternateBackgroundColor: (tabla.estilo.filaAlterna && tabla.estilo.filaAlterna !== 'transparent') ? tabla.estilo.filaAlterna : '',
     },
-    columnStyles: { alignment: alineaciones },
+    columnStyles: stylesColumna,
     // Extensión propia: qué dato de la factura va en cada columna. pdfme
     // ignora lo que no conoce, y el generador lo usa para ordenar las celdas.
     __columnas: columnas.map(c => c.clave),

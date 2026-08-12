@@ -7146,10 +7146,18 @@ a.stats-item:focus-visible {
 .campo-caja--activa .campo-caja-etiqueta { opacity: 1; }
 .campo-caja--sin-asignar .campo-caja-etiqueta { opacity: 1; background: var(--color-danger); }
 
-/* Al hacer hover sobre el campo, se oculta la etiqueta para que no tape el texto del documento original */
-.campo-caja:hover .campo-caja-etiqueta {
+/* Al hacer hover sobre el lienzo o sobre cualquier recuadro, DESAPARECEN TODAS las etiquetas ("¿Qué es esto?", etc.) para no tapar el texto original del PDF */
+.plantilla-lienzo:hover .campo-caja-etiqueta {
   opacity: 0 !important;
-  visibility: hidden;
+  visibility: hidden !important;
+}
+
+/* El recuadro del campo sobre el que está el ratón se destaca con un marco alrededor bien claro */
+.campo-caja:hover {
+  border: 2px solid var(--accent-500) !important;
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  background: color-mix(in srgb, var(--accent-500) 18%, transparent) !important;
+  z-index: 10;
 }
 
 .campo-caja-tirador {
