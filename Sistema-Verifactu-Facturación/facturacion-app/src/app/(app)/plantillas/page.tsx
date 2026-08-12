@@ -28,7 +28,7 @@ import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
 import type {
-  CampoDetectado, PlantillaDocumento, TablaDetectada, TipoDocumentoPlantilla,
+  CampoDetectado, PlantillaDocumento, TablaDetectada, TipoDocumentoPlantilla, ZonaBorrado,
 } from '@/lib/plantillas/tipos';
 import type { CompanySettings, Invoice } from '@/lib/types';
 
@@ -113,6 +113,10 @@ export default function PlantillasPage() {
 
   const cambiarTabla = (tabla: TablaDetectada) => {
     setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, tabla } } : actual));
+  };
+
+  const cambiarZonas = (zonasExtra: ZonaBorrado[]) => {
+    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, zonasExtra } } : actual));
   };
 
   // ============================================================
@@ -293,6 +297,7 @@ export default function PlantillasPage() {
           analisis={sesion.analisis}
           onCambiarCampos={cambiarCampos}
           onCambiarTabla={cambiarTabla}
+          onCambiarZonas={cambiarZonas}
         />
 
         {vistaPrevia && (

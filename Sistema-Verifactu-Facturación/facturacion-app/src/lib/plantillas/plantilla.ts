@@ -248,7 +248,7 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
     width: redondear(tabla.ancho),
     height: redondear(tabla.altoTotal),
     content: '[]',
-    showHead: true,
+    showHead: tabla.estilo.mostrarCabecera !== false,
     // La cabecera se repite en cada página nueva: una factura de tres hojas
     // sin títulos de columna en la segunda no hay quien la lea.
     repeatHead: true,
@@ -263,7 +263,7 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
       lineHeight: 1,
       characterSpacing: 0,
       fontColor: tabla.estilo.cabeceraTexto,
-      backgroundColor: tabla.estilo.cabeceraFondo === '#ffffff' ? '' : tabla.estilo.cabeceraFondo,
+      backgroundColor: (!tabla.estilo.cabeceraFondo || tabla.estilo.cabeceraFondo === 'transparent' || tabla.estilo.cabeceraFondo === '#ffffff') ? '' : tabla.estilo.cabeceraFondo,
       borderColor: tabla.estilo.bordeColor,
       borderWidth: { ...bordeCelda },
       padding: rellenoComoCaja(tabla.estilo.relleno),
@@ -276,11 +276,11 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
       lineHeight: 1.15,
       characterSpacing: 0,
       fontColor: tabla.estilo.cuerpoTexto,
-      backgroundColor: '',
+      backgroundColor: (!tabla.estilo.cuerpoFondo || tabla.estilo.cuerpoFondo === 'transparent' || tabla.estilo.cuerpoFondo === '#ffffff') ? '' : tabla.estilo.cuerpoFondo,
       borderColor: tabla.estilo.bordeColor,
       borderWidth: { ...bordeCelda },
       padding: rellenoComoCaja(tabla.estilo.relleno),
-      alternateBackgroundColor: tabla.estilo.filaAlterna,
+      alternateBackgroundColor: tabla.estilo.filaAlterna === 'transparent' ? '' : tabla.estilo.filaAlterna,
     },
     columnStyles: { alignment: alineaciones },
     // Extensión propia: qué dato de la factura va en cada columna. pdfme
@@ -306,9 +306,10 @@ export function tablaPorDefecto(anchoPagina: number, altoPagina: number): TablaD
     altoTotal: 7 + 6 * 6,
     columnas: columnasPorDefecto(margen, ancho),
     estilo: {
-      cabeceraFondo: '#f1f5f9',
+      cabeceraFondo: 'transparent',
       cabeceraTexto: '#0f172a',
       cabeceraNegrita: true,
+      mostrarCabecera: true,
       cuerpoTexto: '#1f2937',
       bordeColor: '#d5dbe3',
       bordeAncho: 0,

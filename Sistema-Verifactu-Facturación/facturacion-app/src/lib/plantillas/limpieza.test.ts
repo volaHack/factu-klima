@@ -1,0 +1,139 @@
+/**
+ * El borrado de los datos de muestra es lo que más se ve cuando falla: si el
+ * color con el que se tapa no es exactamente el del papel, la factura sale
+ * con parches de otro tono, y si el rectángulo corta un texto por la mitad,
+ * quedan medias letras impresas. Las dos cosas se comprueban aquí.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { fondoAlrededor, muestrearColor } from './extraccion';
+import { zonasABorrar } from './analisis';
+import type { AnalisisPdf, CampoDetectado, ItemTexto, PaginaExtraida } from './tipos';
+import { agruparEnLineas } from './extraccion';
+
+/** ImageData de mentira: en Node no existe, pero su forma es trivial. */
+function lienzoDePrueba(
+  ancho: number,
+  alto: number,
+  fondo: [number, number, number],
+  pintar?: (x: number, y: number) => [number, number, number] | null,
+): ImageData {
+  const data = new Uint8ClampedArray(ancho * alto * 4);
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const i = (y * ancho + x) * 4;
+      const color = pintar?.(x, y) ?? fondo;
+      data[i] = color[0]; data[i + 1] = color[1]; data[i + 2] = color[2]; data[i + 3] = 255;
+    }
+  }
+  return { data, width: ancho, height: alto, colorSpace: 'srgb' } as ImageData;
+}
+
+describe('color con el que se tapa', () => {
+  it('devuelve blanco exacto sobre papel blanco', () => {
+    // Este es el fallo que dejaba recuadros grises por toda la factura: al
+    // agrupar los colores en cubos se devolvía el centro del cubo (240) en
+    // vez del blanco real (255).
+    const lienzo = lienzoDePrueba(60, 40, [255, 255, 255]);
+    expect(fondoAlrededor(lienzo, 10, 10, 20, 10)).toBe('#ffffff');
+  });
+
+  it('respeta el color exacto de una franja de color', () => {
+    const verde: [number, number, number] = [15, 118, 110];
+    const lienzo = lienzoDePrueba(60, 40, verde);
+    expect(fondoAlrededor(lienzo, 10, 10, 20, 10)).toBe('#0f766e');
+  });
+
+  it('no se deja llevar por el texto que hay dentro de la caja', () => {
+    // Caja llena de tinta negra, papel blanco alrededor: hay que devolver el
+    // papel, porque es el color con el que se va a tapar.
+    const lienzo = lienzoDePrueba(60, 40, [255, 255, 255], (x, y) =>
+      x >= 12 && x <= 28 && y >= 12 && y <= 18 ? [0, 0, 0] : null,
+    );
+    expect(fondoAlrededor(lienzo, 12, 12, 16, 6)).toBe('#ffffff');
+  });
+
+  it('separa tinta de papel al muestrear un texto', () => {
+    const lienzo = lienzoDePrueba(60, 40, [255, 255, 255], (x, y) =>
+      y >= 14 && y <= 16 ? [17, 24, 39] : null,
+    );
+    const muestra = muestrearColor(lienzo, 10, 10, 30, 12);
+    expect(muestra.fondo).toBe('#ffffff');
+    expect(muestra.texto).toBe('#111827');
+    expect(muestra.densidad).toBeGreaterThan(0);
+    expect(muestra.densidad).toBeLessThan(1);
+  });
+});
+
+// ============================================================
+
+const MM_POR_PUNTO = 0.3528;
+
+function texto(contenido: string, x: number, y: number, tamano = 9): ItemTexto {
+  return {
+    texto: contenido, x, y,
+    ancho: contenido.length * tamano * 0.5 * MM_POR_PUNTO,
+    alto: tamano * MM_POR_PUNTO,
+    tamano, fuente: 'Helvetica',
+    negrita: false, cursiva: false, serif: false, monoespaciada: false,
+    color: '#000000',
+  };
+}
+
+function analisisConTabla(altoTabla: number): AnalisisPdf {
+  const items = [
+    texto('Descripción', 15, 90),
+    texto('Importe', 170, 90),
+    texto('Artículo uno', 15, 98),
+    texto('100,00 €', 170, 98),
+    // Fila de desglose justo debajo: es la que se cortaba por la mitad.
+    texto('21%', 15, 112),
+    texto('21,00 €', 170, 112),
+  ];
+  const pagina: PaginaExtraida = {
+    ancho: 210, alto: 297, items, lineas: agruparEnLineas(items), totalPaginas: 1,
+    bitmap: { dataUrl: '', anchoPx: 100, altoPx: 140, pxPorMm: 1 },
+  };
+
+  return {
+    pagina,
+    campos: [] as CampoDetectado[],
+    tabla: {
+      x: 15, ancho: 180, y: 88, altoCabecera: 7, altoFila: 6,
+      altoTotal: altoTabla,
+      columnas: [], filasOriginales: 1,
+      estilo: {
+        cabeceraFondo: '#ffffff', cabeceraTexto: '#000000', cabeceraNegrita: true,
+        cuerpoTexto: '#000000', bordeColor: '#dddddd', bordeAncho: 0, bordeFilas: 0.1,
+        tamanoCabecera: 9, tamanoCuerpo: 9, relleno: [1, 1, 1, 1], filaAlterna: '',
+      },
+    },
+    avisos: [],
+    zonasExtra: [],
+    familia: 'sans',
+  };
+}
+
+describe('zonas que se borran', () => {
+  it('estira la zona hasta cubrir entero el texto que sólo tapaba a medias', () => {
+    // La tabla termina a media altura de la fila del 21 %: sin ajuste queda
+    // la mitad de arriba borrada y la de abajo impresa.
+    const analisis = analisisConTabla(25.5);
+    const zonaTabla = zonasABorrar(analisis)[0];
+    const finTexto = 112 + 9 * MM_POR_PUNTO;
+    expect(zonaTabla.y + zonaTabla.alto).toBeGreaterThanOrEqual(finTexto);
+  });
+
+  it('no se estira cuando no corta nada', () => {
+    const analisis = analisisConTabla(15);
+    const zonaTabla = zonasABorrar(analisis)[0];
+    expect(zonaTabla.y + zonaTabla.alto).toBeCloseTo(88 + 15, 5);
+  });
+
+  it('incluye las zonas que el usuario ha tapado a mano', () => {
+    const analisis = analisisConTabla(15);
+    analisis.zonasExtra = [{ id: 'z1', x: 10, y: 200, ancho: 40, alto: 20 }];
+    const zonas = zonasABorrar(analisis);
+    expect(zonas.some(z => z.y === 200 && z.ancho === 40)).toBe(true);
+  });
+});

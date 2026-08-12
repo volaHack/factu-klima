@@ -145,6 +145,8 @@ export interface EstiloTabla {
   cabeceraFondo: string;
   cabeceraTexto: string;
   cabeceraNegrita: boolean;
+  mostrarCabecera?: boolean;
+  cuerpoFondo?: string;
   cuerpoTexto: string;
   bordeColor: string;
   bordeAncho: number;
@@ -179,11 +181,30 @@ export interface AvisoAnalisis {
   texto: string;
 }
 
+/** Rectángulo en milímetros sobre la página. */
+export interface Zona {
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+}
+
+/**
+ * Rectángulo que el usuario ha añadido a mano para tapar algo del diseño
+ * original: un sello, una nota de la factura de muestra, un resto que la
+ * detección no vio. Es la goma de borrar del editor.
+ */
+export interface ZonaBorrado extends Zona {
+  id: string;
+}
+
 export interface AnalisisPdf {
   pagina: PaginaExtraida;
   campos: CampoDetectado[];
   tabla: TablaDetectada | null;
   avisos: AvisoAnalisis[];
+  /** Zonas que el usuario ha decidido tapar además de las automáticas. */
+  zonasExtra: ZonaBorrado[];
   /** Familia dominante del documento, para elegir la fuente del PDF final. */
   familia: 'sans' | 'serif';
 }

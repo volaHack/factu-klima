@@ -12,7 +12,7 @@
 
 import type { CompanySettings } from '../types';
 import { detectar } from './deteccion';
-import { extraerPagina, muestrearColor, type PaginaConLienzo } from './extraccion';
+import { extraerPagina, lineasHorizontales, muestrearColor, type PaginaConLienzo } from './extraccion';
 import { construirCalco, type Zona } from './limpieza';
 import { compilarPlantilla, type ResultadoCompilacion } from './plantilla';
 import type { AnalisisPdf } from './tipos';
@@ -45,12 +45,17 @@ export async function analizarPdf(
   const datos = await archivo.arrayBuffer();
   const pagina = await extraerPagina(datos);
 
+  const { pxPorMm } = pagina.bitmap;
   const analisis = detectar(pagina, {
     ajustes,
-    muestrear: (x, y, ancho, alto) => {
-      const { pxPorMm } = pagina.bitmap;
-      return muestrearColor(pagina.pixeles, x * pxPorMm, y * pxPorMm, ancho * pxPorMm, alto * pxPorMm);
-    },
+    muestrear: (x, y, ancho, alto) =>
+      muestrearColor(pagina.pixeles, x * pxPorMm, y * pxPorMm, ancho * pxPorMm, alto * pxPorMm),
+    buscarLineas: (x, ancho, y, alto) =>
+      lineasHorizontales(
+        pagina.pixeles,
+        x * pxPorMm, (x + ancho) * pxPorMm,
+        y * pxPorMm, (y + alto) * pxPorMm,
+      ).map(pxY => pxY / pxPorMm),
   });
 
   return { analisis, pagina, nombreArchivo: archivo.name };
@@ -58,9 +63,9 @@ export async function analizarPdf(
 
 /**
  * Zonas del calco que hay que tapar: cada campo que se va a rellenar con
- * datos y la tabla entera. Se recalcula en cada compilación porque el
- * usuario puede haber marcado campos como fijos, movido cajas o añadido
- * campos nuevos desde el revisor.
+ * datos, la tabla entera y lo que el usuario haya tapado a mano. Se
+ * recalcula en cada compilación porque el usuario puede haber marcado
+ * campos como fijos, movido cajas o añadido campos nuevos desde el revisor.
  */
 export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
   const zonas: Zona[] = analisis.campos
@@ -77,7 +82,46 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
       alto: analisis.tabla.altoTotal,
     });
   }
-  return zonas;
+
+  zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));
+
+  return ajustarAlTexto(zonas, analisis);
+}
+
+/**
+ * Estira cada zona hasta cubrir por completo los textos que sólo tapa a
+ * medias.
+ *
+ * Sin esto se ven letras cortadas por la mitad: el rectángulo de la tabla
+ * termina donde la heurística cree que acaba el cuerpo, y si justo ahí hay
+ * una fila de desglose, queda la mitad superior borrada y la inferior
+ * impresa. Es el defecto que más delata que la factura está «parcheada».
+ */
+function ajustarAlTexto(zonas: Zona[], analisis: AnalisisPdf): Zona[] {
+  const segmentos = analisis.pagina.lineas.flatMap(l => l.segmentos);
+
+  return zonas.map(zona => {
+    let { x, y } = zona;
+    let derecha = zona.x + zona.ancho;
+    let abajo = zona.y + zona.alto;
+
+    for (const segmento of segmentos) {
+      const segDerecha = segmento.x + segmento.ancho;
+      const segAbajo = segmento.y + segmento.alto;
+      const seCruzan = segmento.x < derecha && segDerecha > x && segmento.y < abajo && segAbajo > y;
+      if (!seCruzan) continue;
+
+      // Sólo se estira en vertical y hacia el propio texto: crecer en
+      // horizontal se comería los bordes del diseño que hay al lado.
+      const cubiertoEnHorizontal = segmento.x >= x - 0.5 && segDerecha <= derecha + 0.5;
+      if (!cubiertoEnHorizontal) continue;
+
+      y = Math.min(y, segmento.y);
+      abajo = Math.max(abajo, segAbajo);
+    }
+
+    return { x, y, ancho: derecha - x, alto: abajo - y };
+  });
 }
 
 export function compilar(sesion: SesionAnalisis): ResultadoCompilacion {

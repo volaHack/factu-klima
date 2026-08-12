@@ -13,13 +13,9 @@
  */
 
 import { fondoAlrededor, type PaginaConLienzo } from './extraccion';
+import type { Zona } from './tipos';
 
-export interface Zona {
-  x: number;
-  y: number;
-  ancho: number;
-  alto: number;
-}
+export type { Zona };
 
 /** Milímetros que se añaden a cada lado para llevarse el antialias del texto. */
 const HOLGURA_MM = 0.45;

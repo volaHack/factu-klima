@@ -7159,14 +7159,6 @@ a.stats-item:focus-visible {
   cursor: nwse-resize;
 }
 
-.plantilla-tabla-marco {
-  position: absolute;
-  border: 1.5px dashed var(--accent-400);
-  background: color-mix(in srgb, var(--accent-500) 7%, transparent);
-  border-radius: 4px;
-  pointer-events: none;
-}
-
 .plantilla-tabla-etiqueta {
   position: absolute;
   top: -9px;
@@ -7352,3 +7344,199 @@ a.stats-item:focus-visible {
   .plantilla-estilo { grid-template-columns: 1fr; }
   .plantilla-fijos { max-height: 180px; }
 }
+
+/* --- Editor de plantillas: herramientas, capas y estilos de tabla --- */
+
+.plantilla-herramientas { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+.plantilla-pista-modo {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-50);
+  border: 1px solid var(--accent-100);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--accent-300);
+  font-weight: 600;
+}
+
+/* Zonas tapadas: se pintan como una goma de borrar, con trama diagonal para
+   que se distingan de un campo aunque las dos sean rectángulos. */
+.zona-caja {
+  position: absolute;
+  border: 1.5px dashed var(--text-tertiary);
+  border-radius: 2px;
+  cursor: grab;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--text-tertiary) 22%, transparent) 0 3px,
+      transparent 3px 7px
+    );
+  z-index: 1;
+}
+.zona-caja:active { cursor: grabbing; }
+.zona-caja--activa {
+  border-color: var(--accent-500);
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  z-index: 4;
+}
+.zona-caja--nueva { pointer-events: none; border-color: var(--accent-500); }
+.zona-caja .campo-caja-etiqueta { background: var(--text-tertiary); }
+
+/* La tabla deja de ser un adorno y pasa a ser un objeto que se agarra. */
+.plantilla-tabla-marco {
+  position: absolute;
+  border: 1.5px dashed var(--accent-400);
+  background: color-mix(in srgb, var(--accent-500) 6%, transparent);
+  border-radius: 4px;
+  cursor: grab;
+  z-index: 2;
+}
+.plantilla-tabla-marco:active { cursor: grabbing; }
+.plantilla-tabla-marco--activa {
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-md);
+  z-index: 5;
+}
+
+/* Franja que recuerda dónde cae la fila de títulos. */
+.plantilla-tabla-cabecera {
+  position: absolute;
+  inset: 0 0 auto 0;
+  opacity: 0.45;
+  border-radius: 3px 3px 0 0;
+  pointer-events: none;
+}
+
+/* Separador arrastrable entre dos columnas. */
+.plantilla-divisor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  margin-left: -4.5px;
+  cursor: col-resize;
+  z-index: 6;
+}
+.plantilla-divisor::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--accent-400);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.plantilla-divisor--visible::before { opacity: 0.55; }
+.plantilla-divisor:hover::before { opacity: 1; width: 2px; }
+
+/* Los campos van por encima de la tabla: si un dato cae dentro del área de
+   líneas, tiene que poder seleccionarse igualmente. */
+.campo-caja { z-index: 3; }
+.campo-caja--activa { z-index: 7; }
+
+/* Rejilla de columnas: título, contenido, alineación y papelera. */
+.plantilla-columna {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) 74px 28px;
+  gap: 6px;
+  align-items: center;
+}
+.plantilla-columna-cabecera { font-size: var(--text-xs); padding: 4px 6px; }
+.plantilla-columna .form-select { font-size: var(--text-xs); padding: 4px 6px; }
+.plantilla-anadir-columna { margin-top: var(--space-3); }
+
+/* Selector de color: el input nativo necesita alto propio para verse bien. */
+.plantilla-color { padding: 2px; height: 30px; cursor: pointer; }
+.plantilla-estilo input[type='checkbox'] { justify-self: start; width: 16px; height: 16px; accent-color: var(--accent-500); }
+
+@media (max-width: 768px) {
+  .plantilla-columna { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px 26px; }
+}
+
+/* --- CANVA EDITOR EXTENSIONS --- */
+.plantilla-toolbar-canva {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+  z-index: 20;
+}
+
+.plantilla-toolbar-grupo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  margin-right: 4px;
+  border-right: 1px solid var(--border-color);
+}
+.plantilla-toolbar-grupo:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+
+.plantilla-btn-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.plantilla-btn-toggle:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.plantilla-btn-toggle--activo {
+  background: var(--accent-50);
+  border-color: var(--accent-300);
+  color: var(--accent-500);
+}
+
+.plantilla-zoom-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding: 0 4px;
+}
+
+.plantilla-campo-preview-texto {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  padding: 0 2px;
+  font-family: var(--font-sans);
+}
+
+.plantilla-btn-transparente {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.plantilla-btn-transparente:hover { background: var(--bg-card-hover); }
+.plantilla-btn-transparente--activo { background: var(--accent-50); border-color: var(--accent-300); color: var(--accent-500); font-weight: 600; }
+

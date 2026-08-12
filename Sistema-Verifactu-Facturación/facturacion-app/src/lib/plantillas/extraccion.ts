@@ -109,6 +109,39 @@ export interface MuestraColor {
 }
 
 /**
+ * Color de fondo dominante de un conjunto de píxeles.
+ *
+ * Se agrupan en cubos de 3 bits por canal para que el ruido de compresión no
+ * parta un mismo color en veinte tonos, pero el color que se devuelve es la
+ * MEDIA REAL de los píxeles del cubo ganador, no el centro del cubo.
+ *
+ * La diferencia no es un matiz: el centro del cubo del blanco es 240, así que
+ * devolver el centro pintaba de gris claro todos los borrados sobre papel
+ * blanco. En una factura eso son parches grises por toda la página.
+ */
+function colorDominante(muestras: Uint8Array, cuantos: number): { r: number; g: number; b: number } {
+  const cuentas = new Map<number, { n: number; r: number; g: number; b: number }>();
+
+  for (let i = 0; i < cuantos; i++) {
+    const r = muestras[i * 3], g = muestras[i * 3 + 1], b = muestras[i * 3 + 2];
+    const cubo = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
+    const acumulado = cuentas.get(cubo);
+    if (acumulado) {
+      acumulado.n++; acumulado.r += r; acumulado.g += g; acumulado.b += b;
+    } else {
+      cuentas.set(cubo, { n: 1, r, g, b });
+    }
+  }
+
+  let mejor = { n: 0, r: 255 * 1, g: 255 * 1, b: 255 * 1 };
+  for (const [, acumulado] of cuentas) {
+    if (acumulado.n > mejor.n) mejor = acumulado;
+  }
+  const n = Math.max(1, mejor.n);
+  return { r: mejor.r / n, g: mejor.g / n, b: mejor.b / n };
+}
+
+/**
  * Mira los píxeles de una caja y separa fondo de tinta. El fondo es el color
  * más repetido; la tinta, la mediana de los píxeles que más se alejan de él.
  * Tomar la mediana y no el máximo evita que un solo píxel de ruido o un
@@ -128,41 +161,34 @@ export function muestrearColor(
   if (x1 <= x0 || y1 <= y0) return { texto: '#000000', fondo: '#ffffff', densidad: 0 };
 
   const datos = pixeles.data;
-  const cubos = new Map<number, number>();
-  const muestras: [number, number, number][] = [];
+  const total = (x1 - x0) * (y1 - y0);
+  const muestras = new Uint8Array(total * 3);
+  let n = 0;
 
   for (let py = y0; py < y1; py++) {
     for (let px = x0; px < x1; px++) {
       const i = (py * pixeles.width + px) * 4;
-      const r = datos[i], g = datos[i + 1], b = datos[i + 2];
-      muestras.push([r, g, b]);
-      // Cubos de 3 bits por canal: agrupa el ruido de compresión sin llegar
-      // a mezclar dos colores que el ojo distingue.
-      const cubo = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
-      cubos.set(cubo, (cubos.get(cubo) ?? 0) + 1);
+      muestras[n * 3] = datos[i];
+      muestras[n * 3 + 1] = datos[i + 1];
+      muestras[n * 3 + 2] = datos[i + 2];
+      n++;
     }
   }
 
-  let cuboFondo = 0, maxCuenta = -1;
-  for (const [cubo, cuenta] of cubos) {
-    if (cuenta > maxCuenta) { maxCuenta = cuenta; cuboFondo = cubo; }
-  }
-  // Centro del cubo dominante, no un píxel suelto: así el fondo que se pinta
-  // al borrar no arrastra el ruido del original.
-  const fr = ((cuboFondo >> 6) & 7) * 32 + 16;
-  const fg = ((cuboFondo >> 3) & 7) * 32 + 16;
-  const fb = (cuboFondo & 7) * 32 + 16;
+  const fondo = colorDominante(muestras, n);
+  const fr = fondo.r, fg = fondo.g, fb = fondo.b;
 
-  const conDistancia = muestras
-    .map(([r, g, b]) => ({ r, g, b, d: Math.abs(r - fr) + Math.abs(g - fg) + Math.abs(b - fb) }))
-    .sort((a, b) => b.d - a.d);
+  const conDistancia = Array.from({ length: n }, (_, i) => {
+    const r = muestras[i * 3], g = muestras[i * 3 + 1], b = muestras[i * 3 + 2];
+    return { r, g, b, d: Math.abs(r - fr) + Math.abs(g - fg) + Math.abs(b - fb) };
+  }).sort((a, b) => b.d - a.d);
 
   // Umbral de tinta: la mitad de la distancia máxima observada, con un
   // mínimo para no llamar «texto» a la textura de un fondo liso.
   const distanciaMaxima = conDistancia[0]?.d ?? 0;
   const umbral = Math.max(60, distanciaMaxima * 0.5);
   const tinta = conDistancia.filter(p => p.d >= umbral);
-  const densidad = tinta.length / muestras.length;
+  const densidad = tinta.length / Math.max(1, n);
 
   if (tinta.length === 0) {
     return { texto: aHex(fr, fg, fb), fondo: aHex(fr, fg, fb), densidad: 0 };
@@ -172,7 +198,95 @@ export function muestrearColor(
   return { texto: aHex(medio.r, medio.g, medio.b), fondo: aHex(fr, fg, fb), densidad };
 }
 
-/** Color de fondo de una zona, mirando sólo el marco exterior de la caja. */
+/**
+ * Busca las líneas horizontales largas que hay dentro de una franja: son el
+ * marco y las rayas de una tabla dibujada.
+ *
+ * Hace falta porque el texto no dice dónde termina la tabla. Si la zona que
+ * se borra se queda corta, el marco del PDF original sobrevive a medias y la
+ * tabla nueva se dibuja encima descuadrada: dos marcos, uno cortado. Con
+ * esto se sabe dónde está el marco de verdad y se puede borrar entero.
+ *
+ * Devuelve las alturas (en píxeles del calco) de cada línea encontrada.
+ */
+export function lineasHorizontales(
+  pixeles: ImageData,
+  xDesde: number,
+  xHasta: number,
+  yDesde: number,
+  yHasta: number,
+  /** Proporción del ancho que tiene que estar pintada para contar como línea. */
+  cobertura = 0.6,
+): number[] {
+  const x0 = Math.max(0, Math.floor(xDesde));
+  const x1 = Math.min(pixeles.width, Math.ceil(xHasta));
+  const y0 = Math.max(0, Math.floor(yDesde));
+  const y1 = Math.min(pixeles.height, Math.ceil(yHasta));
+  if (x1 - x0 < 10) return [];
+
+  const encontradas: number[] = [];
+  const necesarios = (x1 - x0) * cobertura;
+
+  for (let y = y0; y < y1; y++) {
+    let oscuros = 0;
+    for (let x = x0; x < x1; x++) {
+      const i = (y * pixeles.width + x) * 4;
+      // Cualquier cosa apreciablemente más oscura que el papel cuenta como
+      // trazo: sirve igual para una línea negra que para una gris suave.
+      const luz = (pixeles.data[i] + pixeles.data[i + 1] + pixeles.data[i + 2]) / 3;
+      if (luz < 225) oscuros++;
+    }
+    if (oscuros >= necesarios) encontradas.push(y);
+  }
+
+  // Una línea de 2 px de grosor son dos filas seguidas: se cuenta una sola.
+  return encontradas.filter((y, i) => i === 0 || y - encontradas[i - 1] > 2);
+}
+
+/**
+ * Hasta dónde llega en horizontal el trazo que hay a una altura dada.
+ *
+ * Sirve para saber el ancho real del marco de una tabla: el texto de la
+ * cabecera empieza unos milímetros dentro del marco, así que sin esto la
+ * zona que se borra se queda estrecha y quedan los cantos del recuadro
+ * original asomando a los lados.
+ */
+export function extensionDeLinea(
+  pixeles: ImageData,
+  y: number,
+  xDesde: number,
+  xHasta: number,
+): { x: number; ancho: number } | null {
+  const fila = Math.round(y);
+  if (fila < 0 || fila >= pixeles.height) return null;
+
+  const x0 = Math.max(0, Math.floor(xDesde));
+  const x1 = Math.min(pixeles.width, Math.ceil(xHasta));
+  let inicio = -1, fin = -1, huecoSeguido = 0;
+
+  for (let x = x0; x < x1; x++) {
+    const i = (fila * pixeles.width + x) * 4;
+    const luz = (pixeles.data[i] + pixeles.data[i + 1] + pixeles.data[i + 2]) / 3;
+    if (luz < 225) {
+      if (inicio === -1) inicio = x;
+      fin = x;
+      huecoSeguido = 0;
+    } else if (inicio !== -1) {
+      // Una línea de puntos o un corte por una celda no rompe el trazo.
+      huecoSeguido++;
+      if (huecoSeguido > 40) break;
+    }
+  }
+
+  if (inicio === -1 || fin - inicio < 10) return null;
+  return { x: inicio, ancho: fin - inicio };
+}
+
+/**
+ * Color con el que hay que tapar una zona: el fondo dominante del marco que
+ * la rodea. Se mira el contorno y no el interior porque el interior es
+ * justamente lo que se va a borrar.
+ */
 export function fondoAlrededor(
   pixeles: ImageData,
   x: number,
@@ -181,13 +295,11 @@ export function fondoAlrededor(
   alto: number,
   margen = 2,
 ): string {
-  const cubos = new Map<number, number>();
+  const puntos: number[] = [];
   const anota = (px: number, py: number) => {
     if (px < 0 || py < 0 || px >= pixeles.width || py >= pixeles.height) return;
     const i = (py * pixeles.width + px) * 4;
-    const d = pixeles.data;
-    const cubo = ((d[i] >> 5) << 6) | ((d[i + 1] >> 5) << 3) | (d[i + 2] >> 5);
-    cubos.set(cubo, (cubos.get(cubo) ?? 0) + 1);
+    puntos.push(pixeles.data[i], pixeles.data[i + 1], pixeles.data[i + 2]);
   };
 
   const x0 = Math.floor(x) - margen, x1 = Math.ceil(x + ancho) + margen;
@@ -195,11 +307,9 @@ export function fondoAlrededor(
   for (let px = x0; px <= x1; px++) { anota(px, y0); anota(px, y1); }
   for (let py = y0; py <= y1; py++) { anota(x0, py); anota(x1, py); }
 
-  let mejor = 0, maxCuenta = -1;
-  for (const [cubo, cuenta] of cubos) {
-    if (cuenta > maxCuenta) { maxCuenta = cuenta; mejor = cubo; }
-  }
-  return aHex(((mejor >> 6) & 7) * 32 + 16, ((mejor >> 3) & 7) * 32 + 16, (mejor & 7) * 32 + 16);
+  if (puntos.length === 0) return '#ffffff';
+  const fondo = colorDominante(Uint8Array.from(puntos), puntos.length / 3);
+  return aHex(fondo.r, fondo.g, fondo.b);
 }
 
 // ============================================================

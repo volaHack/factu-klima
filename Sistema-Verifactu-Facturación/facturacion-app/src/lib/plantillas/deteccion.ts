@@ -315,6 +315,7 @@ interface ResultadoTabla {
 function detectarTabla(
   pagina: PaginaExtraida,
   muestrear: Muestreador,
+  buscarLineas: BuscadorDeLineas | undefined,
   avisos: AvisoAnalisis[],
 ): ResultadoTabla | null {
   const candidata = buscarCabeceraTabla(pagina.lineas, pagina.alto);
@@ -328,24 +329,34 @@ function detectarTabla(
 
   const cabecera = candidata.linea;
   const inicioCuerpo = abajo(cabecera);
+  const altoLinea = cabecera.alto || 3;
 
-  // Filas: líneas por debajo de la cabecera que sigan compartiendo su franja
-  // horizontal, hasta que aparezca la zona de totales o un salto grande.
   const posibles = pagina.lineas
     .filter(l => l.y >= inicioCuerpo - 0.5 && solapeHorizontal(l, cabecera) > 0.05)
     .sort((a, b) => a.y - b.y);
 
+  // Cuando la tabla está dibujada con marco, la raya de abajo dice dónde
+  // acaba mucho mejor que cualquier medida de huecos entre textos: por
+  // debajo de esa raya ya están los totales, aunque el hueco sea pequeño.
+  const marco = buscarLineas
+    ? buscarMarco(cabecera, derecha(cabecera) - cabecera.x, buscarLineas, pagina.alto)
+    : null;
+
+  // Filas: líneas por debajo de la cabecera que sigan compartiendo su franja
+  // horizontal, hasta que aparezca la zona de totales o un salto grande.
   const filas: LineaTexto[] = [];
-  const altoLinea = cabecera.alto || 3;
   let yAnterior = inicioCuerpo;
 
   for (const linea of posibles) {
+    if (marco && linea.y >= marco.fin - 0.5) break;
     const hueco = linea.y - yAnterior;
-    if (filas.length > 0 && hueco > altoLinea * 3.5) break;
-    if (RE_FIN_DE_TABLA.test(normalizar(linea.texto)) && linea.items.length <= 3) break;
-    // Una fila de la tabla ocupa varias columnas; una nota suelta debajo, no.
-    const columnasTocadas = new Set(linea.items.map(i => Math.round(i.x))).size;
-    if (filas.length > 0 && columnasTocadas === 1 && linea.items.length === 1 && !pareceDato(linea.texto)) break;
+    if (!marco) {
+      if (filas.length > 0 && hueco > altoLinea * 3.5) break;
+      if (RE_FIN_DE_TABLA.test(normalizar(linea.texto)) && linea.items.length <= 3) break;
+      // Una fila de la tabla ocupa varias columnas; una nota suelta debajo, no.
+      const columnasTocadas = new Set(linea.items.map(i => Math.round(i.x))).size;
+      if (filas.length > 0 && columnasTocadas === 1 && linea.items.length === 1 && !pareceDato(linea.texto)) break;
+    }
     filas.push(linea);
     yAnterior = abajo(linea);
   }
@@ -373,20 +384,28 @@ function detectarTabla(
 
   const estilo = estiloDeTabla(cabecera, filas, muestrear, izquierdaTabla, derechaTabla, altoCabecera);
 
-  return {
-    tabla: {
-      x: izquierdaTabla,
-      ancho: derechaTabla - izquierdaTabla,
-      y: cabecera.y - (altoCabecera - (cabecera.alto || altoLinea)) / 2,
-      altoCabecera,
-      altoFila,
-      altoTotal: finCuerpo - cabecera.y,
-      columnas,
-      estilo,
-      filasOriginales: filas.length,
-    },
-    lineasConsumidas: new Set<LineaTexto>([cabecera, ...filas]),
+  const arribaTabla = marco
+    ? marco.inicio - 0.2
+    : cabecera.y - (altoCabecera - (cabecera.alto || altoLinea)) / 2;
+
+  const tabla: TablaDetectada = {
+    x: izquierdaTabla,
+    ancho: derechaTabla - izquierdaTabla,
+    y: arribaTabla,
+    altoCabecera,
+    altoFila,
+    // Con marco, la tabla ocupa exactamente lo que ocupa el marco: así al
+    // borrarla no queda ni una esquina suelta del dibujo original.
+    altoTotal: marco ? marco.fin - arribaTabla + 0.4 : finCuerpo - cabecera.y,
+    columnas,
+    estilo,
+    filasOriginales: filas.length,
   };
+
+  // Si el diseño original llevaba marco, la tabla nueva también lo lleva.
+  if (marco && tabla.estilo.bordeAncho === 0) tabla.estilo.bordeAncho = 0.2;
+
+  return { tabla, lineasConsumidas: new Set<LineaTexto>([cabecera, ...filas]) };
 }
 
 // ============================================================
@@ -395,6 +414,53 @@ function detectarTabla(
 
 /** Devuelve el color de fondo y de tinta de una caja en mm. */
 export type Muestreador = (x: number, y: number, ancho: number, alto: number) => { texto: string; fondo: string };
+
+/**
+ * Busca las rayas horizontales del marco de la tabla, en milímetros. La
+ * proporciona quien tiene el calco a mano; en los tests se omite.
+ */
+export type BuscadorDeLineas = (
+  x: number, ancho: number, y: number, alto: number,
+) => number[];
+
+/**
+ * Ajusta la caja de la tabla al marco que hay dibujado en el papel.
+ *
+ * Sin esto la tabla termina donde acaba la última fila de texto, y el marco
+ * del PDF original —que casi siempre baja bastante más— sobrevive al borrado
+ * en forma de líneas sueltas y esquinas cortadas. Es lo que hace que la
+ * factura se vea «parcheada» en vez de nueva.
+ */
+function buscarMarco(
+  cabecera: LineaTexto,
+  anchoCabecera: number,
+  buscarLineas: BuscadorDeLineas,
+  altoPagina: number,
+): { inicio: number; fin: number } | null {
+  const desde = Math.max(0, cabecera.y - 8);
+  const hasta = Math.min(altoPagina, cabecera.y + 140);
+  const lineas = buscarLineas(cabecera.x, anchoCabecera, desde, hasta - desde);
+  // Un marco son al menos dos rayas: la de arriba y la de abajo.
+  if (lineas.length < 2) return null;
+
+  const arriba = lineas.filter(y => y <= cabecera.y + 1);
+  const debajo = lineas.filter(y => y > abajo(cabecera));
+  if (debajo.length === 0) return null;
+
+  // Se baja raya a raya mientras sigan estando razonablemente juntas. Un
+  // salto grande significa que esa raya ya no es de la tabla, sino de otra
+  // cosa (el recuadro de los totales, una línea de firma…).
+  const SALTO_MAXIMO = 26;
+  let fin = debajo[0];
+  for (const y of debajo.slice(1)) {
+    if (y - fin > SALTO_MAXIMO) break;
+    fin = y;
+  }
+
+  const inicio = arriba.length > 0 ? Math.max(...arriba) : cabecera.y;
+  if (fin - inicio < 4) return null;
+  return { inicio, fin };
+}
 
 function estiloDeTabla(
   cabecera: LineaTexto,
@@ -496,6 +562,8 @@ export interface OpcionesDeteccion {
   ajustes?: CompanySettings | null;
   /** Muestrea colores del calco. En los tests se puede omitir. */
   muestrear?: Muestreador;
+  /** Busca las rayas del marco de la tabla en el calco. */
+  buscarLineas?: BuscadorDeLineas;
 }
 
 let contadorId = 0;
@@ -523,7 +591,7 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
   }
 
   // --- 1. Tabla de líneas ---
-  const resultadoTabla = detectarTabla(pagina, muestrear, avisos);
+  const resultadoTabla = detectarTabla(pagina, muestrear, opciones.buscarLineas, avisos);
   const tabla = resultadoTabla?.tabla ?? null;
   const consumidas = resultadoTabla?.lineasConsumidas ?? new Set<LineaTexto>();
 
@@ -647,7 +715,7 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     avisos.push({ nivel: 'aviso', texto: 'No se ha localizado el total del documento. Revísalo antes de guardar.' });
   }
 
-  return { pagina, campos, tabla, avisos, familia: familiaDominante(pagina.items) };
+  return { pagina, campos, tabla, avisos, zonasExtra: [], familia: familiaDominante(pagina.items) };
 }
 
 function familiaDominante(items: ItemTexto[]): 'sans' | 'serif' {
