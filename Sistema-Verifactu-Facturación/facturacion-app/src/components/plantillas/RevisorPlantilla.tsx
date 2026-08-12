@@ -433,8 +433,8 @@ export default function RevisorPlantilla({
                 {camposPorGrupo().map(g => (
                   <optgroup key={g.grupo} label={g.titulo}>
                     {g.campos.map(op => (
-                      <option key={op.clave} value={op.clave} disabled={asignadas.has(op.clave) && op.clave !== campoActivo.clave}>
-                        {op.etiqueta}
+                      <option key={op.clave} value={op.clave}>
+                        {op.etiqueta}{asignadas.has(op.clave) && op.clave !== campoActivo.clave ? ' (en uso)' : ''}
                       </option>
                     ))}
                   </optgroup>
@@ -971,22 +971,21 @@ function PanelCampo({ campo, asignadas, onCambiar, onEliminar }: {
             else onCambiar({ fijo: false, clave: valor || null });
           }}
         >
-          <option value="">— Sin asignar (saldrá en blanco) —</option>
-          <option value="__fijo">Texto fijo: dejarlo tal cual está impreso</option>
-          {camposPorGrupo().map(grupo => (
-            <optgroup key={grupo.grupo} label={grupo.titulo}>
-              {grupo.campos.map(opcion => (
-                <option
-                  key={opcion.clave}
-                  value={opcion.clave}
-                  disabled={asignadas.has(opcion.clave) && opcion.clave !== campo.clave}
-                >
-                  {opcion.etiqueta}{asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' (ya usado)' : ''}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+                <option value="">— Sin asignar (saldrá en blanco) —</option>
+                <option value="__fijo">Texto fijo: dejarlo tal cual está impreso</option>
+                {camposPorGrupo().map(grupo => (
+                  <optgroup key={grupo.grupo} label={grupo.titulo}>
+                    {grupo.campos.map(opcion => (
+                      <option
+                        key={opcion.clave}
+                        value={opcion.clave}
+                      >
+                        {opcion.etiqueta}{asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' (en uso)' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
       </div>
 
       {descripcion && <p className="plantilla-ayuda">{descripcion}</p>}

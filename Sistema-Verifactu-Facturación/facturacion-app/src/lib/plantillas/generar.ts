@@ -26,8 +26,25 @@ export function construirEntrada(plantilla: Template, datos: DatosDocumento): Re
     columnas.map(columna => (columna ? (linea[columna] ?? '') : '')),
   );
 
+  const entrada: Record<string, string> = { ...datos.campos };
+
+  const paginas = plantilla.schemas || [];
+  const baseStatic = (plantilla.basePdf && typeof plantilla.basePdf === 'object' && 'staticSchema' in plantilla.basePdf)
+    ? ((plantilla.basePdf as { staticSchema?: unknown[] }).staticSchema || [])
+    : [];
+
+  for (const esq of [...paginas.flat(), ...baseStatic] as { name?: string }[]) {
+    if (!esq.name || esq.name === TABLA_LINEAS) continue;
+    if (entrada[esq.name] === undefined) {
+      const claveBase = esq.name.replace(/_\d+$/, '');
+      if (datos.campos[claveBase] !== undefined) {
+        entrada[esq.name] = datos.campos[claveBase];
+      }
+    }
+  }
+
   return {
-    ...datos.campos,
+    ...entrada,
     [TABLA_LINEAS]: JSON.stringify(filas),
   };
 }

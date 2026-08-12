@@ -516,32 +516,69 @@ export function normalizarPlantilla(plantilla: Template): Template {
     if (!esq || typeof esq !== 'object') continue;
 
     if (esq.type === 'table') {
-      // 1. Corregir columnStyles si viene como array { alignment: [...] }
-      const colStyles = esq.columnStyles as Record<string, unknown> | undefined;
-      if (colStyles && Array.isArray((colStyles as { alignment?: unknown }).alignment)) {
+      const headArray = Array.isArray(esq.head) ? (esq.head as unknown[]).map(h => (h != null ? String(h) : '')) : ['Item', 'Total'];
+      esq.head = headArray;
+      const numCols = Math.max(1, headArray.length);
+
+      // 1. Corregir columnStyles si viene como array { alignment: [...] } o desestructurado
+      let colStyles = (esq.columnStyles as Record<string, unknown>) ?? {};
+      if (Array.isArray((colStyles as { alignment?: unknown }).alignment)) {
         const arr = (colStyles as { alignment: string[] }).alignment;
         const map: Record<number, { alignment: string }> = {};
         arr.forEach((a, i) => { map[i] = { alignment: a || 'left' }; });
-        esq.columnStyles = map;
+        colStyles = map;
+      }
+      const finalColStyles: Record<number, { alignment: string }> = {};
+      for (let i = 0; i < numCols; i++) {
+        const item = colStyles[i] as { alignment?: string } | undefined;
+        finalColStyles[i] = { alignment: item?.alignment || 'left' };
+      }
+      esq.columnStyles = finalColStyles;
+
+      // 2. Garantizar headWidthPercentages
+      if (!Array.isArray(esq.headWidthPercentages) || (esq.headWidthPercentages as number[]).length !== numCols) {
+        const pct = Math.round((100 / numCols) * 100) / 100;
+        esq.headWidthPercentages = Array.from({ length: numCols }, () => pct);
       }
 
-      // 2. Saneamiento de fuentes y propiedades en cabecera y cuerpo
+      // 3. Saneamiento de tableStyles, headStyles y bodyStyles
+      const tableStyles = (esq.tableStyles as Record<string, unknown>) ?? {};
+      tableStyles.borderWidth = typeof tableStyles.borderWidth === 'number' ? tableStyles.borderWidth : 0;
+      tableStyles.borderColor = typeof tableStyles.borderColor === 'string' ? tableStyles.borderColor : '#000000';
+      esq.tableStyles = tableStyles;
+
       const headStyles = (esq.headStyles as Record<string, unknown>) ?? {};
       headStyles.fontName = normalizarFont(headStyles.fontName as string | undefined, true);
+      headStyles.fontSize = typeof headStyles.fontSize === 'number' ? headStyles.fontSize : 9;
+      headStyles.characterSpacing = typeof headStyles.characterSpacing === 'number' ? headStyles.characterSpacing : 0;
+      headStyles.lineHeight = typeof headStyles.lineHeight === 'number' ? headStyles.lineHeight : 1;
+      headStyles.fontColor = typeof headStyles.fontColor === 'string' ? headStyles.fontColor : '#0f172a';
+      headStyles.backgroundColor = typeof headStyles.backgroundColor === 'string' && headStyles.backgroundColor !== 'transparent' ? headStyles.backgroundColor : '';
+      headStyles.borderColor = typeof headStyles.borderColor === 'string' ? headStyles.borderColor : '#d5dbe3';
       headStyles.borderWidth = normalizarCajaDimension(headStyles.borderWidth as Partial<{ top: number; right: number; bottom: number; left: number }>);
       headStyles.padding = normalizarCajaDimension(headStyles.padding as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      headStyles.alignment = 'left';
+      headStyles.verticalAlignment = 'middle';
       esq.headStyles = headStyles;
 
       const bodyStyles = (esq.bodyStyles as Record<string, unknown>) ?? {};
       bodyStyles.fontName = normalizarFont(bodyStyles.fontName as string | undefined, false);
+      bodyStyles.fontSize = typeof bodyStyles.fontSize === 'number' ? bodyStyles.fontSize : 9;
+      bodyStyles.characterSpacing = typeof bodyStyles.characterSpacing === 'number' ? bodyStyles.characterSpacing : 0;
+      bodyStyles.lineHeight = typeof bodyStyles.lineHeight === 'number' ? bodyStyles.lineHeight : 1.15;
+      bodyStyles.fontColor = typeof bodyStyles.fontColor === 'string' ? bodyStyles.fontColor : '#1f2937';
+      bodyStyles.backgroundColor = typeof bodyStyles.backgroundColor === 'string' && bodyStyles.backgroundColor !== 'transparent' ? bodyStyles.backgroundColor : '';
+      bodyStyles.alternateBackgroundColor = typeof bodyStyles.alternateBackgroundColor === 'string' && bodyStyles.alternateBackgroundColor !== 'transparent' ? bodyStyles.alternateBackgroundColor : '';
+      bodyStyles.borderColor = typeof bodyStyles.borderColor === 'string' ? bodyStyles.borderColor : '#d5dbe3';
       bodyStyles.borderWidth = normalizarCajaDimension(bodyStyles.borderWidth as Partial<{ top: number; right: number; bottom: number; left: number }>);
       bodyStyles.padding = normalizarCajaDimension(bodyStyles.padding as Partial<{ top: number; right: number; bottom: number; left: number }>);
+      bodyStyles.alignment = 'left';
+      bodyStyles.verticalAlignment = 'top';
       esq.bodyStyles = bodyStyles;
 
-      // 3. Cabecera limpia
-      if (Array.isArray(esq.head)) {
-        esq.head = (esq.head as unknown[]).map(h => (h != null ? String(h) : ''));
-      }
+      esq.showHead = esq.showHead !== false;
+      esq.repeatHead = esq.repeatHead !== false;
+      esq.content = typeof esq.content === 'string' ? esq.content : '[]';
     } else if (esq.type === 'text') {
       esq.fontName = normalizarFont(esq.fontName as string | undefined, Boolean(esq.bold));
     }

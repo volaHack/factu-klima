@@ -16,7 +16,7 @@ import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type CompanySettings, type
 import { construirDatos } from './datos';
 import { detectar } from './deteccion';
 import { agruparEnLineas } from './extraccion';
-import { generarPdf } from './generar';
+import { construirEntrada, generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
 import type { ItemTexto, PaginaExtraida } from './tipos';
 
@@ -267,4 +267,22 @@ describe('generación del PDF', () => {
 
     expect(texto).not.toContain('A87654321');
   }, 60_000);
+
+  it('soporta claves duplicadas (un mismo dato usado varias veces en la plantilla)', async () => {
+    const { plantilla } = compilar();
+    const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(1) }, AJUSTES);
+    const entrada = construirEntrada(plantilla, datos);
+    expect(entrada.doc_numero).toBe('FAC-2026-0042');
+
+    const plantillaConDuplicado = JSON.parse(JSON.stringify(plantilla));
+    plantillaConDuplicado.schemas[0].push({
+      name: 'doc_numero_2',
+      type: 'text',
+      position: { x: 10, y: 10 },
+      width: 50,
+      height: 10,
+    });
+    const entradaDuplicada = construirEntrada(plantillaConDuplicado, datos);
+    expect(entradaDuplicada.doc_numero_2).toBe('FAC-2026-0042');
+  });
 });

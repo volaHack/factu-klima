@@ -88,7 +88,8 @@ export function validarPlantilla(plantilla: PlantillaDocumento): void {
     // rellenan con datos, así que no tienen por qué existir en el contrato.
     if (esquema.readOnly && !esquema.content?.startsWith('{')) continue;
     if (nombre === TABLA_LINEAS) continue;
-    if (!validas.has(nombre)) desconocidos.push(nombre);
+    const claveBase = nombre.replace(/_\d+$/, '');
+    if (!validas.has(claveBase)) desconocidos.push(nombre);
   }
 
   if (desconocidos.length > 0) {
