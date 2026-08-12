@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 
 import { createClient } from '@/lib/supabase/client';
-import { issueInvoice } from './storage';
+import { issueInvoice, saveInvoice } from './storage';
 import { Invoice, InvoiceStatus, PaymentMethod, TaxRate, UnitOfMeasure } from './types';
 
 type Row = Record<string, unknown>;
@@ -165,5 +165,37 @@ describe('issueInvoice — emisión', () => {
     );
 
     await expect(issueInvoice(buildInvoice())).rejects.toThrow(/ya está emitida/);
+  });
+
+  it('persiste el número reasignado al emitir (colisión con otra factura)', async () => {
+    // Otra factura (borrador) ya ocupa el número FAC-2026-0025.
+    const store: Store = {
+      invoices: [{ ...buildInvoiceRow(InvoiceStatus.BORRADOR), id: 'inv-0' }],
+    };
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    await issueInvoice(buildInvoice({ id: 'inv-1', number: 'FAC-2026-0025' }));
+
+    const mine = store.invoices.find(r => r.id === 'inv-1')!;
+    expect(mine).toBeDefined();
+    // La emisión debe sellar con el número libre real, no con el previsto.
+    expect(mine.number).toBe('FAC-2026-0026');
+    expect(mine.status).toBe(InvoiceStatus.EMITIDA);
+  });
+
+  it('no re-numera un borrador que ya tiene su número en BD', async () => {
+    const store: Store = {
+      invoices: [buildInvoiceRow(InvoiceStatus.BORRADOR)],
+    };
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    const saved = await saveInvoice(
+      buildInvoice({ status: InvoiceStatus.BORRADOR, number: 'FAC-2026-0025' })
+    );
+
+    // Re-guardar un borrador existente debe conservar su número: re-numerarlo
+    // era la causa del desfase de contador (FAC-2026-0026 previsto → 0033 real).
+    expect(saved.number).toBe('FAC-2026-0025');
+    expect(store.invoices.find(r => r.id === 'inv-1')!.number).toBe('FAC-2026-0025');
   });
 });

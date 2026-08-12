@@ -228,11 +228,19 @@ async function nextFreeInvoiceNumber(
 ): Promise<Invoice> {
   const { data } = await supabase()
     .from('invoices')
-    .select('number')
+    .select('id, number')
     .eq('user_id', userId)
     .eq('series', series);
 
-  const used = new Set((data ?? []).map((r: { number: string }) => r.number as string));
+  // Sólo cuentan los números de OTRAS facturas: re-guardar un borrador
+  // existente (editar/emitir) no debe renumerarlo aunque su número ya esté
+  // en BD. Sin esto, cada edición de un borrador consumía un número nuevo
+  // y el contador quedaba desfasado (FAC-2026-0026 previsto → 0033 real).
+  const used = new Set(
+    (data ?? [])
+      .filter((r: { id: string }) => r.id !== invoice.id)
+      .map((r: { number: string }) => r.number as string),
+  );
   if (!used.has(requestedNumber)) return invoice;
 
   let candidate = requestedNumber;
@@ -381,12 +389,15 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
 
   // Primero se consolidan las líneas como borrador (con la factura aún
   // editable), y sólo después se sella. Al revés el servidor bloquearía
-  // la escritura de las líneas.
-  await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
-  await saveInvoice({ ...invoice, status: InvoiceStatus.EMITIDA });
+  // la escritura de las líneas. El primer guardado puede reasignar el
+  // número si el previsto ya lo usaba otra factura, así que el sellado
+  // debe usar el número que de verdad se persistió (no el del objeto
+  // original, que quedaría desfasado o chocaría con el de otra factura).
+  const draft = await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
+  await saveInvoice({ ...draft, status: InvoiceStatus.EMITIDA });
 
   const fresh = await getInvoiceFromSupabase(invoice.id);
-  return fresh ?? { ...invoice, status: InvoiceStatus.EMITIDA };
+  return fresh ?? { ...draft, status: InvoiceStatus.EMITIDA };
 }
 
 /**
@@ -1083,11 +1094,18 @@ async function nextFreeAlbaranNumber(
 ): Promise<Albaran> {
   const { data } = await supabase()
     .from('albaranes')
-    .select('number')
+    .select('id, number')
     .eq('user_id', userId)
     .eq('series', series);
 
-  const used = new Set((data ?? []).map((r: { number: string }) => r.number as string));
+  // Igual que en facturas: sólo cuentan los números de OTROS albaranes.
+  // Re-guardar uno existente no debe renumerarlo aunque su número ya esté
+  // en BD; si lo está en otro documento, sí se asigna el siguiente libre.
+  const used = new Set(
+    (data ?? [])
+      .filter((r: { id: string }) => r.id !== albaran.id)
+      .map((r: { number: string }) => r.number as string),
+  );
   if (!used.has(requestedNumber)) return albaran;
 
   let candidate = requestedNumber;
@@ -1965,6 +1983,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     verifactu_enabled: settings.verifactuEnabled,
     logo_url: settings.logoUrl,
     plan_id: settings.planId || 'basico',
+    subscription_plan: settings.planId || 'basico',
     subscription_status: settings.subscriptionStatus || 'inactive',
   };
 

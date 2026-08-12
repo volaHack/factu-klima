@@ -16,7 +16,7 @@ import {
 } from '@/lib/types';
 import {
   generateId, generateInvoiceNumber, getToday, addDays,
-  formatCurrency, calculateInvoiceTotals
+  formatCurrency, calculateInvoiceTotals, sequenceFromNumber
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
@@ -194,8 +194,13 @@ export default function NuevaFacturaPage() {
     setSaving(true);
     try {
       if (status === InvoiceStatus.BORRADOR) {
-        await saveInvoice(invoice);
-        success('Borrador guardado', `${invoiceNumber} · ${client.tradeName || client.businessName}`);
+        const saved = await saveInvoice(invoice);
+        success('Borrador guardado', `${saved.number} · ${client.tradeName || client.businessName}`);
+        // El contador se sincroniza con el número REAL persistido:
+        // saveInvoice reasigna el número si el previsto ya estaba en uso
+        // (colisión) y un contador desfasado es la causa de la numeración
+        // saltada (FAC-2026-0026 previsto → 0033 guardado).
+        settings.nextInvoiceNumber = sequenceFromNumber(saved.number) + 1;
       } else {
         // Emitir es un proceso en dos pasos: primero se consolidan las
         // líneas como borrador y después el servidor sella la cabecera.
@@ -205,7 +210,7 @@ export default function NuevaFacturaPage() {
 
         let abonoNote = '';
         if (abonoSelection && abonoSelection.amount > 0) {
-          await applyAbonoToInvoice(abonoSelection.abono.id, invoice.id, invoiceNumber, abonoSelection.amount);
+          await applyAbonoToInvoice(abonoSelection.abono.id, invoice.id, issued.number, abonoSelection.amount);
           const restante = Number((invoice.total - abonoSelection.amount).toFixed(2));
           if (restante <= 0.01) {
             await saveInvoice({
@@ -220,14 +225,14 @@ export default function NuevaFacturaPage() {
           }
         }
 
+        settings.nextInvoiceNumber = sequenceFromNumber(issued.number) + 1;
+
         success(
           'Factura emitida y sellada',
-          `${invoiceNumber} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
+          `${issued.number} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
         );
       }
 
-      // El contador sólo avanza si la factura se ha guardado de verdad.
-      settings.nextInvoiceNumber += 1;
       await saveCompanySettings(settings);
 
       router.push('/facturas');

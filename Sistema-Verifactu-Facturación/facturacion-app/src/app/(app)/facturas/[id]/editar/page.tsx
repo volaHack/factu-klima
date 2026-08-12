@@ -132,14 +132,14 @@ export default function EditInvoicePage() {
     setSaving(true);
     try {
       if (status === InvoiceStatus.BORRADOR) {
-        await saveInvoice(updated);
-        success('Borrador actualizado', originalInvoice.number);
+        const saved = await saveInvoice(updated);
+        success('Borrador actualizado', saved.number);
       } else {
         const issued = await issueInvoice(updated);
 
         let abonoNote = '';
         if (abonoSelection && abonoSelection.amount > 0) {
-          await applyAbonoToInvoice(abonoSelection.abono.id, updated.id, originalInvoice.number, abonoSelection.amount);
+          await applyAbonoToInvoice(abonoSelection.abono.id, updated.id, issued.number, abonoSelection.amount);
           const restante = Number((updated.total - abonoSelection.amount).toFixed(2));
           if (restante <= 0.01) {
             await saveInvoice({
@@ -156,7 +156,7 @@ export default function EditInvoicePage() {
 
         success(
           'Factura emitida y sellada',
-          `${originalInvoice.number} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
+          `${issued.number} · huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…${abonoNote}`
         );
       }
       router.push(`/facturas/${originalInvoice.id}`);
