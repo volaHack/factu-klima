@@ -24,6 +24,12 @@
 -- el propietario. El trigger vivía en otra fuente de verdad distinta.
 -- ============================================================
 
+-- 0. Garantizar que las columnas de plan y suscripción existen en company_settings
+ALTER TABLE public.company_settings
+  ADD COLUMN IF NOT EXISTS plan_id TEXT,
+  ADD COLUMN IF NOT EXISTS subscription_plan TEXT,
+  ADD COLUMN IF NOT EXISTS subscription_status TEXT;
+
 CREATE OR REPLACE FUNCTION public.fn_check_subscription_limit()
 RETURNS TRIGGER
 SECURITY DEFINER

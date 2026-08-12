@@ -10,6 +10,7 @@ import {
   Fingerprint, FileWarning, Loader2,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import BotonDescargarPdf, { AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
 import {
   getInvoiceById, saveInvoice, getCompanySettings, createOrderApproval,
   getApprovalByInvoiceId, getApprovalItems, issueInvoice, cancelInvoice, isSealed, getOnboardingStatus,
@@ -318,6 +319,7 @@ export default function InvoiceDetailPage() {
               <Ban size={16} /> Anular
             </button>
           )}
+          <BotonDescargarPdf tipo="factura" documento={invoice} />
           <button className="btn btn-ghost" onClick={() => window.print()} title="Imprimir o guardar PDF">
             <Printer size={16} />
           </button>
@@ -672,6 +674,12 @@ export default function InvoiceDetailPage() {
           <div className="card">
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Acciones</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <BotonDescargarPdf
+                tipo="factura"
+                documento={invoice}
+                className="btn btn-secondary btn-sm"
+                etiqueta="Descargar con mi diseño"
+              />
               <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => window.print()}>
                 <Printer size={14} /> Imprimir / PDF
               </button>
@@ -679,6 +687,7 @@ export default function InvoiceDetailPage() {
                 <Copy size={14} /> Duplicar Factura
               </button>
             </div>
+            <AvisoSinPlantilla />
           </div>
         </div>
       </div>

@@ -123,6 +123,7 @@ const TABLE_MAP: Record<SyncTable, string> = {
   devolucion_line_items: 'devolucion_line_items',
   abonos: 'abonos',
   abono_aplicaciones: 'abono_aplicaciones',
+  document_templates: 'document_templates',
 };
 
 /**

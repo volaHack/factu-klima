@@ -3,24 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/copiar-worker-pdfjs.mjs",
+    "predev": "node scripts/copiar-worker-pdfjs.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copiar-worker-pdfjs.mjs",
     "build": "next build --webpack",
+    "prevercel-build": "node scripts/copiar-worker-pdfjs.mjs",
     "vercel-build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
   },
   "dependencies": {
+    "@pdfme/common": "^6.1.12",
+    "@pdfme/generator": "^6.1.12",
+    "@pdfme/schemas": "^6.1.12",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0",
     "lucide-react": "^1.27.0",
+    "motion": "^12.4.7",
     "next": "16.2.12",
+    "pdfjs-dist": "^6.2.108",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.10.1",
-    "stripe": "^22.4.0",
-    "qrcode": "^1.5.4",
-    "motion": "^12.4.7"
+    "stripe": "^22.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",

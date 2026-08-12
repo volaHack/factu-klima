@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
-  ClipboardList, RotateCcw,
+  ClipboardList, RotateCcw, LayoutTemplate,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -60,6 +60,7 @@ const baseNavItems = [
 
 const controlItems = [
   { href: '/informes', label: 'Informes y fiscal', icon: BarChart3 },
+  { href: '/plantillas', label: 'Diseño de facturas', icon: LayoutTemplate },
   { href: '/integridad', label: 'Integridad', icon: ShieldCheck },
   { href: '/verifactu', label: 'Verifactu', icon: Plug },
   { href: '/ajustes', label: 'Ajustes', icon: Settings },

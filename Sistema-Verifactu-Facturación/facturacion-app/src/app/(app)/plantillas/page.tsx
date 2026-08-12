@@ -1,0 +1,442 @@
+'use client';
+
+/**
+ * PANTALLA DE PLANTILLAS DE FACTURA
+ *
+ * El usuario sube una factura suya en PDF, el sistema la analiza, le enseña
+ * lo que ha entendido para que lo confirme y guarda una plantilla con la que
+ * a partir de ahí se imprimen todas sus facturas con su mismo diseño.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft, Download, Eye, FileUp, LayoutTemplate, Loader2,
+  Save, Star, Trash2, X,
+} from 'lucide-react';
+import PageSkeleton from '@/components/ui/PageSkeleton';
+import RevisorPlantilla from '@/components/plantillas/RevisorPlantilla';
+import { useToast } from '@/hooks/useToast';
+import { getCompanySettings, getInvoices } from '@/lib/storage';
+import {
+  analizarPdf, compilar, ErrorArchivo, ErrorPdf, type SesionAnalisis,
+} from '@/lib/plantillas/analisis';
+import {
+  borrarPlantilla, getPlantillas, guardarPlantilla, marcarPredeterminada,
+  PlantillaInvalida,
+} from '@/lib/plantillas/almacen';
+import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
+import { generarPdfBlob } from '@/lib/plantillas/generar';
+import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
+import type {
+  CampoDetectado, PlantillaDocumento, TablaDetectada, TipoDocumentoPlantilla,
+} from '@/lib/plantillas/tipos';
+import type { CompanySettings, Invoice } from '@/lib/types';
+
+export default function PlantillasPage() {
+  const { success, error: avisarError, info } = useToast();
+  const entradaArchivo = useRef<HTMLInputElement>(null);
+
+  const [montado, setMontado] = useState(false);
+  const [plantillas, setPlantillas] = useState<PlantillaDocumento[]>([]);
+  const [ajustes, setAjustes] = useState<CompanySettings | null>(null);
+  const [ultimaFactura, setUltimaFactura] = useState<Invoice | null>(null);
+
+  const [sesion, setSesion] = useState<SesionAnalisis | null>(null);
+  const [nombre, setNombre] = useState('');
+  const [aplicaA, setAplicaA] = useState<TipoDocumentoPlantilla[]>(['factura']);
+  const [analizando, setAnalizando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
+  const [generandoVista, setGenerandoVista] = useState(false);
+
+  const cargar = useCallback(async () => {
+    const [lista, config, facturas] = await Promise.all([
+      getPlantillas(),
+      getCompanySettings(),
+      getInvoices(),
+    ]);
+    setPlantillas(lista);
+    setAjustes(config);
+    setUltimaFactura(facturas[0] ?? null);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await cargar();
+      setMontado(true);
+    })();
+  }, [cargar]);
+
+  // La vista previa vive en una URL de objeto: hay que soltarla al cerrarla
+  // o el PDF se queda ocupando memoria durante toda la sesión.
+  useEffect(() => {
+    return () => { if (vistaPrevia) URL.revokeObjectURL(vistaPrevia); };
+  }, [vistaPrevia]);
+
+  // ============================================================
+  // SUBIDA Y ANÁLISIS
+  // ============================================================
+
+  const alElegirArchivo = async (evento: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = evento.target.files?.[0];
+    evento.target.value = '';
+    if (!archivo) return;
+
+    if (!archivo.name.toLowerCase().endsWith('.pdf') && archivo.type !== 'application/pdf') {
+      avisarError('Eso no es un PDF', 'Sube la factura en PDF, tal cual la envías a tus clientes.');
+      return;
+    }
+
+    setAnalizando(true);
+    try {
+      const nueva = await analizarPdf(archivo, ajustes);
+      setSesion(nueva);
+      setNombre(archivo.name.replace(/\.pdf$/i, '').slice(0, 60) || 'Mi factura');
+      const reconocidos = nueva.analisis.campos.filter(c => c.clave).length;
+      info(
+        'Factura analizada',
+        `Se han reconocido ${reconocidos} datos y ${nueva.analisis.tabla ? 'la tabla de líneas' : 'ninguna tabla'}. Revísalo antes de guardar.`,
+      );
+    } catch (err) {
+      const mensaje = err instanceof ErrorPdf || err instanceof ErrorArchivo
+        ? err.message
+        : 'No se ha podido analizar el PDF. Prueba con otro archivo.';
+      avisarError('No se ha podido leer la factura', mensaje);
+    } finally {
+      setAnalizando(false);
+    }
+  };
+
+  const cambiarCampos = (campos: CampoDetectado[]) => {
+    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, campos } } : actual));
+  };
+
+  const cambiarTabla = (tabla: TablaDetectada) => {
+    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, tabla } } : actual));
+  };
+
+  // ============================================================
+  // VISTA PREVIA Y GUARDADO
+  // ============================================================
+
+  /** Datos con los que se previsualiza: la última factura real, si la hay. */
+  const datosDePrueba = () => {
+    const documento = ultimaFactura ?? facturaDeMuestra();
+    const configuracion = ajustes ?? ({} as CompanySettings);
+    return construirDatos({ tipo: 'factura', documento }, configuracion);
+  };
+
+  const verComoQueda = async () => {
+    if (!sesion) return;
+    setGenerandoVista(true);
+    try {
+      const { plantilla } = compilar(sesion);
+      const blob = await generarPdfBlob(plantilla, datosDePrueba(), { titulo: 'Vista previa' });
+      if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
+      setVistaPrevia(URL.createObjectURL(blob));
+    } catch (err) {
+      avisarError('No se ha podido componer la vista previa', err instanceof Error ? err.message : '');
+    } finally {
+      setGenerandoVista(false);
+    }
+  };
+
+  const probarPlantillaGuardada = async (plantilla: PlantillaDocumento) => {
+    setGenerandoVista(true);
+    try {
+      const blob = await generarPdfBlob(plantilla.plantilla, datosDePrueba(), { titulo: plantilla.nombre });
+      if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
+      setVistaPrevia(URL.createObjectURL(blob));
+    } catch (err) {
+      avisarError('No se ha podido componer la vista previa', err instanceof Error ? err.message : '');
+    } finally {
+      setGenerandoVista(false);
+    }
+  };
+
+  const guardar = async () => {
+    if (!sesion) return;
+    if (!nombre.trim()) {
+      avisarError('Ponle un nombre', 'Así la distinguirás si más adelante tienes varias.');
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      const { plantilla, diagnostico } = compilar(sesion);
+      const ahora = new Date().toISOString();
+      await guardarPlantilla({
+        id: crypto.randomUUID(),
+        nombre: nombre.trim(),
+        aplicaA,
+        plantilla,
+        diagnostico,
+        // La primera plantilla pasa a usarse por defecto: si alguien se toma
+        // el trabajo de subir su diseño es porque quiere imprimir con él.
+        predeterminada: plantillas.length === 0,
+        createdAt: ahora,
+        updatedAt: ahora,
+      });
+      await cargar();
+      setSesion(null);
+      success('Plantilla guardada', 'Tus facturas ya se descargan con este diseño.');
+    } catch (err) {
+      const mensaje = err instanceof PlantillaInvalida
+        ? err.message
+        : err instanceof Error ? err.message : 'Error desconocido.';
+      avisarError('No se ha podido guardar', mensaje);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const eliminar = async (plantilla: PlantillaDocumento) => {
+    if (!confirm(`¿Eliminar la plantilla «${plantilla.nombre}»? Las facturas volverán a imprimirse con el diseño estándar.`)) return;
+    try {
+      await borrarPlantilla(plantilla.id);
+      await cargar();
+      success('Plantilla eliminada');
+    } catch (err) {
+      avisarError('No se ha podido eliminar', err instanceof Error ? err.message : '');
+    }
+  };
+
+  const hacerPredeterminada = async (plantilla: PlantillaDocumento) => {
+    try {
+      await marcarPredeterminada(plantilla.id);
+      await cargar();
+      success('Plantilla predeterminada', `Las facturas se imprimirán con «${plantilla.nombre}».`);
+    } catch (err) {
+      avisarError('No se ha podido cambiar', err instanceof Error ? err.message : '');
+    }
+  };
+
+  if (!montado) {
+    return <PageSkeleton variant="report" label="Cargando tus plantillas" />;
+  }
+
+  // ============================================================
+  // REVISIÓN DE UNA FACTURA RECIÉN SUBIDA
+  // ============================================================
+
+  if (sesion) {
+    const sinAsignar = sesion.analisis.campos.filter(c => !c.clave && !c.fijo).length;
+
+    return (
+      <div className="animate-fade-in">
+        <div className="page-header">
+          <div className="page-header-left">
+            <p className="page-eyebrow"><LayoutTemplate /> Plantillas</p>
+            <h1 className="page-title">Revisa lo que se ha detectado</h1>
+            <p className="page-subtitle">
+              Cada recuadro es un dato que se rellenará solo en cada factura. Todo lo demás —
+              tu logotipo, los colores, los rótulos y el pie — se conserva exactamente como está.
+            </p>
+          </div>
+          <div className="page-header-actions">
+            <button className="btn btn-secondary" onClick={() => setSesion(null)} disabled={guardando}>
+              <ArrowLeft size={16} /> Descartar
+            </button>
+            <button className="btn btn-secondary" onClick={verComoQueda} disabled={generandoVista || guardando}>
+              {generandoVista ? <Loader2 size={16} className="spin" /> : <Eye size={16} />} Ver cómo queda
+            </button>
+            <button className="btn btn-primary" onClick={guardar} disabled={guardando}>
+              {guardando ? <Loader2 size={16} className="spin" /> : <Save size={16} />} Guardar plantilla
+            </button>
+          </div>
+        </div>
+
+        <div className="card plantilla-datos-guardado">
+          <div className="form-group">
+            <label className="form-label" htmlFor="nombre-plantilla">Nombre de la plantilla</label>
+            <input
+              id="nombre-plantilla"
+              className="form-input"
+              value={nombre}
+              onChange={(evento) => setNombre(evento.target.value)}
+              placeholder="Factura de la empresa"
+              maxLength={60}
+            />
+          </div>
+          <div className="form-group">
+            <span className="form-label">¿Para qué documentos?</span>
+            <div className="plantilla-tipos">
+              {(['factura', 'albaran'] as TipoDocumentoPlantilla[]).map(tipo => (
+                <label key={tipo} className="plantilla-tipo">
+                  <input
+                    type="checkbox"
+                    checked={aplicaA.includes(tipo)}
+                    onChange={(evento) => {
+                      setAplicaA(actual =>
+                        evento.target.checked
+                          ? [...actual, tipo]
+                          : actual.filter(t => t !== tipo),
+                      );
+                    }}
+                  />
+                  {tipo === 'factura' ? 'Facturas' : 'Albaranes'}
+                </label>
+              ))}
+            </div>
+          </div>
+          {sinAsignar > 0 && (
+            <div className="callout callout-warning plantilla-callout-compacto">
+              <div>
+                <strong>{sinAsignar} {sinAsignar === 1 ? 'recuadro sin asignar' : 'recuadros sin asignar'}</strong>
+                <p>Se imprimirán en blanco. Asígnalos o quítalos si no hacen falta.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <RevisorPlantilla
+          analisis={sesion.analisis}
+          onCambiarCampos={cambiarCampos}
+          onCambiarTabla={cambiarTabla}
+        />
+
+        {vistaPrevia && (
+          <VistaPreviaPdf url={vistaPrevia} onCerrar={() => { URL.revokeObjectURL(vistaPrevia); setVistaPrevia(null); }} />
+        )}
+      </div>
+    );
+  }
+
+  // ============================================================
+  // LISTADO
+  // ============================================================
+
+  return (
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <div className="page-header-left">
+          <p className="page-eyebrow"><LayoutTemplate /> Plantillas</p>
+          <h1 className="page-title">El diseño de tus facturas</h1>
+          <p className="page-subtitle">
+            Sube una factura tuya en PDF y el sistema copia su diseño: logotipo, colores,
+            tipografía y disposición. A partir de ahí, todas tus facturas se descargan con
+            ese mismo aspecto y los datos rellenados solos.
+          </p>
+        </div>
+        <div className="page-header-actions">
+          <input
+            ref={entradaArchivo}
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={alElegirArchivo}
+            style={{ display: 'none' }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={() => entradaArchivo.current?.click()}
+            disabled={analizando}
+          >
+            {analizando ? <Loader2 size={16} className="spin" /> : <FileUp size={16} />}
+            {analizando ? 'Analizando la factura…' : 'Subir factura en PDF'}
+          </button>
+        </div>
+      </div>
+
+      {plantillas.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon"><LayoutTemplate /></div>
+            <div className="empty-state-title">Todavía no has subido ninguna factura</div>
+            <p className="empty-state-description">
+              Coge una factura que ya hayas emitido —da igual con qué programa o diseñador se
+              hiciera— y súbela en PDF. El sistema reconoce dónde va cada dato y a partir de ahí
+              imprime las tuyas igual.
+            </p>
+            <div className="empty-state-actions">
+              <button className="btn btn-primary" onClick={() => entradaArchivo.current?.click()} disabled={analizando}>
+                <FileUp size={16} /> Subir factura en PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="plantilla-rejilla">
+          {plantillas.map(plantilla => {
+            const calco = calcoDePlantilla(plantilla.plantilla);
+            return (
+              <div key={plantilla.id} className={`card plantilla-tarjeta ${plantilla.predeterminada ? 'plantilla-tarjeta--activa' : ''}`}>
+                <div className="plantilla-miniatura">
+                  {calco
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={calco} alt={`Diseño de ${plantilla.nombre}`} />
+                    : <LayoutTemplate size={28} />}
+                </div>
+                <div className="plantilla-tarjeta-cuerpo">
+                  <div className="plantilla-tarjeta-titulo">
+                    {plantilla.nombre}
+                    {plantilla.predeterminada && <span className="badge badge-activo"><i className="badge-dot" /> En uso</span>}
+                  </div>
+                  <p className="plantilla-tarjeta-detalle">
+                    {plantilla.aplicaA.map(t => (t === 'factura' ? 'Facturas' : 'Albaranes')).join(' y ')}
+                    {plantilla.diagnostico.archivoOrigen ? ` · de ${plantilla.diagnostico.archivoOrigen}` : ''}
+                  </p>
+                  <div className="plantilla-tarjeta-acciones">
+                    <button className="btn btn-secondary btn-sm" onClick={() => probarPlantillaGuardada(plantilla)} disabled={generandoVista}>
+                      {generandoVista ? <Loader2 size={14} className="spin" /> : <Eye size={14} />} Ver
+                    </button>
+                    {!plantilla.predeterminada && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => hacerPredeterminada(plantilla)}>
+                        <Star size={14} /> Usar esta
+                      </button>
+                    )}
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => eliminar(plantilla)} title="Eliminar plantilla">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="callout callout-info plantilla-nota">
+        <div>
+          <strong>Cómo funciona</strong>
+          <p>
+            Del PDF que subes se conserva el diseño tal cual —incluido el logotipo, aunque sea
+            vectorial— y se borran los datos de esa factura concreta. En su lugar quedan campos
+            que se rellenan con los datos reales de cada factura. Si el documento ocupa más de una
+            página, la cabecera y el pie se repiten en todas.
+          </p>
+        </div>
+      </div>
+
+      {vistaPrevia && (
+        <VistaPreviaPdf url={vistaPrevia} onCerrar={() => { URL.revokeObjectURL(vistaPrevia); setVistaPrevia(null); }} />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+
+function VistaPreviaPdf({ url, onCerrar }: { url: string; onCerrar: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onCerrar}>
+      <div className="modal modal-lg plantilla-modal" onClick={(evento) => evento.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h3 className="modal-title">Así queda tu factura</h3>
+            <p className="card-subtitle">Con los datos de una factura real, no con los del PDF que subiste.</p>
+          </div>
+          <button className="modal-close" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+        <div className="modal-body plantilla-modal-cuerpo">
+          <iframe src={url} title="Vista previa de la factura" className="plantilla-visor" />
+        </div>
+        <div className="modal-footer">
+          <a className="btn btn-secondary" href={url} download="vista-previa.pdf">
+            <Download size={16} /> Descargar esta prueba
+          </a>
+          <button className="btn btn-primary" onClick={onCerrar}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}

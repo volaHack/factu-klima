@@ -5,7 +5,7 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
@@ -13,7 +13,7 @@ export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings'
   'order_approval_items' | 'user_profiles' | 'pos_sessions' |
   'albaranes' | 'albaran_line_items' |
   'devoluciones' | 'devolucion_line_items' |
-  'abonos' | 'abono_aplicaciones';
+  'abonos' | 'abono_aplicaciones' | 'document_templates';
 
 export interface SyncQueueItem {
   id: string;
@@ -90,6 +90,13 @@ function openDB(): Promise<IDBDatabase> {
           db.createObjectStore(storeName, { keyPath: 'id' });
         }
       }
+
+      // Store nueva (v4) — plantillas de documento. Guardarlas en local es lo
+      // que permite descargar el PDF de una factura sin conexión: el diseño
+      // ya está en el dispositivo.
+      if (!db.objectStoreNames.contains('document_templates')) {
+        db.createObjectStore('document_templates', { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = (event) => {
@@ -158,7 +165,7 @@ export async function remove(storeName: string, id: string): Promise<void> {
   await promisifyRequest(store.delete(id));
 }
 
-const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks', 'albaranes', 'albaran_line_items', 'devoluciones', 'devolucion_line_items', 'abonos', 'abono_aplicaciones'];
+const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks', 'albaranes', 'albaran_line_items', 'devoluciones', 'devolucion_line_items', 'abonos', 'abono_aplicaciones', 'document_templates'];
 
 /**
  * Limpia toda la caché local de IndexedDB. Se llama al cerrar sesión para

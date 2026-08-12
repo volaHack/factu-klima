@@ -7,6 +7,7 @@ import {
   ArrowLeft, Truck, FileText, Ban, Trash2, Printer, ClipboardList, Loader2, FileWarning, CheckCircle2, Building2, Calendar
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import BotonDescargarPdf from '@/components/plantillas/BotonDescargarPdf';
 import {
   getAlbaranById, getCompanySettings, expedirAlbaran, anularAlbaran, deleteAlbaran,
   convertirAlbaranesAFactura
@@ -186,6 +187,7 @@ export default function AlbaranDetailPage() {
               <FileText size={16} /> Ver la factura
             </Link>
           )}
+          <BotonDescargarPdf tipo="albaran" documento={albaran} />
           <button className="btn btn-ghost" onClick={() => window.print()} title="Imprimir o guardar PDF">
             <Printer size={16} />
           </button>
@@ -342,6 +344,7 @@ export default function AlbaranDetailPage() {
           <div className="card">
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Acciones</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <BotonDescargarPdf tipo="albaran" documento={albaran} className="btn btn-secondary btn-sm" etiqueta="Descargar con mi diseño" />
               <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => window.print()}>
                 <Printer size={14} /> Imprimir / PDF
               </button>
