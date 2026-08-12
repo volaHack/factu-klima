@@ -61,7 +61,7 @@ export default function SiteNav() {
     // zona oscura deja de tocar ese borde, la barra ya está sobre papel.
     const io = new IntersectionObserver(
       ([entrada]) => setScrolled(!entrada.isIntersecting),
-      { rootMargin: '-62px 0px 0px 0px', threshold: 0 },
+      { rootMargin: '-64px 0px 0px 0px', threshold: 0 },
     );
     io.observe(zona);
     return () => io.disconnect();

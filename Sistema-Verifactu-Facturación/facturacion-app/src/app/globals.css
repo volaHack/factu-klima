@@ -5463,7 +5463,8 @@ a.stats-item:focus-visible {
 .site-nav-inner {
   max-width: 1180px;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-6);
+  height: 64px;
+  padding: 0 var(--space-6);
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -5707,8 +5708,8 @@ a.stats-item:focus-visible {
    ================================================================== */
 .hero-scene {
   position: relative;
-  /* La barra se apoya encima del héroe: alto de barra = 16+16+30+1. */
-  margin-top: -63px;
+  /* La barra se apoya encima del héroe: alto de barra = 64px + 1px border. */
+  margin-top: -65px;
 }
 
 .home-hero {
