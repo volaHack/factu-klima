@@ -49,8 +49,8 @@ export default function BotonDescargarPdf(props: Props) {
       ]);
 
       const datos = tipo === 'factura'
-        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente })
-        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente });
+        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente, datosExtras: documento.datosExtras })
+        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente, datosExtras: documento.datosExtras });
 
       const blob = await generarPdfBlob(plantilla.plantilla, datos, {
         titulo: `${tipo === 'factura' ? 'Factura' : 'Albarán'} ${documento.number}`,
@@ -113,8 +113,8 @@ export function BotonVistaPreviaPdf(props: Props) {
       ]);
 
       const datos = tipo === 'factura'
-        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente })
-        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente });
+        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente, datosExtras: documento.datosExtras })
+        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente, datosExtras: documento.datosExtras });
 
       const blob = await generarPdfBlob(plantilla.plantilla, datos, {
         titulo: `${tipo === 'factura' ? 'Factura' : 'Albarán'} ${documento.number}`,
