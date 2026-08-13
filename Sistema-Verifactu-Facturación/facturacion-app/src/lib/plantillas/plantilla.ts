@@ -532,6 +532,21 @@ export function columnasDePlantilla(plantilla: Template): (string | null)[] {
   return COLUMNAS_LINEAS.slice(0, 5).map(c => c.clave);
 }
 
+/** Claves `custom_N` (manuales) que la plantilla usa, únicas y ordenadas. */
+export function clavesManualesUsadasPorPlantilla(plantilla: Template): string[] {
+  const nombres = new Set<string>();
+  const recorrer = (esquema: Schema[]) => {
+    for (const campo of esquema ?? []) {
+      const m = campo.name?.match(/^custom_([1-5])(_\d+)?$/);
+      if (m) nombres.add(m[1]);
+    }
+  };
+  for (const pagina of plantilla.schemas ?? []) recorrer(pagina);
+  const base = plantilla.basePdf;
+  if (base && typeof base === 'object' && 'staticSchema' in base) recorrer(base.staticSchema ?? []);
+  return [...nombres].map(n => `custom_${n}`).sort();
+}
+
 /**
  * Normaliza y sanea cualquier objeto Template (incluso los guardados previamente en BD)
  * para asegurar compatibilidad total con pdfme y evitar errores al componer el PDF.
