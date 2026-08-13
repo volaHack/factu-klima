@@ -134,7 +134,10 @@ export interface Invoice {
   
   // Notes
   notes: string;
-  
+
+  /** Valores libres para los campos manuales de la plantilla activa (custom_N). */
+  datosExtras?: Record<string, string>;
+
   // Verifactu Ready Metadata
   verifactu?: VerifactuMetadata;
   
@@ -357,6 +360,8 @@ export interface Albaran {
   totalTax: number;
   total: number;
   notes: string;
+  /** Valores libres para los campos manuales de la plantilla activa (custom_N). */
+  datosExtras?: Record<string, string>;
   // Factura resultante de la conversión (individual o agrupada)
   invoiceId?: string;
   createdAt: string;

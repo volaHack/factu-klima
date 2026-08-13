@@ -284,6 +284,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     notes: inv.notes,
     pos_session_id: inv.posSessionId || null,
     number_temporary: inv.numberTemporary ?? false,
+    datos_extras: inv.datosExtras ?? {},
   });
 
   const lineRows = current.lineItems.map((li, idx) => ({
@@ -1138,6 +1139,7 @@ export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
     total: a.total,
     notes: a.notes,
     invoice_id: a.invoiceId || null,
+    datos_extras: a.datosExtras ?? {},
   });
 
   // Numeración auto-reparable: si el número del borrador ya existe, se avanza
@@ -1376,6 +1378,7 @@ function mapAlbaranFromDb(a: any, lineItems: any[]): Albaran {
     totalTax: Number(a.total_tax ?? totals.totalTax),
     total: Number(a.total ?? totals.total),
     notes: a.notes || '',
+    datosExtras: a.datos_extras ?? {},
     invoiceId: a.invoice_id || undefined,
     createdAt: a.created_at,
     updatedAt: a.updated_at,
@@ -2176,6 +2179,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     total: Number(inv.total),
     paymentMethod: inv.payment_method,
     notes: inv.notes || '',
+    datosExtras: inv.datos_extras ?? {},
     verifactu: inv.verifactu_hash ? {
       chainedHash: inv.verifactu_hash,
       qrCodeUrl: inv.verifactu_qr_url || '',
