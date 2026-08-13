@@ -39,6 +39,8 @@ export interface CampoPlantilla {
   tipo: TipoCampo;
   /** Valor de muestra para previsualizar una plantilla sin factura real. */
   ejemplo: string;
+  /** El usuario lo rellena a mano en el formulario; no tiene fuente automática. */
+  manual?: boolean;
 }
 
 // ============================================================
@@ -88,11 +90,11 @@ export const CAMPOS: CampoPlantilla[] = [
   { clave: 'doc_notas', etiqueta: 'Observaciones', descripcion: 'Observaciones escritas en el documento', grupo: 'documento', tipo: 'texto', ejemplo: 'Entregar en horario de mañana.' },
   { clave: 'doc_aviso_legal', etiqueta: 'Aviso legal', descripcion: 'Aviso del tipo de documento (los albaranes no tienen valor fiscal)', grupo: 'documento', tipo: 'texto', ejemplo: '' },
   { clave: 'doc_pagina', etiqueta: 'Número de página', descripcion: 'Página actual y total, p. ej. «Página 1 de 2»', grupo: 'documento', tipo: 'texto', ejemplo: 'Página 1 de 1' },
-  { clave: 'custom_1', etiqueta: 'Dato libre 1 (Pedido / Ref)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'PED-2026-99' },
-  { clave: 'custom_2', etiqueta: 'Dato libre 2 (Matrícula / Obra)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'SE-1234-AB' },
-  { clave: 'custom_3', etiqueta: 'Dato libre 3 (Proyecto / Ref. Ext.)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'PROY-45' },
-  { clave: 'custom_4', etiqueta: 'Dato libre 4', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'Dato libre 4' },
-  { clave: 'custom_5', etiqueta: 'Dato libre 5', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'Dato libre 5' },
+  { clave: 'custom_1', etiqueta: 'Dato libre 1 (Pedido / Ref)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'PED-2026-99', manual: true },
+  { clave: 'custom_2', etiqueta: 'Dato libre 2 (Matrícula / Obra)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'SE-1234-AB', manual: true },
+  { clave: 'custom_3', etiqueta: 'Dato libre 3 (Proyecto / Ref. Ext.)', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'PROY-45', manual: true },
+  { clave: 'custom_4', etiqueta: 'Dato libre 4', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'Dato libre 4', manual: true },
+  { clave: 'custom_5', etiqueta: 'Dato libre 5', descripcion: 'Campo personalizado libre a rellenar manualmente', grupo: 'documento', tipo: 'texto', ejemplo: 'Dato libre 5', manual: true },
 
   // --- Importes (ya formateados con € y coma decimal) ---
   { clave: 'total_base', etiqueta: 'Base imponible', descripcion: 'Suma de las líneas sin impuestos', grupo: 'totales', tipo: 'texto', ejemplo: '1.250,00 €' },

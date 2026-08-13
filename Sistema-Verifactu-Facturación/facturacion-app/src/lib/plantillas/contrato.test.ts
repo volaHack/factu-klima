@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CAMPOS, COLUMNAS_LINEAS, clavesValidas, datosDeEjemplo } from './contrato';
+import { CAMPOS, COLUMNAS_LINEAS, campoPorClave, clavesValidas, datosDeEjemplo } from './contrato';
 import { construirDatos } from './datos';
 import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type CompanySettings, type Invoice } from '../types';
 
@@ -129,5 +129,20 @@ describe('formato de los datos', () => {
   it('no inventa el QR de cotejo de una factura sin sellar', () => {
     expect(datos.campos.verifactu_qr).toBe('');
     expect(datos.campos.verifactu_huella).toBe('');
+  });
+});
+
+describe('campos manuales', () => {
+  it('los campos custom_1..5 están marcados como manuales', () => {
+    for (const n of ['1', '2', '3', '4', '5']) {
+      const campo = campoPorClave(`custom_${n}`);
+      expect(campo?.manual).toBe(true);
+    }
+  });
+
+  it('ningún campo con fuente automática es manual', () => {
+    for (const clave of ['empresa_nombre', 'cliente_nombre', 'doc_numero', 'total_general']) {
+      expect(campoPorClave(clave)?.manual).toBeFalsy();
+    }
   });
 });
