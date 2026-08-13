@@ -26,7 +26,7 @@ import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla } from '@/lib/plantillas/plantilla';
-import { campoPorClave } from '@/lib/plantillas/contrato';
+import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -361,27 +361,11 @@ export default function NuevaFacturaPage() {
           )}
         </div>
 
-        {clavesManuales.length > 0 && (
-          <div className="card">
-            <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos para la plantilla</h3>
-            <div className="form-row" style={{ flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-              {clavesManuales.map(clave => {
-                const campo = campoPorClave(clave);
-                return (
-                  <div className="form-group" key={clave} style={{ flex: '1 1 220px' }}>
-                    <label className="form-label">{campo?.etiqueta ?? clave}</label>
-                    <input
-                      className="form-input"
-                      value={datosExtras[clave] ?? ''}
-                      onChange={e => setDatosExtras(prev => ({ ...prev, [clave]: e.target.value }))}
-                      placeholder={campo?.descripcion ?? ''}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <DatosPlantillaCard
+          claves={clavesManuales}
+          datosExtras={datosExtras}
+          onChange={(clave, valor) => setDatosExtras(prev => ({ ...prev, [clave]: valor }))}
+        />
 
         {/* Line Items */}
         <div className="card">

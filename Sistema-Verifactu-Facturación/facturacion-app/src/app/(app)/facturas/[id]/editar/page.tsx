@@ -18,6 +18,9 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
+import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
+import { getPlantillaActiva } from '@/lib/plantillas/almacen';
+import { clavesManualesUsadasPorPlantilla } from '@/lib/plantillas/plantilla';
 
 function createEmptyLine(): InvoiceLineItem {
   return {
@@ -44,6 +47,8 @@ export default function EditInvoicePage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([createEmptyLine()]);
   const [originalInvoice, setOriginalInvoice] = useState<Invoice | null>(null);
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
+  const [clavesManuales, setClavesManuales] = useState<string[]>([]);
+  const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -60,12 +65,21 @@ export default function EditInvoicePage() {
       setPaymentMethod(inv.paymentMethod);
       setNotes(inv.notes);
       setLineItems(inv.lineItems.length > 0 ? inv.lineItems : [createEmptyLine()]);
+      setDatosExtras(inv.datosExtras ?? {});
       const [clients, products] = await Promise.all([
         getClients().then(c => c.filter(cl => cl.active)),
         getProducts().then(p => p.filter(pr => pr.active))
       ]);
       setClients(clients);
       setProducts(products);
+      try {
+        const plantilla = await getPlantillaActiva('factura');
+        if (plantilla?.plantilla) {
+          setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
+        }
+      } catch {
+        // Sin plantilla activa no hay campos manuales que mostrar.
+      }
       setMounted(true);
     })();
   }, [params.id, router]);
@@ -126,7 +140,7 @@ export default function EditInvoicePage() {
       clientId: client.id, clientName: client.tradeName || client.businessName,
       clientNif: client.nif, clientAddress: `${client.address}, ${client.postalCode} ${client.city}`,
       issueDate, dueDate, status, lineItems: validLines,
-      ...totals, paymentMethod, notes, updatedAt: new Date().toISOString(),
+      ...totals, paymentMethod, notes, datosExtras, updatedAt: new Date().toISOString(),
     };
 
     setSaving(true);
@@ -258,6 +272,13 @@ export default function EditInvoicePage() {
             </div>
           </div>
         </div>
+
+        <DatosPlantillaCard
+          claves={clavesManuales}
+          datosExtras={datosExtras}
+          onChange={(clave, valor) => setDatosExtras(prev => ({ ...prev, [clave]: valor }))}
+          style={{ marginBottom: 'var(--space-6)' }}
+        />
 
         {/* Lines */}
         <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
