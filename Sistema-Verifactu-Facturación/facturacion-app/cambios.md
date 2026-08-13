@@ -29,6 +29,26 @@ Registro de cada cambio aplicado, con su sección de pendientes.
 - **Problema:** `company_settings` no tiene índice único por `user_id`; el upsert de la cola (que no lleva id de BD) insertaba una fila nueva en cada pasada de sync, acumulando duplicados que rompían los `.single()` y reiniciaban los contadores.
 - **Solución:** para `company_settings` se resuelve la fila existente y se actualiza; si no existe, se inserta.
 
+## 2026-08-13 — Plantillas: tabla adaptativa, campos manuales y detección ampliada
+
+### Cambio 1: la tabla de la plantilla se ajusta al contenido real
+
+- **Dónde:** `src/lib/plantillas/plantilla.ts` (`alturaReservaTabla`, `alturaMinimaCabecera`).
+- **Cambio:** la tabla encoge con pocas líneas, crece con muchas, y los totales nunca se salen de la página. Antes, con pocas líneas, pdfme podía fallar al repaginar (`Cannot read properties of undefined (reading 'push')`).
+- **Red de seguridad:** `scripts/parchear-pdfme.mjs` añade un guard contra páginas negativas en el repaginador de `@pdfme/common` (idempotente, enlazado en `postinstall`/`predev`/`prebuild`/`prevercel-build`).
+
+### Cambio 2: campos manuales de la plantilla en el formulario
+
+- **Dónde:** `src/lib/plantillas/contrato.ts` (`manual` en `custom_1..custom_5`) · `src/lib/plantillas/plantilla.ts` (`clavesManualesUsadasPorPlantilla`) · `src/lib/types.ts` (`datosExtras` en `Invoice` y `Albaran`) · `src/lib/storage.ts` (persistencia en `datos_extras`) · `src/components/facturas/DatosPlantillaCard.tsx` · páginas de crear/editar factura · `src/components/plantillas/BotonDescargarPdf.tsx`.
+- **Cambio:** si la plantilla activa usa campos `custom_N` (nº de pedido, matrícula, agente, envío, fecha de entrega…), el formulario de factura los muestra para rellenarlos y se guardan con la factura; el PDF se genera con esos valores. La detección asigna los rótulos (`Nº de bastidor`, `Vendedor`, `Método de envío`…) a esos campos.
+- **Pendiente:** aplicar la migración `supabase/migration_017_invoice_datos_extras.sql` en la base de datos (añade `datos_extras JSONB` a `invoices` y `albaranes`). El código ya está preparado; sin la migración, guardar facturas con campos manuales fallará.
+
+### Cambio 3: la detección reconoce más variantes
+
+- **Dónde:** `src/lib/plantillas/deteccion.ts` (`ETIQUETAS`) · `src/lib/plantillas/deteccion.test.ts`.
+- **Cambio:** inglés (`invoice number`, `issue date`, `payment method`, `order number`, `purchase order`…), abreviaturas `Nº`, variantes compuestas (`fecha de la factura`, `importe a facturar`, `neto a pagar`, `iva repercutido`…) y campos libres (`custom_2..custom_5`). `nº de pedido` ahora es `custom_1` (antes caía en `doc_numero`).
+- **Tests:** 15 nuevos en `deteccion.test.ts`.
+
 ## Por hacer / pendientes
 
 - [ ] Numeración auto-reparable para **devoluciones** y **abonos** (mismo patrón que albaranes: `createDevolucion`, `applyAbonoToInvoice` y sus modales).
