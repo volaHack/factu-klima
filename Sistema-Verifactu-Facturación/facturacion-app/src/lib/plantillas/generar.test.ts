@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type CompanySettings, type Invoice } from '../types';
-import { construirDatos } from './datos';
+import { construirDatos, facturaDeMuestra } from './datos';
 import { detectar } from './deteccion';
 import { agruparEnLineas } from './extraccion';
 import { construirEntrada, generarPdf } from './generar';
@@ -46,7 +46,7 @@ function texto(contenido: string, x: number, y: number, tamano = 9, negrita = fa
   };
 }
 
-function paginaDeEjemplo(): PaginaExtraida {
+function paginaDeEjemplo(filasMuestra = 1): PaginaExtraida {
   const items: ItemTexto[] = [
     texto('MI EMPRESA S.L.', 15, 18, 13, true),
     texto('NIF: B12345678', 15, 25),
@@ -73,21 +73,22 @@ function paginaDeEjemplo(): PaginaExtraida {
     texto('Precio', 135, 90, 9, true),
     texto('IVA', 155, 90, 9, true),
     texto('Importe', 170, 90, 9, true),
-
-    texto('REF-000', 15, 98),
-    texto('Artículo de muestra', 32, 98),
-    texto('1 ud', 118, 98),
-    texto('1,00 €', 135, 98),
-    texto('21%', 155, 98),
-    texto('1,00 €', 170, 98),
-
-    texto('Base imponible', 140, 125),
-    texto('1,00 €', 172, 125),
-    texto('TOTAL', 140, 138, 11, true),
-    texto('1,21 €', 170, 138, 11, true),
-
-    texto('Gracias por su confianza.', 15, 275, 8),
   ];
+  for (let i = 0; i < filasMuestra; i++) {
+    const y = 98 + i * 6;
+    items.push(texto(`REF-${String(i + 1).padStart(3, '0')}`, 15, y));
+    items.push(texto(`Artículo de muestra ${i + 1}`, 32, y));
+    items.push(texto('1 ud', 118, y));
+    items.push(texto('1,00 €', 135, y));
+    items.push(texto('21%', 155, y));
+    items.push(texto('1,00 €', 170, y));
+  }
+  const yTotales = 98 + filasMuestra * 6 + 6;
+  items.push(texto('Base imponible', 140, yTotales));
+  items.push(texto('1,00 €', 172, yTotales));
+  items.push(texto('TOTAL', 140, yTotales + 13, 11, true));
+  items.push(texto('1,21 €', 170, yTotales + 13, 11, true));
+  items.push(texto('Gracias por su confianza.', 15, 275, 8));
 
   return {
     ancho: 210,
@@ -155,8 +156,8 @@ function facturaConLineas(cuantas: number): Invoice {
   };
 }
 
-function compilar() {
-  const pagina = paginaDeEjemplo();
+function compilar(filasMuestra = 1) {
+  const pagina = paginaDeEjemplo(filasMuestra);
   const analisis = detectar(pagina, { ajustes: AJUSTES });
   return compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: 'muestra.pdf' });
 }
@@ -179,6 +180,27 @@ async function leerPdf(bytes: Uint8Array): Promise<{ texto: string; paginas: num
     texto += contenido.items.map((i: any) => i.str).join(' ') + '\n';
   }
   return { texto, paginas: documento.numPages };
+}
+
+/** Y (mm desde arriba de la página) y página de cada texto del PDF, para comprobar el layout. */
+async function leerPosiciones(bytes: Uint8Array): Promise<{ y: number; texto: string; pagina: number }[]> {
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const documento = await pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    useSystemFonts: false,
+    isEvalSupported: false,
+  }).promise;
+  const salidas: { y: number; texto: string; pagina: number }[] = [];
+  for (let n = 1; n <= documento.numPages; n++) {
+    const pagina = await documento.getPage(n);
+    const contenido = await pagina.getTextContent();
+    for (const item of contenido.items as { str: string; transform: number[] }[]) {
+      const yDesdeArriba = 297 - ((item.transform[5] / 72) * 25.4);
+      salidas.push({ y: yDesdeArriba, texto: item.str, pagina: n });
+    }
+  }
+  return salidas;
 }
 
 beforeAll(() => {
@@ -221,6 +243,19 @@ describe('compilación de la plantilla', () => {
     const suma = tabla.headWidthPercentages.reduce((a, b) => a + b, 0);
     expect(suma).toBeCloseTo(100, 5);
   });
+
+  it('reserva como altura de la tabla la real del PDF de muestra, no el mínimo', () => {
+    const tabla = plantilla.schemas[0].find(s => s.name === 'lineas') as unknown as {
+      height: number;
+    };
+    // La altura de reserva es la que ocupó la tabla en el PDF de muestra (una
+    // fila y su cabecera, en este ejemplo): así una factura con las mismas
+    // líneas queda idéntica al diseño. Si se recortara al mínimo, los totales
+    // se separarían de la tabla y las facturas de tamaño similar saltarían a
+    // la página siguiente.
+    expect(tabla.height).toBeGreaterThanOrEqual(10);
+    expect(tabla.height).toBeLessThan(30);
+  });
 });
 
 describe('generación del PDF', () => {
@@ -257,6 +292,35 @@ describe('generación del PDF', () => {
     expect(texto).toContain('Producto de prueba número 60');
   }, 60_000);
 
+  it('mantiene los totales pegados a la tabla: ni huecos ni saltos de página', async () => {
+    // La muestra trae 12 líneas. La altura de reserva de la tabla es la de la
+    // muestra, así que el bloque de totales queda siempre a la distancia de
+    // diseño del pie de la tabla: se imprima la factura con 3 líneas o con
+    // las 12 del PDF de muestra, no hay huecos de centímetros ni nada salta a
+    // la página siguiente.
+    const { plantilla } = compilar(12);
+    const hueco = async (filas: number): Promise<{ hueco: number; paginas: number }> => {
+      const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(filas) }, AJUSTES);
+      const bytes = await generarPdf(plantilla, datos);
+      const posiciones = await leerPosiciones(bytes);
+      const ultimaFila = Math.max(...posiciones.filter(p => p.texto.startsWith('Producto de prueba')).map(p => p.y));
+      const dinero = posiciones.filter(p => /^[\d.,]+ €$/.test(p.texto.trim()));
+      const total = dinero[dinero.length - 1];
+      return { hueco: total.y - ultimaFila, paginas: total.pagina };
+    };
+
+    const conPocas = await hueco(3);
+    const conMismas = await hueco(12);
+
+    // El hueco entre la última línea y el total es una constante de diseño,
+    // no un desajuste del repaginador: con la altura de reserva recortada al
+    // mínimo este hueco valdría ~95 mm y las 12 líneas saltarían de página.
+    expect(Math.abs(conPocas.hueco - conMismas.hueco)).toBeLessThan(1);
+    expect(conPocas.hueco).toBeGreaterThan(5);
+    expect(conPocas.hueco).toBeLessThan(45);
+    expect(conMismas.paginas).toBe(1);
+  }, 60_000);
+
   it('deja en blanco los campos sin dato en vez de arrastrar el del ejemplo', async () => {
     const { plantilla } = compilar();
     const factura = facturaConLineas(1);
@@ -285,4 +349,22 @@ describe('generación del PDF', () => {
     const entradaDuplicada = construirEntrada(plantillaConDuplicado, datos);
     expect(entradaDuplicada.doc_numero_2).toBe('FAC-2026-0042');
   });
+
+  it('no rompe el repaginador cuando la tabla de muestra es grande y la factura trae pocas líneas', async () => {
+    const { plantilla } = compilar();
+    const tabla = plantilla.schemas[0].find(s => s.name === 'lineas') as { height: number };
+    // Simula el PDF de muestra con una tabla larga: si la altura de reserva
+    // se queda con esa longitud, encoger la tabla al componer con pocas
+    // líneas arrastra los totales a una coordenada negativa y pdfme falla
+    // con «Cannot read properties of undefined (reading 'push')».
+    tabla.height = 120;
+
+    const datos = construirDatos({ tipo: 'factura', documento: facturaDeMuestra() }, AJUSTES);
+    const bytes = await generarPdf(plantilla, datos);
+    const { texto } = await leerPdf(bytes);
+
+    expect(bytes.length).toBeGreaterThan(0);
+    expect(texto).toContain('FAC-0000-0000');
+    expect(texto).toContain('Caja de tomate rama primera categoría');
+  }, 60_000);
 });

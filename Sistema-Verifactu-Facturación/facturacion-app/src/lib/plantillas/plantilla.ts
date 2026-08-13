@@ -216,7 +216,44 @@ function redondear(n: number): number {
 // TABLA
 // ============================================================
 
-function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schema {
+function alturaMinimaCabecera(tabla: TablaDetectada): number {
+  const relleno = (tabla.estilo.relleno ?? {}) as Partial<{ top: number; bottom: number }>;
+  return (tabla.estilo.tamanoCabecera || 9) * 1.3 + (relleno.top ?? 0) + (relleno.bottom ?? 0);
+}
+
+/**
+ * La altura de reserva de la tabla.
+ *
+ * La medida ideal es la real del PDF de muestra (`altoTotal`): así, una
+ * factura con las mismas líneas queda idéntica al diseño, con menos líneas la
+ * tabla encoge y lo que va debajo (los totales) sube con ella, y con más
+ * líneas crece y empuja hacia abajo o a la siguiente página.
+ *
+ * Pero si esa altura quedara por encima del espacio útil de la página o de lo
+ * que hay hasta el campo que viene justo debajo, una factura con pocas líneas
+ * arrastraría ese campo a una coordenada negativa y el repaginador de pdfme
+ * fallaría con «Cannot read properties of undefined (reading 'push')». Por
+ * eso la altura se recorta a esos dos topes.
+ */
+function alturaReservaTabla(
+  tabla: TablaDetectada,
+  campos: CampoDetectado[],
+  altoPagina: number,
+  inicioPie: number,
+  alturaMinima: number,
+): number {
+  const topePagina = altoPagina - Math.max(MARGEN_PIE_MINIMO, altoPagina - inicioPie) - tabla.y;
+  const masCercanoDebajo = campos
+    .filter(c => c.y > tabla.y + 0.5)
+    .sort((a, b) => a.y - b.y)[0];
+  const topeCampos = masCercanoDebajo
+    ? masCercanoDebajo.y - tabla.y + alturaMinima
+    : Number.POSITIVE_INFINITY;
+  const tope = Math.min(topePagina, topeCampos);
+  return redondear(Math.max(Math.min(tabla.altoTotal, tope), 0.1));
+}
+
+function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif', alturaReserva: number): Schema {
   const columnas = tabla.columnas;
   const anchoTotal = columnas.reduce((s, c) => s + c.ancho, 0) || tabla.ancho;
   const porcentajes = columnas.map(c => (c.ancho / anchoTotal) * 100);
@@ -248,7 +285,12 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif'): Schem
     type: 'table',
     position: { x: redondear(tabla.x), y: redondear(tabla.y) },
     width: redondear(tabla.ancho),
-    height: redondear(tabla.altoTotal),
+    // La altura es de reserva, no la real: la ocupa cada factura según sus
+    // líneas. Es la real de la tabla de muestra recortada a los topes de
+    // seguridad (ver `alturaReservaTabla`), de modo que una factura con las
+    // mismas líneas queda idéntica al diseño y los totales siguen de cerca a
+    // la tabla tanto si ésta encoge como si crece.
+    height: alturaReserva,
     content: '[]',
     showHead: tabla.estilo.mostrarCabecera !== false,
     // La cabecera se repite en cada página nueva: una factura de tres hojas
@@ -413,7 +455,13 @@ export function compilarPlantilla(
       ],
       staticSchema: [fondo, ...estaticos],
     },
-    schemas: [[esquemaDeTabla(tabla, analisis.familia), ...fluyen]],
+    schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaReservaTabla(
+      tabla,
+      campos,
+      pagina.alto,
+      inicioPie,
+      alturaMinimaCabecera(tabla),
+    )), ...fluyen]],
   };
 
   return {
@@ -512,6 +560,18 @@ export function normalizarPlantilla(plantilla: Template): Template {
     left: typeof caja?.left === 'number' ? caja.left : 0,
   });
 
+  // Contexto para acotar la altura de reserva de la tabla (ver
+  // `alturaReservaTabla`): lo que cabe en la página y hasta dónde queda el
+  // campo que viene justo debajo. Sólo se miran los esquemas de la primera
+  // página, que es donde vive el diseño.
+  const baseInfo = (copia.basePdf ?? {}) as { height?: number; padding?: number[] };
+  const altoPagina = typeof baseInfo.height === 'number' && baseInfo.height > 0 ? baseInfo.height : 297;
+  const padding = Array.isArray(baseInfo.padding) ? baseInfo.padding : [0, 0, 0, 0];
+  const paddingTop = typeof padding[0] === 'number' ? padding[0] : 0;
+  const paddingBottom = typeof padding[2] === 'number' ? padding[2] : 0;
+  const altoContenido = Math.max(altoPagina - paddingTop - paddingBottom, 0.1);
+  const primeraPagina = Array.isArray(paginas[0]) ? paginas[0] as unknown[] : [];
+
   for (const esq of [...paginas.flat(), ...baseStatic] as unknown as Record<string, unknown>[]) {
     if (!esq || typeof esq !== 'object') continue;
 
@@ -579,6 +639,32 @@ export function normalizarPlantilla(plantilla: Template): Template {
       esq.showHead = esq.showHead !== false;
       esq.repeatHead = esq.repeatHead !== false;
       esq.content = typeof esq.content === 'string' ? esq.content : '[]';
+
+      // La altura de reserva se respeta siempre que quepa en el contenido útil
+      // de la página y hasta el campo que viene justo debajo; si se pasa de
+      // esos topes se recorta. Plantillas guardadas (o editadas a mano) con
+      // una altura desmedida arrastrarían lo que sigue a una coordenada
+      // negativa cuando la factura trae pocas líneas y romperían el
+      // repaginador con «Cannot read properties of undefined (reading
+      // 'push')». Sólo se ajusta la tabla de la primera página, que es la que
+      // fluye.
+      if (primeraPagina.includes(esq)) {
+        const hs = headStyles as { fontSize?: number; lineHeight?: number; padding?: { top?: number; bottom?: number } };
+        const alturaMinima = ((hs.fontSize ?? 9) * (hs.lineHeight ?? 1) * 1.3) + (hs.padding?.top ?? 0) + (hs.padding?.bottom ?? 0);
+        const posicion = esq.position as { y?: number } | undefined;
+        const posicionY = typeof posicion?.y === 'number' ? posicion.y : 0;
+        const topePagina = altoContenido - (posicionY - paddingTop);
+        const masCercanoDebajo = primeraPagina
+          .filter(o => o !== esq && typeof o === 'object' && o !== null && (o as { position?: { y?: number } }).position?.y != null && (o as { position: { y: number } }).position.y > posicionY + 0.5)
+          .sort((a, b) => ((a as { position: { y: number } }).position.y) - ((b as { position: { y: number } }).position.y))[0] as { position: { y: number } } | undefined;
+        const topeCampos = masCercanoDebajo
+          ? masCercanoDebajo.position.y - posicionY + alturaMinima
+          : Number.POSITIVE_INFINITY;
+        const tope = Math.min(topePagina, topeCampos);
+        if (typeof esq.height !== 'number' || !Number.isFinite(esq.height) || esq.height <= 0 || esq.height > tope) {
+          esq.height = Math.max(tope, 0.1);
+        }
+      }
     } else if (esq.type === 'text') {
       esq.fontName = normalizarFont(esq.fontName as string | undefined, Boolean(esq.bold));
     }
