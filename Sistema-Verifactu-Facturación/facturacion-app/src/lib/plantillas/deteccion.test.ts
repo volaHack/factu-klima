@@ -273,6 +273,40 @@ describe('cuando faltan los datos de la empresa', () => {
   });
 });
 
+describe('detección ampliada por diccionario', () => {
+  const asignar = (etiqueta: string): Record<string, string> => {
+    const analisis = detectar(
+      paginaDeEjemplo([texto(etiqueta, 20, 120), texto('X', 120, 120)]),
+      { ajustes: AJUSTES },
+    );
+    return claves(analisis);
+  };
+
+  it.each([
+    ['Numero de factura', 'doc_numero'],
+    ['Invoice number', 'doc_numero'],
+    ['Fecha de la factura', 'doc_fecha'],
+    ['Issue date', 'doc_fecha'],
+    ['Vencimiento de la factura', 'doc_vencimiento'],
+    ['Forma de cobro', 'doc_forma_pago'],
+    ['Payment method', 'doc_forma_pago'],
+    ['Importe a facturar', 'total_base'],
+    ['Neto a pagar', 'total_general'],
+    ['IVA repercutido', 'total_impuestos'],
+    ['Descuento aplicado', 'total_descuento'],
+    ['Nº de pedido', 'custom_1'],
+    ['Order number', 'custom_1'],
+    ['Nº de bastidor', 'custom_2'],
+    ['Vendedor', 'custom_3'],
+    ['Método de envío', 'custom_4'],
+    ['Fecha de entrega prevista', 'custom_5'],
+  ])('reconoce «%s» como %s', (etiqueta, claveEsperada) => {
+    const mapa = asignar(etiqueta);
+    const encontrado = Object.entries(mapa).find(([k]) => k === claveEsperada);
+    expect(encontrado).toBeDefined();
+  });
+});
+
 describe('PDF que no se parece a nada', () => {
   it('no revienta y avisa de lo que no ha encontrado', () => {
     const analisis = detectar(paginaDeEjemplo([texto('Documento sin estructura', 20, 20)]), {});
