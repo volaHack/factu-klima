@@ -7,7 +7,7 @@ import {
   ArrowLeft, Truck, FileText, Ban, Trash2, Printer, ClipboardList, Loader2, FileWarning, CheckCircle2, Building2, Calendar
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
-import BotonDescargarPdf from '@/components/plantillas/BotonDescargarPdf';
+import BotonDescargarPdf, { BotonVistaPreviaPdf } from '@/components/plantillas/BotonDescargarPdf';
 import {
   getAlbaranById, getCompanySettings, expedirAlbaran, anularAlbaran, deleteAlbaran,
   convertirAlbaranesAFactura
@@ -187,6 +187,7 @@ export default function AlbaranDetailPage() {
               <FileText size={16} /> Ver la factura
             </Link>
           )}
+          <BotonVistaPreviaPdf tipo="albaran" documento={albaran} />
           <BotonDescargarPdf tipo="albaran" documento={albaran} />
           <button className="btn btn-ghost" onClick={() => window.print()} title="Imprimir o guardar PDF">
             <Printer size={16} />

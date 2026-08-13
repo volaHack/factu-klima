@@ -124,22 +124,23 @@ interface ReglaEtiqueta {
 
 /** Etiquetas impresas que delatan qué dato viene al lado. */
 const ETIQUETAS: ReglaEtiqueta[] = [
-  { re: /^(n\.?[ºo°]?\.? ?(de )?)?(factura|albaran|documento|pedido)( n\.?[ºo°]?\.?)?$|^factura n|^n[ºo°] ?factura|^numero( de)? factura$|^invoice( no)?$/, clave: 'doc_numero', prioridad: 9 },
-  { re: /^(fecha( de)?( emision| factura| expedicion| documento)?|f\.? emision|date)$/, clave: 'doc_fecha', prioridad: 9 },
-  { re: /(vencimiento|vence el?|fecha limite|forma de vencimiento|due date)/, clave: 'doc_vencimiento', prioridad: 9 },
-  { re: /(fecha de (cobro|pago)|pagada el|cobrada el)/, clave: 'doc_fecha_pago', prioridad: 8 },
-  { re: /^(forma de pago|metodo de pago|modo de pago|condiciones de pago|pago)$/, clave: 'doc_forma_pago', prioridad: 8 },
-  { re: /^(serie)$/, clave: 'doc_serie', prioridad: 7 },
-  { re: /^(estado)$/, clave: 'doc_estado', prioridad: 6 },
-  { re: /^(observaciones|notas|comentarios|nota)$/, clave: 'doc_notas', prioridad: 7 },
+  { re: /^(n\.?[ºo°]?\.? ?(de )?)?(factura|albaran|documento|pedido|presupuesto|ticket)( n\.?[ºo°]?\.?)?$|^factura n|^n[ºo°] ?factura|^numero( de)? (factura|albaran|documento)$|^invoice( no)?$/i, clave: 'doc_numero', prioridad: 9 },
+  { re: /^(fecha( de)?( emision| factura| expedicion| documento)?|f\.? emision|f\.? expedicion|date|fecha doc\.?)$/i, clave: 'doc_fecha', prioridad: 9 },
+  { re: /(vencimiento|vence el?|fecha limite|forma de vencimiento|due date|f\.? vencimiento)/i, clave: 'doc_vencimiento', prioridad: 9 },
+  { re: /(fecha de (cobro|pago)|pagada el|cobrada el|f\.? pago)/i, clave: 'doc_fecha_pago', prioridad: 8 },
+  { re: /^(forma de pago|metodo de pago|modo de pago|condiciones de pago|medio de pago|pago)$/i, clave: 'doc_forma_pago', prioridad: 8 },
+  { re: /^(serie|serie factura)$/i, clave: 'doc_serie', prioridad: 7 },
+  { re: /^(estado)$/i, clave: 'doc_estado', prioridad: 6 },
+  { re: /^(observaciones|notas|comentarios|nota|condiciones)$/i, clave: 'doc_notas', prioridad: 7 },
+  { re: /^(n\.?[ºo°]?\.? ?pedido|su ref(erencia)?|ref\.? cliente|pedido n\.?[ºo°]?\.?|orden de compra)$/i, clave: 'custom_1', prioridad: 8 },
 
-  { re: /^(base imponible|base|subtotal|suma|importe bruto)$/, clave: 'total_base', prioridad: 9 },
-  { re: /^(descuento|dto|dcto|descuentos)( total)?$/, clave: 'total_descuento', prioridad: 8 },
-  { re: /^(i ?v ?a|igic|impuestos|total impuestos|cuota|cuota iva|cuota igic)( \d{1,2}( ?%)?)?$/, clave: 'total_impuestos', prioridad: 8 },
-  { re: /^(total|total factura|total a pagar|importe total|total documento|total euros|a pagar)$/, clave: 'total_general', prioridad: 9 },
+  { re: /^(base imponible|base|subtotal|suma|importe bruto|base neta)$/i, clave: 'total_base', prioridad: 9 },
+  { re: /^(descuento|dto|dcto|descuentos)( total)?$/i, clave: 'total_descuento', prioridad: 8 },
+  { re: /^(i ?v ?a|igic|impuestos|total impuestos|cuota|cuota iva|cuota igic)( \d{1,2}( ?%)?)?$/i, clave: 'total_impuestos', prioridad: 8 },
+  { re: /^(total|total factura|total a pagar|importe total|total documento|total euros|a pagar|total general|liquido a percibir)$/i, clave: 'total_general', prioridad: 9 },
 
-  { re: /^(iban|cuenta|cuenta bancaria|n\.? cuenta|ccc|domiciliacion)$/, clave: 'empresa_iban', prioridad: 8 },
-  { re: /^(banco|entidad)$/, clave: 'empresa_banco', prioridad: 7 },
+  { re: /^(iban|cuenta|cuenta bancaria|n\.? cuenta|ccc|domiciliacion)$/i, clave: 'empresa_iban', prioridad: 8 },
+  { re: /^(banco|entidad)$/i, clave: 'empresa_banco', prioridad: 7 },
 ];
 
 /**
@@ -173,16 +174,16 @@ function buscarEtiqueta(texto: string): ReglaEtiqueta | null {
 // ============================================================
 
 const CABECERAS_COLUMNA: { re: RegExp; clave: string }[] = [
-  { re: /^(ref|referencia|codigo|cod|sku|articulo|art|clave|item)$/, clave: 'ref' },
-  { re: /(descripcion|concepto|detalle|producto|articulo|denominacion|description|servicio)/, clave: 'descripcion' },
-  { re: /^(cantidad|cant|uds|ud|unidades|c dad|qty|n uds|kg|peso)$/, clave: 'cantidad' },
-  { re: /^(u ?m|unidad|medida|formato|envase)$/, clave: 'unidad' },
-  { re: /(precio|p unit|p ?u|unitario|pvp|price|importe unitario|precio ud)/, clave: 'precio' },
-  { re: /^(dto|dcto|desc|descuento|% ?dto|% ?descuento)( %)?$/, clave: 'descuento_pct' },
-  { re: /^(iva|igic|imp|impuesto|% ?iva|% ?igic|tipo|tax)( %)?$/, clave: 'impuesto_pct' },
-  { re: /^(cuota|cuota iva|cuota igic)$/, clave: 'importe_impuesto' },
-  { re: /^(importe|subtotal|base|neto|amount|valor|importe neto|total linea)$/, clave: 'importe' },
-  { re: /^(total|total linea|importe total|total con iva)$/, clave: 'importe_total' },
+  { re: /^(ref|referencia|codigo|cod|sku|articulo|art|clave|item|cod\.?|cód|código|prod|producto)$/i, clave: 'ref' },
+  { re: /(descripcion|concepto|detalle|producto|articulo|denominacion|description|servicio|detalles|conceptos)/i, clave: 'descripcion' },
+  { re: /^(cantidad|cant|uds|ud|unidades|c dad|qty|n uds|kg|peso|unid|horas|hrs|cant\.?)$/i, clave: 'cantidad' },
+  { re: /^(u ?m|unidad|medida|formato|envase|ud|tipo unidad)$/i, clave: 'unidad' },
+  { re: /(precio|p unit|p ?u|unitario|pvp|price|importe unitario|precio ud|precio unit|precio\/u|p\. unit|p\.v\.p)/i, clave: 'precio' },
+  { re: /^(dto|dcto|desc|descuento|% ?dto|% ?descuento|% ?desc|dtos)( %)?$/i, clave: 'descuento_pct' },
+  { re: /^(iva|igic|imp|impuesto|% ?iva|% ?igic|tipo|tax|tipo iva|tipo igic|% ?imp)( %)?$/i, clave: 'impuesto_pct' },
+  { re: /^(cuota|cuota iva|cuota igic|total iva|impuesto imp)$/i, clave: 'importe_impuesto' },
+  { re: /^(importe|subtotal|base|neto|amount|valor|importe neto|total linea|base linea)$/i, clave: 'importe' },
+  { re: /^(total|total linea|importe total|total con iva|total con impuestos|total fila)$/i, clave: 'importe_total' },
 ];
 
 function claveDeCabecera(texto: string): string | null {
@@ -779,6 +780,7 @@ function campoDesde(
   confianza: number,
   motivo: string,
   etiquetaCercana: string,
+  fijo = false,
 ): CampoDetectado {
   const x = Math.min(...items.map(i => i.x));
   const y = Math.min(...items.map(i => i.y));
@@ -794,7 +796,7 @@ function campoDesde(
     id: nuevoId(),
     clave,
     tipo: 'texto',
-    fijo: false,
+    fijo,
     valorOriginal: items.map(i => i.texto).join(' ').replace(/\s+/g, ' ').trim(),
     etiquetaCercana: etiquetaCercana.replace(/[:\s]+$/, ''),
     x,

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Botón de descarga del PDF con el diseño propio de la empresa.
+ * Botón de descarga y previsualización del PDF con el diseño propio de la empresa.
  *
  * Todo lo pesado (pdfme, las tipografías, la plantilla) se carga en el
  * momento de pulsar y no al abrir la factura: quien sólo entra a consultarla
@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Eye, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getClientById, getCompanySettings } from '@/lib/storage';
 import type { Albaran, Invoice } from '@/lib/types';
@@ -78,6 +78,101 @@ export default function BotonDescargarPdf(props: Props) {
       {generando ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
       {etiqueta ?? 'Descargar PDF'}
     </button>
+  );
+}
+
+/** Botón para ver el PDF en vivo con la plantilla activa en un modal */
+export function BotonVistaPreviaPdf(props: Props) {
+  const { tipo, documento, className, etiqueta } = props;
+  const { error: avisarError, warning } = useToast();
+  const [generando, setGenerando] = useState(false);
+  const [urlPdf, setUrlPdf] = useState<string | null>(null);
+
+  const previsualizar = async () => {
+    setGenerando(true);
+    try {
+      const [{ getPlantillaActiva }, { construirDatos }, { generarPdfBlob }] =
+        await Promise.all([
+          import('@/lib/plantillas/almacen'),
+          import('@/lib/plantillas/datos'),
+          import('@/lib/plantillas/generar'),
+        ]);
+
+      const plantilla = await getPlantillaActiva(tipo);
+      if (!plantilla) {
+        warning(
+          'Todavía no has subido tu diseño',
+          'Sube una factura tuya en PDF desde Plantillas para previsualizar con tu aspecto.',
+        );
+        return;
+      }
+
+      const [ajustes, cliente] = await Promise.all([
+        getCompanySettings(),
+        documento.clientId ? getClientById(documento.clientId) : Promise.resolve(undefined),
+      ]);
+
+      const datos = tipo === 'factura'
+        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente })
+        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente });
+
+      const blob = await generarPdfBlob(plantilla.plantilla, datos, {
+        titulo: `${tipo === 'factura' ? 'Factura' : 'Albarán'} ${documento.number}`,
+        autor: ajustes.businessName || '',
+      });
+
+      if (urlPdf) URL.revokeObjectURL(urlPdf);
+      setUrlPdf(URL.createObjectURL(blob));
+    } catch (err) {
+      avisarError(
+        'No se ha podido generar la vista previa',
+        err instanceof Error ? err.message : 'Vuelve a intentarlo en un momento.',
+      );
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const cerrar = () => {
+    if (urlPdf) URL.revokeObjectURL(urlPdf);
+    setUrlPdf(null);
+  };
+
+  return (
+    <>
+      <button
+        className={className ?? 'btn btn-secondary'}
+        onClick={previsualizar}
+        disabled={generando}
+        title="Ver cómo queda el documento con tu plantilla"
+      >
+        {generando ? <Loader2 size={14} className="spin" /> : <Eye size={14} />}
+        {etiqueta ?? 'Ver con plantilla'}
+      </button>
+
+      {urlPdf && (
+        <div className="modal-overlay" onClick={cerrar}>
+          <div className="modal modal-lg plantilla-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', height: '90vh' }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">{tipo === 'factura' ? 'Factura' : 'Albarán'} {documento.number}</h3>
+                <p className="card-subtitle">Previsualización en tiempo real con tu plantilla activa</p>
+              </div>
+              <button className="modal-close" onClick={cerrar} aria-label="Cerrar"><X size={18} /></button>
+            </div>
+            <div className="modal-body plantilla-modal-cuerpo" style={{ flex: 1, padding: 0 }}>
+              <iframe src={urlPdf} title="Vista previa del documento" className="plantilla-visor" style={{ width: '100%', height: '100%', border: 'none' }} />
+            </div>
+            <div className="modal-footer">
+              <a className="btn btn-primary" href={urlPdf} download={`${documento.number.replace(/[^\w-]/g, '_')}.pdf`}>
+                <Download size={16} /> Descargar PDF
+              </a>
+              <button className="btn btn-secondary" onClick={cerrar}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

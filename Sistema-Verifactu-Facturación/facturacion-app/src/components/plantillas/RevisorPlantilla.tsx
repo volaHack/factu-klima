@@ -69,7 +69,8 @@ export default function RevisorPlantilla({
   const [seleccion, setSeleccion] = useState<Seleccion>(null);
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
   const [modoDibujo, setModoDibujo] = useState<'campo' | 'zona' | null>(null);
-  const [verFijos, setVerFijos] = useState(false);
+  const [filtro, setFiltro] = useState<'todos' | 'modificables' | 'fijos' | 'sin_asignar'>('todos');
+  const [verFijos, setVerFijos] = useState(true);
   const [modoVistaPrevia, setModoVistaPrevia] = useState(false);
   const [zoom, setZoom] = useState(1);
 
@@ -879,33 +880,153 @@ export default function RevisorPlantilla({
           </div>
         )}
 
-        {/* Textos impresos */}
+        {/* Lista completa de todos los textos del PDF con filtros */}
         <div className="card">
-          <button className="plantilla-desplegable" onClick={() => setVerFijos(!verFijos)} type="button">
-            <span>
-              <Type size={14} /> Textos del diseño original
-              <strong>{textosFijos.length}</strong>
-            </span>
-            <span className="plantilla-desplegable-pista">{verFijos ? 'Ocultar' : 'Ver'}</span>
-          </button>
-          {verFijos && (
-            <>
-              <p className="plantilla-ayuda">
-                Son rótulos y textos impresos en tu PDF de muestra que se conservan en el fondo. Si alguno cambia en cada factura, conviértelo en un dato.
+          <div className="card-header" style={{ paddingBottom: '8px' }}>
+            <div>
+              <h4 className="card-title">Textos detectados en el PDF</h4>
+              <p className="card-subtitle">
+                {campos.length + textosFijos.length} elementos encontrados. Haz clic para seleccionarlos o cambiar su tipo.
               </p>
-              <ul className="plantilla-fijos">
-                {textosFijos.map((segmento, indice) => (
-                  <li key={indice}>
-                    <span>{segmento.texto}</span>
-                    <button className="btn btn-ghost btn-sm" onClick={() => convertirEnCampo(segmento)} type="button">
-                      Es un dato
+            </div>
+          </div>
+
+          {/* Selector de filtros */}
+          <div style={{ display: 'flex', gap: '4px', padding: '0 16px 12px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn btn-xs ${filtro === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setFiltro('todos')}
+            >
+              Todos ({campos.length + textosFijos.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${filtro === 'modificables' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setFiltro('modificables')}
+            >
+              Modificables ({campos.filter(c => !c.fijo && c.clave).length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${filtro === 'sin_asignar' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setFiltro('sin_asignar')}
+            >
+              Sin asignar ({campos.filter(c => !c.fijo && !c.clave).length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${filtro === 'fijos' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setFiltro('fijos')}
+            >
+              Fijos ({campos.filter(c => c.fijo).length + textosFijos.length})
+            </button>
+          </div>
+
+          <ul className="plantilla-fijos" style={{ maxHeight: '300px', overflowY: 'auto', margin: 0, padding: '8px 12px' }}>
+            {/* Campos activos (modificables y fijos convertidos) */}
+            {campos
+              .filter(c => {
+                if (filtro === 'modificables') return !c.fijo && Boolean(c.clave);
+                if (filtro === 'sin_asignar') return !c.fijo && !c.clave;
+                if (filtro === 'fijos') return c.fijo;
+                return true;
+              })
+              .map((c) => {
+                const esActivo = seleccion?.tipo === 'campo' && seleccion.id === c.id;
+                return (
+                  <li
+                    key={c.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      background: esActivo ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                      border: esActivo ? '1px solid var(--accent-500)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                    onClick={() => setSeleccion({ tipo: 'campo', id: c.id })}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.valorOriginal ? `«${c.valorOriginal}»` : '(campo vacío)'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        {c.fijo ? (
+                          <span style={{ color: 'var(--text-muted)' }}>🔒 Fijo</span>
+                        ) : c.clave ? (
+                          <span style={{ color: 'var(--accent-500)', fontWeight: 600 }}>✓ {etiquetaDeClave(c.clave)}</span>
+                        ) : (
+                          <span style={{ color: 'var(--warning-500)', fontWeight: 600 }}>⚠ Sin asignar</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${c.fijo ? 'btn-secondary' : 'btn-ghost'}`}
+                      style={{ fontSize: '11px', padding: '2px 8px' }}
+                      title={c.fijo ? 'Convertir en dato de factura modificable' : 'Marcar como texto fijo del diseño'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        actualizarCampo(c.id, { fijo: !c.fijo, clave: c.fijo ? (c.clave || null) : null });
+                      }}
+                    >
+                      {c.fijo ? 'Hacer modificable' : 'Hacer fijo'}
                     </button>
                   </li>
-                ))}
-                {textosFijos.length === 0 && <li className="plantilla-fijos-vacio">No queda ningún texto suelto.</li>}
-              </ul>
-            </>
-          )}
+                );
+              })}
+
+            {/* Textos fijos del diseño aún no convertidos (se muestran en 'todos' y 'fijos') */}
+            {(filtro === 'todos' || filtro === 'fijos') &&
+              textosFijos.map((segmento, idx) => (
+                <li
+                  key={`seg-${idx}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    padding: '6px 8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    opacity: 0.85,
+                  }}
+                  onClick={() => convertirEnCampo(segmento)}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      «{segmento.texto}»
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                      🔒 Rótulo del diseño
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-secondary"
+                    style={{ fontSize: '11px', padding: '2px 8px' }}
+                    title="Convertir este rótulo en un dato editable de factura"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      convertirEnCampo(segmento);
+                    }}
+                  >
+                    Hacer modificable
+                  </button>
+                </li>
+              ))}
+
+            {campos.length === 0 && textosFijos.length === 0 && (
+              <li className="plantilla-fijos-vacio">No hay textos en esta categoría.</li>
+            )}
+          </ul>
         </div>
 
         {analisis.avisos.length > 0 && (
@@ -921,12 +1042,13 @@ export default function RevisorPlantilla({
 
         <div className="plantilla-resumen">
           <Check size={14} />
-          {campos.filter(c => c.clave).length} campos asignados
+          {campos.filter(c => !c.fijo && c.clave).length} datos modificables asignados
           {campos.some(c => !c.clave && !c.fijo) && (
             <span className="plantilla-resumen-pendiente">
               · {campos.filter(c => !c.clave && !c.fijo).length} sin asignar
             </span>
           )}
+          <span>· {campos.filter(c => c.fijo).length} fijos</span>
         </div>
       </div>
     </div>
@@ -949,7 +1071,7 @@ function PanelCampo({ campo, asignadas, onCambiar, onEliminar }: {
     <div className="card">
       <div className="card-header">
         <div>
-          <h4 className="card-title">Campo seleccionado</h4>
+          <h4 className="card-title">Elemento seleccionado</h4>
           <p className="card-subtitle">
             {campo.valorOriginal ? `«${campo.valorOriginal}»` : 'Campo personalizado'}
           </p>
@@ -959,36 +1081,67 @@ function PanelCampo({ campo, asignadas, onCambiar, onEliminar }: {
         </button>
       </div>
 
-      <div className="form-group">
-        <label className="form-label" htmlFor="campo-clave">¿Qué dato va aquí?</label>
-        <select
-          id="campo-clave"
-          className="form-select"
-          value={campo.fijo ? '__fijo' : (campo.clave ?? '')}
-          onChange={(evento) => {
-            const valor = evento.target.value;
-            if (valor === '__fijo') onCambiar({ fijo: true, clave: null });
-            else onCambiar({ fijo: false, clave: valor || null });
-          }}
+      {/* TOGGLE PRINCIPAL: MODIFICABLE VS FIJO */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${!campo.fijo ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => onCambiar({ fijo: false })}
+          style={{ justifyContent: 'center' }}
         >
-                <option value="">— Sin asignar (saldrá en blanco) —</option>
-                <option value="__fijo">Texto fijo: dejarlo tal cual está impreso</option>
-                {camposPorGrupo().map(grupo => (
-                  <optgroup key={grupo.grupo} label={grupo.titulo}>
-                    {grupo.campos.map(opcion => (
-                      <option
-                        key={opcion.clave}
-                        value={opcion.clave}
-                      >
-                        {opcion.etiqueta}{asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' (en uso)' : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+          <Check size={14} /> Dato Modificable
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${campo.fijo ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => onCambiar({ fijo: true, clave: null })}
+          style={{ justifyContent: 'center' }}
+        >
+          🔒 Texto Fijo (Diseño)
+        </button>
       </div>
 
-      {descripcion && <p className="plantilla-ayuda">{descripcion}</p>}
+      {campo.fijo ? (
+        <div className="callout callout-info" style={{ marginBottom: '12px' }}>
+          <div>
+            <strong>Texto fijo del diseño</strong>
+            <p style={{ fontSize: '11px', marginTop: '2px' }}>
+              Se conservará exactamente como está impreso en tu PDF original y no se modificará con los datos de las facturas emitidas.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="form-group">
+            <label className="form-label" htmlFor="campo-clave">¿Qué dato de factura va aquí?</label>
+            <select
+              id="campo-clave"
+              className="form-select"
+              value={campo.clave ?? ''}
+              onChange={(evento) => {
+                const valor = evento.target.value;
+                onCambiar({ fijo: false, clave: valor || null });
+              }}
+            >
+              <option value="">— Sin asignar (saldrá en blanco) —</option>
+              {camposPorGrupo().map(grupo => (
+                <optgroup key={grupo.grupo} label={grupo.titulo}>
+                  {grupo.campos.map(opcion => (
+                    <option
+                      key={opcion.clave}
+                      value={opcion.clave}
+                    >
+                      {opcion.etiqueta}{asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' (en uso)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {descripcion && <p className="plantilla-ayuda">{descripcion}</p>}
+        </>
+      )}
 
       <div className="plantilla-motivo">
         <MousePointerClick size={13} />

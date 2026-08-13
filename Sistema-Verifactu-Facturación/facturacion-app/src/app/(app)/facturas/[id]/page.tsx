@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import {
   Fingerprint, FileWarning, Loader2,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
-import BotonDescargarPdf, { AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
+import BotonDescargarPdf, { BotonVistaPreviaPdf, AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
 import {
   getInvoiceById, saveInvoice, getCompanySettings, createOrderApproval,
   getApprovalByInvoiceId, getApprovalItems, issueInvoice, cancelInvoice, isSealed, getOnboardingStatus,
@@ -319,6 +319,7 @@ export default function InvoiceDetailPage() {
               <Ban size={16} /> Anular
             </button>
           )}
+          <BotonVistaPreviaPdf tipo="factura" documento={invoice} />
           <BotonDescargarPdf tipo="factura" documento={invoice} />
           <button className="btn btn-ghost" onClick={() => window.print()} title="Imprimir o guardar PDF">
             <Printer size={16} />
