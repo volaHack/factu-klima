@@ -230,7 +230,7 @@ export function isSealed(invoice: Pick<Invoice, 'status' | 'tipo' | 'sentido'>):
   return esSellable(invoice) && SEALED_STATUSES.includes(invoice.status);
 }
 
-function serieDeTipo(settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento): SerieDocumento {
+export function serieDeTipo(settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento): SerieDocumento {
   const config = settings.seriesDocumentos?.[`${tipo}_${sentido}`];
   if (config && config.serie) return config;
   const porDefecto = DEFAULT_SERIES_DOCUMENTOS[`${tipo}_${sentido}`];
