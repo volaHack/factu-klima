@@ -61,6 +61,8 @@ export default function ProductosPage() {
     unitPrice: 0, defaultTaxRate: TaxRate.REDUCIDO as TaxRate, unit: UnitOfMeasure.KG as UnitOfMeasure,
     active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: '',
     tarifaPrices: {} as Record<string, number>,
+    costePmp: 0,
+    costeUltimaCompra: 0,
   });
 
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +144,8 @@ export default function ProductosPage() {
       unitPrice: 0, defaultTaxRate: getDefaultTaxRate(settings), unit: UnitOfMeasure.UNIDAD, active: true,
       stockQuantity: 50, lowStockThreshold: 5, imageUrl: '',
       tarifaPrices: {},
+      costePmp: 0,
+      costeUltimaCompra: 0,
     });
     setShowModal(true);
   };
@@ -162,6 +166,8 @@ export default function ProductosPage() {
       lowStockThreshold: p.lowStockThreshold ?? 5,
       imageUrl: p.imageUrl || '',
       tarifaPrices: p.tarifaPrices || {},
+      costePmp: p.costePmp ?? 0,
+      costeUltimaCompra: p.costeUltimaCompra ?? 0,
     });
     setShowModal(true);
   };
@@ -171,6 +177,8 @@ export default function ProductosPage() {
     const product: Product = {
       id: editing?.id || generateId(),
       ...form,
+      costePmp: Number(form.costePmp || 0),
+      costeUltimaCompra: Number(form.costeUltimaCompra || 0),
       supplierRef: form.supplierRef.trim() || undefined,
       imageUrl: form.imageUrl || undefined,
       createdAt: editing?.createdAt || new Date().toISOString(),
@@ -439,6 +447,7 @@ export default function ProductosPage() {
                   <th>Producto</th>
                   <th>Categoría</th>
                   <th style={{ textAlign: 'right' }}>Precio Ud.</th>
+                  <th style={{ textAlign: 'right' }}>PMP (Coste)</th>
                   <th>Stock Actual</th>
                   <th>Pdt. Recibir</th>
                   <th>Pdt. Entregar</th>
@@ -494,6 +503,9 @@ export default function ProductosPage() {
                       <td className="mono font-bold" style={{ textAlign: 'right' }}>
                         {formatCurrency(p.unitPrice)}
                       </td>
+                      <td className="mono" style={{ textAlign: 'right', color: p.costePmp ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                        {p.costePmp ? formatCurrency(p.costePmp) : '—'}
+                      </td>
                       <td>
                         <span className={`badge ${isOutOfStock ? 'badge-danger' : isLowStock ? 'badge-warning' : 'badge-success'}`}>
                           {p.stockQuantity ?? 0} {p.unit}
@@ -538,7 +550,7 @@ export default function ProductosPage() {
                 })}
                 {filteredProducts.length === 0 && (
                   <TableEmpty
-                    colSpan={11}
+                    colSpan={12}
                     icon={SearchX}
                     title="No hay productos que coincidan"
                     hint="Prueba a cambiar el texto de búsqueda o el filtro de categoría."

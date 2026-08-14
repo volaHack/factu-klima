@@ -7,10 +7,12 @@ import { ArrowLeft, Save, Send, Plus } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
+  getAlmacenes,
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
+  Almacen,
 } from '@/lib/types';
 import {
   generateId, getToday, addDays, calculateInvoiceTotals,
@@ -33,6 +35,7 @@ function NuevoDocumentoContent() {
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
 
   const [tipo, setTipo] = useState<TipoDocumento>(tipoParam);
@@ -43,6 +46,7 @@ function NuevoDocumentoContent() {
   const [clientNif, setClientNif] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [tarifaId, setTarifaId] = useState('');
+  const [almacenId, setAlmacenId] = useState('');
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   const [issueDate, setIssueDate] = useState(getToday());
@@ -58,14 +62,21 @@ function NuevoDocumentoContent() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [loadedSettings, loadedProducts, loadedClients] = await Promise.all([
+        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes] = await Promise.all([
           getCompanySettings(),
           getProducts(),
           sentidoParam === 'compra' ? getProveedores() : getClients(),
+          getAlmacenes(),
         ]);
         setSettings(loadedSettings);
         setProducts(loadedProducts);
         setClients(loadedClients);
+        setAlmacenes(loadedAlmacenes);
+
+        const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
+        if (principalAlm) {
+          setAlmacenId(principalAlm.id);
+        }
 
         if (loadedSettings) {
           setLineItems([lineaVacia(loadedSettings)]);
@@ -123,6 +134,14 @@ function NuevoDocumentoContent() {
       const { series, number } = numeroDeDocumento(settings, tipo, sentido);
       const now = new Date().toISOString();
 
+      const lineItemsWithCosts: InvoiceLineItem[] = lineItems.map(li => {
+        const prod = products.find(p => p.id === li.productId);
+        return {
+          ...li,
+          costPrice: prod?.costePmp && prod.costePmp > 0 ? prod.costePmp : (prod?.unitPrice || 0),
+        };
+      });
+
       const doc: Invoice = {
         id: generateId(),
         tipo,
@@ -134,6 +153,7 @@ function NuevoDocumentoContent() {
         clientNif,
         clientAddress,
         tarifaId: tarifaId || undefined,
+        almacenId: almacenId || undefined,
         globalDiscountPercent1: globalDiscounts[0] || 0,
         globalDiscountPercent2: globalDiscounts[1] || 0,
         globalDiscountPercent3: globalDiscounts[2] || 0,
@@ -141,7 +161,7 @@ function NuevoDocumentoContent() {
         dueDate: dueDate || issueDate,
         status: statusToSet,
         paymentMethod: paymentMethod || PaymentMethod.TRANSFERENCIA,
-        lineItems,
+        lineItems: lineItemsWithCosts,
         subtotal: totals.subtotal,
         totalDiscount: totals.totalDiscount,
         taxBreakdown: totals.taxBreakdown,
@@ -314,20 +334,39 @@ function NuevoDocumentoContent() {
             )}
           </div>
 
-          {(tipo === 'pedido' || tipo === 'albaran' || tipo === 'factura') && (
-            <div className="form-group">
-              <label className="form-label">Forma de pago</label>
-              <select
-                className="form-select"
-                value={paymentMethod}
-                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-              >
-                {PAYMENT_METHODS.map(pm => (
-                  <option key={pm.value} value={pm.value}>{pm.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="form-row">
+            {(tipo === 'pedido' || tipo === 'albaran' || tipo === 'factura') && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Forma de pago</label>
+                <select
+                  className="form-select"
+                  value={paymentMethod}
+                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                >
+                  {PAYMENT_METHODS.map(pm => (
+                    <option key={pm.value} value={pm.value}>{pm.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {almacenes.length > 0 && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Almacén / Ubicación</label>
+                <select
+                  className="form-select"
+                  value={almacenId}
+                  onChange={e => setAlmacenId(e.target.value)}
+                >
+                  {almacenes.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre} {a.principal ? '(Principal)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Notas u Observaciones</label>

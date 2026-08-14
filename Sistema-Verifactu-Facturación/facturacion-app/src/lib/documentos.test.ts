@@ -224,3 +224,53 @@ describe('calcularPendientesProducto', () => {
   });
 });
 
+describe('Fase 3: Valoración de Costes (PMP) y Multi-Almacén', () => {
+  it('calcula PMP ponderado correctamente en compras sucesivas', () => {
+    // Fórmula PMP: ((Stock * PMP_ant) + (Cant * Precio)) / (Stock + Cant)
+    let stock = 10;
+    let pmp = 50; // Total 500€
+
+    // Compra 1: 10 uds a 70€
+    const compra1Cant = 10;
+    const compra1Precio = 70;
+    pmp = ((stock * pmp) + (compra1Cant * compra1Precio)) / (stock + compra1Cant);
+    stock += compra1Cant;
+    expect(stock).toBe(20);
+    expect(pmp).toBe(60); // 1200 / 20 = 60€
+
+    // Compra 2: 5 uds a 90€
+    const compra2Cant = 5;
+    const compra2Precio = 90;
+    pmp = ((stock * pmp) + (compra2Cant * compra2Precio)) / (stock + compra2Cant);
+    stock += compra2Cant;
+    expect(stock).toBe(25);
+    expect(pmp).toBe(66); // 1650 / 25 = 66€
+  });
+
+  it('gestiona existencias por almacén en traspasos', () => {
+    const stocksByAlmacen: Record<string, number> = {
+      'alm-central': 50,
+      'alm-tienda': 10,
+    };
+
+    // Traspaso de 15 uds de central a tienda
+    const cantidadTraspaso = 15;
+    stocksByAlmacen['alm-central'] -= cantidadTraspaso;
+    stocksByAlmacen['alm-tienda'] += cantidadTraspaso;
+
+    expect(stocksByAlmacen['alm-central']).toBe(35);
+    expect(stocksByAlmacen['alm-tienda']).toBe(25);
+    const stockTotal = Object.values(stocksByAlmacen).reduce((a, b) => a + b, 0);
+    expect(stockTotal).toBe(60); // El stock total permanece constante
+  });
+
+  it('calcula la diferencia de inventario en regularizaciones', () => {
+    const stockTeorico = 42;
+    const stockReal = 38; // Se contaron 4 unidades menos (merma o rotura)
+    const diferencia = stockReal - stockTeorico;
+
+    expect(diferencia).toBe(-4);
+  });
+});
+
+

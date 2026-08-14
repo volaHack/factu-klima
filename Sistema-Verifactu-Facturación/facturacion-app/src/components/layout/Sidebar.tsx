@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
-  ClipboardList, RotateCcw, LayoutTemplate, Files,
+  ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -55,6 +55,7 @@ const baseNavItems = [
   { href: '/documentos', label: 'Documentos', icon: Files },
   { href: '/clientes', label: 'Clientes y Prov.', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
+  { href: '/almacenes', label: 'Almacenes y Stock', icon: Warehouse },
   { href: '/albaranes', label: 'Albaranes', icon: ClipboardList },
   { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw },
 ];

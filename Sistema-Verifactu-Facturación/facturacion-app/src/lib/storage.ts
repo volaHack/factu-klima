@@ -9,7 +9,13 @@ import {
   getAll, getById, put, putMany, remove as removeFromDb,
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
 } from './offlineDb';
-import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento, SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor } from './types';
+import {
+  Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory,
+  Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval,
+  OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento,
+  SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
+  Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
+} from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
@@ -320,6 +326,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     documento_origen_number: inv.documentoOrigenNumber ?? null,
     vendedor_id: inv.vendedorId ?? null,
     tarifa_id: inv.tarifaId ?? null,
+    almacen_id: inv.almacenId ?? null,
     global_discount_percent_1: inv.globalDiscountPercent1 ?? 0,
     global_discount_percent_2: inv.globalDiscountPercent2 ?? 0,
     global_discount_percent_3: inv.globalDiscountPercent3 ?? 0,
@@ -338,6 +345,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     discount_percent: li.discountPercent,
     discount_percent_2: li.discountPercent2 ?? 0,
     discount_percent_3: li.discountPercent3 ?? 0,
+    cost_price: li.costPrice ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
     total: li.total,
@@ -844,7 +852,7 @@ export async function deleteVendedor(id: string): Promise<void> {
 }
 
 // ============================================================
-// ALBARANES (EXPEDICIÓN VENTA Y COMPRA)
+// ALBARANES (EXPEDICIÓN VENTA Y COMPRA CON MULTI-ALMACÉN Y PMP)
 // ============================================================
 
 export async function expedirAlbaranCompra(id: string): Promise<Invoice> {
@@ -855,7 +863,8 @@ export async function expedirAlbaranCompra(id: string): Promise<Invoice> {
   const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
   for (const li of doc.lineItems) {
     if (!li.productId || li.quantity <= 0) continue;
-    await adjustStock(li.productId, Math.abs(li.quantity)); // SUMA stock en compra
+    const precioNetoLinea = li.unitPrice * (1 - (li.discountPercent || 0) / 100) * (1 - (li.discountPercent2 || 0) / 100) * (1 - (li.discountPercent3 || 0) / 100);
+    await actualizarPmpYStockCompra(li.productId, Math.abs(li.quantity), precioNetoLinea, doc.almacenId);
   }
   return updated;
 }
@@ -868,9 +877,347 @@ export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
   const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
   for (const li of doc.lineItems) {
     if (!li.productId || li.quantity <= 0) continue;
-    await adjustStock(li.productId, -Math.abs(li.quantity)); // DESCUENTA stock en venta
+    await adjustStock(li.productId, -Math.abs(li.quantity), doc.almacenId);
   }
   return updated;
+}
+
+// ============================================================
+// ALMACENES, LOCALIZACIONES Y TRASPASOS
+// ============================================================
+
+export async function getAlmacenes(): Promise<Almacen[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('almacenes');
+    if (cached.length > 0) {
+      backgroundRefresh('almacenes', () =>
+        supabase().from('almacenes').select('*').order('nombre', { ascending: true })
+      );
+      return cached.map(mapAlmacenFromDb);
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('almacenes')
+    .select('*')
+    .order('nombre', { ascending: true });
+
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('almacenes');
+    await putMany('almacenes', data);
+  }
+
+  return data.map(mapAlmacenFromDb);
+}
+
+export async function getAlmacenById(id: string): Promise<Almacen | undefined> {
+  const almacenes = await getAlmacenes();
+  return almacenes.find(a => a.id === id);
+}
+
+export async function ensureDefaultAlmacen(): Promise<Almacen> {
+  const almacenes = await getAlmacenes();
+  const principal = almacenes.find(a => a.principal && a.activo) || almacenes[0];
+  if (principal) return principal;
+
+  const now = new Date().toISOString();
+  const def: Almacen = {
+    id: generateId(),
+    codigo: 'ALM-01',
+    nombre: 'Almacén Central',
+    direccion: 'Sede Principal',
+    principal: true,
+    activo: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await saveAlmacen(def);
+  return def;
+}
+
+export async function saveAlmacen(almacen: Almacen): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: almacen.id,
+    user_id: userId,
+    codigo: almacen.codigo,
+    nombre: almacen.nombre,
+    direccion: almacen.direccion || null,
+    principal: almacen.principal ?? false,
+    activo: almacen.activo ?? true,
+    updated_at: new Date().toISOString(),
+  };
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('almacenes', row);
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('almacenes').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'almacenes', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'almacenes', row);
+  }
+}
+
+export async function deleteAlmacen(id: string): Promise<void> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await removeFromDb('almacenes', id);
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('almacenes').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'almacenes', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'almacenes', { id });
+  }
+}
+
+export function mapAlmacenFromDb(a: any): Almacen {
+  return {
+    id: a.id,
+    codigo: a.codigo,
+    nombre: a.nombre,
+    direccion: a.direccion || '',
+    principal: a.principal ?? false,
+    activo: a.activo ?? true,
+    createdAt: a.created_at || a.createdAt || new Date().toISOString(),
+    updatedAt: a.updated_at || a.updatedAt || new Date().toISOString(),
+  };
+}
+
+// --- TRASPASOS ENTRE ALMACENES ---
+
+export async function getTraspasos(): Promise<TraspasoAlmacen[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('traspasos');
+    if (cached.length > 0) {
+      return cached.map(mapTraspasoFromDb);
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('traspasos')
+    .select('*, traspaso_line_items(*)')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('traspasos');
+    await putMany('traspasos', data);
+  }
+
+  return data.map(mapTraspasoFromDb);
+}
+
+export async function saveTraspaso(traspaso: TraspasoAlmacen): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: traspaso.id,
+    user_id: userId,
+    number: traspaso.number,
+    origen_almacen_id: traspaso.origenAlmacenId,
+    origen_almacen_nombre: traspaso.origenAlmacenNombre,
+    destino_almacen_id: traspaso.destinoAlmacenId,
+    destino_almacen_nombre: traspaso.destinoAlmacenNombre,
+    fecha: traspaso.fecha,
+    notas: traspaso.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const lineRows = traspaso.lineItems.map((li, idx) => ({
+    id: li.id,
+    traspaso_id: traspaso.id,
+    product_id: li.productId,
+    product_name: li.productName,
+    product_ref: li.productRef,
+    quantity: li.quantity,
+    unit: li.unit || 'ud',
+    sort_order: idx,
+  }));
+
+  // Actualizar stocks en productos
+  for (const li of traspaso.lineItems) {
+    const prod = await getProductById(li.productId);
+    if (!prod) continue;
+
+    const currentStocks = { ...(prod.stocksByAlmacen || {}) };
+    const stockOrigen = (currentStocks[traspaso.origenAlmacenId] ?? 0) - li.quantity;
+    const stockDestino = (currentStocks[traspaso.destinoAlmacenId] ?? 0) + li.quantity;
+
+    currentStocks[traspaso.origenAlmacenId] = stockOrigen;
+    currentStocks[traspaso.destinoAlmacenId] = stockDestino;
+
+    await saveProduct({
+      ...prod,
+      stocksByAlmacen: currentStocks,
+    });
+  }
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('traspasos', { ...row, _lineItems: lineRows });
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('traspasos').upsert(row);
+      await supabase().from('traspaso_line_items').delete().eq('traspaso_id', traspaso.id);
+      if (lineRows.length > 0) {
+        await supabase().from('traspaso_line_items').insert(lineRows);
+      }
+    } catch {
+      await enqueueSyncAction('upsert', 'traspasos', { ...row, line_items: lineRows });
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'traspasos', { ...row, line_items: lineRows });
+  }
+}
+
+export function mapTraspasoFromDb(t: any): TraspasoAlmacen {
+  const rawLines = t.traspaso_line_items || t._lineItems || [];
+  return {
+    id: t.id,
+    number: t.number,
+    origenAlmacenId: t.origen_almacen_id || t.origenAlmacenId,
+    origenAlmacenNombre: t.origen_almacen_nombre || t.origenAlmacenNombre || '',
+    destinoAlmacenId: t.destino_almacen_id || t.destinoAlmacenId,
+    destinoAlmacenNombre: t.destino_almacen_nombre || t.destinoAlmacenNombre || '',
+    fecha: t.fecha,
+    lineItems: rawLines.map((li: any) => ({
+      id: li.id,
+      productId: li.product_id || li.productId || '',
+      productName: li.product_name || li.productName || '',
+      productRef: li.product_ref || li.productRef || '',
+      quantity: Number(li.quantity || 0),
+      unit: li.unit || 'ud',
+    })),
+    notas: t.notas || '',
+    createdAt: t.created_at || t.createdAt || new Date().toISOString(),
+    updatedAt: t.updated_at || t.updatedAt || new Date().toISOString(),
+  };
+}
+
+// --- REGULARIZACIONES DE STOCK (INVENTARIO) ---
+
+export async function getRegularizaciones(): Promise<RegularizacionStock[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('regularizaciones_stock');
+    if (cached.length > 0) {
+      return cached.map(mapRegularizacionFromDb);
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('regularizaciones_stock')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('regularizaciones_stock');
+    await putMany('regularizaciones_stock', data);
+  }
+
+  return data.map(mapRegularizacionFromDb);
+}
+
+export async function saveRegularizacion(reg: RegularizacionStock): Promise<void> {
+  const userId = await requireUserId();
+
+  const row = {
+    id: reg.id,
+    user_id: userId,
+    fecha: reg.fecha,
+    almacen_id: reg.almacenId,
+    almacen_nombre: reg.almacenNombre,
+    product_id: reg.productId,
+    product_name: reg.productName,
+    product_ref: reg.productRef,
+    stock_teorico: reg.stockTeorico,
+    stock_real: reg.stockReal,
+    diferencia: reg.diferencia,
+    motivo: reg.motivo,
+    notas: reg.notas || null,
+    created_at: reg.createdAt || new Date().toISOString(),
+  };
+
+  // Ajustar stock del producto al stock real
+  const prod = await getProductById(reg.productId);
+  if (prod) {
+    const currentStocks = { ...(prod.stocksByAlmacen || {}) };
+    currentStocks[reg.almacenId] = reg.stockReal;
+
+    // Recalcular stock total sumando los almacenes o ajustando la diferencia
+    const nuevoStockTotal = (prod.stockQuantity ?? 0) + reg.diferencia;
+    await saveProduct({
+      ...prod,
+      stockQuantity: nuevoStockTotal,
+      stocksByAlmacen: currentStocks,
+    });
+  }
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('regularizaciones_stock', row);
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('regularizaciones_stock').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'regularizaciones_stock', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'regularizaciones_stock', row);
+  }
+}
+
+export function mapRegularizacionFromDb(r: any): RegularizacionStock {
+  return {
+    id: r.id,
+    fecha: r.fecha,
+    almacenId: r.almacen_id || r.almacenId,
+    almacenNombre: r.almacen_nombre || r.almacenNombre || '',
+    productId: r.product_id || r.productId,
+    productName: r.product_name || r.productName || '',
+    productRef: r.product_ref || r.productRef || '',
+    stockTeorico: Number(r.stock_teorico ?? r.stockTeorico ?? 0),
+    stockReal: Number(r.stock_real ?? r.stockReal ?? 0),
+    diferencia: Number(r.diferencia ?? 0),
+    motivo: r.motivo || 'Recuento de inventario',
+    notas: r.notas || '',
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+  };
 }
 
 // ============================================================
@@ -948,6 +1295,9 @@ export async function saveProduct(product: Product): Promise<void> {
     image: product.imageUrl || null,
     supplier_ref: product.supplierRef || null,
     tarifa_prices: product.tarifaPrices || {},
+    coste_pmp: product.costePmp ?? 0,
+    coste_ultima_compra: product.costeUltimaCompra ?? 0,
+    stocks_by_almacen: product.stocksByAlmacen || {},
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -986,7 +1336,7 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 // ============================================================
-// TPV (punto de venta)
+// TPV Y AJUSTES DE STOCK CON MULTI-ALMACÉN Y PMP
 // ============================================================
 
 /** Busca un producto por su código de barras exacto (para el escáner). */
@@ -998,13 +1348,9 @@ export async function findProductByBarcode(barcode: string): Promise<Product | u
 }
 
 /**
- * Ajusta el stock de un producto. Online usa fn_pos_adjust_stock (UPDATE
- * atómico en el servidor: dos ventas simultáneas del mismo producto no se
- * pisan el descuento). Offline no hay forma de garantizar atomicidad sin
- * conexión — mejor esfuerzo con recálculo local, aceptable para el
- * terminal único de una tienda pequeña.
+ * Ajusta el stock de un producto (opcionalmente desglosado por almacén).
  */
-export async function adjustStock(productId: string, delta: number): Promise<number> {
+export async function adjustStock(productId: string, delta: number, almacenId?: string): Promise<number> {
   if (navigator.onLine) {
     const { data, error } = await supabase().rpc('fn_pos_adjust_stock', {
       p_product_id: productId,
@@ -1018,16 +1364,67 @@ export async function adjustStock(productId: string, delta: number): Promise<num
     if (await isOfflineDbAvailable()) {
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const cached = await getById<any>('products', productId);
-      if (cached) await put('products', { ...cached, stock_quantity: newStock });
+      if (cached) {
+        const stocks = { ...(cached.stocks_by_almacen || {}) };
+        if (almacenId) stocks[almacenId] = (stocks[almacenId] ?? 0) + delta;
+        await put('products', { ...cached, stock_quantity: newStock, stocks_by_almacen: stocks });
+      }
     }
     return newStock;
   }
 
   const product = await getProductById(productId);
   if (!product) throw new Error('Producto no encontrado.');
+
+  const currentStocks = { ...(product.stocksByAlmacen || {}) };
+  if (almacenId) {
+    currentStocks[almacenId] = (currentStocks[almacenId] ?? 0) + delta;
+  }
+
   const newStock = (product.stockQuantity ?? 0) + delta;
-  await saveProduct({ ...product, stockQuantity: newStock });
+  await saveProduct({
+    ...product,
+    stockQuantity: newStock,
+    stocksByAlmacen: currentStocks,
+  });
+
   return newStock;
+}
+
+/**
+ * Actualiza el stock y recalcula el PMP (Precio Medio Ponderado) al registrar una compra.
+ * Fórmula: PMP = ((Stock * PMP_ant) + (Cant * Precio)) / (Stock + Cant)
+ */
+export async function actualizarPmpYStockCompra(
+  productId: string,
+  cantidadComprada: number,
+  precioCompraNeto: number,
+  almacenId?: string,
+): Promise<void> {
+  const product = await getProductById(productId);
+  if (!product) return;
+
+  const stockActual = Math.max(product.stockQuantity ?? 0, 0);
+  const pmpActual = product.costePmp && product.costePmp > 0 ? product.costePmp : (product.unitPrice || 0);
+
+  const nuevoPmp = stockActual + cantidadComprada > 0
+    ? ((stockActual * pmpActual) + (cantidadComprada * precioCompraNeto)) / (stockActual + cantidadComprada)
+    : precioCompraNeto;
+
+  const currentStocks = { ...(product.stocksByAlmacen || {}) };
+  if (almacenId) {
+    currentStocks[almacenId] = (currentStocks[almacenId] ?? 0) + cantidadComprada;
+  }
+
+  const nuevoStockTotal = (product.stockQuantity ?? 0) + cantidadComprada;
+
+  await saveProduct({
+    ...product,
+    stockQuantity: nuevoStockTotal,
+    costePmp: Math.round(nuevoPmp * 10000) / 10000,
+    costeUltimaCompra: Math.round(precioCompraNeto * 10000) / 10000,
+    stocksByAlmacen: currentStocks,
+  });
 }
 
 /**
@@ -2199,6 +2596,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     igic_rates: settings.igicRates || DEFAULT_IGIC_RATES,
     series_documentos: settings.seriesDocumentos || {},
     tarifas: settings.tarifas || [],
+    almacenes: settings.almacenes || [],
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2229,7 +2627,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
         // Si alguna columna aún no existe en BD (migración sin aplicar),
         // reintenta sin custom_categories ni iva_rates/igic_rates para no
         // romper el resto del guardado.
-        if (/custom_categories|iva_rates|igic_rates|series_documentos/i.test(String(res.error.message))) {
+        if (/custom_categories|iva_rates|igic_rates|series_documentos|tarifas|almacenes/i.test(String(res.error.message))) {
           const retry = await write(row);
           if (retry?.error) await enqueueSyncAction('upsert', 'company_settings', row);
         } else {
@@ -2374,6 +2772,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     documentoOrigenNumber: inv.documento_origen_number ?? undefined,
     vendedorId: inv.vendedor_id ?? undefined,
     tarifaId: inv.tarifa_id || undefined,
+    almacenId: inv.almacen_id || undefined,
     globalDiscountPercent1: Number(inv.global_discount_percent_1 || 0),
     globalDiscountPercent2: Number(inv.global_discount_percent_2 || 0),
     globalDiscountPercent3: Number(inv.global_discount_percent_3 || 0),
@@ -2416,6 +2815,7 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     discountPercent: Number(li.discount_percent ?? li.discountPercent ?? 0),
     discountPercent2: Number(li.discount_percent_2 ?? li.discountPercent2 ?? 0),
     discountPercent3: Number(li.discount_percent_3 ?? li.discountPercent3 ?? 0),
+    costPrice: Number(li.cost_price ?? li.costPrice ?? 0),
     subtotal: Number(li.subtotal ?? 0),
     taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
     total: Number(li.total ?? 0),
@@ -2472,6 +2872,9 @@ export function mapProductFromDb(p: any): Product {
     imageUrl: p.image || undefined,
     supplierRef: p.supplier_ref || undefined,
     tarifaPrices: (p.tarifa_prices && typeof p.tarifa_prices === 'object') ? p.tarifa_prices : {},
+    costePmp: Number(p.coste_pmp ?? 0),
+    costeUltimaCompra: Number(p.coste_ultima_compra ?? 0),
+    stocksByAlmacen: (p.stocks_by_almacen && typeof p.stocks_by_almacen === 'object') ? p.stocks_by_almacen : {},
   };
 }
 
@@ -2524,6 +2927,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     nextInvoiceNumber: s.next_invoice_number || 1,
     seriesDocumentos: buildSeriesDocumentosFromDb(s.series_documentos, s),
     tarifas: Array.isArray(s.tarifas) ? s.tarifas : [],
+    almacenes: Array.isArray(s.almacenes) ? s.almacenes.map(mapAlmacenFromDb) : [],
     tpvSeries: s.tpv_series || 'TPV',
     nextTpvNumber: s.next_tpv_number || 1,
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),

@@ -7,10 +7,11 @@ import { ArrowLeft, Save, Send } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getInvoiceById, getProducts, getCompanySettings, saveDocumento, isSealed,
+  getAlmacenes,
 } from '@/lib/storage';
 import {
   Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, CompanySettings,
-  Product,
+  Product, Almacen,
 } from '@/lib/types';
 import { calculateInvoiceTotals } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -26,6 +27,7 @@ export default function EditarDocumentoPage() {
 
   const [documento, setDocumento] = useState<Invoice | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +36,7 @@ export default function EditarDocumentoPage() {
   const [clientNif, setClientNif] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [tarifaId, setTarifaId] = useState('');
+  const [almacenId, setAlmacenId] = useState('');
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -46,10 +49,11 @@ export default function EditarDocumentoPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [doc, prodList, st] = await Promise.all([
+        const [doc, prodList, st, loadedAlmacenes] = await Promise.all([
           getInvoiceById(id),
           getProducts(),
           getCompanySettings(),
+          getAlmacenes(),
         ]);
         if (!doc) {
           toastError('Documento no encontrado');
@@ -65,11 +69,13 @@ export default function EditarDocumentoPage() {
         setDocumento(doc);
         setProducts(prodList);
         setSettings(st);
+        setAlmacenes(loadedAlmacenes);
 
         setClientName(doc.clientName);
         setClientNif(doc.clientNif || '');
         setClientAddress(doc.clientAddress || '');
         setTarifaId(doc.tarifaId || '');
+        setAlmacenId(doc.almacenId || '');
         setGlobalDiscounts([
           doc.globalDiscountPercent1 || 0,
           doc.globalDiscountPercent2 || 0,
@@ -107,12 +113,21 @@ export default function EditarDocumentoPage() {
 
     setSaving(true);
     try {
+      const lineItemsWithCosts: InvoiceLineItem[] = lineItems.map(li => {
+        const prod = products.find(p => p.id === li.productId);
+        return {
+          ...li,
+          costPrice: li.costPrice && li.costPrice > 0 ? li.costPrice : (prod?.costePmp || prod?.unitPrice || 0),
+        };
+      });
+
       const updated: Invoice = {
         ...documento,
         clientName,
         clientNif,
         clientAddress,
         tarifaId: tarifaId || undefined,
+        almacenId: almacenId || undefined,
         globalDiscountPercent1: globalDiscounts[0] || 0,
         globalDiscountPercent2: globalDiscounts[1] || 0,
         globalDiscountPercent3: globalDiscounts[2] || 0,
@@ -121,7 +136,7 @@ export default function EditarDocumentoPage() {
         paymentMethod,
         notes,
         status: statusToSet,
-        lineItems,
+        lineItems: lineItemsWithCosts,
         subtotal: totals.subtotal,
         totalDiscount: totals.totalDiscount,
         taxBreakdown: totals.taxBreakdown,
@@ -154,7 +169,7 @@ export default function EditarDocumentoPage() {
           </Link>
           <div>
             <h1 className="page-title">Editar {etiquetaTipo(tipo)} {documento.number}</h1>
-            <p className="page-subtitle">Modificación de borrador</p>
+            <p className="page-subtitle">Modificación de documento no sellado</p>
           </div>
         </div>
 
@@ -165,7 +180,7 @@ export default function EditarDocumentoPage() {
             onClick={() => handleSave(InvoiceStatus.BORRADOR)}
             disabled={saving}
           >
-            <Save size={16} /> Guardar cambios
+            <Save size={16} /> Guardar
           </button>
           <button
             type="button"
@@ -182,7 +197,7 @@ export default function EditarDocumentoPage() {
         {/* Datos de contraparte */}
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
-            {esCompra ? 'Datos del Proveedor' : 'Datos del Cliente'}
+            {esCompra ? 'Proveedor' : 'Cliente'}
           </h3>
           <div className="form-group">
             <label className="form-label">Nombre o Razón Social *</label>
@@ -197,7 +212,7 @@ export default function EditarDocumentoPage() {
 
           <div className="form-row">
             <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">NIF / CIF</label>
+              <label className="form-label">NIF</label>
               <input
                 type="text"
                 className="form-input"
@@ -241,17 +256,36 @@ export default function EditarDocumentoPage() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Forma de pago</label>
-            <select
-              className="form-select"
-              value={paymentMethod}
-              onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-            >
-              {PAYMENT_METHODS.map(pm => (
-                <option key={pm.value} value={pm.value}>{pm.label}</option>
-              ))}
-            </select>
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Forma de pago</label>
+              <select
+                className="form-select"
+                value={paymentMethod}
+                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+              >
+                {PAYMENT_METHODS.map(pm => (
+                  <option key={pm.value} value={pm.value}>{pm.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {almacenes.length > 0 && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Almacén / Ubicación</label>
+                <select
+                  className="form-select"
+                  value={almacenId}
+                  onChange={e => setAlmacenId(e.target.value)}
+                >
+                  {almacenes.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre} {a.principal ? '(Principal)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="form-group" style={{ margin: 0 }}>

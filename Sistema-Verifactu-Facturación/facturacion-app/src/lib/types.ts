@@ -87,6 +87,56 @@ export interface Tarifa {
   porcentajeDefecto?: number;
 }
 
+export interface Almacen {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion?: string;
+  principal: boolean;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TraspasoLineItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productRef: string;
+  quantity: number;
+  unit?: UnitOfMeasure;
+}
+
+export interface TraspasoAlmacen {
+  id: string;
+  number: string;
+  origenAlmacenId: string;
+  origenAlmacenNombre: string;
+  destinoAlmacenId: string;
+  destinoAlmacenNombre: string;
+  fecha: string;
+  lineItems: TraspasoLineItem[];
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegularizacionStock {
+  id: string;
+  fecha: string;
+  almacenId: string;
+  almacenNombre: string;
+  productId: string;
+  productName: string;
+  productRef: string;
+  stockTeorico: number;
+  stockReal: number;
+  diferencia: number;
+  motivo: string;
+  notas?: string;
+  createdAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;
@@ -102,6 +152,8 @@ export interface InvoiceLineItem {
   subtotal: number;
   taxAmount: number;
   total: number;
+  /** Coste unitario del producto al emitir (PMP o última compra) para análisis de margen */
+  costPrice?: number;
   /**
    * Valores de las columnas personalizadas de la plantilla (`custom_col_N`).
    * Se piden por línea al crear la factura y se imprimen tal cual.
@@ -190,6 +242,8 @@ export interface Invoice {
   vendedorId?: string;
   /** Tarifa aplicada en el documento */
   tarifaId?: string;
+  /** Almacén origen (en ventas) o almacén destino (en compras) */
+  almacenId?: string;
   /** Hasta 3 descuentos globales al pie de documento (descuento comercial, pronto pago, especial) */
   globalDiscountPercent1?: number;
   globalDiscountPercent2?: number;
@@ -292,6 +346,12 @@ export interface Product {
   supplierRef?: string;
   /** Precios por tarifa: { [tarifaId]: precio } */
   tarifaPrices?: Record<string, number>;
+  /** Precio Medio Ponderado (coste acumulado de compras) */
+  costePmp?: number;
+  /** Coste de la última compra registrada */
+  costeUltimaCompra?: number;
+  /** Desglose de existencias por almacén: { [almacenId]: stock } */
+  stocksByAlmacen?: Record<string, number>;
 }
 
 export interface CustomCategory {
@@ -388,6 +448,9 @@ export interface CompanySettings {
 
   /** Tarifas de precios definidas en la empresa */
   tarifas?: Tarifa[];
+
+  /** Almacenes y ubicaciones de la empresa */
+  almacenes?: Almacen[];
 }
 
 // --- Albaranes (documento de entrega) ---
