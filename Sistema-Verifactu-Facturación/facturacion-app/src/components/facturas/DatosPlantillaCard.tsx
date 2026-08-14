@@ -20,7 +20,7 @@ export function DatosPlantillaCard({ claves, datosExtras, onChange, style }: Pro
 
   return (
     <div className="card" style={style}>
-      <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos para la plantilla</h3>
+      <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos modificables de la plantilla</h3>
       <div className="form-row" style={{ flexWrap: 'wrap', gap: 'var(--space-4)' }}>
         {claves.map(clave => {
           const campo = campoPorClave(clave);

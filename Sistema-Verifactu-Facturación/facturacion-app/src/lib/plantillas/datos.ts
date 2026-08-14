@@ -43,6 +43,49 @@ export interface OpcionesDatos {
   datosExtras?: Record<string, string>;
 }
 
+/**
+ * Cliente ocasional (sin ficha): se guarda serializado en una clave reservada
+ * de `datosExtras` para no exigir una migración de base de datos. La clave se
+ * llama así para que no colisione con los campos `custom_1..5` del contrato.
+ */
+export const CLAVE_CLIENTE_OCASIONAL = '__cliente';
+
+export interface ClienteManual {
+  nombre: string;
+  nif: string;
+  direccion: string;
+  cp: string;
+  ciudad: string;
+  provincia: string;
+  email: string;
+  telefono: string;
+}
+
+export function clienteManualDesdeDatosExtras(datosExtras?: Record<string, string>): ClienteManual | null {
+  const crudo = datosExtras?.[CLAVE_CLIENTE_OCASIONAL];
+  if (!crudo) return null;
+  try {
+    const parcial = JSON.parse(crudo) as Partial<ClienteManual>;
+    if (typeof parcial !== 'object' || parcial === null) return null;
+    return {
+      nombre: parcial.nombre ?? '',
+      nif: parcial.nif ?? '',
+      direccion: parcial.direccion ?? '',
+      cp: parcial.cp ?? '',
+      ciudad: parcial.ciudad ?? '',
+      provincia: parcial.provincia ?? '',
+      email: parcial.email ?? '',
+      telefono: parcial.telefono ?? '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clienteManualComoDatosExtras(cliente: ClienteManual): Record<string, string> {
+  return { [CLAVE_CLIENTE_OCASIONAL]: JSON.stringify(cliente) };
+}
+
 // ============================================================
 // AYUDAS DE FORMATO
 // ============================================================
@@ -92,6 +135,9 @@ export function construirDatos(
   const factura = esFactura ? (doc as Invoice) : null;
   const impuesto = nombreImpuesto(ajustes);
   const cliente = opciones.cliente;
+  // Los datos manuales viajan en el propio documento; opciones es la red de
+  // seguridad para quien llame sin documento con datosExtras.
+  const clienteManual = clienteManualDesdeDatosExtras(opciones.datosExtras ?? doc.datosExtras);
 
   // --- Líneas ---
   const lineas = doc.lineItems.map((linea, indice) => ({
@@ -124,8 +170,17 @@ export function construirDatos(
 
   // --- Campos sueltos ---
   const tipoDocumento = esFactura ? 'FACTURA' : 'ALBARÁN';
+  // El cliente ocasional no tiene ficha: su nombre, NIF y dirección quedan en
+  // la propia factura y el resto (CP, ciudad, provincia, email, teléfono) en
+  // `datosExtras.__cliente`. Cuando la factura tiene ficha, la ficha manda y
+  // los campos del manual se ignoran.
+  const esClienteManual = !cliente && Boolean(clienteManual);
   const direccionCliente = doc.clientAddress || cliente?.address || '';
-  const poblacionCliente = poblacion(cliente?.postalCode, cliente?.city, cliente?.province);
+  const poblacionCliente = poblacion(
+    cliente?.postalCode ?? clienteManual?.cp,
+    cliente?.city ?? clienteManual?.ciudad,
+    cliente?.province ?? clienteManual?.provincia,
+  );
 
   const campos: Record<string, string> = {
     // Emisor
@@ -149,12 +204,12 @@ export function construirDatos(
     cliente_nombre: doc.clientName || '',
     cliente_nif: doc.clientNif || '',
     cliente_direccion: direccionCliente,
-    cliente_cp: cliente?.postalCode || '',
-    cliente_ciudad: cliente?.city || '',
-    cliente_provincia: cliente?.province || '',
+    cliente_cp: esClienteManual ? (clienteManual?.cp ?? '') : (cliente?.postalCode || ''),
+    cliente_ciudad: esClienteManual ? (clienteManual?.ciudad ?? '') : (cliente?.city || ''),
+    cliente_provincia: esClienteManual ? (clienteManual?.provincia ?? '') : (cliente?.province || ''),
     cliente_poblacion: poblacionCliente,
-    cliente_email: cliente?.email || '',
-    cliente_telefono: cliente?.phone || '',
+    cliente_email: esClienteManual ? (clienteManual?.email ?? '') : (cliente?.email || ''),
+    cliente_telefono: esClienteManual ? (clienteManual?.telefono ?? '') : (cliente?.phone || ''),
     cliente_direccion_completa: juntar([direccionCliente, poblacionCliente], '\n'),
 
     // Documento

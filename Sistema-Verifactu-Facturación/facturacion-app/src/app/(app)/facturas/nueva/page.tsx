@@ -27,6 +27,10 @@ import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla } from '@/lib/plantillas/plantilla';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
+import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
+import {
+  clienteManualComoDatosExtras, type ClienteManual
+} from '@/lib/plantillas/datos';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -56,6 +60,11 @@ export default function NuevaFacturaPage() {
 
   // Form state
   const [clientId, setClientId] = useState('');
+  const [clienteOcasional, setClienteOcasional] = useState(false);
+  const [clienteManual, setClienteManual] = useState<ClienteManual>({
+    nombre: '', nif: '', direccion: '', cp: '', ciudad: '', provincia: '', email: '', telefono: '',
+  });
+  const [cobradaAlEmitir, setCobradaAlEmitir] = useState(false);
   const [issueDate, setIssueDate] = useState(getToday());
   const [dueDate, setDueDate] = useState(addDays(getToday(), 30));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
@@ -93,6 +102,7 @@ export default function NuevaFacturaPage() {
   const handleClientChange = (cId: string) => {
     setClientId(cId);
     setAbonoSelection(null);
+    if (cId) setClienteOcasional(false);
     const client = clients.find(c => c.id === cId);
     if (client) {
       setPaymentMethod(client.defaultPaymentMethod);
@@ -151,8 +161,13 @@ export default function NuevaFacturaPage() {
   const selectedClient = clients.find(c => c.id === clientId);
 
   const handleSave = async (status: InvoiceStatus) => {
-    if (!clientId) {
+    const esOcasional = clienteOcasional;
+    if (!esOcasional && !clientId) {
       error('Error', 'Selecciona un cliente');
+      return;
+    }
+    if (esOcasional && !clienteManual.nombre.trim()) {
+      error('Error', 'Escribe el nombre del cliente');
       return;
     }
     const validLines = lineItems.filter(l => l.productId && l.quantity > 0);
@@ -183,16 +198,24 @@ export default function NuevaFacturaPage() {
     }
 
     const invoiceNumber = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
-    const client = clients.find(c => c.id === clientId)!;
+    const client = esOcasional ? undefined : clients.find(c => c.id === clientId);
+    const datosExtrasFinal = esOcasional
+      ? { ...datosExtras, ...clienteManualComoDatosExtras(clienteManual) }
+      : datosExtras;
+    const nombreCliente = esOcasional ? clienteManual.nombre : (client?.tradeName || client?.businessName || '');
+    const clientAddress = esOcasional
+      ? [clienteManual.direccion, clienteManual.cp, clienteManual.ciudad]
+          .map(s => s.trim()).filter(Boolean).join(', ')
+      : `${client?.address ?? ''}, ${client?.postalCode ?? ''} ${client?.city ?? ''}`;
 
     const invoice: Invoice = {
       id: generateId(),
       number: invoiceNumber,
       series: settings.invoiceSeries,
-      clientId: client.id,
-      clientName: client.tradeName || client.businessName,
-      clientNif: client.nif,
-      clientAddress: `${client.address}, ${client.postalCode} ${client.city}`,
+      clientId: esOcasional ? '' : (client?.id ?? ''),
+      clientName: nombreCliente,
+      clientNif: esOcasional ? clienteManual.nif : (client?.nif ?? ''),
+      clientAddress,
       issueDate,
       dueDate,
       status,
@@ -202,14 +225,14 @@ export default function NuevaFacturaPage() {
       notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      datosExtras,
+      datosExtras: datosExtrasFinal,
     };
 
     setSaving(true);
     try {
       if (status === InvoiceStatus.BORRADOR) {
         const saved = await saveInvoice(invoice);
-        success('Borrador guardado', `${saved.number} · ${client.tradeName || client.businessName}`);
+        success('Borrador guardado', `${saved.number} · ${nombreCliente}`);
         // El contador se sincroniza con el número REAL persistido:
         // saveInvoice reasigna el número si el previsto ya estaba en uso
         // (colisión) y un contador desfasado es la causa de la numeración
@@ -223,20 +246,25 @@ export default function NuevaFacturaPage() {
         const issued = await issueInvoice(invoice);
 
         let abonoNote = '';
+        let cobrada = cobradaAlEmitir;
         if (abonoSelection && abonoSelection.amount > 0) {
           await applyAbonoToInvoice(abonoSelection.abono.id, invoice.id, issued.number, abonoSelection.amount);
           const restante = Number((invoice.total - abonoSelection.amount).toFixed(2));
           if (restante <= 0.01) {
-            await saveInvoice({
-              ...issued,
-              status: InvoiceStatus.PAGADA,
-              paidDate: new Date().toISOString().split('T')[0],
-              updatedAt: new Date().toISOString(),
-            });
+            cobrada = true;
             abonoNote = ' · abono aplicado, factura cobrada';
           } else {
             abonoNote = ' · abono aplicado';
           }
+        }
+        if (cobrada) {
+          await saveInvoice({
+            ...issued,
+            status: InvoiceStatus.PAGADA,
+            paidDate: new Date().toISOString().split('T')[0],
+            updatedAt: new Date().toISOString(),
+          });
+          abonoNote = cobradaAlEmitir && !abonoNote ? ' · emitida como cobrada' : abonoNote;
         }
 
         settings.nextInvoiceNumber = sequenceFromNumber(issued.number) + 1;
@@ -300,34 +328,26 @@ export default function NuevaFacturaPage() {
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos generales</h3>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label required">Cliente</label>
-              <select
-                className="form-select"
-                value={clientId}
-                onChange={e => handleClientChange(e.target.value)}
-              >
-                <option value="">-- Seleccionar cliente --</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.tradeName || c.businessName} ({c.nif})
-                  </option>
-                ))}
-              </select>
+              <label className={`form-label${clienteOcasional ? '' : ' required'}`}>Cliente</label>
+              {clienteOcasional ? (
+                <div className="field-message" style={{ paddingTop: 'var(--space-2)' }}>
+                  Se usa el cliente ocasional definido abajo.
+                </div>
+              ) : (
+                <select
+                  className="form-select"
+                  value={clientId}
+                  onChange={e => handleClientChange(e.target.value)}
+                >
+                  <option value="">-- Seleccionar cliente --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.tradeName || c.businessName} ({c.nif})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-            <div className="form-group">
-              <label className="form-label">Forma de pago</label>
-              <select
-                className="form-select"
-                value={paymentMethod}
-                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-              >
-                {PAYMENT_METHODS.map(pm => (
-                  <option key={pm.value} value={pm.value}>{pm.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label required">Fecha de emisión</label>
               <input
@@ -348,7 +368,7 @@ export default function NuevaFacturaPage() {
             </div>
           </div>
 
-          {selectedClient && (
+          {selectedClient && !clienteOcasional && (
             <div style={{
               marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)',
               background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)',
@@ -359,6 +379,13 @@ export default function NuevaFacturaPage() {
               <br />{selectedClient.email} · {selectedClient.phone}
             </div>
           )}
+
+          <ClienteOcasionalCard
+            activo={clienteOcasional}
+            onActivo={setClienteOcasional}
+            cliente={clienteManual}
+            onChange={setClienteManual}
+          />
         </div>
 
         <DatosPlantillaCard
@@ -369,7 +396,7 @@ export default function NuevaFacturaPage() {
 
         {/* Line Items */}
         <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Líneas de factura</h3>
+          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Productos facturados</h3>
 
           <div className="line-items">
             <div className="line-items-header">
@@ -431,12 +458,16 @@ export default function NuevaFacturaPage() {
             ))}
             <div className="line-items-add">
               <button className="btn btn-ghost btn-sm" onClick={addLine}>
-                <Plus size={14} /> Añadir línea
+                <Plus size={14} /> Añadir producto
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Totals */}
+        {/* Totales y pago */}
+        <div className="card">
+          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Totales y pago</h3>
+
           <div className="invoice-totals">
             <div className="invoice-totals-table">
               <div className="invoice-totals-row">
@@ -459,6 +490,32 @@ export default function NuevaFacturaPage() {
                 <span className="label">TOTAL</span>
                 <span className="value">{formatCurrency(totals.total)}</span>
               </div>
+            </div>
+          </div>
+
+          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+            <div className="form-group">
+              <label className="form-label">Forma de pago</label>
+              <select
+                className="form-select"
+                value={paymentMethod}
+                onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+              >
+                {PAYMENT_METHODS.map(pm => (
+                  <option key={pm.value} value={pm.value}>{pm.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="field-check" style={{ marginTop: 'var(--space-5)' }}>
+                <input
+                  type="checkbox"
+                  checked={cobradaAlEmitir}
+                  onChange={e => setCobradaAlEmitir(e.target.checked)}
+                />
+                Marcar como cobrada al emitir
+              </label>
+              <div className="field-message">Registra la fecha de cobro de hoy en el momento de emitir.</div>
             </div>
           </div>
         </div>

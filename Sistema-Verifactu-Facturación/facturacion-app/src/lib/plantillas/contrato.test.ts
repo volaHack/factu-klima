@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { CAMPOS, COLUMNAS_LINEAS, campoPorClave, clavesValidas, datosDeEjemplo } from './contrato';
-import { construirDatos } from './datos';
-import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type CompanySettings, type Invoice } from '../types';
+import { construirDatos, clienteManualComoDatosExtras } from './datos';
+import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type Client, type CompanySettings, type Invoice } from '../types';
 
 const AJUSTES = {
   businessName: 'Mi Empresa S.L.',
@@ -129,6 +129,58 @@ describe('formato de los datos', () => {
   it('no inventa el QR de cotejo de una factura sin sellar', () => {
     expect(datos.campos.verifactu_qr).toBe('');
     expect(datos.campos.verifactu_huella).toBe('');
+  });
+});
+
+describe('cliente ocasional (sin ficha)', () => {
+  const manual = {
+    nombre: 'María López García',
+    nif: '12345678Z',
+    direccion: 'Calle del Pino 7',
+    cp: '41001',
+    ciudad: 'Sevilla',
+    provincia: 'Sevilla',
+    email: 'maria@ejemplo.es',
+    telefono: '954 111 222',
+  };
+
+  const facturaManual = {
+    ...FACTURA,
+    clientId: '',
+    clientName: manual.nombre,
+    clientNif: manual.nif,
+    clientAddress: manual.direccion,
+    datosExtras: { ...clienteManualComoDatosExtras(manual) },
+  };
+
+  it('rellena los campos del receptor desde el cliente ocasional', () => {
+    const datos = construirDatos({ tipo: 'factura', documento: facturaManual }, AJUSTES);
+    expect(datos.campos.cliente_nombre).toBe(manual.nombre);
+    expect(datos.campos.cliente_nif).toBe(manual.nif);
+    expect(datos.campos.cliente_direccion).toBe(manual.direccion);
+    expect(datos.campos.cliente_cp).toBe(manual.cp);
+    expect(datos.campos.cliente_ciudad).toBe(manual.ciudad);
+    expect(datos.campos.cliente_provincia).toBe(manual.provincia);
+    expect(datos.campos.cliente_email).toBe(manual.email);
+    expect(datos.campos.cliente_telefono).toBe(manual.telefono);
+    expect(datos.campos.cliente_poblacion).toContain(manual.cp);
+    expect(datos.campos.cliente_poblacion).toContain(manual.ciudad);
+  });
+
+  it('no rellena CP/ciudad/provincia sin cliente manual', () => {
+    const datos = construirDatos({ tipo: 'factura', documento: FACTURA }, AJUSTES);
+    expect(datos.campos.cliente_cp).toBe('');
+    expect(datos.campos.cliente_ciudad).toBe('');
+    expect(datos.campos.cliente_provincia).toBe('');
+  });
+
+  it('la ficha del cliente manda cuando existe', () => {
+    const conCliente = construirDatos({ tipo: 'factura', documento: facturaManual }, AJUSTES, {
+      cliente: { id: 'c1', nif: 'A87654321', address: 'Avenida del Puerto 45', postalCode: '28001', city: 'Madrid', province: 'Madrid', email: 'c@ejemplo.es', phone: '910 000 000' } as Client,
+    });
+    expect(conCliente.campos.cliente_cp).toBe('28001');
+    expect(conCliente.campos.cliente_ciudad).toBe('Madrid');
+    expect(conCliente.campos.cliente_email).toBe('c@ejemplo.es');
   });
 });
 
