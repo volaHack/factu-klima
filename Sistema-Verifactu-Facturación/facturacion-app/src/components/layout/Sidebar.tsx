@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
+  WalletCards,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -53,6 +54,7 @@ const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/documentos', label: 'Documentos', icon: Files },
+  { href: '/tesoreria', label: 'Tesorería y Cobros', icon: WalletCards },
   { href: '/clientes', label: 'Clientes y Prov.', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/almacenes', label: 'Almacenes y Stock', icon: Warehouse },

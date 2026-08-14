@@ -15,6 +15,7 @@ import {
   OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento,
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
+  CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -327,6 +328,8 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     vendedor_id: inv.vendedorId ?? null,
     tarifa_id: inv.tarifaId ?? null,
     almacen_id: inv.almacenId ?? null,
+    paid_amount: inv.paidAmount ?? 0,
+    payment_record_ids: inv.paymentRecordIds ?? [],
     global_discount_percent_1: inv.globalDiscountPercent1 ?? 0,
     global_discount_percent_2: inv.globalDiscountPercent2 ?? 0,
     global_discount_percent_3: inv.globalDiscountPercent3 ?? 0,
@@ -2574,6 +2577,10 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     next_devolucion_number: settings.nextDevolucionNumber || 1,
     abono_series: settings.abonoSeries || 'ABO',
     next_abono_number: settings.nextAbonoNumber || 1,
+    cobro_series: settings.cobroSeries || 'COB',
+    next_cobro_number: settings.nextCobroNumber || 1,
+    pago_series: settings.pagoSeries || 'PAG',
+    next_pago_number: settings.nextPagoNumber || 1,
     default_payment_days: settings.defaultPaymentDays,
     default_payment_method: settings.defaultPaymentMethod,
     invoice_footer_text: settings.invoiceFooterText,
@@ -2773,6 +2780,8 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     vendedorId: inv.vendedor_id ?? undefined,
     tarifaId: inv.tarifa_id || undefined,
     almacenId: inv.almacen_id || undefined,
+    paidAmount: Number(inv.paid_amount || 0),
+    paymentRecordIds: Array.isArray(inv.payment_record_ids) ? inv.payment_record_ids : [],
     globalDiscountPercent1: Number(inv.global_discount_percent_1 || 0),
     globalDiscountPercent2: Number(inv.global_discount_percent_2 || 0),
     globalDiscountPercent3: Number(inv.global_discount_percent_3 || 0),
@@ -2942,6 +2951,10 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     nextDevolucionNumber: s.next_devolucion_number || 1,
     abonoSeries: s.abono_series || 'ABO',
     nextAbonoNumber: s.next_abono_number || 1,
+    cobroSeries: s.cobro_series || 'COB',
+    nextCobroNumber: s.next_cobro_number || 1,
+    pagoSeries: s.pago_series || 'PAG',
+    nextPagoNumber: s.next_pago_number || 1,
     defaultPaymentDays: s.default_payment_days || 30,
     defaultPaymentMethod: s.default_payment_method || 'transferencia',
     invoiceFooterText: s.invoice_footer_text || '',
@@ -3525,3 +3538,284 @@ export async function checkVerifactuConnection(): Promise<{
     };
   }
 }
+
+// ============================================================
+// COBROS, PAGOS Y TESORERÍA (Fase 4)
+// ============================================================
+
+export function mapCobroPagoFromDb(row: any): CobroPago {
+  return {
+    id: row.id,
+    tipo: row.tipo,
+    series: row.series,
+    number: row.number,
+    fecha: row.fecha,
+    contraparteId: row.contraparte_id || row.contraparteId,
+    contraparteNombre: row.contraparte_nombre || row.contraparteNombre,
+    contraparteNif: row.contraparte_nif || row.contraparteNif || undefined,
+    paymentMethod: row.payment_method || row.paymentMethod,
+    cuentaBancaria: row.cuenta_bancaria || row.cuentaBancaria || undefined,
+    importeTotal: Number(row.importe_total ?? row.importeTotal ?? 0),
+    desglose: Array.isArray(row.desglose)
+      ? row.desglose.map((d: any) => ({
+          invoiceId: d.invoiceId || d.invoice_id,
+          invoiceNumber: d.invoiceNumber || d.invoice_number,
+          importeAplicado: Number(d.importeAplicado ?? d.importe_aplicado ?? 0),
+        }))
+      : [],
+    notas: row.notas || undefined,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+  };
+}
+
+function mapCobroPagoToDb(item: CobroPago, userId: string) {
+  return {
+    id: item.id,
+    user_id: userId,
+    tipo: item.tipo,
+    series: item.series,
+    number: item.number,
+    fecha: item.fecha,
+    contraparte_id: item.contraparteId,
+    contraparte_nombre: item.contraparteNombre,
+    contraparte_nif: item.contraparteNif || null,
+    payment_method: item.paymentMethod,
+    cuenta_bancaria: item.cuentaBancaria || null,
+    importe_total: item.importeTotal,
+    desglose: item.desglose,
+    notas: item.notas || null,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+  };
+}
+
+export async function getCobrosPagos(filtro?: { tipo?: TipoCobroPago; contraparteId?: string }): Promise<CobroPago[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    const cached = await getAll<any>('cobros_pagos');
+    if (cached.length > 0) {
+      backgroundRefresh('cobros_pagos', () =>
+        supabase().from('cobros_pagos').select('*').order('fecha', { ascending: false })
+      );
+      let list = cached.map(mapCobroPagoFromDb);
+      if (filtro?.tipo) list = list.filter(c => c.tipo === filtro.tipo);
+      if (filtro?.contraparteId) list = list.filter(c => c.contraparteId === filtro.contraparteId);
+      return list;
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  let query = supabase().from('cobros_pagos').select('*').order('fecha', { ascending: false });
+  if (filtro?.tipo) query = query.eq('tipo', filtro.tipo);
+  if (filtro?.contraparteId) query = query.eq('contraparte_id', filtro.contraparteId);
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('cobros_pagos');
+    await putMany('cobros_pagos', data);
+  }
+
+  return data.map(mapCobroPagoFromDb);
+}
+
+export async function getCobroPagoById(id: string): Promise<CobroPago | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    const cached = await getById<any>('cobros_pagos', id);
+    if (cached) return mapCobroPagoFromDb(cached);
+  }
+
+  if (!navigator.onLine) return undefined;
+  const { data } = await supabase().from('cobros_pagos').select('*').eq('id', id).single();
+  return data ? mapCobroPagoFromDb(data) : undefined;
+}
+
+export async function saveCobroPago(cobroPago: CobroPago): Promise<CobroPago> {
+  const userId = await requireUserId();
+  const row = mapCobroPagoToDb(cobroPago, userId);
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('cobros_pagos', row);
+  }
+
+  if (navigator.onLine) {
+    try {
+      const { error } = await supabase().from('cobros_pagos').upsert(row);
+      if (error) await enqueueSyncAction('upsert', 'cobros_pagos', row);
+    } catch {
+      await enqueueSyncAction('upsert', 'cobros_pagos', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'cobros_pagos', row);
+  }
+
+  // Actualizar las facturas desglosadas
+  for (const item of cobroPago.desglose) {
+    if (!item.invoiceId || item.importeAplicado <= 0) continue;
+    const inv = await getInvoiceById(item.invoiceId);
+    if (!inv) continue;
+
+    const currentPaid = inv.paidAmount || 0;
+    const newPaid = Number((currentPaid + item.importeAplicado).toFixed(2));
+    const isTotal = newPaid >= (inv.total - 0.01);
+    const newStatus = isTotal
+      ? InvoiceStatus.PAGADA
+      : (newPaid > 0 ? InvoiceStatus.PARCIAL : inv.status);
+
+    const recIds = new Set(inv.paymentRecordIds || []);
+    recIds.add(cobroPago.id);
+
+    const updatedInv: Invoice = {
+      ...inv,
+      paidAmount: newPaid,
+      paidDate: isTotal ? cobroPago.fecha : inv.paidDate,
+      status: newStatus,
+      paymentRecordIds: Array.from(recIds),
+    };
+
+    await saveDocumento(updatedInv);
+  }
+
+  return cobroPago;
+}
+
+export async function deleteCobroPago(id: string): Promise<void> {
+  const cobro = await getCobroPagoById(id);
+  if (!cobro) return;
+
+  // Revertir importes aplicados en facturas
+  for (const item of cobro.desglose) {
+    if (!item.invoiceId) continue;
+    const inv = await getInvoiceById(item.invoiceId);
+    if (!inv) continue;
+
+    const newPaid = Math.max(0, Number(((inv.paidAmount || 0) - item.importeAplicado).toFixed(2)));
+    const newStatus = newPaid >= (inv.total - 0.01)
+      ? InvoiceStatus.PAGADA
+      : (newPaid > 0 ? InvoiceStatus.PARCIAL : InvoiceStatus.EMITIDA);
+
+    const recIds = (inv.paymentRecordIds || []).filter(rid => rid !== id);
+
+    const updatedInv: Invoice = {
+      ...inv,
+      paidAmount: newPaid,
+      status: newStatus,
+      paymentRecordIds: recIds,
+    };
+    await saveDocumento(updatedInv);
+  }
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await removeFromDb('cobros_pagos', id);
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('cobros_pagos').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'cobros_pagos', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'cobros_pagos', { id });
+  }
+}
+
+export async function getExtractoCuenta(
+  contraparteId: string,
+  fechaDesde?: string,
+  fechaHasta?: string,
+): Promise<{
+  movimientos: MovimientoExtracto[];
+  totalDebe: number;
+  totalHaber: number;
+  saldoFinal: number;
+}> {
+  const [allInvoices, allCobrosPagos] = await Promise.all([
+    getInvoices(),
+    getCobrosPagos({ contraparteId }),
+  ]);
+
+  const clientInvoices = allInvoices.filter(i =>
+    i.clientId === contraparteId &&
+    (i.tipo === 'factura' || i.tipo === 'rectificativa') &&
+    i.status !== InvoiceStatus.BORRADOR &&
+    i.status !== InvoiceStatus.ANULADA
+  );
+
+  const movimientosRaw: {
+    id: string;
+    fecha: string;
+    tipo: 'factura' | 'cobro_pago';
+    numero: string;
+    concepto: string;
+    debe: number;
+    haber: number;
+  }[] = [];
+
+  // Facturas
+  for (const inv of clientInvoices) {
+    if (fechaDesde && inv.issueDate < fechaDesde) continue;
+    if (fechaHasta && inv.issueDate > fechaHasta) continue;
+
+    const esVenta = inv.sentido !== 'compra';
+    const total = inv.total;
+
+    movimientosRaw.push({
+      id: inv.id,
+      fecha: inv.issueDate,
+      tipo: 'factura',
+      numero: inv.number,
+      concepto: `Factura ${inv.number}${inv.sentido === 'compra' ? ' (Compra)' : ' (Venta)'}`,
+      debe: esVenta ? total : 0,
+      haber: !esVenta ? total : 0,
+    });
+  }
+
+  // Cobros y pagos
+  for (const cp of allCobrosPagos) {
+    if (fechaDesde && cp.fecha < fechaDesde) continue;
+    if (fechaHasta && cp.fecha > fechaHasta) continue;
+
+    const esCobro = cp.tipo === 'cobro';
+    movimientosRaw.push({
+      id: cp.id,
+      fecha: cp.fecha,
+      tipo: 'cobro_pago',
+      numero: cp.number,
+      concepto: `${esCobro ? 'Cobro recibido' : 'Pago emitido'} ${cp.number} (${cp.paymentMethod})`,
+      debe: !esCobro ? cp.importeTotal : 0,
+      haber: esCobro ? cp.importeTotal : 0,
+    });
+  }
+
+  // Ordenar cronológicamente
+  movimientosRaw.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  let saldoAcumulado = 0;
+  let totalDebe = 0;
+  let totalHaber = 0;
+
+  const movimientos: MovimientoExtracto[] = movimientosRaw.map(m => {
+    saldoAcumulado = Number((saldoAcumulado + m.debe - m.haber).toFixed(2));
+    totalDebe += m.debe;
+    totalHaber += m.haber;
+    return {
+      ...m,
+      saldo: saldoAcumulado,
+    };
+  });
+
+  return {
+    movimientos,
+    totalDebe: Number(totalDebe.toFixed(2)),
+    totalHaber: Number(totalHaber.toFixed(2)),
+    saldoFinal: saldoAcumulado,
+  };
+}
+

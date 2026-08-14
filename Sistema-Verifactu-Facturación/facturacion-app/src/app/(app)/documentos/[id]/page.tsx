@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Edit, Trash2, Ban, ArrowRight, Printer,
   FileText, CheckCircle, PackageCheck, FileSignature, AlertCircle,
-  Copy, RotateCcw,
+  Copy, RotateCcw, WalletCards,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf from '@/components/plantillas/BotonDescargarPdf';
@@ -251,15 +251,26 @@ export default function DocumentoDetallePage() {
           )}
 
           {/* Acciones para Factura */}
-          {tipo === 'factura' && documento.status !== InvoiceStatus.ANULADA && (
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={handleRectificar}
-              disabled={processing}
-            >
-              <RotateCcw size={14} /> Rectificar
-            </button>
+          {(tipo === 'factura' || tipo === 'rectificativa') && documento.status !== InvoiceStatus.ANULADA && (
+            <>
+              {documento.status !== InvoiceStatus.BORRADOR && (documento.total - (documento.paidAmount || 0)) > 0.01 && (
+                <Link
+                  href="/tesoreria"
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  <WalletCards size={14} /> Registrar {esCompra ? 'Pago' : 'Cobro'}
+                </Link>
+              )}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handleRectificar}
+                disabled={processing}
+              >
+                <RotateCcw size={14} /> Rectificar
+              </button>
+            </>
           )}
 
           {/* Anular */}
@@ -384,6 +395,23 @@ export default function DocumentoDetallePage() {
               <span className="label">TOTAL</span>
               <span className="value">{formatCurrency(documento.total)}</span>
             </div>
+
+            {(tipo === 'factura' || tipo === 'rectificativa') && (
+              <>
+                <div className="invoice-totals-row" style={{ borderTop: '1px dashed var(--color-border)', marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)' }}>
+                  <span className="label" style={{ color: 'var(--color-text-muted)' }}>Cobrado / Pagado</span>
+                  <span className="value" style={{ color: 'var(--color-text-muted)' }}>
+                    {formatCurrency(documento.paidAmount || 0)}
+                  </span>
+                </div>
+                <div className="invoice-totals-row" style={{ fontWeight: 700 }}>
+                  <span className="label">Saldo Pendiente</span>
+                  <span className="value" style={{ color: (documento.total - (documento.paidAmount || 0)) > 0.01 ? (esCompra ? 'var(--color-danger)' : 'var(--color-warning)') : 'var(--color-success)' }}>
+                    {formatCurrency(Math.max(0, documento.total - (documento.paidAmount || 0)))}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

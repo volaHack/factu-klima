@@ -12,6 +12,7 @@ export enum InvoiceStatus {
   RECHAZADO = 'rechazado',
   EMITIDA = 'emitida',
   PENDIENTE = 'pendiente',
+  PARCIAL = 'parcial',
   PAGADA = 'pagada',
   VENCIDA = 'vencida',
   ANULADA = 'anulada',
@@ -244,6 +245,10 @@ export interface Invoice {
   tarifaId?: string;
   /** Almacén origen (en ventas) o almacén destino (en compras) */
   almacenId?: string;
+  /** Importe total acumulado ya cobrado/pagado */
+  paidAmount?: number;
+  /** IDs de los registros de cobro/pago vinculados */
+  paymentRecordIds?: string[];
   /** Hasta 3 descuentos globales al pie de documento (descuento comercial, pronto pago, especial) */
   globalDiscountPercent1?: number;
   globalDiscountPercent2?: number;
@@ -451,6 +456,12 @@ export interface CompanySettings {
 
   /** Almacenes y ubicaciones de la empresa */
   almacenes?: Almacen[];
+
+  // Cobros y Pagos (Tesorería)
+  cobroSeries?: string;
+  nextCobroNumber?: number;
+  pagoSeries?: string;
+  nextPagoNumber?: number;
 }
 
 // --- Albaranes (documento de entrega) ---
@@ -636,3 +647,43 @@ export interface UserProfile {
   onboardingCompleted: boolean;
   createdAt: string;
 }
+
+// --- Cobros, Pagos y Tesorería (Fase 4) ---
+
+export type TipoCobroPago = 'cobro' | 'pago';
+
+export interface CobroPagoDesglose {
+  invoiceId: string;
+  invoiceNumber: string;
+  importeAplicado: number;
+}
+
+export interface CobroPago {
+  id: string;
+  tipo: TipoCobroPago; // 'cobro' (a cliente) | 'pago' (a proveedor)
+  series: string;
+  number: string;
+  fecha: string;
+  contraparteId: string;
+  contraparteNombre: string;
+  contraparteNif?: string;
+  paymentMethod: PaymentMethod;
+  cuentaBancaria?: string;
+  importeTotal: number;
+  desglose: CobroPagoDesglose[];
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MovimientoExtracto {
+  id: string;
+  fecha: string;
+  tipo: 'factura' | 'cobro_pago';
+  numero: string;
+  concepto: string;
+  debe: number; // Incrementa saldo (Factura de venta a cliente / Pago a proveedor)
+  haber: number; // Reduce saldo (Cobro de cliente / Factura de compra proveedor)
+  saldo: number; // Saldo vivo tras el movimiento
+}
+

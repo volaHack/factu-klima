@@ -142,6 +142,7 @@ export const INVOICE_STATUSES = [
   { value: InvoiceStatus.RECHAZADO, label: 'Rechazado', color: 'var(--color-danger)' },
   { value: InvoiceStatus.EMITIDA, label: 'Emitida', color: 'var(--color-info)' },
   { value: InvoiceStatus.PENDIENTE, label: 'Pendiente', color: 'var(--color-warning)' },
+  { value: InvoiceStatus.PARCIAL, label: 'Cobro parcial', color: 'var(--color-warning)' },
   { value: InvoiceStatus.PAGADA, label: 'Pagada', color: 'var(--color-success)' },
   { value: InvoiceStatus.VENCIDA, label: 'Vencida', color: 'var(--color-danger)' },
   { value: InvoiceStatus.ANULADA, label: 'Anulada', color: 'var(--color-neutral)' },

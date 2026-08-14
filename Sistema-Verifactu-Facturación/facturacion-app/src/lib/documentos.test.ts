@@ -273,4 +273,56 @@ describe('Fase 3: Valoración de Costes (PMP) y Multi-Almacén', () => {
   });
 });
 
+describe('Fase 4: Cobros, Pagos, Tesorería y Extractos', () => {
+  it('actualiza el estado de pago de una factura tras cobros parciales y totales', () => {
+    const invoiceTotal = 500;
+    let paidAmount = 0;
+
+    // Estado inicial
+    let status = InvoiceStatus.EMITIDA;
+    expect(status).toBe(InvoiceStatus.EMITIDA);
+
+    // Cobro 1: 200€ (Parcial)
+    const cobro1 = 200;
+    paidAmount += cobro1;
+    if (paidAmount >= invoiceTotal - 0.01) {
+      status = InvoiceStatus.PAGADA;
+    } else if (paidAmount > 0) {
+      status = InvoiceStatus.PARCIAL;
+    }
+    expect(paidAmount).toBe(200);
+    expect(status).toBe(InvoiceStatus.PARCIAL);
+
+    // Cobro 2: 300€ (Completa el total)
+    const cobro2 = 300;
+    paidAmount += cobro2;
+    if (paidAmount >= invoiceTotal - 0.01) {
+      status = InvoiceStatus.PAGADA;
+    } else if (paidAmount > 0) {
+      status = InvoiceStatus.PARCIAL;
+    }
+    expect(paidAmount).toBe(500);
+    expect(status).toBe(InvoiceStatus.PAGADA);
+  });
+
+  it('calcula el extracto de cuenta con saldo vivo acumulado', () => {
+    // Simulación de movimientos cronológicos de un cliente
+    const movimientos = [
+      { fecha: '2026-01-10', debe: 1000, haber: 0 }, // Factura 1 (+1000€)
+      { fecha: '2026-01-15', debe: 0, haber: 400 },  // Cobro 1 (-400€)
+      { fecha: '2026-01-20', debe: 500, haber: 0 },  // Factura 2 (+500€)
+      { fecha: '2026-01-25', debe: 0, haber: 1100 }, // Cobro 2 (-1100€)
+    ];
+
+    let saldo = 0;
+    const saldos = movimientos.map(m => {
+      saldo = saldo + m.debe - m.haber;
+      return saldo;
+    });
+
+    expect(saldos).toEqual([1000, 600, 1100, 0]);
+  });
+});
+
+
 

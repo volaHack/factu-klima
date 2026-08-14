@@ -129,6 +129,7 @@ const TABLE_MAP: Record<SyncTable, string> = {
   traspasos: 'traspasos',
   traspaso_line_items: 'traspaso_line_items',
   regularizaciones_stock: 'regularizaciones_stock',
+  cobros_pagos: 'cobros_pagos',
 };
 
 /**
