@@ -272,6 +272,19 @@ export const PROVINCES = [
   'Ceuta', 'Melilla',
 ];
 
+// --- Series por tipo de documento (tipo_sentido) ---
+export const DEFAULT_SERIES_DOCUMENTOS: Record<string, { serie: string; nextNumber: number }> = {
+  presupuesto_venta: { serie: 'PRE', nextNumber: 1 },
+  pedido_venta: { serie: 'PED', nextNumber: 1 },
+  albaran_venta: { serie: 'ALB', nextNumber: 1 },
+  factura_venta: { serie: 'FAC', nextNumber: 1 },
+  rectificativa_venta: { serie: 'FCR', nextNumber: 1 },
+  pedido_compra: { serie: 'PEDC', nextNumber: 1 },
+  albaran_compra: { serie: 'ALBC', nextNumber: 1 },
+  factura_compra: { serie: 'FAC', nextNumber: 1 },
+  rectificativa_compra: { serie: 'FCRC', nextNumber: 1 },
+};
+
 // --- Default company settings ---
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   businessName: 'Distribuciones Alimentarias del Sur S.L.',
@@ -311,6 +324,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   nextDevolucionNumber: 1,
   abonoSeries: 'ABO',
   nextAbonoNumber: 1,
+  seriesDocumentos: { ...DEFAULT_SERIES_DOCUMENTOS },
 };
 
 /**

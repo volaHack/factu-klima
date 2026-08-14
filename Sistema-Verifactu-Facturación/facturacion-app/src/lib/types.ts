@@ -17,6 +17,14 @@ export enum InvoiceStatus {
   ANULADA = 'anulada',
 }
 
+export type TipoDocumento = 'presupuesto' | 'pedido' | 'albaran' | 'factura' | 'rectificativa';
+export type SentidoDocumento = 'venta' | 'compra';
+
+export interface SerieDocumento {
+  serie: string;
+  nextNumber: number;
+}
+
 export enum PaymentMethod {
   TRANSFERENCIA = 'transferencia',
   EFECTIVO = 'efectivo',
@@ -161,6 +169,16 @@ export interface Invoice {
   // El servidor lo renumerá a la siguiente secuencia libre si hay colisión al
   // sincronizar; la fecha real de venta se conserva.
   numberTemporary?: boolean;
+
+  /** Tipo de documento. Por defecto 'factura' (compatibilidad con los existentes). */
+  tipo?: TipoDocumento;
+  /** Venta o compra. Por defecto 'venta'. */
+  sentido?: SentidoDocumento;
+  /** Documento que da origen a este (presupuesto→pedido→albarán→factura). */
+  documentoOrigenId?: string;
+  documentoOrigenNumber?: string;
+  /** Vendedor asignado (decide la serie, Fase 1 Etapa 4). */
+  vendedorId?: string;
 }
 
 // --- TPV (punto de venta) ---
@@ -327,6 +345,9 @@ export interface CompanySettings {
   // Abonos (nota de crédito a favor del cliente)
   abonoSeries?: string;
   nextAbonoNumber?: number;
+
+  /** Series y contadores por (tipo, sentido). Clave: `${tipo}_${sentido}`. */
+  seriesDocumentos?: Record<string, SerieDocumento>;
 }
 
 // --- Albaranes (documento de entrega) ---
