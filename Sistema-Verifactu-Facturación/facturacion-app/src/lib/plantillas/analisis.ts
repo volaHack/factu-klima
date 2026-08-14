@@ -75,12 +75,25 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
   if (analisis.tabla) {
     // La tabla se borra entera, cabecera incluida: la vuelve a pintar pdfme
     // para que los títulos de columna se repitan en las páginas siguientes.
+    // Se deja un pequeño margen bajo la última fila para llevarse la última
+    // línea partida de una descripción que envuelve a dos líneas.
     zonas.push({
       x: analisis.tabla.x,
       y: analisis.tabla.y,
       ancho: analisis.tabla.ancho,
-      alto: analisis.tabla.altoTotal,
+      alto: analisis.tabla.altoTotal + analisis.tabla.altoFila * 0.6,
     });
+
+    // Los datos de muestra que quedan sin mapear por debajo de la tabla
+    // (desgloses, filas de totales sin asignar, notas numéricas…) no se
+    // renderizan con datos reales: si no se borran del calco, aparecen
+    // impresos debajo de las líneas. Los que el usuario marcó como fijos se
+    // respetan, porque quieren que sigan saliendo tal cual estaban.
+    const finTabla = analisis.tabla.y + analisis.tabla.altoTotal;
+    for (const c of analisis.campos) {
+      if (c.fijo || c.clave || c.y < finTabla) continue;
+      zonas.push({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto });
+    }
   }
 
   zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));

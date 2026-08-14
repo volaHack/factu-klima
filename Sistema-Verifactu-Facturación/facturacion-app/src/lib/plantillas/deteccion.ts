@@ -340,30 +340,40 @@ function detectarTabla(
     .filter(l => l.y >= inicioCuerpo - 0.5 && solapeHorizontal(l, cabecera) > 0.05)
     .sort((a, b) => a.y - b.y);
 
-  // Cuando la tabla está dibujada con marco, la raya de abajo dice dónde
-  // acaba mucho mejor que cualquier medida de huecos entre textos: por
-  // debajo de esa raya ya están los totales, aunque el hueco sea pequeño.
-  const marco = buscarLineas
-    ? buscarMarco(cabecera, derecha(cabecera) - cabecera.x, buscarLineas, pagina.alto)
-    : null;
-
   // Filas: líneas por debajo de la cabecera que sigan compartiendo su franja
-  // horizontal, hasta que aparezca la zona de totales o un salto grande.
+  // horizontal, hasta que aparezca la zona de totales o un salto grande. La
+  // raya del marco no corta las filas: en PDFs como el de Sucamosa lo único
+  // dibujado bajo la cabecera es su separación, y si se usara para cortar, el
+  // cuerpo entero desaparecería.
   const filas: LineaTexto[] = [];
   let yAnterior = inicioCuerpo;
 
   for (const linea of posibles) {
-    if (marco && linea.y >= marco.fin - 0.5) break;
     const hueco = linea.y - yAnterior;
-    if (!marco) {
-      if (filas.length > 0 && hueco > altoLinea * 3.5) break;
-      if (RE_FIN_DE_TABLA.test(normalizar(linea.texto)) && linea.items.length <= 3) break;
-      // Una fila de la tabla ocupa varias columnas; una nota suelta debajo, no.
-      const columnasTocadas = new Set(linea.items.map(i => Math.round(i.x))).size;
-      if (filas.length > 0 && columnasTocadas === 1 && linea.items.length === 1 && !pareceDato(linea.texto)) break;
-    }
+    if (filas.length > 0 && hueco > altoLinea * 3.5) break;
+    if (RE_FIN_DE_TABLA.test(normalizar(linea.texto)) && linea.items.length <= 3) break;
+    // Una fila de la tabla ocupa varias columnas; una nota suelta debajo, no.
+    const columnasTocadas = new Set(linea.items.map(i => Math.round(i.x))).size;
+    if (filas.length > 0 && columnasTocadas === 1 && linea.items.length === 1 && !pareceDato(linea.texto)) break;
     filas.push(linea);
     yAnterior = abajo(linea);
+  }
+
+  // Cuando la tabla está dibujada con marco, la raya de abajo dice dónde
+  // acaba mejor que cualquier medida de huecos entre textos: por debajo de
+  // esa raya ya están los totales, aunque el hueco sea pequeño. Pero el marco
+  // solo vale para bajar el cierre: si su raya inferior queda lejos de la
+  // última fila —o por encima de ella, como la separación de la cabecera— se
+  // descarta y la tabla acaba donde acaban las filas de texto.
+  const marco = buscarLineas
+    ? buscarMarco(cabecera, derecha(cabecera) - cabecera.x, buscarLineas, pagina.alto)
+    : null;
+  const ultimaFilaY = filas.length > 0 ? abajo(filas[filas.length - 1]) : inicioCuerpo;
+  const marcoUsable = marco && marco.fin >= ultimaFilaY - 2 && marco.fin <= ultimaFilaY + 12 ? marco : null;
+  if (marcoUsable) {
+    const recortadas = filas.filter(f => f.y < marcoUsable.fin - 0.5);
+    filas.length = 0;
+    filas.push(...recortadas);
   }
 
   if (filas.length === 0) {
@@ -389,8 +399,8 @@ function detectarTabla(
 
   const estilo = estiloDeTabla(cabecera, filas, muestrear, izquierdaTabla, derechaTabla, altoCabecera);
 
-  const arribaTabla = marco
-    ? marco.inicio - 0.2
+  const arribaTabla = marcoUsable
+    ? marcoUsable.inicio - 0.2
     : cabecera.y - (altoCabecera - (cabecera.alto || altoLinea)) / 2;
 
   const tabla: TablaDetectada = {
@@ -401,14 +411,14 @@ function detectarTabla(
     altoFila,
     // Con marco, la tabla ocupa exactamente lo que ocupa el marco: así al
     // borrarla no queda ni una esquina suelta del dibujo original.
-    altoTotal: marco ? marco.fin - arribaTabla + 0.4 : finCuerpo - cabecera.y,
+    altoTotal: marcoUsable ? marcoUsable.fin - arribaTabla + 0.4 : finCuerpo - cabecera.y,
     columnas,
     estilo,
     filasOriginales: filas.length,
   };
 
   // Si el diseño original llevaba marco, la tabla nueva también lo lleva.
-  if (marco && tabla.estilo.bordeAncho === 0) tabla.estilo.bordeAncho = 0.2;
+  if (marcoUsable && tabla.estilo.bordeAncho === 0) tabla.estilo.bordeAncho = 0.2;
 
   return { tabla, lineasConsumidas: new Set<LineaTexto>([cabecera, ...filas]) };
 }
@@ -452,14 +462,16 @@ function buscarMarco(
   const debajo = lineas.filter(y => y > abajo(cabecera));
   if (debajo.length === 0) return null;
 
-  // Se baja raya a raya mientras sigan estando razonablemente juntas. Un
-  // salto grande significa que esa raya ya no es de la tabla, sino de otra
-  // cosa (el recuadro de los totales, una línea de firma…).
+  // El cierre es la primera raya del último grupo de rayas juntas: la raya
+  // inferior de la tabla, justo donde empieza lo que ya no es tabla (el
+  // recuadro de los totales, una firma…). La separación bajo la cabecera y
+  // los separadores de fila quedan en grupos anteriores, así que no pueden
+  // confundirse con el cierre. Quien llama valida después que este cierre
+  // abrace al cuerpo; si cae lejos de la última fila, lo descarta.
   const SALTO_MAXIMO = 26;
   let fin = debajo[0];
   for (const y of debajo.slice(1)) {
-    if (y - fin > SALTO_MAXIMO) break;
-    fin = y;
+    if (y - fin > SALTO_MAXIMO) fin = y;
   }
 
   const inicio = arriba.length > 0 ? Math.max(...arriba) : cabecera.y;

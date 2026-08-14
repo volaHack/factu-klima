@@ -118,16 +118,19 @@ describe('zonas que se borran', () => {
   it('estira la zona hasta cubrir entero el texto que sólo tapaba a medias', () => {
     // La tabla termina a media altura de la fila del 21 %: sin ajuste queda
     // la mitad de arriba borrada y la de abajo impresa.
-    const analisis = analisisConTabla(25.5);
+    const analisis = analisisConTabla(21);
     const zonaTabla = zonasABorrar(analisis)[0];
     const finTexto = 112 + 9 * MM_POR_PUNTO;
     expect(zonaTabla.y + zonaTabla.alto).toBeGreaterThanOrEqual(finTexto);
   });
 
-  it('no se estira cuando no corta nada', () => {
+  it('deja un margen bajo la tabla para la última línea partida', () => {
+    // Una descripción que envuelve a dos líneas deja su continuación justo
+    // debajo del cuerpo; el borrado baja un poco para llevársela. Si además
+    // hay texto que la zona sólo corta a medias, ajustarAlTexto la estira.
     const analisis = analisisConTabla(15);
     const zonaTabla = zonasABorrar(analisis)[0];
-    expect(zonaTabla.y + zonaTabla.alto).toBeCloseTo(88 + 15, 5);
+    expect(zonaTabla.y + zonaTabla.alto).toBeCloseTo(88 + 15 + 6 * 0.6, 5);
   });
 
   it('incluye las zonas que el usuario ha tapado a mano', () => {
@@ -135,5 +138,26 @@ describe('zonas que se borran', () => {
     analisis.zonasExtra = [{ id: 'z1', x: 10, y: 200, ancho: 40, alto: 20 }];
     const zonas = zonasABorrar(analisis);
     expect(zonas.some(z => z.y === 200 && z.ancho === 40)).toBe(true);
+  });
+
+  it('borra los datos de muestra sin mapear que quedan bajo la tabla', () => {
+    // Desgloses y filas de totales sin asignar no se rellenan con datos
+    // reales: deben borrarse del calco o aparecen impresos bajo las líneas.
+    const analisis = analisisConTabla(15);
+    analisis.campos = [
+      { clave: 'total_general', valorOriginal: '100,00 €', x: 170, y: 200, ancho: 20, alto: 4, fijo: false },
+      { clave: null, valorOriginal: '21,00 €', x: 170, y: 120, ancho: 15, alto: 4, fijo: false },
+      { clave: null, valorOriginal: 'Nota suelta', x: 20, y: 60, ancho: 30, alto: 4, fijo: false },
+      { clave: null, valorOriginal: '10,00 €', x: 170, y: 130, ancho: 15, alto: 4, fijo: true },
+    ] as unknown as CampoDetectado[];
+    const zonas = zonasABorrar(analisis);
+    const finTabla = 88 + 15;
+    const borradas = zonas.filter(z => z.y > finTabla);
+    // El desglose (y=120) y la fila de totales (y=200) se borran…
+    expect(borradas.some(z => z.y === 120)).toBe(true);
+    expect(borradas.some(z => z.y === 200)).toBe(true);
+    // …pero ni el dato por encima de la tabla ni el marcado como fijo.
+    expect(borradas.some(z => z.y === 60)).toBe(false);
+    expect(borradas.some(z => z.y === 130)).toBe(false);
   });
 });
