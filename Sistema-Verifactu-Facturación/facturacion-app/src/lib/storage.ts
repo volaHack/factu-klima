@@ -9,8 +9,8 @@ import {
   getAll, getById, put, putMany, remove as removeFromDb,
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
 } from './offlineDb';
-import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, TpvMode, UserProfile } from './types';
-import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
+import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento, SentidoDocumento, TipoDocumento, TpvMode, UserProfile } from './types';
+import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
@@ -213,8 +213,28 @@ const SEALED_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.ANULADA,
 ];
 
-export function isSealed(invoice: Pick<Invoice, 'status'>): boolean {
-  return SEALED_STATUSES.includes(invoice.status);
+export function tipoDocumento(doc: { tipo?: TipoDocumento }): TipoDocumento {
+  return doc.tipo ?? 'factura';
+}
+export function sentidoDocumento(doc: { sentido?: SentidoDocumento }): SentidoDocumento {
+  return doc.sentido ?? 'venta';
+}
+/** true si el documento es sellable fiscalmente (factura/rectificativa de venta). */
+export function esSellable(doc: { tipo?: TipoDocumento; sentido?: SentidoDocumento }): boolean {
+  const t = tipoDocumento(doc);
+  const s = sentidoDocumento(doc);
+  return (t === 'factura' || t === 'rectificativa') && s === 'venta';
+}
+
+export function isSealed(invoice: Pick<Invoice, 'status' | 'tipo' | 'sentido'>): boolean {
+  return esSellable(invoice) && SEALED_STATUSES.includes(invoice.status);
+}
+
+function serieDeTipo(settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento): SerieDocumento {
+  const config = settings.seriesDocumentos?.[`${tipo}_${sentido}`];
+  if (config && config.serie) return config;
+  const porDefecto = DEFAULT_SERIES_DOCUMENTOS[`${tipo}_${sentido}`];
+  return porDefecto ?? { serie: 'DOC', nextNumber: 1 };
 }
 
 /**
@@ -286,6 +306,11 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     pos_session_id: inv.posSessionId || null,
     number_temporary: inv.numberTemporary ?? false,
     datos_extras: inv.datosExtras ?? {},
+    tipo: inv.tipo ?? 'factura',
+    sentido: inv.sentido ?? 'venta',
+    documento_origen_id: inv.documentoOrigenId ?? null,
+    documento_origen_number: inv.documentoOrigenNumber ?? null,
+    vendedor_id: inv.vendedorId ?? null,
   });
 
   const lineRows = current.lineItems.map((li, idx) => ({
@@ -373,6 +398,9 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
  * de la anterior y la sella. A partir de aquí ya no se puede editar.
  */
 export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
+  if (!esSellable(invoice)) {
+    throw new Error('Solo las facturas y rectificativas de venta se sellan. Usa guardarDocumento para el resto.');
+  }
   if (invoice.lineItems.length === 0) {
     throw new Error('No se puede emitir una factura sin líneas.');
   }
@@ -2168,6 +2196,11 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     dueDate: inv.due_date,
     paidDate: inv.paid_date || undefined,
     status: inv.status,
+    tipo: (inv.tipo as TipoDocumento) ?? 'factura',
+    sentido: (inv.sentido as SentidoDocumento) ?? 'venta',
+    documentoOrigenId: inv.documento_origen_id ?? undefined,
+    documentoOrigenNumber: inv.documento_origen_number ?? undefined,
+    vendedorId: inv.vendedor_id ?? undefined,
     lineItems: lineasConCustomCols(lineItems.map(mapLineItemFromDb), inv.datos_extras ?? {}),
     subtotal: Number(inv.subtotal),
     totalDiscount: Number(inv.total_discount),
