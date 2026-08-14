@@ -33,6 +33,8 @@ export default function EditarDocumentoPage() {
   const [clientName, setClientName] = useState('');
   const [clientNif, setClientNif] = useState('');
   const [clientAddress, setClientAddress] = useState('');
+  const [tarifaId, setTarifaId] = useState('');
+  const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
@@ -67,6 +69,12 @@ export default function EditarDocumentoPage() {
         setClientName(doc.clientName);
         setClientNif(doc.clientNif || '');
         setClientAddress(doc.clientAddress || '');
+        setTarifaId(doc.tarifaId || '');
+        setGlobalDiscounts([
+          doc.globalDiscountPercent1 || 0,
+          doc.globalDiscountPercent2 || 0,
+          doc.globalDiscountPercent3 || 0,
+        ]);
         setIssueDate(doc.issueDate);
         setDueDate(doc.dueDate || doc.issueDate);
         setPaymentMethod(doc.paymentMethod || PaymentMethod.TRANSFERENCIA);
@@ -81,7 +89,10 @@ export default function EditarDocumentoPage() {
     load();
   }, [id, router]);
 
-  const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
+  const totals = useMemo(
+    () => calculateInvoiceTotals(lineItems, globalDiscounts),
+    [lineItems, globalDiscounts],
+  );
 
   const handleSave = async (statusToSet: InvoiceStatus = InvoiceStatus.BORRADOR) => {
     if (!documento || !settings) return;
@@ -101,6 +112,10 @@ export default function EditarDocumentoPage() {
         clientName,
         clientNif,
         clientAddress,
+        tarifaId: tarifaId || undefined,
+        globalDiscountPercent1: globalDiscounts[0] || 0,
+        globalDiscountPercent2: globalDiscounts[1] || 0,
+        globalDiscountPercent3: globalDiscounts[2] || 0,
         issueDate,
         dueDate,
         paymentMethod,
@@ -257,6 +272,7 @@ export default function EditarDocumentoPage() {
         onChange={setLineItems}
         products={products}
         settings={settings}
+        tarifaId={tarifaId}
       />
 
       {/* Totales */}
@@ -267,6 +283,8 @@ export default function EditarDocumentoPage() {
           taxBreakdown={totals.taxBreakdown}
           totalTax={totals.totalTax}
           total={totals.total}
+          globalDiscounts={globalDiscounts}
+          onGlobalDiscountsChange={setGlobalDiscounts}
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
         />
       </div>

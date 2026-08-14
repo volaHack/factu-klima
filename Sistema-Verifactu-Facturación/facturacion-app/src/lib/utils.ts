@@ -66,16 +66,21 @@ export function sequenceFromNumber(number: string): number {
 }
 
 /**
- * Calculate line item subtotal
+ * Calculate line item subtotal with up to 3 cascaded discounts
  */
 export function calculateLineSubtotal(
   quantity: number,
   unitPrice: number,
-  discountPercent: number = 0
+  discountPercent: number = 0,
+  discountPercent2: number = 0,
+  discountPercent3: number = 0,
 ): number {
   const gross = quantity * unitPrice;
-  const discount = gross * (discountPercent / 100);
-  return Number((gross - discount).toFixed(2));
+  const d1 = discountPercent || 0;
+  const d2 = discountPercent2 || 0;
+  const d3 = discountPercent3 || 0;
+  const afterDiscounts = gross * (1 - d1 / 100) * (1 - d2 / 100) * (1 - d3 / 100);
+  return Number(afterDiscounts.toFixed(2));
 }
 
 /**
@@ -86,49 +91,64 @@ export function calculateLineTax(subtotal: number, taxRate: number): number {
 }
 
 /**
- * Calculate complete invoice totals from line items
+ * Calculate complete invoice totals from line items and optional global discounts
  */
-export function calculateInvoiceTotals(lineItems: InvoiceLineItem[]): {
+export function calculateInvoiceTotals(
+  lineItems: InvoiceLineItem[],
+  globalDiscounts: [number, number, number] = [0, 0, 0],
+): {
   subtotal: number;
   totalDiscount: number;
   taxBreakdown: TaxBreakdown[];
   totalTax: number;
   total: number;
+  globalDiscountAmount?: number;
 } {
-  let subtotal = 0;
-  let totalDiscount = 0;
-  const taxMap = new Map<number, { base: number; amount: number }>();
+  let grossSubtotal = 0;
+  let totalLineDiscount = 0;
+  const rawBasesByRate = new Map<number, number>();
 
   for (const item of lineItems) {
     const gross = item.quantity * item.unitPrice;
-    const discount = gross * (item.discountPercent / 100);
-    const lineSubtotal = gross - discount;
-    const lineTax = lineSubtotal * (item.taxRate / 100);
+    const d1 = item.discountPercent || 0;
+    const d2 = item.discountPercent2 || 0;
+    const d3 = item.discountPercent3 || 0;
+    const lineSubtotal = calculateLineSubtotal(item.quantity, item.unitPrice, d1, d2, d3);
+    const lineDiscount = gross - lineSubtotal;
 
-    subtotal += lineSubtotal;
-    totalDiscount += discount;
+    grossSubtotal += lineSubtotal;
+    totalLineDiscount += lineDiscount;
 
-    const existing = taxMap.get(item.taxRate) || { base: 0, amount: 0 };
-    taxMap.set(item.taxRate, {
-      base: existing.base + lineSubtotal,
-      amount: existing.amount + lineTax,
-    });
+    const existing = rawBasesByRate.get(item.taxRate) || 0;
+    rawBasesByRate.set(item.taxRate, existing + lineSubtotal);
   }
 
-  const taxBreakdown: TaxBreakdown[] = Array.from(taxMap.entries()).map(([rate, data]) => ({
-    rate,
-    base: Number(data.base.toFixed(2)),
-    amount: Number(data.amount.toFixed(2)),
-  }));
+  // Factor de descuento global encadenado al pie
+  const [gd1, gd2, gd3] = globalDiscounts;
+  const globalFactor = (1 - (gd1 || 0) / 100) * (1 - (gd2 || 0) / 100) * (1 - (gd3 || 0) / 100);
+  const netSubtotal = grossSubtotal * globalFactor;
+  const totalGlobalDiscount = grossSubtotal - netSubtotal;
+
+  const taxBreakdown: TaxBreakdown[] = Array.from(rawBasesByRate.entries()).map(([rate, base]) => {
+    const adjustedBase = base * globalFactor;
+    const amount = adjustedBase * (rate / 100);
+    return {
+      rate,
+      base: Number(adjustedBase.toFixed(2)),
+      amount: Number(amount.toFixed(2)),
+    };
+  });
 
   const totalTax = taxBreakdown.reduce((sum, tb) => sum + tb.amount, 0);
+  const totalDiscount = totalLineDiscount + totalGlobalDiscount;
 
   return {
-    subtotal: Number(subtotal.toFixed(2)),
+    subtotal: Number(netSubtotal.toFixed(2)),
     totalDiscount: Number(totalDiscount.toFixed(2)),
     taxBreakdown,
     totalTax: Number(totalTax.toFixed(2)),
-    total: Number((subtotal + totalTax).toFixed(2)),
+    total: Number((netSubtotal + totalTax).toFixed(2)),
+    globalDiscountAmount: Number(totalGlobalDiscount.toFixed(2)),
   };
 }
 

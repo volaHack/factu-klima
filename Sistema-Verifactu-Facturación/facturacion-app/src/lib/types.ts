@@ -80,7 +80,12 @@ export type BusinessSector = 'alimentacion' | 'supermercado' | 'mayorista' | 'be
 export type TpvMode = 'tienda' | 'supermercado' | 'restaurante';
 export type AccentTheme = 'rose' | 'wine' | 'terracotta' | 'plum';
 
-// --- Interfaces ---
+export interface Tarifa {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  porcentajeDefecto?: number;
+}
 
 export interface InvoiceLineItem {
   id: string;
@@ -92,6 +97,8 @@ export interface InvoiceLineItem {
   unit: UnitOfMeasure;
   taxRate: number;
   discountPercent: number;
+  discountPercent2?: number;
+  discountPercent3?: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -181,6 +188,12 @@ export interface Invoice {
   documentoOrigenNumber?: string;
   /** Vendedor asignado (decide la serie, Fase 1 Etapa 4). */
   vendedorId?: string;
+  /** Tarifa aplicada en el documento */
+  tarifaId?: string;
+  /** Hasta 3 descuentos globales al pie de documento (descuento comercial, pronto pago, especial) */
+  globalDiscountPercent1?: number;
+  globalDiscountPercent2?: number;
+  globalDiscountPercent3?: number;
 }
 
 // --- TPV (punto de venta) ---
@@ -240,6 +253,10 @@ export interface Client {
   esProveedor?: boolean;
   /** Vendedor asignado al cliente */
   vendedorId?: string;
+  /** Tarifa asignada al cliente */
+  tarifaId?: string;
+  /** Hasta 3 descuentos en cascada por defecto en línea para este cliente [D1%, D2%, D3%] */
+  defaultDiscounts?: [number, number, number];
 }
 
 export interface Vendedor {
@@ -271,6 +288,10 @@ export interface Product {
   unitsSold?: number;
   // Miniatura del producto (data URL comprimida; ligera para offline y sync)
   imageUrl?: string;
+  /** Referencia del proveedor */
+  supplierRef?: string;
+  /** Precios por tarifa: { [tarifaId]: precio } */
+  tarifaPrices?: Record<string, number>;
 }
 
 export interface CustomCategory {
@@ -364,6 +385,9 @@ export interface CompanySettings {
 
   /** Series y contadores por (tipo, sentido). Clave: `${tipo}_${sentido}`. */
   seriesDocumentos?: Record<string, SerieDocumento>;
+
+  /** Tarifas de precios definidas en la empresa */
+  tarifas?: Tarifa[];
 }
 
 // --- Albaranes (documento de entrega) ---

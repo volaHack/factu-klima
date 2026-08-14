@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3 } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
 import { resolveAccent, SERIES } from '@/components/charts/theme';
-import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores } from '@/lib/storage';
-import { Client, Invoice, PaymentMethod, Vendedor } from '@/lib/types';
+import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
+import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS, PROVINCES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
@@ -18,6 +18,7 @@ export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [tipoContactoFilter, setTipoContactoFilter] = useState<'todos' | 'clientes' | 'proveedores'>('todos');
@@ -31,18 +32,22 @@ export default function ClientesPage() {
     contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'España',
     paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA as PaymentMethod,
     notes: '', active: true, esProveedor: false, vendedorId: '',
+    tarifaId: '',
+    defaultDiscounts: [0, 0, 0] as [number, number, number],
   });
 
   useEffect(() => {
     (async () => {
-      const [clientsData, allInvoices, vendData] = await Promise.all([
+      const [clientsData, allInvoices, vendData, settData] = await Promise.all([
         getClients(),
         getInvoices(),
         getVendedores(),
+        getCompanySettings(),
       ]);
       setClients(clientsData);
       setInvoices(allInvoices);
       setVendedores(vendData);
+      setSettings(settData);
       setMounted(true);
     })();
   }, []);
@@ -131,6 +136,8 @@ export default function ClientesPage() {
       notes: '', active: true,
       esProveedor: tipoContactoFilter === 'proveedores',
       vendedorId: '',
+      tarifaId: '',
+      defaultDiscounts: [0, 0, 0],
     });
     setShowModal(true);
   };
@@ -146,6 +153,8 @@ export default function ClientesPage() {
       notes: client.notes, active: client.active,
       esProveedor: client.esProveedor ?? false,
       vendedorId: client.vendedorId || '',
+      tarifaId: client.tarifaId || '',
+      defaultDiscounts: client.defaultDiscounts || [0, 0, 0],
     });
     setShowModal(true);
   };
@@ -156,6 +165,8 @@ export default function ClientesPage() {
       id: editingClient?.id || generateId(),
       ...form,
       vendedorId: form.vendedorId || undefined,
+      tarifaId: form.tarifaId || undefined,
+      defaultDiscounts: form.defaultDiscounts,
       createdAt: editingClient?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -178,8 +189,16 @@ export default function ClientesPage() {
     }
   };
 
-  const updateForm = (field: string, value: string | number | boolean) => {
+  const updateForm = (field: string, value: unknown) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateDefaultDiscount = (index: number, val: number) => {
+    setForm(prev => {
+      const next: [number, number, number] = [...prev.defaultDiscounts];
+      next[index] = val;
+      return { ...prev, defaultDiscounts: next };
+    });
   };
 
   if (!mounted) {
@@ -219,92 +238,81 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* Integrated Recharts Analytics Block */}
-      {clients.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
-          <ChartCard
-            title="Top Clientes por Facturación (€)"
-            subtitle="Los clientes con mayor volumen de compras acumulado"
-            height={220}
-            isEmpty={topClientsData.length === 0}
-            emptyLabel="Sin facturación por cliente todavía"
-            tableColumns={[
-              { key: 'name', label: 'Cliente' },
-              { key: 'count', label: 'Facturas', align: 'right' },
-              { key: 'total', label: 'Total Facturado', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
-            ]}
-            tableRows={topClientsData}
-          >
-            <RankedBars data={topClientsData} color={accent} />
-          </ChartCard>
+      <div className="tab-group" style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}>
+        <button
+          className={`btn btn-sm ${tipoContactoFilter === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setTipoContactoFilter('todos')}
+        >
+          Todos ({clients.length})
+        </button>
+        <button
+          className={`btn btn-sm ${tipoContactoFilter === 'clientes' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setTipoContactoFilter('clientes')}
+        >
+          Clientes ({clients.filter(c => !c.esProveedor).length})
+        </button>
+        <button
+          className={`btn btn-sm ${tipoContactoFilter === 'proveedores' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setTipoContactoFilter('proveedores')}
+        >
+          Proveedores ({clients.filter(c => c.esProveedor).length})
+        </button>
+      </div>
 
-          <ChartCard
-            title="Métodos de Pago Preferidos"
-            subtitle="Distribución de clientes según su forma de cobro habitual"
-            height={220}
-            isEmpty={paymentMethodDistribution.length === 0}
-            emptyLabel="Sin datos de pago"
-            tableColumns={[
-              { key: 'name', label: 'Método de Pago' },
-              { key: 'value', label: 'Clientes', align: 'right' },
-            ]}
-            tableRows={paymentMethodDistribution}
-            legend={
+      <div className="dashboard-grid" style={{ marginBottom: 'var(--space-6)' }}>
+        <ChartCard
+          title="Top clientes por facturación"
+          subtitle="Basado en facturas emitidas"
+        >
+          {topClientsData.length > 0 ? (
+            <RankedBars data={topClientsData} color={accent} />
+          ) : (
+            <div className="empty-state-card">Sin datos de facturación</div>
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title="Formas de pago preferidas"
+          subtitle="Distribución en cartera de clientes"
+        >
+          {paymentMethodDistribution.length > 0 ? (
+            <>
+              <StatusDonut
+                data={paymentMethodDistribution}
+                centerLabel="Clientes"
+                centerValue={String(clients.length)}
+              />
               <ChartLegend
-                items={paymentMethodDistribution.map(pm => ({
-                  name: pm.name,
-                  value: `${pm.value} cliente(s)`,
-                  color: pm.color
+                items={paymentMethodDistribution.map(d => ({
+                  name: d.name,
+                  value: `${d.value} (${Math.round((d.value / clients.length) * 100)}%)`,
+                  color: d.color
                 }))}
               />
-            }
-          >
-            <StatusDonut
-              data={paymentMethodDistribution}
-              centerLabel="Clientes"
-              centerValue={String(clients.length)}
-            />
-          </ChartCard>
-        </div>
-      )}
+            </>
+          ) : (
+            <div className="empty-state-card">Sin clientes registrados</div>
+          )}
+        </ChartCard>
+      </div>
 
-      {/* Search & Tabs */}
-      <div className="filters-bar" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="search-bar" style={{ maxWidth: 360, flex: '1 1 auto' }}>
-          <div className="search-bar-icon"><Search size={16} /></div>
+      <div className="filter-bar" style={{ marginBottom: 'var(--space-4)' }}>
+        <div className="search-box">
+          <Search size={16} />
           <input
-            type="text" placeholder="Nombre, NIF, ciudad o email"
-            aria-label="Buscar clientes"
-            value={search} onChange={e => setSearch(e.target.value)}
+            className="form-input"
+            placeholder="Buscar por nombre, NIF, email o ciudad..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
-        </div>
-
-        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-          <button
-            type="button"
-            className={`btn btn-sm ${tipoContactoFilter === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setTipoContactoFilter('todos')}
-          >
-            Todos ({clients.length})
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${tipoContactoFilter === 'clientes' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setTipoContactoFilter('clientes')}
-          >
-            Clientes ({clients.filter(c => !c.esProveedor).length})
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${tipoContactoFilter === 'proveedores' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setTipoContactoFilter('proveedores')}
-          >
-            Proveedores ({clients.filter(c => c.esProveedor).length})
-          </button>
+          {search && (
+            <button className="search-clear" onClick={() => setSearch('')}>
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Table */}
       <div className="table-container">
         <table className="table">
           <thead>
@@ -312,6 +320,7 @@ export default function ClientesPage() {
               <th>NIF/CIF</th>
               <th>Nombre comercial</th>
               <th>Tipo</th>
+              <th>Tarifa / Dtos.</th>
               <th>Ciudad</th>
               <th>Contacto</th>
               <th>Facturas</th>
@@ -323,6 +332,9 @@ export default function ClientesPage() {
           <tbody>
             {filtered.map(client => {
               const stats = getClientStats(client.id);
+              const matchedTarifa = settings?.tarifas?.find(t => t.id === client.tarifaId);
+              const hasDiscounts = client.defaultDiscounts && (client.defaultDiscounts[0] > 0 || client.defaultDiscounts[1] > 0 || client.defaultDiscounts[2] > 0);
+
               return (
                 <tr key={client.id}>
                   <td className="mono">{client.nif}</td>
@@ -336,6 +348,20 @@ export default function ClientesPage() {
                     <span className={`badge ${client.esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
                       {client.esProveedor ? 'Proveedor' : 'Cliente'}
                     </span>
+                  </td>
+                  <td>
+                    {matchedTarifa ? (
+                      <span className="badge badge-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <Tag size={11} /> {matchedTarifa.nombre}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tarifa Base</span>
+                    )}
+                    {hasDiscounts && (
+                      <span className="badge badge-info" style={{ marginLeft: '4px', fontSize: '10px' }}>
+                        {[client.defaultDiscounts![0], client.defaultDiscounts![1], client.defaultDiscounts![2]].filter(d => d > 0).map(d => `${d}%`).join('+')}
+                      </span>
+                    )}
                   </td>
                   <td>{client.city}</td>
                   <td>
@@ -367,22 +393,21 @@ export default function ClientesPage() {
             })}
             {filtered.length === 0 && (
               <TableEmpty
-                colSpan={8}
+                colSpan={10}
                 icon={SearchX}
-                title="No hay clientes"
-                hint="Prueba a buscar con otro término o crea un nuevo cliente."
+                title="No hay clientes que coincidan"
+                hint="Prueba a cambiar el término de búsqueda o limpia el filtro."
               />
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
+              <h3 className="modal-title">{editingClient ? 'Editar Contacto' : 'Nuevo Contacto'}</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
             </div>
             <div className="modal-body">
@@ -435,6 +460,60 @@ export default function ClientesPage() {
                     <option value="">Selecciona provincia</option>
                     {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
+                </div>
+              </div>
+
+              <div className="form-row" style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Tarifa de Precios</label>
+                  <select
+                    className="form-select"
+                    value={form.tarifaId}
+                    onChange={e => updateForm('tarifaId', e.target.value)}
+                  >
+                    <option value="">-- Tarifa Estándar / Base --</option>
+                    {settings?.tarifas?.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre} {t.porcentajeDefecto !== undefined ? `(${t.porcentajeDefecto > 0 ? `+${t.porcentajeDefecto}%` : `${t.porcentajeDefecto}%`})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label className="form-label">Descuentos en línea por defecto (hasta 3 en cascada)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      className="form-input"
+                      placeholder="Dto 1 (%)"
+                      value={form.defaultDiscounts[0] || ''}
+                      onChange={e => updateDefaultDiscount(0, parseFloat(e.target.value) || 0)}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      className="form-input"
+                      placeholder="Dto 2 (%)"
+                      value={form.defaultDiscounts[1] || ''}
+                      onChange={e => updateDefaultDiscount(1, parseFloat(e.target.value) || 0)}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      className="form-input"
+                      placeholder="Dto 3 (%)"
+                      value={form.defaultDiscounts[2] || ''}
+                      onChange={e => updateDefaultDiscount(2, parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
               </div>
 

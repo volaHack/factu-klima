@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { ArrowLeft, FileText, Plus, Mail, Phone, MapPin, Building2, Eye, User, Calendar, Search, UserCheck } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
-import { getClientById, getInvoices, getVendedores } from '@/lib/storage';
-import { Client, Invoice, InvoiceStatus, Vendedor } from '@/lib/types';
+import { getClientById, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
+import { Client, Invoice, InvoiceStatus, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 
@@ -15,6 +15,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const [client, setClient] = useState<Client | null>(null);
   const [vendedor, setVendedor] = useState<Vendedor | null>(null);
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [mounted, setMounted] = useState(false);
   const [fechaDesde, setFechaDesde] = useState('');
@@ -23,12 +24,14 @@ export default function ClientDetailPage() {
   useEffect(() => {
     (async () => {
       const id = params.id as string;
-      const [c, allInvoices, allVendedores] = await Promise.all([
+      const [c, allInvoices, allVendedores, sett] = await Promise.all([
         getClientById(id),
         getInvoices(),
         getVendedores(),
+        getCompanySettings(),
       ]);
       setClient(c || null);
+      setSettings(sett);
       if (c) {
         setInvoices(allInvoices.filter(inv => inv.clientId === c.id));
         if (c.vendedorId) {
@@ -257,6 +260,24 @@ export default function ClientDetailPage() {
           <div className="card">
             <h4 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Condiciones comerciales</h4>
             <div className="def-list">
+              <div className="def-row">
+                <span className="def-label">Tarifa asignada</span>
+                <span className="def-value">
+                  <strong>
+                    {settings?.tarifas?.find(t => t.id === client.tarifaId)?.nombre || 'Tarifa Estándar / Base'}
+                  </strong>
+                </span>
+              </div>
+              {client.defaultDiscounts && (client.defaultDiscounts[0] > 0 || client.defaultDiscounts[1] > 0 || client.defaultDiscounts[2] > 0) && (
+                <div className="def-row">
+                  <span className="def-label">Descuentos por defecto</span>
+                  <span className="def-value">
+                    <span className="badge badge-info">
+                      {[client.defaultDiscounts[0], client.defaultDiscounts[1], client.defaultDiscounts[2]].filter(d => d > 0).map(d => `${d}%`).join(' + ')}
+                    </span>
+                  </span>
+                </div>
+              )}
               <div className="def-row">
                 <span className="def-label">Vencimiento</span>
                 <span className="def-value"><strong>{client.paymentDays} días</strong> desde la emisión</span>

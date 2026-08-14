@@ -319,6 +319,10 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     documento_origen_id: inv.documentoOrigenId ?? null,
     documento_origen_number: inv.documentoOrigenNumber ?? null,
     vendedor_id: inv.vendedorId ?? null,
+    tarifa_id: inv.tarifaId ?? null,
+    global_discount_percent_1: inv.globalDiscountPercent1 ?? 0,
+    global_discount_percent_2: inv.globalDiscountPercent2 ?? 0,
+    global_discount_percent_3: inv.globalDiscountPercent3 ?? 0,
   });
 
   const lineRows = current.lineItems.map((li, idx) => ({
@@ -332,6 +336,8 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     unit: li.unit,
     tax_rate: li.taxRate,
     discount_percent: li.discountPercent,
+    discount_percent_2: li.discountPercent2 ?? 0,
+    discount_percent_3: li.discountPercent3 ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
     total: li.total,
@@ -684,6 +690,8 @@ export async function saveClient(client: Client): Promise<void> {
     is_walk_in: client.isWalkIn ?? false,
     es_proveedor: client.esProveedor ?? false,
     vendedor_id: client.vendedorId || null,
+    tarifa_id: client.tarifaId || null,
+    default_discounts: client.defaultDiscounts || [0, 0, 0],
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -938,6 +946,8 @@ export async function saveProduct(product: Product): Promise<void> {
     low_stock_threshold: product.lowStockThreshold ?? null,
     units_sold: product.unitsSold ?? 0,
     image: product.imageUrl || null,
+    supplier_ref: product.supplierRef || null,
+    tarifa_prices: product.tarifaPrices || {},
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2188,6 +2198,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     iva_rates: settings.ivaRates || DEFAULT_IVA_RATES,
     igic_rates: settings.igicRates || DEFAULT_IGIC_RATES,
     series_documentos: settings.seriesDocumentos || {},
+    tarifas: settings.tarifas || [],
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2362,6 +2373,10 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     documentoOrigenId: inv.documento_origen_id ?? undefined,
     documentoOrigenNumber: inv.documento_origen_number ?? undefined,
     vendedorId: inv.vendedor_id ?? undefined,
+    tarifaId: inv.tarifa_id || undefined,
+    globalDiscountPercent1: Number(inv.global_discount_percent_1 || 0),
+    globalDiscountPercent2: Number(inv.global_discount_percent_2 || 0),
+    globalDiscountPercent3: Number(inv.global_discount_percent_3 || 0),
     lineItems: lineasConCustomCols(lineItems.map(mapLineItemFromDb), inv.datos_extras ?? {}),
     subtotal: Number(inv.subtotal),
     totalDiscount: Number(inv.total_discount),
@@ -2399,6 +2414,8 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     unit: li.unit ?? 'ud',
     taxRate: Number(li.tax_rate ?? li.taxRate ?? 21),
     discountPercent: Number(li.discount_percent ?? li.discountPercent ?? 0),
+    discountPercent2: Number(li.discount_percent_2 ?? li.discountPercent2 ?? 0),
+    discountPercent3: Number(li.discount_percent_3 ?? li.discountPercent3 ?? 0),
     subtotal: Number(li.subtotal ?? 0),
     taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
     total: Number(li.total ?? 0),
@@ -2428,6 +2445,10 @@ function mapClientFromDb(c: any): Client {
     isWalkIn: c.is_walk_in ?? false,
     esProveedor: c.es_proveedor ?? false,
     vendedorId: c.vendedor_id || undefined,
+    tarifaId: c.tarifa_id || undefined,
+    defaultDiscounts: Array.isArray(c.default_discounts)
+      ? [Number(c.default_discounts[0] ?? 0), Number(c.default_discounts[1] ?? 0), Number(c.default_discounts[2] ?? 0)]
+      : undefined,
   };
 }
 
@@ -2449,6 +2470,8 @@ export function mapProductFromDb(p: any): Product {
     lowStockThreshold: p.low_stock_threshold != null ? Number(p.low_stock_threshold) : undefined,
     unitsSold: Number(p.units_sold ?? 0),
     imageUrl: p.image || undefined,
+    supplierRef: p.supplier_ref || undefined,
+    tarifaPrices: (p.tarifa_prices && typeof p.tarifa_prices === 'object') ? p.tarifa_prices : {},
   };
 }
 
@@ -2500,6 +2523,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     invoiceSeries: s.invoice_series || 'FAC',
     nextInvoiceNumber: s.next_invoice_number || 1,
     seriesDocumentos: buildSeriesDocumentosFromDb(s.series_documentos, s),
+    tarifas: Array.isArray(s.tarifas) ? s.tarifas : [],
     tpvSeries: s.tpv_series || 'TPV',
     nextTpvNumber: s.next_tpv_number || 1,
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor } from '@/lib/storage';
-import { CompanySettings, BusinessSector, AccentTheme, Vendedor } from '@/lib/types';
+import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
@@ -84,6 +84,8 @@ export default function AjustesPage() {
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState('');
   const [nuevoVendedorSerie, setNuevoVendedorSerie] = useState('');
+  const [nuevaTarifaNombre, setNuevaTarifaNombre] = useState('');
+  const [nuevaTarifaPorcentaje, setNuevaTarifaPorcentaje] = useState('');
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const { success, warning, error: toastError } = useToast();
@@ -775,6 +777,115 @@ export default function AjustesPage() {
                               await deleteVendedor(v.id);
                               await recargarVendedores();
                               success('Vendedor eliminado');
+                            } catch (e) {
+                              toastError('Error al eliminar', e instanceof Error ? e.message : 'Error');
+                            }
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Tarifas de Precios */}
+      <div className="settings-section">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <Tag size={18} />
+          <h2 className="settings-section-title">Tarifas de Precios</h2>
+        </div>
+        <p className="settings-section-subtitle">Define tarifas para clientes (Mayorista, Distribuidor, Especial...) con precios o márgenes dedicados</p>
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', flexWrap: 'wrap' }}>
+          <input
+            className="form-input"
+            style={{ flex: '1 1 200px' }}
+            placeholder="Nombre de la tarifa (ej: Mayorista)"
+            value={nuevaTarifaNombre}
+            onChange={e => setNuevaTarifaNombre(e.target.value)}
+          />
+          <input
+            className="form-input"
+            type="number"
+            style={{ width: '170px' }}
+            placeholder="Margen / Dto % (opcional)"
+            value={nuevaTarifaPorcentaje}
+            onChange={e => setNuevaTarifaPorcentaje(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={async () => {
+              if (!nuevaTarifaNombre.trim() || !settings) return;
+              try {
+                const nueva: Tarifa = {
+                  id: crypto.randomUUID(),
+                  nombre: nuevaTarifaNombre.trim(),
+                  activa: true,
+                  porcentajeDefecto: nuevaTarifaPorcentaje ? parseFloat(nuevaTarifaPorcentaje) : undefined,
+                };
+                const updatedTarifas = [...(settings.tarifas || []), nueva];
+                await saveCompanySettings({ ...settings, tarifas: updatedTarifas });
+                setSettings(prev => prev ? ({ ...prev, tarifas: updatedTarifas }) : null);
+                setNuevaTarifaNombre('');
+                setNuevaTarifaPorcentaje('');
+                success('Tarifa creada', nueva.nombre);
+              } catch (e) {
+                toastError('Error al crear tarifa', e instanceof Error ? e.message : 'Error');
+              }
+            }}
+          >
+            <Plus size={16} /> Añadir tarifa
+          </button>
+        </div>
+
+        {settings?.tarifas && settings.tarifas.length > 0 && (
+          <div className="table-responsive" style={{ marginTop: 'var(--space-4)' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nombre de tarifa</th>
+                  <th>Margen / Dto. por defecto</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {settings.tarifas.map(t => (
+                  <tr key={t.id}>
+                    <td style={{ fontWeight: 600 }}>{t.nombre}</td>
+                    <td>
+                      {t.porcentajeDefecto !== undefined ? (
+                        <span className="badge badge-outline">
+                          {t.porcentajeDefecto > 0 ? `+${t.porcentajeDefecto}%` : `${t.porcentajeDefecto}%`}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--color-text-muted)' }}>Precio manual por producto</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${t.activa ? 'badge-activo' : 'badge-inactivo'}`}>
+                        {t.activa ? 'Activa' : 'Inactiva'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        style={{ color: 'var(--color-danger)' }}
+                        onClick={async () => {
+                          if (confirm(`¿Eliminar la tarifa "${t.nombre}"?`)) {
+                            try {
+                              const updatedTarifas = (settings.tarifas || []).filter(item => item.id !== t.id);
+                              await saveCompanySettings({ ...settings, tarifas: updatedTarifas });
+                              setSettings(prev => prev ? ({ ...prev, tarifas: updatedTarifas }) : null);
+                              success('Tarifa eliminada');
                             } catch (e) {
                               toastError('Error al eliminar', e instanceof Error ? e.message : 'Error');
                             }

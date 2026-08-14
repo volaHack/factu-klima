@@ -25,11 +25,63 @@ export function lineaVacia(settings: CompanySettings): InvoiceLineItem {
   };
 }
 
-/** Recalcula una línea (la fórmula duplicada en facturas/nueva, editar y albaranes/nueva). */
+/** Recalcula una línea con hasta 3 descuentos en cascada. */
 export function recalcularLinea(line: InvoiceLineItem): InvoiceLineItem {
-  const subtotal = calculateLineSubtotal(line.quantity, line.unitPrice, line.discountPercent);
+  const subtotal = calculateLineSubtotal(
+    line.quantity,
+    line.unitPrice,
+    line.discountPercent,
+    line.discountPercent2,
+    line.discountPercent3,
+  );
   const taxAmount = calculateLineTax(subtotal, line.taxRate);
   return { ...line, subtotal, taxAmount, total: Number((subtotal + taxAmount).toFixed(2)) };
+}
+
+/** Resuelve el precio adecuado de un producto según la tarifa asignada al cliente. */
+export function getPrecioProductoParaCliente(
+  product: { unitPrice: number; tarifaPrices?: Record<string, number> },
+  tarifaId?: string,
+  tarifas?: Array<{ id: string; porcentajeDefecto?: number }>,
+): number {
+  if (tarifaId && product.tarifaPrices?.[tarifaId] !== undefined) {
+    return Number(product.tarifaPrices[tarifaId]);
+  }
+  if (tarifaId && tarifas) {
+    const tarifa = tarifas.find(t => t.id === tarifaId);
+    if (tarifa?.porcentajeDefecto) {
+      // margen o descuento porcentual
+      const factor = 1 + tarifa.porcentajeDefecto / 100;
+      return Number((product.unitPrice * factor).toFixed(2));
+    }
+  }
+  return product.unitPrice;
+}
+
+/** Calcula las unidades pendientes de recibir (compras) y pendientes de entregar (ventas) */
+export function calcularPendientesProducto(
+  productId: string,
+  invoices: Invoice[],
+): { pendienteRecibir: number; pendienteEntregar: number } {
+  let pendienteRecibir = 0;
+  let pendienteEntregar = 0;
+
+  for (const inv of invoices) {
+    if (inv.tipo !== 'pedido') continue;
+    if (inv.status === InvoiceStatus.ANULADA || inv.status === InvoiceStatus.FACTURADO) continue;
+
+    for (const li of inv.lineItems) {
+      if (li.productId === productId) {
+        if (inv.sentido === 'compra') {
+          pendienteRecibir += Number(li.quantity || 0);
+        } else {
+          pendienteEntregar += Number(li.quantity || 0);
+        }
+      }
+    }
+  }
+
+  return { pendienteRecibir, pendienteEntregar };
 }
 
 /** Número y serie para un documento nuevo de un tipo/sentido. */

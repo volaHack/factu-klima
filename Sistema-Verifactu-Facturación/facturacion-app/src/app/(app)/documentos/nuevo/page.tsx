@@ -42,6 +42,8 @@ function NuevoDocumentoContent() {
   const [clientName, setClientName] = useState('');
   const [clientNif, setClientNif] = useState('');
   const [clientAddress, setClientAddress] = useState('');
+  const [tarifaId, setTarifaId] = useState('');
+  const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   const [issueDate, setIssueDate] = useState(getToday());
   const [dueDate, setDueDate] = useState(addDays(getToday(), 30));
@@ -50,6 +52,8 @@ function NuevoDocumentoContent() {
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const { success, error: toastError } = useToast();
+
+  const selectedClient = useMemo(() => clients.find(c => c.id === clientId), [clients, clientId]);
 
   useEffect(() => {
     const load = async () => {
@@ -83,6 +87,7 @@ function NuevoDocumentoContent() {
       setClientName(client.tradeName || client.businessName);
       setClientNif(client.nif);
       setClientAddress(client.address || '');
+      setTarifaId(client.tarifaId || '');
       if (client.paymentDays) {
         setDueDate(addDays(issueDate, client.paymentDays));
       }
@@ -93,10 +98,14 @@ function NuevoDocumentoContent() {
       setClientName('');
       setClientNif('');
       setClientAddress('');
+      setTarifaId('');
     }
   };
 
-  const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
+  const totals = useMemo(
+    () => calculateInvoiceTotals(lineItems, globalDiscounts),
+    [lineItems, globalDiscounts],
+  );
 
   const handleSave = async (statusToSet: InvoiceStatus = InvoiceStatus.BORRADOR) => {
     if (!settings) return;
@@ -124,6 +133,10 @@ function NuevoDocumentoContent() {
         clientName,
         clientNif,
         clientAddress,
+        tarifaId: tarifaId || undefined,
+        globalDiscountPercent1: globalDiscounts[0] || 0,
+        globalDiscountPercent2: globalDiscounts[1] || 0,
+        globalDiscountPercent3: globalDiscounts[2] || 0,
         issueDate,
         dueDate: dueDate || issueDate,
         status: statusToSet,
@@ -335,6 +348,8 @@ function NuevoDocumentoContent() {
         onChange={setLineItems}
         products={products}
         settings={settings}
+        tarifaId={tarifaId}
+        defaultDiscounts={selectedClient?.defaultDiscounts}
         titulo={`Conceptos y líneas de ${etiquetaTipo(tipo).toLowerCase()}`}
       />
 
@@ -346,6 +361,8 @@ function NuevoDocumentoContent() {
           taxBreakdown={totals.taxBreakdown}
           totalTax={totals.totalTax}
           total={totals.total}
+          globalDiscounts={globalDiscounts}
+          onGlobalDiscountsChange={setGlobalDiscounts}
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
         />
       </div>

@@ -13,11 +13,13 @@ import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts
 import { resolveAccent } from '@/components/charts/theme';
 import {
   getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
-  getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings
+  getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings,
+  getInvoices,
 } from '@/lib/storage';
-import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
+import { Product, TaxRate, UnitOfMeasure, CompanySettings, Invoice } from '@/lib/types';
 import { formatCurrency, generateId, processImageFile } from '@/lib/utils';
 import { UNITS_OF_MEASURE, ICON_PRESETS, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import { calcularPendientesProducto } from '@/lib/documentos';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
 
@@ -31,6 +33,7 @@ interface CategoryOption {
 export default function ProductosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [mounted, setMounted] = useState(false);
   
@@ -54,17 +57,28 @@ export default function ProductosPage() {
   const { success, warning, error: toastError } = useToast();
 
   const [form, setForm] = useState({
-    ref: '', name: '', description: '', category: 'otros',
+    ref: '', supplierRef: '', name: '', description: '', category: 'otros',
     unitPrice: 0, defaultTaxRate: TaxRate.REDUCIDO as TaxRate, unit: UnitOfMeasure.KG as UnitOfMeasure,
-    active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: ''
+    active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: '',
+    tarifaPrices: {} as Record<string, number>,
   });
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const updateForm = (field: string, value: string | number) => {
+  const updateForm = (field: string, value: unknown) => {
     setForm(prev => ({
       ...prev,
       [field]: typeof prev[field as keyof typeof prev] === 'number' ? Number(value) : value
+    }));
+  };
+
+  const updateTarifaPrice = (tarifaId: string, price: number) => {
+    setForm(prev => ({
+      ...prev,
+      tarifaPrices: {
+        ...prev.tarifaPrices,
+        [tarifaId]: price,
+      }
     }));
   };
 
@@ -79,10 +93,16 @@ export default function ProductosPage() {
   };
 
   const loadData = async () => {
-    const [prods, cats, sett] = await Promise.all([getProducts(), getCompanyCategories(), getCompanySettings()]);
+    const [prods, cats, sett, invs] = await Promise.all([
+      getProducts(),
+      getCompanyCategories(),
+      getCompanySettings(),
+      getInvoices(),
+    ]);
     setProducts(prods);
     setCategories(cats);
     setSettings(sett);
+    setInvoices(invs);
   };
 
   useEffect(() => {
@@ -103,6 +123,7 @@ export default function ProductosPage() {
       result = result.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.ref.toLowerCase().includes(q) ||
+        (p.supplierRef && p.supplierRef.toLowerCase().includes(q)) ||
         p.description.toLowerCase().includes(q)
       );
     }
@@ -116,9 +137,11 @@ export default function ProductosPage() {
     const defaultCat = categories.length > 0 ? categories[0].value : 'otros';
     setForm({
       ref: `PRD-${String(products.length + 1).padStart(3, '0')}`,
+      supplierRef: '',
       name: '', description: '', category: defaultCat,
       unitPrice: 0, defaultTaxRate: getDefaultTaxRate(settings), unit: UnitOfMeasure.UNIDAD, active: true,
-      stockQuantity: 50, lowStockThreshold: 5, imageUrl: ''
+      stockQuantity: 50, lowStockThreshold: 5, imageUrl: '',
+      tarifaPrices: {},
     });
     setShowModal(true);
   };
@@ -126,10 +149,19 @@ export default function ProductosPage() {
   const openEditProduct = (p: Product) => {
     setEditing(p);
     setForm({
-      ref: p.ref, name: p.name, description: p.description, category: p.category,
-      unitPrice: p.unitPrice, defaultTaxRate: p.defaultTaxRate, unit: p.unit, active: p.active,
-      stockQuantity: p.stockQuantity ?? 50, lowStockThreshold: p.lowStockThreshold ?? 5,
-      imageUrl: p.imageUrl || ''
+      ref: p.ref,
+      supplierRef: p.supplierRef || '',
+      name: p.name,
+      description: p.description,
+      category: p.category,
+      unitPrice: p.unitPrice,
+      defaultTaxRate: p.defaultTaxRate,
+      unit: p.unit,
+      active: p.active,
+      stockQuantity: p.stockQuantity ?? 50,
+      lowStockThreshold: p.lowStockThreshold ?? 5,
+      imageUrl: p.imageUrl || '',
+      tarifaPrices: p.tarifaPrices || {},
     });
     setShowModal(true);
   };
@@ -139,6 +171,7 @@ export default function ProductosPage() {
     const product: Product = {
       id: editing?.id || generateId(),
       ...form,
+      supplierRef: form.supplierRef.trim() || undefined,
       imageUrl: form.imageUrl || undefined,
       createdAt: editing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -402,11 +435,14 @@ export default function ProductosPage() {
               <thead>
                 <tr>
                   <th>Ref.</th>
+                  <th>Ref. Proveedor</th>
                   <th>Producto</th>
                   <th>Categoría</th>
                   <th style={{ textAlign: 'right' }}>Precio Ud.</th>
-                  <th>Stock</th>
-                  <th>IVA</th>
+                  <th>Stock Actual</th>
+                  <th>Pdt. Recibir</th>
+                  <th>Pdt. Entregar</th>
+                  <th>IVA/IGIC</th>
                   <th>Estado</th>
                   <th style={{ width: 100 }}></th>
                 </tr>
@@ -416,10 +452,20 @@ export default function ProductosPage() {
                   const cat = getCategoryInfo(p.category);
                   const isLowStock = p.lowStockThreshold != null && (p.stockQuantity ?? 0) <= p.lowStockThreshold;
                   const isOutOfStock = (p.stockQuantity ?? 0) <= 0;
+                  const { pendienteRecibir, pendienteEntregar } = calcularPendientesProducto(p.id, invoices);
 
                   return (
                     <tr key={p.id}>
                       <td className="mono">{p.ref}</td>
+                      <td>
+                        {p.supplierRef ? (
+                          <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {p.supplierRef}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>-</span>
+                        )}
+                      </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                           {p.imageUrl ? (
@@ -453,6 +499,24 @@ export default function ProductosPage() {
                           {p.stockQuantity ?? 0} {p.unit}
                         </span>
                       </td>
+                      <td>
+                        {pendienteRecibir > 0 ? (
+                          <span className="badge badge-warning" title="Unidades solicitadas en pedidos de compra pendientes">
+                            +{pendienteRecibir} {p.unit}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>0</span>
+                        )}
+                      </td>
+                      <td>
+                        {pendienteEntregar > 0 ? (
+                          <span className="badge badge-info" title="Unidades comprometidas en pedidos de venta pendientes">
+                            -{pendienteEntregar} {p.unit}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>0</span>
+                        )}
+                      </td>
                       <td>{p.defaultTaxRate}%</td>
                       <td>
                         <span className={`badge ${p.active ? 'badge-success' : 'badge-neutral'}`}>
@@ -474,7 +538,7 @@ export default function ProductosPage() {
                 })}
                 {filteredProducts.length === 0 && (
                   <TableEmpty
-                    colSpan={8}
+                    colSpan={11}
                     icon={SearchX}
                     title="No hay productos que coincidan"
                     hint="Prueba a cambiar el texto de búsqueda o el filtro de categoría."
@@ -546,31 +610,28 @@ export default function ProductosPage() {
                   <input className="form-input mono" value={form.ref} onChange={e => updateForm('ref', e.target.value)} placeholder="PRD-001" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label required">Nombre del producto</label>
-                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Aceite de Oliva 1L" />
+                  <label className="form-label">Referencia del Proveedor</label>
+                  <input className="form-input mono" value={form.supplierRef} onChange={e => updateForm('supplierRef', e.target.value)} placeholder="Ej: PROV-REF-99" />
                 </div>
               </div>
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
-                <div className="form-group">
+                <div className="form-group" style={{ flex: '2 1 240px' }}>
+                  <label className="form-label required">Nombre del producto</label>
+                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Aceite de Oliva 1L" />
+                </div>
+                <div className="form-group" style={{ flex: '1 1 140px' }}>
                   <label className="form-label">Categoría</label>
                   <select className="form-select" value={form.category} onChange={e => updateForm('category', e.target.value)}>
                     {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Precio Unitario (€)</label>
-                  <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => updateForm('unitPrice', e.target.value)} />
-                </div>
               </div>
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
-                  <TaxRateSlider
-                    label={`${getTaxLabel(settings)} aplicado por defecto (%)`}
-                    value={Number(form.defaultTaxRate)}
-                    onChange={v => updateForm('defaultTaxRate', v)}
-                  />
+                  <label className="form-label">Precio Unitario Base (€)</label>
+                  <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => updateForm('unitPrice', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unidad de Medida</label>
@@ -579,6 +640,41 @@ export default function ProductosPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Matriz de Precios por Tarifa si existen tarifas configuradas */}
+              {settings?.tarifas && settings.tarifas.length > 0 && (
+                <div style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
+                  <label className="form-label" style={{ marginBottom: 'var(--space-2)', fontWeight: 700 }}>
+                    Precios específicos por Tarifa (€)
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
+                    {settings.tarifas.map(t => (
+                      <div key={t.id} className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          {t.nombre} {t.porcentajeDefecto !== undefined ? `(${t.porcentajeDefecto > 0 ? `+${t.porcentajeDefecto}%` : `${t.porcentajeDefecto}%`})` : ''}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="form-input"
+                          placeholder={t.porcentajeDefecto ? `Auto: ${(form.unitPrice * (1 + t.porcentajeDefecto/100)).toFixed(2)}` : 'Precio base'}
+                          value={form.tarifaPrices[t.id] ?? ''}
+                          onChange={e => {
+                            const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                            if (val === undefined) {
+                              const copy = { ...form.tarifaPrices };
+                              delete copy[t.id];
+                              setForm(prev => ({ ...prev, tarifaPrices: copy }));
+                            } else {
+                              updateTarifaPrice(t.id, val);
+                            }
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">

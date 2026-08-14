@@ -121,3 +121,106 @@ describe('saveDocumento', () => {
   });
 });
 
+describe('Descuentos en cascada (3 en línea y 3 al pie)', () => {
+  it('calcula 3 descuentos en cascada en la línea', async () => {
+    const { calculateLineSubtotal } = await import('./utils');
+    // 10 unidades @ 100€ = 1000€
+    // Dto 1 (10%): 900€
+    // Dto 2 (5%): 855€
+    // Dto 3 (2%): 837.90€
+    const subtotal = calculateLineSubtotal(10, 100, 10, 5, 2);
+    expect(subtotal).toBe(837.90);
+  });
+
+  it('calcula totales con descuentos en línea y descuentos de pie de documento', async () => {
+    const { calculateInvoiceTotals } = await import('./utils');
+    const lines = [
+      {
+        id: '1',
+        productId: 'p1',
+        productName: 'Prod 1',
+        productRef: 'P1',
+        quantity: 2,
+        unitPrice: 100,
+        unit: 'ud' as any,
+        taxRate: 21,
+        discountPercent: 10,
+        discountPercent2: 0,
+        discountPercent3: 0,
+        subtotal: 180,
+        taxAmount: 37.8,
+        total: 217.8,
+      },
+    ];
+    // Base líneas: 180€
+    // Dto global 1 (10%): 162€
+    // Dto global 2 (5%): 153.90€
+    // Dto global 3 (0%)
+    // Base final: 153.90€
+    // IVA 21%: 32.32€
+    // Total: 186.22€
+    const totals = calculateInvoiceTotals(lines, [10, 5, 0]);
+    expect(totals.subtotal).toBe(153.90);
+    expect(totals.totalTax).toBe(32.32);
+    expect(totals.total).toBe(186.22);
+    expect(totals.globalDiscountAmount).toBe(26.10);
+  });
+});
+
+describe('getPrecioProductoParaCliente (Tarifas)', () => {
+  it('devuelve el precio específico por tarifa si está definido en el producto', async () => {
+    const { getPrecioProductoParaCliente } = await import('./documentos');
+    const product = { unitPrice: 50, tarifaPrices: { 'tar-mayorista': 40 } };
+    const price = getPrecioProductoParaCliente(product, 'tar-mayorista');
+    expect(price).toBe(40);
+  });
+
+  it('aplica porcentajeDefecto de la tarifa si no hay precio explícito', async () => {
+    const { getPrecioProductoParaCliente } = await import('./documentos');
+    const product = { unitPrice: 100 };
+    const tarifas = [{ id: 'tar-distribuidor', porcentajeDefecto: -15 }];
+    const price = getPrecioProductoParaCliente(product, 'tar-distribuidor', tarifas);
+    expect(price).toBe(85);
+  });
+
+  it('devuelve precio base si no hay tarifa', async () => {
+    const { getPrecioProductoParaCliente } = await import('./documentos');
+    const product = { unitPrice: 100 };
+    const price = getPrecioProductoParaCliente(product);
+    expect(price).toBe(100);
+  });
+});
+
+describe('calcularPendientesProducto', () => {
+  it('calcula pendientes de recibir en pedidos de compra y de entregar en pedidos de venta', async () => {
+    const { calcularPendientesProducto } = await import('./documentos');
+    const invoices = [
+      {
+        id: '1',
+        tipo: 'pedido',
+        sentido: 'compra',
+        status: InvoiceStatus.EMITIDA,
+        lineItems: [{ productId: 'p1', quantity: 20 }],
+      },
+      {
+        id: '2',
+        tipo: 'pedido',
+        sentido: 'venta',
+        status: InvoiceStatus.EMITIDA,
+        lineItems: [{ productId: 'p1', quantity: 8 }],
+      },
+      {
+        id: '3',
+        tipo: 'pedido',
+        sentido: 'venta',
+        status: InvoiceStatus.ANULADA, // Anulado no cuenta
+        lineItems: [{ productId: 'p1', quantity: 15 }],
+      },
+    ] as any;
+
+    const { pendienteRecibir, pendienteEntregar } = calcularPendientesProducto('p1', invoices);
+    expect(pendienteRecibir).toBe(20);
+    expect(pendienteEntregar).toBe(8);
+  });
+});
+
