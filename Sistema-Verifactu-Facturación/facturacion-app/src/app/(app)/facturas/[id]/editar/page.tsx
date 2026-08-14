@@ -21,10 +21,10 @@ import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
-import { clavesManualesUsadasPorPlantilla } from '@/lib/plantillas/plantilla';
+import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
 import {
-  clienteManualComoDatosExtras, clienteManualDesdeDatosExtras,
-  type ClienteManual
+  clienteManualComoDatosExtras, clienteManualDesdeDatosExtras, customColsDeLineas,
+  lineasConCustomCols, type ClienteManual
 } from '@/lib/plantillas/datos';
 
 const CLIENTE_MANUAL_VACIO: ClienteManual = {
@@ -60,6 +60,7 @@ export default function EditInvoicePage() {
   const [originalInvoice, setOriginalInvoice] = useState<Invoice | null>(null);
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
+  const [columnasCustom, setColumnasCustom] = useState<{ clave: string; cabecera: string }[]>([]);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -79,7 +80,10 @@ export default function EditInvoicePage() {
       setDueDate(inv.dueDate);
       setPaymentMethod(inv.paymentMethod);
       setNotes(inv.notes);
-      setLineItems(inv.lineItems.length > 0 ? inv.lineItems : [createEmptyLine()]);
+      setLineItems(lineasConCustomCols(
+        inv.lineItems.length > 0 ? inv.lineItems : [createEmptyLine()],
+        inv.datosExtras,
+      ));
       setDatosExtras(inv.datosExtras ?? {});
       const [clients, products] = await Promise.all([
         getClients().then(c => c.filter(cl => cl.active)),
@@ -91,6 +95,7 @@ export default function EditInvoicePage() {
         const plantilla = await getPlantillaActiva('factura');
         if (plantilla?.plantilla) {
           setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
+          setColumnasCustom(columnasPersonalizadasDePlantilla(plantilla.plantilla));
         }
       } catch {
         // Sin plantilla activa no hay campos manuales que mostrar.
@@ -114,6 +119,17 @@ export default function EditInvoicePage() {
       const next = [...prev];
       (next[lineIndex] as unknown as Record<string, unknown>)[field] = value;
       return recalcLines(next);
+    });
+  };
+
+  const handleCustomColChange = (lineIndex: number, clave: string, valor: string) => {
+    setLineItems(prev => {
+      const next = [...prev];
+      next[lineIndex] = {
+        ...next[lineIndex],
+        customCols: { ...(next[lineIndex].customCols ?? {}), [clave]: valor },
+      };
+      return next;
     });
   };
 
@@ -152,9 +168,11 @@ export default function EditInvoicePage() {
     }
 
     const client = esOcasional ? undefined : clients.find(c => c.id === clientId);
-    const datosExtrasFinal = esOcasional
-      ? { ...datosExtras, ...clienteManualComoDatosExtras(clienteManual) }
-      : datosExtras;
+    const datosExtrasFinal = {
+      ...datosExtras,
+      ...(esOcasional ? clienteManualComoDatosExtras(clienteManual) : {}),
+      ...customColsDeLineas(validLines),
+    };
     const nombreCliente = esOcasional ? clienteManual.nombre : (client?.tradeName || client?.businessName || '');
     const clientAddress = esOcasional
       ? [clienteManual.direccion, clienteManual.cp, clienteManual.ciudad]
@@ -337,6 +355,21 @@ export default function EditInvoicePage() {
                 <input type="number" min={0} max={100} step={0.5} value={line.discountPercent} onChange={e => handleLineChange(i, 'discountPercent', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
                 <div className="line-item-subtotal">{formatCurrency(line.subtotal)}</div>
                 <button className="line-item-delete" onClick={() => removeLine(i)} disabled={lineItems.length <= 1}><Trash2 size={14} /></button>
+                {columnasCustom.length > 0 && (
+                  <div className="line-item-custom">
+                    {columnasCustom.map(col => (
+                      <div className="form-group" key={col.clave} style={{ flex: '1 1 160px', margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)' }}>{col.cabecera}</label>
+                        <input
+                          className="form-input"
+                          value={line.customCols?.[col.clave] ?? ''}
+                          onChange={e => handleCustomColChange(i, col.clave, e.target.value)}
+                          placeholder={col.cabecera}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             <div className="line-items-add">

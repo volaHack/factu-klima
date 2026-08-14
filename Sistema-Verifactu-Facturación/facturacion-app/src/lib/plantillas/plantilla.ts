@@ -30,7 +30,7 @@
  */
 
 import type { Schema, Template } from '@pdfme/common';
-import { COLUMNAS_LINEAS, TABLA_LINEAS } from './contrato';
+import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
 import type {
   Alineacion,
@@ -530,6 +530,28 @@ export function columnasDePlantilla(plantilla: Template): (string | null)[] {
     }
   }
   return COLUMNAS_LINEAS.slice(0, 5).map(c => c.clave);
+}
+
+/**
+ * Columnas personalizadas (`custom_col_N`) que usa la tabla de líneas de una
+ * plantilla compilada, con su cabecera. Es lo que se pide por línea al crear
+ * una factura.
+ */
+export function columnasPersonalizadasDePlantilla(plantilla: Template): { clave: string; cabecera: string }[] {
+  for (const pagina of plantilla.schemas) {
+    for (const esquema of pagina) {
+      if (esquema.name !== TABLA_LINEAS) continue;
+      const mesa = esquema as unknown as { __columnas?: (string | null)[]; head?: string[] };
+      const claves = mesa.__columnas;
+      const cabeceras = mesa.head ?? [];
+      if (!Array.isArray(claves)) return [];
+      return claves
+        .map((clave, i) => ({ clave, cabecera: cabeceras[i] ?? '' }))
+        .filter((c): c is { clave: string; cabecera: string } =>
+          c.clave !== null && esColumnaPersonalizada(c.clave));
+    }
+  }
+  return [];
 }
 
 /** Claves `custom_N` (manuales) que la plantilla usa, únicas y ordenadas. */

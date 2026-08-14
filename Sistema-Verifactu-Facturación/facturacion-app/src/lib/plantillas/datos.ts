@@ -11,7 +11,7 @@
  * aplicar formato numérico por su cuenta.
  */
 
-import { Albaran, Client, CompanySettings, Invoice, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
+import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
 import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
 import { CAMPOS } from './contrato';
@@ -50,6 +50,14 @@ export interface OpcionesDatos {
  */
 export const CLAVE_CLIENTE_OCASIONAL = '__cliente';
 
+/**
+ * Valores de las columnas personalizadas por línea (`custom_col_N`), en una
+ * clave reservada de `datosExtras`: un objeto línea id → columnas, serializado.
+ * Igual que el cliente ocasional, viaja en `datosExtras` para no pedir una
+ * migración de base de datos.
+ */
+export const CLAVE_LINEAS_CUSTOM = '__lineas';
+
 export interface ClienteManual {
   nombre: string;
   nif: string;
@@ -59,6 +67,41 @@ export interface ClienteManual {
   provincia: string;
   email: string;
   telefono: string;
+}
+
+/**
+ * Devuelve el trozo de `datosExtras` que guarda las columnas personalizadas
+ * de las líneas. Vacío cuando la factura no las usa.
+ */
+export function customColsDeLineas(lineItems: { id: string; customCols?: Record<string, string> }[]): Record<string, string> {
+  const porLinea: Record<string, Record<string, string>> = {};
+  for (const linea of lineItems) {
+    const columnas = linea.customCols ?? {};
+    if (Object.keys(columnas).length > 0) porLinea[linea.id] = columnas;
+  }
+  return { [CLAVE_LINEAS_CUSTOM]: JSON.stringify(porLinea) };
+}
+
+/**
+ * Devuelve el mismo `lineItems` con cada línea tocada por su `customCols`
+ * guardado en `datosExtras` (si lo tiene). Es la contrapartida de
+ * `customColsDeLineas`.
+ */
+export function lineasConCustomCols(
+  lineItems: InvoiceLineItem[],
+  datosExtras?: Record<string, string>,
+): InvoiceLineItem[] {
+  let porLinea: Record<string, Record<string, string>> = {};
+  try {
+    const crudo = datosExtras?.[CLAVE_LINEAS_CUSTOM];
+    if (crudo) porLinea = JSON.parse(crudo);
+  } catch {
+    porLinea = {};
+  }
+  return lineItems.map(linea => {
+    const guardadas = porLinea[linea.id];
+    return guardadas ? { ...linea, customCols: guardadas } : linea;
+  });
 }
 
 export function clienteManualDesdeDatosExtras(datosExtras?: Record<string, string>): ClienteManual | null {
@@ -153,6 +196,8 @@ export function construirDatos(
     importe: formatCurrency(linea.subtotal),
     importe_impuesto: formatCurrency(linea.taxAmount),
     importe_total: formatCurrency(linea.total),
+    // Columnas personalizadas de la plantilla: cada una va a su celda.
+    ...(linea.customCols ?? {}),
   }));
 
   // --- Desglose de impuestos ---

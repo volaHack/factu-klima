@@ -21,7 +21,8 @@ import {
   Table2, Trash2, Type, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import {
-  camposPorGrupo, COLUMNAS_LINEAS, datosDeEjemplo, etiquetaDeClave,
+  camposPorGrupo, COLUMNAS_LINEAS, datosDeEjemplo, esColumnaPersonalizada,
+  etiquetaDeClave, etiquetaDeColumnaPersonalizada, siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
 import type {
   AnalisisPdf, CampoDetectado, SegmentoTexto,
@@ -814,9 +815,19 @@ export default function RevisorPlantilla({
                     aria-label={`Contenido de la columna ${indice + 1}`}
                     value={columna.clave ?? ''}
                     onChange={(evento) => {
+                      const elegido = evento.target.value;
+                      if (elegido === '__nueva_personalizada__') {
+                        const clave = siguienteColumnaPersonalizada(tabla.columnas.map(c => c.clave ?? ''));
+                        onCambiarTabla({
+                          ...tabla,
+                          columnas: tabla.columnas.map((c, i) =>
+                            i === indice ? { ...c, clave } : c),
+                        });
+                        return;
+                      }
                       onCambiarTabla({
                         ...tabla,
-                        columnas: tabla.columnas.map((c, i) => (i === indice ? { ...c, clave: evento.target.value || null } : c)),
+                        columnas: tabla.columnas.map((c, i) => (i === indice ? { ...c, clave: elegido || null } : c)),
                       });
                     }}
                   >
@@ -824,6 +835,12 @@ export default function RevisorPlantilla({
                     {COLUMNAS_LINEAS.map(opcion => (
                       <option key={opcion.clave} value={opcion.clave}>{opcion.etiqueta}</option>
                     ))}
+                    {columna.clave && esColumnaPersonalizada(columna.clave) && (
+                      <option value={columna.clave}>
+                        {etiquetaDeColumnaPersonalizada(columna.clave)}
+                      </option>
+                    )}
+                    <option value="__nueva_personalizada__">— Columna personalizada —</option>
                   </select>
                   <select
                     className="form-select"

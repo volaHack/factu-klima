@@ -13,6 +13,7 @@ import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategor
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
+import { lineasConCustomCols } from './plantillas/datos';
 
 function supabase() {
   return createClient();
@@ -1359,7 +1360,7 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 function mapAlbaranFromDb(a: any, lineItems: any[]): Albaran {
-  const lines = lineItems.map(mapLineItemFromDb);
+  const lines = lineasConCustomCols(lineItems.map(mapLineItemFromDb), a.datos_extras ?? {});
   const totals = calculateInvoiceTotals(lines);
   return {
     id: a.id,
@@ -2167,7 +2168,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     dueDate: inv.due_date,
     paidDate: inv.paid_date || undefined,
     status: inv.status,
-    lineItems: lineItems.map(mapLineItemFromDb),
+    lineItems: lineasConCustomCols(lineItems.map(mapLineItemFromDb), inv.datos_extras ?? {}),
     subtotal: Number(inv.subtotal),
     totalDiscount: Number(inv.total_discount),
     taxBreakdown: taxBreakdown.map(tb => ({

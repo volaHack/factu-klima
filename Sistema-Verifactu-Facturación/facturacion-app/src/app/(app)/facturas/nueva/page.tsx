@@ -25,11 +25,11 @@ import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
-import { clavesManualesUsadasPorPlantilla } from '@/lib/plantillas/plantilla';
+import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
 import {
-  clienteManualComoDatosExtras, type ClienteManual
+  clienteManualComoDatosExtras, customColsDeLineas, type ClienteManual
 } from '@/lib/plantillas/datos';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
@@ -72,6 +72,7 @@ export default function NuevaFacturaPage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([createEmptyLine()]);
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
+  const [columnasCustom, setColumnasCustom] = useState<{ clave: string; cabecera: string }[]>([]);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function NuevaFacturaPage() {
         const plantilla = await getPlantillaActiva('factura');
         if (plantilla?.plantilla) {
           setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
+          setColumnasCustom(columnasPersonalizadasDePlantilla(plantilla.plantilla));
         }
       } catch {
         // Sin plantilla activa no hay campos manuales que mostrar.
@@ -135,6 +137,17 @@ export default function NuevaFacturaPage() {
       const next = [...prev];
       (next[lineIndex] as unknown as Record<string, unknown>)[field] = value;
       return recalcLines(next);
+    });
+  };
+
+  const handleCustomColChange = (lineIndex: number, clave: string, valor: string) => {
+    setLineItems(prev => {
+      const next = [...prev];
+      next[lineIndex] = {
+        ...next[lineIndex],
+        customCols: { ...(next[lineIndex].customCols ?? {}), [clave]: valor },
+      };
+      return next;
     });
   };
 
@@ -199,9 +212,11 @@ export default function NuevaFacturaPage() {
 
     const invoiceNumber = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
     const client = esOcasional ? undefined : clients.find(c => c.id === clientId);
-    const datosExtrasFinal = esOcasional
-      ? { ...datosExtras, ...clienteManualComoDatosExtras(clienteManual) }
-      : datosExtras;
+    const datosExtrasFinal = {
+      ...datosExtras,
+      ...(esOcasional ? clienteManualComoDatosExtras(clienteManual) : {}),
+      ...customColsDeLineas(validLines),
+    };
     const nombreCliente = esOcasional ? clienteManual.nombre : (client?.tradeName || client?.businessName || '');
     const clientAddress = esOcasional
       ? [clienteManual.direccion, clienteManual.cp, clienteManual.ciudad]
@@ -454,6 +469,21 @@ export default function NuevaFacturaPage() {
                 <button className="line-item-delete" onClick={() => removeLine(index)} disabled={lineItems.length <= 1}>
                   <Trash2 size={14} />
                 </button>
+                {columnasCustom.length > 0 && (
+                  <div className="line-item-custom">
+                    {columnasCustom.map(col => (
+                      <div className="form-group" key={col.clave} style={{ flex: '1 1 160px', margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)' }}>{col.cabecera}</label>
+                        <input
+                          className="form-input"
+                          value={line.customCols?.[col.clave] ?? ''}
+                          onChange={e => handleCustomColChange(index, col.clave, e.target.value)}
+                          placeholder={col.cabecera}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             <div className="line-items-add">

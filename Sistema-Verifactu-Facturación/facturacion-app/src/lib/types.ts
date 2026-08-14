@@ -85,6 +85,11 @@ export interface InvoiceLineItem {
   subtotal: number;
   taxAmount: number;
   total: number;
+  /**
+   * Valores de las columnas personalizadas de la plantilla (`custom_col_N`).
+   * Se piden por línea al crear la factura y se imprimen tal cual.
+   */
+  customCols?: Record<string, string>;
 }
 
 export interface TaxBreakdown {
@@ -341,6 +346,8 @@ export interface AlbaranLineItem {
   subtotal: number;
   taxAmount: number;
   total: number;
+  /** Valores de las columnas personalizadas de la plantilla (`custom_col_N`). */
+  customCols?: Record<string, string>;
 }
 
 export interface Albaran {

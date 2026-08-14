@@ -1387,6 +1387,14 @@ a:hover { color: var(--accent-300); }
 .line-item-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: var(--space-1); border-radius: var(--radius-sm); }
 .line-item-delete:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 .line-item-row input[type="range"] { padding: 0; border: none; background: none; }
+.line-item-custom {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; gap: var(--space-3);
+  padding: var(--space-2) 0 0; border-top: 1px dashed var(--border-subtle);
+  margin-top: var(--space-2);
+}
+.line-item-custom .form-group { min-width: 0; }
+.line-item-custom .form-label { margin-bottom: 2px; color: var(--text-secondary); font-weight: 600; }
 .line-items-add { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-color); }
 
 /* --- Tax Rate Slider (impuesto libre 0-99%) --- */

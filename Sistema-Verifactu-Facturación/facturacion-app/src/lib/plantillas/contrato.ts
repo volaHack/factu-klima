@@ -177,6 +177,38 @@ export function clavesValidas(): Set<string> {
   return new Set([...CAMPOS.map(c => c.clave), TABLA_LINEAS, TABLA_IMPUESTOS]);
 }
 
+const RE_COLUMNA_PERSONALIZADA = /^custom_col_(\d+)$/;
+
+/**
+ * Las columnas de la tabla de líneas que no corresponden a ninguna clave
+ * conocida (`COLUMNAS_LINEAS`) se guardan como `custom_col_N`. Su valor se
+ * pide por línea al crear la factura y se imprime tal cual.
+ */
+export function esColumnaPersonalizada(clave: string): boolean {
+  return RE_COLUMNA_PERSONALIZADA.test(clave);
+}
+
+/** Etiqueta legible para una columna personalizada: «Dato de columna 1». */
+export function etiquetaDeColumnaPersonalizada(clave: string): string {
+  const m = clave.match(RE_COLUMNA_PERSONALIZADA);
+  return m ? `Dato de columna ${m[1]}` : clave;
+}
+
+/**
+ * Siguiente número libre para una nueva columna personalizada. P. ej. con
+ * `custom_col_1` y `custom_col_3` ya usadas devuelve `2`.
+ */
+export function siguienteColumnaPersonalizada(usadas: Iterable<string>): string {
+  const ocupados = new Set<number>();
+  for (const clave of usadas) {
+    const m = clave.match(RE_COLUMNA_PERSONALIZADA);
+    if (m) ocupados.add(Number(m[1]));
+  }
+  let n = 1;
+  while (ocupados.has(n)) n++;
+  return `custom_col_${n}`;
+}
+
 export function columnaDeLineas(clave: string): ColumnaTabla | undefined {
   return COLUMNAS_LINEAS.find(c => c.clave === clave);
 }

@@ -13,7 +13,7 @@ import {
   put, putMany, remove as removeFromDb,
 } from '../offlineDb';
 import { getCurrentUserId } from '../storage';
-import { clavesValidas, TABLA_LINEAS } from './contrato';
+import { clavesValidas, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import type { PlantillaDocumento, TipoDocumentoPlantilla } from './tipos';
 
 const TIENDA = 'document_templates';
@@ -89,7 +89,7 @@ export function validarPlantilla(plantilla: PlantillaDocumento): void {
     if (esquema.readOnly && !esquema.content?.startsWith('{')) continue;
     if (nombre === TABLA_LINEAS) continue;
     const claveBase = nombre.replace(/_\d+$/, '');
-    if (!validas.has(claveBase)) desconocidos.push(nombre);
+    if (!validas.has(claveBase) && !esColumnaPersonalizada(claveBase)) desconocidos.push(nombre);
   }
 
   if (desconocidos.length > 0) {

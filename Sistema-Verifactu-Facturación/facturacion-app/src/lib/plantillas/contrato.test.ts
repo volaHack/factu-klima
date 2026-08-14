@@ -6,8 +6,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CAMPOS, COLUMNAS_LINEAS, campoPorClave, clavesValidas, datosDeEjemplo } from './contrato';
-import { construirDatos, clienteManualComoDatosExtras } from './datos';
+import {
+  CAMPOS, COLUMNAS_LINEAS, campoPorClave, clavesValidas, datosDeEjemplo,
+  esColumnaPersonalizada, etiquetaDeColumnaPersonalizada, siguienteColumnaPersonalizada,
+} from './contrato';
+import {
+  construirDatos, clienteManualComoDatosExtras, customColsDeLineas, lineasConCustomCols,
+} from './datos';
 import { InvoiceStatus, PaymentMethod, UnitOfMeasure, type Client, type CompanySettings, type Invoice } from '../types';
 
 const AJUSTES = {
@@ -196,5 +201,51 @@ describe('campos manuales', () => {
     for (const clave of ['empresa_nombre', 'cliente_nombre', 'doc_numero', 'total_general']) {
       expect(campoPorClave(clave)?.manual).toBeFalsy();
     }
+  });
+});
+
+describe('columnas personalizadas', () => {
+  it('reconoce solo claves custom_col_N', () => {
+    expect(esColumnaPersonalizada('custom_col_1')).toBe(true);
+    expect(esColumnaPersonalizada('custom_col_42')).toBe(true);
+    expect(esColumnaPersonalizada('custom_1')).toBe(false);
+    expect(esColumnaPersonalizada('nombre')).toBe(false);
+  });
+
+  it('asigna la siguiente clave libre', () => {
+    expect(siguienteColumnaPersonalizada([])).toBe('custom_col_1');
+    expect(siguienteColumnaPersonalizada(['custom_col_1', 'custom_col_3'])).toBe('custom_col_2');
+    expect(siguienteColumnaPersonalizada(['custom_col_1', 'custom_col_2'])).toBe('custom_col_3');
+  });
+
+  it('etiqueta la columna para mostrar en el selector', () => {
+    expect(etiquetaDeColumnaPersonalizada('custom_col_4')).toBe('Dato de columna 4');
+  });
+
+  it('redondea ida y vuelta de customCols por línea en datosExtras', () => {
+    const lineas = [{
+      ...FACTURA.lineItems[0],
+      customCols: { custom_col_1: 'PALETS', custom_col_2: '5' },
+    }];
+    const extras = customColsDeLineas(lineas);
+    expect(extras).toHaveProperty('__lineas');
+    const vueltas = lineasConCustomCols(lineas, extras);
+    expect(vueltas[0].customCols).toEqual({ custom_col_1: 'PALETS', custom_col_2: '5' });
+  });
+
+  it('conserva customCols de la línea cuando no hay datos guardados', () => {
+    const lineas = [{ ...FACTURA.lineItems[0], customCols: { custom_col_1: 'X' } }];
+    const vueltas = lineasConCustomCols(lineas, {});
+    expect(vueltas[0].customCols).toEqual({ custom_col_1: 'X' });
+  });
+
+  it('rellena celdas custom_col_N en la tabla de líneas', () => {
+    const conCols = construirDatos(
+      { tipo: 'factura', documento: { ...FACTURA, lineItems: [{
+        ...FACTURA.lineItems[0], customCols: { custom_col_1: 'PALETS' },
+      }] } },
+      AJUSTES,
+    );
+    expect(conCols.lineas[0].custom_col_1).toBe('PALETS');
   });
 });
