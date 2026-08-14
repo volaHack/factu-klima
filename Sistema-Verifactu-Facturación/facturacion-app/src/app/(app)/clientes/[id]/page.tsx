@@ -3,42 +3,60 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Plus, Mail, Phone, MapPin, Building2, Eye, User } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Mail, Phone, MapPin, Building2, Eye, User, Calendar, Search, UserCheck } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
-import { getClientById, getInvoices } from '@/lib/storage';
-import { Client, Invoice, InvoiceStatus } from '@/lib/types';
+import { getClientById, getInvoices, getVendedores } from '@/lib/storage';
+import { Client, Invoice, InvoiceStatus, Vendedor } from '@/lib/types';
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 
 export default function ClientDetailPage() {
   const params = useParams();
   const [client, setClient] = useState<Client | null>(null);
+  const [vendedor, setVendedor] = useState<Vendedor | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   useEffect(() => {
     (async () => {
       const id = params.id as string;
-      const c = await getClientById(id);
+      const [c, allInvoices, allVendedores] = await Promise.all([
+        getClientById(id),
+        getInvoices(),
+        getVendedores(),
+      ]);
       setClient(c || null);
       if (c) {
-        const allInvoices = await getInvoices();
         setInvoices(allInvoices.filter(inv => inv.clientId === c.id));
+        if (c.vendedorId) {
+          const v = allVendedores.find(vend => vend.id === c.vendedorId);
+          setVendedor(v || null);
+        }
       }
       setMounted(true);
     })();
   }, [params.id]);
 
+  const invoicesFiltradas = useMemo(() => {
+    return invoices.filter(inv => {
+      if (fechaDesde && inv.issueDate < fechaDesde) return false;
+      if (fechaHasta && inv.issueDate > fechaHasta) return false;
+      return true;
+    });
+  }, [invoices, fechaDesde, fechaHasta]);
+
   const stats = useMemo(() => {
-    const valid = invoices.filter(i => i.status !== InvoiceStatus.ANULADA);
+    const valid = invoicesFiltradas.filter(i => i.status !== InvoiceStatus.ANULADA);
     const total = valid.reduce((sum, i) => sum + i.total, 0);
     const paid = valid.filter(i => i.status === InvoiceStatus.PAGADA);
     const paidTotal = paid.reduce((sum, i) => sum + i.total, 0);
     const pending = valid.filter(i => i.status === InvoiceStatus.PENDIENTE || i.status === InvoiceStatus.EMITIDA);
     const pendingTotal = pending.reduce((sum, i) => sum + i.total, 0);
     return { total, count: valid.length, paidTotal, pendingCount: pending.length, pendingTotal };
-  }, [invoices]);
+  }, [invoicesFiltradas]);
 
   if (!mounted) return <PageSkeleton variant="detail" label="Cargando la ficha del cliente" />;
 
@@ -48,30 +66,43 @@ export default function ClientDetailPage() {
         <span className="empty-state-icon"><Building2 strokeWidth={1.6} /></span>
         <h2 className="empty-state-title">Esta ficha ya no existe</h2>
         <p className="empty-state-description">
-          El cliente se ha eliminado o el enlace apunta a un identificador que no está en tu cartera.
+          El registro se ha eliminado o el enlace apunta a un identificador que no está en tu cartera.
         </p>
         <div className="empty-state-actions">
-          <Link href="/clientes" className="btn btn-primary"><ArrowLeft size={16} /> Volver a clientes</Link>
+          <Link href="/clientes" className="btn btn-primary"><ArrowLeft size={16} /> Volver a contactos</Link>
         </div>
       </div>
     );
   }
 
+  const esProveedor = client.esProveedor;
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <Link href="/clientes" className="page-back"><ArrowLeft /> Clientes</Link>
-          <div className="page-title-row">
+          <Link href="/clientes" className="page-back"><ArrowLeft /> Contactos</Link>
+          <div className="page-title-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <h1 className="page-title">{client.tradeName || client.businessName}</h1>
+            <span className={`badge ${esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
+              {esProveedor ? 'Proveedor' : 'Cliente'}
+            </span>
             <span className={`badge ${client.active ? 'badge-activo' : 'badge-inactivo'}`}>
               {client.active ? 'Activo' : 'Inactivo'}
             </span>
           </div>
           <p className="page-subtitle">{client.businessName} · {client.nif}</p>
         </div>
-        <div className="page-header-actions">
-          <Link href={`/facturas/nueva`} className="btn btn-primary"><Plus size={16} /> Facturar a este cliente</Link>
+        <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {esProveedor ? (
+            <Link href={`/documentos/nuevo?tipo=albaran&sentido=compra`} className="btn btn-primary">
+              <Plus size={16} /> Albarán de compra
+            </Link>
+          ) : (
+            <Link href={`/facturas/nueva`} className="btn btn-primary">
+              <Plus size={16} /> Facturar a este cliente
+            </Link>
+          )}
         </div>
       </div>
 
@@ -81,52 +112,102 @@ export default function ClientDetailPage() {
           <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 'var(--space-6)' }}>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
               <div className="kpi-card-value">{formatCurrency(stats.total)}</div>
-              <div className="kpi-card-label">Total facturado ({stats.count} facturas)</div>
+              <div className="kpi-card-label">Total documentos ({stats.count})</div>
             </div>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--color-success)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
               <div className="kpi-card-value">{formatCurrency(stats.paidTotal)}</div>
-              <div className="kpi-card-label">Cobrado</div>
+              <div className="kpi-card-label">Cobrado / Pagado</div>
             </div>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--color-warning)', '--kpi-bg': 'var(--color-warning-bg)' } as React.CSSProperties}>
               <div className="kpi-card-value">{formatCurrency(stats.pendingTotal)}</div>
               <div className="kpi-card-label">
-                Pendiente de cobro ({stats.pendingCount} {stats.pendingCount === 1 ? 'factura' : 'facturas'})
+                Pendiente ({stats.pendingCount} {stats.pendingCount === 1 ? 'documento' : 'documentos'})
               </div>
             </div>
           </div>
 
-          {/* Invoice History */}
+          {/* Invoice History & Date Filter */}
           <div className="card">
-            <div className="card-header">
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
               <div>
-                <h3 className="card-title">Historial de facturas</h3>
-                <p className="card-subtitle">De la más reciente a la más antigua</p>
+                <h3 className="card-title">Relación de documentos</h3>
+                <p className="card-subtitle">Filtra facturas y documentos entre fechas</p>
+              </div>
+
+              {/* Filtro entre fechas */}
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Desde:</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ padding: '4px 8px', fontSize: 'var(--text-xs)', width: 'auto' }}
+                    value={fechaDesde}
+                    onChange={e => setFechaDesde(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Hasta:</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ padding: '4px 8px', fontSize: 'var(--text-xs)', width: 'auto' }}
+                    value={fechaHasta}
+                    onChange={e => setFechaHasta(e.target.value)}
+                  />
+                </div>
+                {(fechaDesde || fechaHasta) && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+                  >
+                    Limpiar
+                  </button>
+                )}
               </div>
             </div>
+
             <div className="table-container" style={{ border: 'none' }}>
               <table className="table">
                 <thead>
-                  <tr><th>Nº</th><th>Fecha</th><th>Estado</th><th style={{ textAlign: 'right' }}>Total</th><th></th></tr>
+                  <tr>
+                    <th>Nº</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th style={{ textAlign: 'right' }}>Total</th>
+                    <th></th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {invoices.sort((a, b) => b.issueDate.localeCompare(a.issueDate)).map(inv => (
+                  {invoicesFiltradas.sort((a, b) => b.issueDate.localeCompare(a.issueDate)).map(inv => (
                     <tr key={inv.id}>
-                      <td className="mono primary"><Link href={`/facturas/${inv.id}`} className="cell-link">{inv.number}</Link></td>
+                      <td className="mono primary">
+                        <Link href={`/facturas/${inv.id}`} className="cell-link">{inv.number}</Link>
+                      </td>
                       <td>{formatDate(inv.issueDate)}</td>
-                      <td><span className={`badge badge-${inv.status}`}><span className="badge-dot" />{getStatusInfo(inv.status).label}</span></td>
+                      <td>
+                        <span className={`badge badge-${inv.status}`}>
+                          <span className="badge-dot" />{getStatusInfo(inv.status).label}
+                        </span>
+                      </td>
                       <td className="amount">{formatCurrency(inv.total)}</td>
-                      <td><Link href={`/facturas/${inv.id}`} className="btn btn-ghost btn-icon btn-sm" aria-label={`Ver la factura ${inv.number}`}><Eye size={14} /></Link></td>
+                      <td>
+                        <Link href={`/facturas/${inv.id}`} className="btn btn-ghost btn-icon btn-sm" aria-label={`Ver la factura ${inv.number}`}>
+                          <Eye size={14} />
+                        </Link>
+                      </td>
                     </tr>
                   ))}
-                  {invoices.length === 0 && (
+                  {invoicesFiltradas.length === 0 && (
                     <TableEmpty
                       colSpan={5}
                       icon={FileText}
-                      title="Aún no le has facturado nada"
-                      hint="Sus datos fiscales y su forma de pago ya están guardados: al crear la factura se rellenan solos."
+                      title="No hay documentos en este rango de fechas"
+                      hint="Modifica los filtros de fecha o crea un nuevo documento."
                       action={
                         <Link href="/facturas/nueva" className="btn btn-primary btn-sm">
-                          <Plus size={14} /> Crear su primera factura
+                          <Plus size={14} /> Crear documento
                         </Link>
                       }
                     />
@@ -138,6 +219,17 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="detail-sidebar">
+          {/* Vendedor Asignado */}
+          {vendedor && (
+            <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+              <h4 className="card-title" style={{ marginBottom: 'var(--space-2)' }}>Vendedor Asignado</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <UserCheck size={16} color="var(--color-primary)" />
+                <span style={{ fontWeight: 600 }}>{vendedor.nombre}</span>
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <h4 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Contacto</h4>
             <div className="def-list">
@@ -163,7 +255,7 @@ export default function ClientDetailPage() {
           )}
 
           <div className="card">
-            <h4 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Condiciones de cobro</h4>
+            <h4 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Condiciones comerciales</h4>
             <div className="def-list">
               <div className="def-row">
                 <span className="def-label">Vencimiento</span>

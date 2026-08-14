@@ -16,11 +16,17 @@ import { getClientById, getCompanySettings } from '@/lib/storage';
 import type { Albaran, Invoice } from '@/lib/types';
 
 type Props =
-  | { tipo: 'factura'; documento: Invoice; className?: string; etiqueta?: string }
-  | { tipo: 'albaran'; documento: Albaran; className?: string; etiqueta?: string };
+  | { tipo: 'factura'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
+  | { tipo: 'albaran'; documento: Albaran; className?: string; etiqueta?: string; settings?: any }
+  | { tipo: 'presupuesto'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
+  | { tipo: 'pedido'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
+  | { tipo: 'rectificativa'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
+  | { documento: { tipo: 'factura' | 'albaran' | 'presupuesto' | 'pedido' | 'rectificativa'; documento: Invoice | Albaran }; className?: string; etiqueta?: string; settings?: any };
 
 export default function BotonDescargarPdf(props: Props) {
-  const { tipo, documento, className, etiqueta } = props;
+  const tipo = 'tipo' in props ? props.tipo : props.documento.tipo;
+  const documento = 'tipo' in props ? props.documento : props.documento.documento;
+  const { className, etiqueta } = props;
   const { error: avisarError, warning } = useToast();
   const [generando, setGenerando] = useState(false);
 
@@ -34,11 +40,14 @@ export default function BotonDescargarPdf(props: Props) {
           import('@/lib/plantillas/generar'),
         ]);
 
-      const plantilla = await getPlantillaActiva(tipo);
+      let plantilla = await getPlantillaActiva(tipo as any);
+      if (!plantilla) {
+        plantilla = await getPlantillaActiva('factura');
+      }
       if (!plantilla) {
         warning(
           'Todavía no has subido tu diseño',
-          'Sube una factura tuya en PDF desde Plantillas y a partir de ahí se descargará con tu aspecto.',
+          'Sube una plantilla en PDF desde Plantillas y a partir de ahí se descargará con tu aspecto.',
         );
         return;
       }
@@ -48,12 +57,14 @@ export default function BotonDescargarPdf(props: Props) {
         documento.clientId ? getClientById(documento.clientId) : Promise.resolve(undefined),
       ]);
 
-      const datos = tipo === 'factura'
-        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente, datosExtras: documento.datosExtras })
-        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente, datosExtras: documento.datosExtras });
+      const datos = construirDatos(
+        { tipo: tipo as any, documento: documento as any },
+        ajustes,
+        { cliente, datosExtras: documento.datosExtras },
+      );
 
       const blob = await generarPdfBlob(plantilla.plantilla, datos, {
-        titulo: `${tipo === 'factura' ? 'Factura' : 'Albarán'} ${documento.number}`,
+        titulo: `${tipo.toUpperCase()} ${documento.number}`,
         autor: ajustes.businessName || '',
       });
 
@@ -83,7 +94,9 @@ export default function BotonDescargarPdf(props: Props) {
 
 /** Botón para ver el PDF en vivo con la plantilla activa en un modal */
 export function BotonVistaPreviaPdf(props: Props) {
-  const { tipo, documento, className, etiqueta } = props;
+  const tipo = 'tipo' in props ? props.tipo : props.documento.tipo;
+  const documento = 'tipo' in props ? props.documento : props.documento.documento;
+  const { className, etiqueta } = props;
   const { error: avisarError, warning } = useToast();
   const [generando, setGenerando] = useState(false);
   const [urlPdf, setUrlPdf] = useState<string | null>(null);
@@ -98,11 +111,14 @@ export function BotonVistaPreviaPdf(props: Props) {
           import('@/lib/plantillas/generar'),
         ]);
 
-      const plantilla = await getPlantillaActiva(tipo);
+      let plantilla = await getPlantillaActiva(tipo as any);
+      if (!plantilla) {
+        plantilla = await getPlantillaActiva('factura');
+      }
       if (!plantilla) {
         warning(
           'Todavía no has subido tu diseño',
-          'Sube una factura tuya en PDF desde Plantillas para previsualizar con tu aspecto.',
+          'Sube una plantilla en PDF desde Plantillas para previsualizar con tu aspecto.',
         );
         return;
       }
@@ -112,12 +128,14 @@ export function BotonVistaPreviaPdf(props: Props) {
         documento.clientId ? getClientById(documento.clientId) : Promise.resolve(undefined),
       ]);
 
-      const datos = tipo === 'factura'
-        ? construirDatos({ tipo: 'factura', documento: documento as Invoice }, ajustes, { cliente, datosExtras: documento.datosExtras })
-        : construirDatos({ tipo: 'albaran', documento: documento as Albaran }, ajustes, { cliente, datosExtras: documento.datosExtras });
+      const datos = construirDatos(
+        { tipo: tipo as any, documento: documento as any },
+        ajustes,
+        { cliente, datosExtras: documento.datosExtras },
+      );
 
       const blob = await generarPdfBlob(plantilla.plantilla, datos, {
-        titulo: `${tipo === 'factura' ? 'Factura' : 'Albarán'} ${documento.number}`,
+        titulo: `${tipo.toUpperCase()} ${documento.number}`,
         autor: ajustes.businessName || '',
       });
 
@@ -155,7 +173,7 @@ export function BotonVistaPreviaPdf(props: Props) {
           <div className="modal modal-lg plantilla-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', height: '90vh' }}>
             <div className="modal-header">
               <div>
-                <h3 className="modal-title">{tipo === 'factura' ? 'Factura' : 'Albarán'} {documento.number}</h3>
+                <h3 className="modal-title">{tipo.toUpperCase()} {documento.number}</h3>
                 <p className="card-subtitle">Previsualización en tiempo real con tu plantilla activa</p>
               </div>
               <button className="modal-close" onClick={cerrar} aria-label="Cerrar"><X size={18} /></button>

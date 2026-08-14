@@ -236,6 +236,20 @@ export interface Client {
   createdAt: string;
   updatedAt: string;
   isWalkIn?: boolean;
+  /** true = la ficha es un proveedor (compras). */
+  esProveedor?: boolean;
+  /** Vendedor asignado al cliente */
+  vendedorId?: string;
+}
+
+export interface Vendedor {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  /** Serie propia por tipo de documento; si falta, usa la de la empresa. */
+  series: Partial<Record<string, string>>; // clave `${tipo}_${sentido}` -> serie
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Product {

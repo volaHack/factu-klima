@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
-  ClipboardList, RotateCcw, LayoutTemplate,
+  ClipboardList, RotateCcw, LayoutTemplate, Files,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -52,7 +52,8 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
 const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/facturas', label: 'Facturas', icon: FileText },
-  { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/documentos', label: 'Documentos', icon: Files },
+  { href: '/clientes', label: 'Clientes y Prov.', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/albaranes', label: 'Albaranes', icon: ClipboardList },
   { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw },

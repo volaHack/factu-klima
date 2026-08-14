@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2 } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { getCompanySettings, saveCompanySettings, resetAllData } from '@/lib/storage';
-import { CompanySettings, BusinessSector, AccentTheme } from '@/lib/types';
+import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor } from '@/lib/storage';
+import { CompanySettings, BusinessSector, AccentTheme, Vendedor } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
@@ -81,6 +81,9 @@ export default function AjustesPage() {
   } | null>(null);
   const [stripeForm, setStripeForm] = useState({ secretKey: '', webhookSecret: '', publishableKey: '' });
   const [savingStripe, setSavingStripe] = useState(false);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState('');
+  const [nuevoVendedorSerie, setNuevoVendedorSerie] = useState('');
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const { success, warning, error: toastError } = useToast();
@@ -90,10 +93,23 @@ export default function AjustesPage() {
   const [ivaRatesDraft, setIvaRatesDraft] = useState<(number | null)[]>(DEFAULT_IVA_RATES.map(r => r));
   const [igicRatesDraft, setIgicRatesDraft] = useState<(number | null)[]>(DEFAULT_IGIC_RATES.map(r => r));
 
+  const recargarVendedores = async () => {
+    try {
+      const list = await getVendedores();
+      setVendedores(list);
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     (async () => {
-      const data = await getCompanySettings();
+      const [data, vendList] = await Promise.all([
+        getCompanySettings(),
+        getVendedores(),
+      ]);
       setSettings(data);
+      setVendedores(vendList);
       // Borradores iniciales de los porcentajes de impuesto
       setIvaRatesDraft((data.ivaRates?.length ? data.ivaRates : DEFAULT_IVA_RATES).map(r => r));
       setIgicRatesDraft((data.igicRates?.length ? data.igicRates : DEFAULT_IGIC_RATES).map(r => r));
@@ -667,6 +683,113 @@ export default function AjustesPage() {
             {savingStripe ? <Loader2 size={16} className="spin" /> : <Save size={16} />} {savingStripe ? 'Guardando...' : 'Guardar claves Stripe'}
           </button>
         </div>
+      </div>
+
+      {/* Vendedores y Series Comerciales */}
+      <div className="settings-section">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <UserCheck size={18} />
+          <h2 className="settings-section-title">Vendedores y Series Comerciales</h2>
+        </div>
+        <p className="settings-section-subtitle">Define vendedores comerciales con series de facturación propias</p>
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', flexWrap: 'wrap' }}>
+          <input
+            className="form-input"
+            style={{ flex: '1 1 200px' }}
+            placeholder="Nombre del vendedor (ej: Juan Pérez)"
+            value={nuevoVendedorNombre}
+            onChange={e => setNuevoVendedorNombre(e.target.value)}
+          />
+          <input
+            className="form-input"
+            style={{ width: '140px' }}
+            placeholder="Serie (ej: V1)"
+            value={nuevoVendedorSerie}
+            onChange={e => setNuevoVendedorSerie(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={async () => {
+              if (!nuevoVendedorNombre.trim()) return;
+              try {
+                const nuevo: Vendedor = {
+                  id: crypto.randomUUID(),
+                  nombre: nuevoVendedorNombre.trim(),
+                  activo: true,
+                  series: nuevoVendedorSerie.trim() ? {
+                    factura_venta: nuevoVendedorSerie.trim().toUpperCase(),
+                    presupuesto_venta: `PRE_${nuevoVendedorSerie.trim().toUpperCase()}`,
+                    pedido_venta: `PED_${nuevoVendedorSerie.trim().toUpperCase()}`,
+                    albaran_venta: `ALB_${nuevoVendedorSerie.trim().toUpperCase()}`,
+                  } : {},
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                };
+                await saveVendedor(nuevo);
+                setNuevoVendedorNombre('');
+                setNuevoVendedorSerie('');
+                await recargarVendedores();
+                success('Vendedor creado', nuevo.nombre);
+              } catch (e) {
+                toastError('Error al crear vendedor', e instanceof Error ? e.message : 'Error desconocido');
+              }
+            }}
+          >
+            <Plus size={16} /> Añadir vendedor
+          </button>
+        </div>
+
+        {vendedores.length > 0 && (
+          <div className="table-responsive" style={{ marginTop: 'var(--space-4)' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Vendedor</th>
+                  <th>Serie Factura</th>
+                  <th>Serie Albarán</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vendedores.map(v => (
+                  <tr key={v.id}>
+                    <td style={{ fontWeight: 600 }}>{v.nombre}</td>
+                    <td><span className="badge badge-outline">{v.series?.factura_venta || 'Por defecto'}</span></td>
+                    <td><span className="badge badge-outline">{v.series?.albaran_venta || 'Por defecto'}</span></td>
+                    <td>
+                      <span className={`badge ${v.activo ? 'badge-activo' : 'badge-inactivo'}`}>
+                        {v.activo ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        style={{ color: 'var(--color-danger)' }}
+                        onClick={async () => {
+                          if (confirm(`¿Eliminar vendedor ${v.nombre}?`)) {
+                            try {
+                              await deleteVendedor(v.id);
+                              await recargarVendedores();
+                              success('Vendedor eliminado');
+                            } catch (e) {
+                              toastError('Error al eliminar', e instanceof Error ? e.message : 'Error');
+                            }
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Reset */}

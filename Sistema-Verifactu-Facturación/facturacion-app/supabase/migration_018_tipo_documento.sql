@@ -26,12 +26,43 @@ END $$;
 ALTER TABLE public.company_settings
   ADD COLUMN IF NOT EXISTS series_documentos jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+-- clients: proveedor y vendedor asignado
+ALTER TABLE public.clients
+  ADD COLUMN IF NOT EXISTS es_proveedor boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS vendedor_id uuid;
+
+-- vendedores: entidad de vendedores con series propias por tipo
+CREATE TABLE IF NOT EXISTS public.vendedores (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL,
+  nombre text NOT NULL,
+  activo boolean NOT NULL DEFAULT true,
+  series jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.vendedores ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'vendedores' AND policyname = 'vendedores_own'
+  ) THEN
+    CREATE POLICY vendedores_own ON public.vendedores USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
 COMMENT ON COLUMN public.invoices.tipo IS 'Tipo de documento único: presupuesto, pedido, albaran, factura o rectificativa';
 COMMENT ON COLUMN public.invoices.sentido IS 'Sentido comercial: venta o compra';
 COMMENT ON COLUMN public.invoices.documento_origen_id IS 'Documento del que procede (albarán→factura, pedido→albarán, ...)';
 COMMENT ON COLUMN public.invoices.documento_origen_number IS 'Número legible del documento de origen';
 COMMENT ON COLUMN public.invoices.vendedor_id IS 'Vendedor asociado (para series por vendedor)';
 COMMENT ON COLUMN public.company_settings.series_documentos IS 'Series y contadores por (tipo, sentido) en JSONB';
+COMMENT ON COLUMN public.clients.es_proveedor IS 'Indica si el registro actúa como proveedor para compras';
+COMMENT ON COLUMN public.clients.vendedor_id IS 'Vendedor asignado al cliente';
+COMMENT ON TABLE public.vendedores IS 'Vendedores del sistema con series propias de facturación';
+
 
 
 -- ============================================================

@@ -8,17 +8,19 @@ import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
 import { resolveAccent, SERIES } from '@/components/charts/theme';
-import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices } from '@/lib/storage';
-import { Client, Invoice, PaymentMethod } from '@/lib/types';
+import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores } from '@/lib/storage';
+import { Client, Invoice, PaymentMethod, Vendedor } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS, PROVINCES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [tipoContactoFilter, setTipoContactoFilter] = useState<'todos' | 'clientes' | 'proveedores'>('todos');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const { success, error: toastError } = useToast();
@@ -28,35 +30,49 @@ export default function ClientesPage() {
     businessName: '', tradeName: '', nif: '', email: '', phone: '',
     contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'España',
     paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA as PaymentMethod,
-    notes: '', active: true,
+    notes: '', active: true, esProveedor: false, vendedorId: '',
   });
 
   useEffect(() => {
     (async () => {
-      const [clientsData, allInvoices] = await Promise.all([getClients(), getInvoices()]);
+      const [clientsData, allInvoices, vendData] = await Promise.all([
+        getClients(),
+        getInvoices(),
+        getVendedores(),
+      ]);
       setClients(clientsData);
       setInvoices(allInvoices);
+      setVendedores(vendData);
       setMounted(true);
     })();
   }, []);
 
   const reload = async () => {
-    const [clientsData, allInvoices] = await Promise.all([getClients(), getInvoices()]);
+    const [clientsData, allInvoices, vendData] = await Promise.all([
+      getClients(),
+      getInvoices(),
+      getVendedores(),
+    ]);
     setClients(clientsData);
     setInvoices(allInvoices);
+    setVendedores(vendData);
   };
 
   const filtered = useMemo(() => {
-    if (!search) return clients;
+    let list = clients;
+    if (tipoContactoFilter === 'clientes') list = list.filter(c => !c.esProveedor);
+    if (tipoContactoFilter === 'proveedores') list = list.filter(c => c.esProveedor);
+
+    if (!search) return list;
     const q = search.toLowerCase();
-    return clients.filter(c =>
+    return list.filter(c =>
       c.businessName.toLowerCase().includes(q) ||
       c.tradeName.toLowerCase().includes(q) ||
       c.nif.toLowerCase().includes(q) ||
       c.city.toLowerCase().includes(q) ||
       c.email.toLowerCase().includes(q)
     );
-  }, [clients, search]);
+  }, [clients, search, tipoContactoFilter]);
 
   const getClientStats = (clientId: string) => {
     const clientInvs = invoices.filter(i => i.clientId === clientId && i.status !== 'anulada');
@@ -113,6 +129,8 @@ export default function ClientesPage() {
       contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'España',
       paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA,
       notes: '', active: true,
+      esProveedor: tipoContactoFilter === 'proveedores',
+      vendedorId: '',
     });
     setShowModal(true);
   };
@@ -126,6 +144,8 @@ export default function ClientesPage() {
       province: client.province, country: client.country,
       paymentDays: client.paymentDays, defaultPaymentMethod: client.defaultPaymentMethod,
       notes: client.notes, active: client.active,
+      esProveedor: client.esProveedor ?? false,
+      vendedorId: client.vendedorId || '',
     });
     setShowModal(true);
   };
@@ -133,7 +153,9 @@ export default function ClientesPage() {
   const handleSave = async () => {
     if (!form.businessName || !form.nif) return;
     const client: Client = {
-      id: editingClient?.id || generateId(), ...form,
+      id: editingClient?.id || generateId(),
+      ...form,
+      vendedorId: form.vendedorId || undefined,
       createdAt: editingClient?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -141,9 +163,10 @@ export default function ClientesPage() {
       await persistClient(client);
       await reload();
       setShowModal(false);
-      success(editingClient ? 'Cliente actualizado' : 'Cliente creado', form.tradeName || form.businessName);
+      const tipoTxt = client.esProveedor ? 'Proveedor' : 'Cliente';
+      success(editingClient ? `${tipoTxt} actualizado` : `${tipoTxt} creado`, form.tradeName || form.businessName);
     } catch (err) {
-      toastError('No se pudo guardar el cliente', err instanceof Error ? err.message : 'Error desconocido');
+      toastError('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 
@@ -245,15 +268,39 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="filters-bar">
-        <div className="search-bar" style={{ maxWidth: 400 }}>
+      {/* Search & Tabs */}
+      <div className="filters-bar" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="search-bar" style={{ maxWidth: 360, flex: '1 1 auto' }}>
           <div className="search-bar-icon"><Search size={16} /></div>
           <input
             type="text" placeholder="Nombre, NIF, ciudad o email"
             aria-label="Buscar clientes"
             value={search} onChange={e => setSearch(e.target.value)}
           />
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${tipoContactoFilter === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setTipoContactoFilter('todos')}
+          >
+            Todos ({clients.length})
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${tipoContactoFilter === 'clientes' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setTipoContactoFilter('clientes')}
+          >
+            Clientes ({clients.filter(c => !c.esProveedor).length})
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${tipoContactoFilter === 'proveedores' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setTipoContactoFilter('proveedores')}
+          >
+            Proveedores ({clients.filter(c => c.esProveedor).length})
+          </button>
         </div>
       </div>
 
@@ -264,6 +311,7 @@ export default function ClientesPage() {
             <tr>
               <th>NIF/CIF</th>
               <th>Nombre comercial</th>
+              <th>Tipo</th>
               <th>Ciudad</th>
               <th>Contacto</th>
               <th>Facturas</th>
@@ -283,6 +331,11 @@ export default function ClientesPage() {
                       {client.tradeName || client.businessName}
                     </Link>
                     {client.tradeName && <span className="cell-sub">{client.businessName}</span>}
+                  </td>
+                  <td>
+                    <span className={`badge ${client.esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
+                      {client.esProveedor ? 'Proveedor' : 'Cliente'}
+                    </span>
                   </td>
                   <td>{client.city}</td>
                   <td>
@@ -384,10 +437,37 @@ export default function ClientesPage() {
                   </select>
                 </div>
               </div>
+
+              <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Vendedor asignado</label>
+                  <select
+                    className="form-select"
+                    value={form.vendedorId}
+                    onChange={e => updateForm('vendedorId', e.target.value)}
+                  >
+                    <option value="">-- Sin vendedor asignado --</option>
+                    {vendedores.map(v => (
+                      <option key={v.id} value={v.id}>{v.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: 1, display: 'flex', alignItems: 'center', marginTop: 'var(--space-4)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.esProveedor}
+                      onChange={e => updateForm('esProveedor', e.target.checked)}
+                    />
+                    <span style={{ fontWeight: 600 }}>Es un Proveedor (para Compras)</span>
+                  </label>
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSave}>Guardar cliente</button>
+              <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
             </div>
           </div>
         </div>

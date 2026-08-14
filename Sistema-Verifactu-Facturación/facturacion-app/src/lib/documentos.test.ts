@@ -42,7 +42,7 @@ describe('numeroDeDocumento', () => {
       factura_venta: { serie: 'FAC', nextNumber: 27 },
       presupuesto_venta: { serie: 'PRE', nextNumber: 3 },
     },
-  } as CompanySettings;
+  } as unknown as CompanySettings;
 
   it('genera SERIE-AÑO-NNNN a partir de la serie por tipo', () => {
     const res = numeroDeDocumento(settings, 'factura', 'venta');
@@ -56,3 +56,68 @@ describe('numeroDeDocumento', () => {
     expect(res.number).toMatch(/^PRE-\d{4}-\d{4}$/);
   });
 });
+
+describe('documentoConvertido', () => {
+  const settings = {
+    seriesDocumentos: {
+      pedido_venta: { serie: 'PED', nextNumber: 5 },
+      albaran_venta: { serie: 'ALB', nextNumber: 12 },
+    },
+  } as unknown as CompanySettings;
+
+  it('convierte un presupuesto a pedido manteniendo origen', async () => {
+    const { documentoConvertido } = await import('./documentos');
+    const original = {
+      id: 'pre-123',
+      number: 'PRE-2026-0001',
+      tipo: 'presupuesto',
+      sentido: 'venta',
+      lineItems: [],
+    } as any;
+    const convertido = documentoConvertido(original, 'pedido', settings);
+    expect(convertido.id).not.toBe(original.id);
+    expect(convertido.tipo).toBe('pedido');
+    expect(convertido.documentoOrigenId).toBe('pre-123');
+    expect(convertido.documentoOrigenNumber).toBe('PRE-2026-0001');
+    expect(convertido.status).toBe(InvoiceStatus.BORRADOR);
+    expect(convertido.number).toMatch(/^PED-\d{4}-\d{4}$/);
+  });
+});
+
+describe('rectificar', () => {
+  const settings = {
+    seriesDocumentos: {
+      rectificativa_venta: { serie: 'FCR', nextNumber: 1 },
+    },
+  } as unknown as CompanySettings;
+
+  it('crea factura rectificativa con líneas negativas y encadenamiento', async () => {
+    const { rectificar } = await import('./documentos');
+    const factura = {
+      id: 'fac-999',
+      number: 'FAC-2026-0099',
+      tipo: 'factura',
+      sentido: 'venta',
+      lineItems: [
+        { id: 'li-1', quantity: 2, unitPrice: 50 },
+        { id: 'li-2', quantity: -1, unitPrice: 20 },
+      ],
+    } as any;
+    const rect = rectificar(factura, settings);
+    expect(rect.tipo).toBe('rectificativa');
+    expect(rect.documentoOrigenId).toBe('fac-999');
+    expect(rect.documentoOrigenNumber).toBe('FAC-2026-0099');
+    expect(rect.lineItems[0].quantity).toBe(-2);
+    expect(rect.lineItems[1].quantity).toBe(-1);
+    expect(rect.number).toMatch(/^FCR-\d{4}-\d{4}$/);
+  });
+});
+
+describe('saveDocumento', () => {
+  it('rechaza modificar un documento ya sellado', async () => {
+    const { saveDocumento } = await import('./storage');
+    await expect(saveDocumento({ status: InvoiceStatus.PAGADA, tipo: 'factura', sentido: 'venta', number: 'FAC-2026-0001' } as any))
+      .rejects.toThrow(/sellado/);
+  });
+});
+

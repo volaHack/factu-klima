@@ -9,7 +9,7 @@ import {
   getAll, getById, put, putMany, remove as removeFromDb,
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
 } from './offlineDb';
-import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento, SentidoDocumento, TipoDocumento, TpvMode, UserProfile } from './types';
+import { Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory, Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval, OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento, SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
@@ -272,6 +272,14 @@ async function nextFreeInvoiceNumber(
     throw new Error('No se pudo asignar un número libre a esta factura. Revisa la numeración.');
   }
   return { ...invoice, number: candidate };
+}
+
+/** Guarda cualquier documento no fiscal (presupuesto, pedido, albarán) o una factura/rectificativa borrador. */
+export async function saveDocumento(doc: Invoice): Promise<Invoice> {
+  if (esSellable(doc) && isSealed(doc)) {
+    throw new Error(`El documento ${doc.number} ya está sellado. No se puede modificar.`);
+  }
+  return saveInvoice(doc);
 }
 
 export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
@@ -642,6 +650,16 @@ export async function getClientById(id: string): Promise<Client | undefined> {
   return data ? mapClientFromDb(data) : undefined;
 }
 
+export async function getClientes(): Promise<Client[]> {
+  const all = await getClients();
+  return all.filter(c => !c.esProveedor);
+}
+
+export async function getProveedores(): Promise<Client[]> {
+  const all = await getClients();
+  return all.filter(c => c.esProveedor);
+}
+
 export async function saveClient(client: Client): Promise<void> {
   const userId = await requireUserId();
 
@@ -664,6 +682,8 @@ export async function saveClient(client: Client): Promise<void> {
     notes: client.notes,
     active: client.active,
     is_walk_in: client.isWalkIn ?? false,
+    es_proveedor: client.esProveedor ?? false,
+    vendedor_id: client.vendedorId || null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -703,6 +723,146 @@ export async function deleteClient(id: string): Promise<void> {
   } else {
     await enqueueSyncAction('delete', 'clients', { id });
   }
+}
+
+// ============================================================
+// VENDEDORES
+// ============================================================
+
+function mapVendedorFromDb(v: any): Vendedor {
+  return {
+    id: v.id,
+    nombre: v.nombre || '',
+    activo: v.activo ?? true,
+    series: v.series || {},
+    createdAt: v.created_at || new Date().toISOString(),
+    updatedAt: v.updated_at || new Date().toISOString(),
+  };
+}
+
+export async function getVendedores(): Promise<Vendedor[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('vendedores');
+    if (cached.length > 0) {
+      backgroundRefresh('vendedores', () =>
+        supabase().from('vendedores').select('*').order('nombre', { ascending: true })
+      );
+      return cached.map(mapVendedorFromDb);
+    }
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase()
+    .from('vendedores')
+    .select('*')
+    .order('nombre', { ascending: true });
+
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('vendedores');
+    await putMany('vendedores', data);
+  }
+
+  return data.map(mapVendedorFromDb);
+}
+
+export async function getVendedorById(id: string): Promise<Vendedor | undefined> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getById<any>('vendedores', id);
+    if (cached) return mapVendedorFromDb(cached);
+  }
+
+  if (!navigator.onLine) return undefined;
+
+  const { data } = await supabase()
+    .from('vendedores')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  return data ? mapVendedorFromDb(data) : undefined;
+}
+
+export async function saveVendedor(vendedor: Vendedor): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: vendedor.id,
+    user_id: userId,
+    nombre: vendedor.nombre,
+    activo: vendedor.activo,
+    series: vendedor.series || {},
+    updated_at: new Date().toISOString(),
+  };
+
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await put('vendedores', row);
+  }
+
+  if (navigator.onLine) {
+    let result: { error: unknown } | null = null;
+    try {
+      result = await supabase().from('vendedores').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'vendedores', row);
+    }
+    if (result?.error) throw new Error(translateDbError(result.error));
+  } else {
+    await enqueueSyncAction('upsert', 'vendedores', row);
+  }
+}
+
+export async function deleteVendedor(id: string): Promise<void> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    await removeFromDb('vendedores', id);
+  }
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('vendedores').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'vendedores', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'vendedores', { id });
+  }
+}
+
+// ============================================================
+// ALBARANES (EXPEDICIÓN VENTA Y COMPRA)
+// ============================================================
+
+export async function expedirAlbaranCompra(id: string): Promise<Invoice> {
+  const doc = await getInvoiceById(id);
+  if (!doc) throw new Error('Documento no encontrado.');
+  if (doc.sentido !== 'compra' || doc.tipo !== 'albaran') throw new Error('No es un albarán de compra.');
+  if (doc.status === InvoiceStatus.EXPEDIDO || isSealed(doc)) throw new Error(`El albarán ${doc.number} ya está expedido.`);
+  const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
+  for (const li of doc.lineItems) {
+    if (!li.productId || li.quantity <= 0) continue;
+    await adjustStock(li.productId, Math.abs(li.quantity)); // SUMA stock en compra
+  }
+  return updated;
+}
+
+export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
+  const doc = await getInvoiceById(id);
+  if (!doc) throw new Error('Documento no encontrado.');
+  if (doc.tipo !== 'albaran') throw new Error('No es un albarán.');
+  if (doc.status === InvoiceStatus.EXPEDIDO || isSealed(doc)) throw new Error(`El albarán ${doc.number} ya está expedido.`);
+  const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
+  for (const li of doc.lineItems) {
+    if (!li.productId || li.quantity <= 0) continue;
+    await adjustStock(li.productId, -Math.abs(li.quantity)); // DESCUENTA stock en venta
+  }
+  return updated;
 }
 
 // ============================================================
@@ -2266,6 +2426,8 @@ function mapClientFromDb(c: any): Client {
     createdAt: c.created_at,
     updatedAt: c.updated_at,
     isWalkIn: c.is_walk_in ?? false,
+    esProveedor: c.es_proveedor ?? false,
+    vendedorId: c.vendedor_id || undefined,
   };
 }
 

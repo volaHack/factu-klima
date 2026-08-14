@@ -16,10 +16,13 @@ import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constant
 import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
 import { CAMPOS } from './contrato';
 
-/** Documento imprimible: hoy factura o albarán, los dos con la misma forma. */
+/** Documento imprimible: factura, albarán, presupuesto, pedido o rectificativa. */
 export type DocumentoImprimible =
   | { tipo: 'factura'; documento: Invoice }
-  | { tipo: 'albaran'; documento: Albaran };
+  | { tipo: 'albaran'; documento: Albaran }
+  | { tipo: 'presupuesto'; documento: Invoice }
+  | { tipo: 'pedido'; documento: Invoice }
+  | { tipo: 'rectificativa'; documento: Invoice };
 
 export interface DatosDocumento {
   /** Un valor por cada clave del contrato. Las claves sin dato van en blanco. */
@@ -153,10 +156,10 @@ function poblacion(cp?: string, ciudad?: string, provincia?: string): string {
 }
 
 function etiquetaEstado(entrada: DocumentoImprimible): string {
-  if (entrada.tipo === 'factura') {
-    return INVOICE_STATUSES.find(e => e.value === entrada.documento.status)?.label ?? '';
+  if (entrada.tipo === 'albaran') {
+    return ALBARAN_STATUSES.find(e => e.value === entrada.documento.status)?.label ?? '';
   }
-  return ALBARAN_STATUSES.find(e => e.value === entrada.documento.status)?.label ?? '';
+  return INVOICE_STATUSES.find(e => e.value === entrada.documento.status)?.label ?? '';
 }
 
 /** IVA o IGIC, según el régimen fiscal configurado en Ajustes. */
@@ -174,8 +177,8 @@ export function construirDatos(
   opciones: OpcionesDatos = {},
 ): DatosDocumento {
   const doc = entrada.documento;
-  const esFactura = entrada.tipo === 'factura';
-  const factura = esFactura ? (doc as Invoice) : null;
+  const esFactura = entrada.tipo === 'factura' || entrada.tipo === 'rectificativa';
+  const factura = ('dueDate' in doc) ? (doc as Invoice) : null;
   const impuesto = nombreImpuesto(ajustes);
   const cliente = opciones.cliente;
   // Los datos manuales viajan en el propio documento; opciones es la red de
@@ -214,7 +217,14 @@ export function construirDatos(
     .join('\n');
 
   // --- Campos sueltos ---
-  const tipoDocumento = esFactura ? 'FACTURA' : 'ALBARÁN';
+  const etiquetasTipoMap: Record<string, string> = {
+    factura: 'FACTURA',
+    albaran: 'ALBARÁN',
+    presupuesto: 'PRESUPUESTO',
+    pedido: 'PEDIDO',
+    rectificativa: 'FACTURA RECTIFICATIVA',
+  };
+  const tipoDocumento = etiquetasTipoMap[entrada.tipo] || 'DOCUMENTO';
   // El cliente ocasional no tiene ficha: su nombre, NIF y dirección quedan en
   // la propia factura y el resto (CP, ciudad, provincia, email, teléfono) en
   // `datosExtras.__cliente`. Cuando la factura tiene ficha, la ficha manda y
@@ -263,16 +273,16 @@ export function construirDatos(
     doc_numero: doc.number || '',
     doc_serie: doc.series || '',
     doc_fecha: formatDate(doc.issueDate),
-    doc_vencimiento: factura ? formatDate(factura.dueDate) : '',
+    doc_vencimiento: factura && entrada.tipo !== 'presupuesto' && entrada.tipo !== 'albaran' ? formatDate(factura.dueDate) : '',
     doc_fecha_pago: factura?.paidDate ? formatDate(factura.paidDate) : '',
     doc_estado: etiquetaEstado(entrada),
-    doc_forma_pago: factura
+    doc_forma_pago: factura && factura.paymentMethod && entrada.tipo !== 'presupuesto'
       ? (PAYMENT_METHODS.find(p => p.value === factura.paymentMethod)?.label ?? '')
       : '',
     doc_notas: doc.notes || '',
-    doc_aviso_legal: esFactura
-      ? ''
-      : 'Este albarán acredita la entrega de la mercancía y no tiene valor fiscal como factura.',
+    doc_aviso_legal: entrada.tipo === 'albaran'
+      ? 'Este albarán acredita la entrega de la mercancía y no tiene valor fiscal como factura.'
+      : (entrada.tipo === 'presupuesto' ? 'Este presupuesto tiene una validez de 30 días.' : ''),
     // La cabecera y el pie que se repiten en todas las páginas resuelven este
     // campo con los contadores reales de pdfme; aquí sólo queda el valor de
     // reserva para una previsualización de una sola página.
