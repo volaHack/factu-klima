@@ -10,32 +10,47 @@ ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS documento_origen_number text,
   ADD COLUMN IF NOT EXISTS vendedor_id uuid;
 
-ALTER TABLE public.invoices
-  ADD CONSTRAINT chk_invoices_tipo CHECK (tipo IN ('presupuesto','pedido','albaran','factura','rectificativa')),
-  ADD CONSTRAINT chk_invoices_sentido CHECK (sentido IN ('venta','compra'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_invoices_tipo' AND conrelid = 'public.invoices'::regclass) THEN
+    ALTER TABLE public.invoices
+      ADD CONSTRAINT chk_invoices_tipo CHECK (tipo IN ('presupuesto','pedido','albaran','factura','rectificativa'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_invoices_sentido' AND conrelid = 'public.invoices'::regclass) THEN
+    ALTER TABLE public.invoices
+      ADD CONSTRAINT chk_invoices_sentido CHECK (sentido IN ('venta','compra'));
+  END IF;
+END $$;
 
 -- company_settings: series y contadores por (tipo, sentido) en JSONB
 ALTER TABLE public.company_settings
   ADD COLUMN IF NOT EXISTS series_documentos jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+COMMENT ON COLUMN public.invoices.tipo IS 'Tipo de documento único: presupuesto, pedido, albaran, factura o rectificativa';
+COMMENT ON COLUMN public.invoices.sentido IS 'Sentido comercial: venta o compra';
+COMMENT ON COLUMN public.invoices.documento_origen_id IS 'Documento del que procede (albarán→factura, pedido→albarán, ...)';
+COMMENT ON COLUMN public.invoices.documento_origen_number IS 'Número legible del documento de origen';
+COMMENT ON COLUMN public.invoices.vendedor_id IS 'Vendedor asociado (para series por vendedor)';
+COMMENT ON COLUMN public.company_settings.series_documentos IS 'Series y contadores por (tipo, sentido) en JSONB';
+
 
 -- ============================================================
--- Guarda común: los documentos previos a factura y toda la compra
--- NO se sellan. Se inserta al inicio de las funciones de sellado,
--- inmutabilidad, antiborrado y renumeración offline.
+-- Helper común: qué documentos son sellables.
+-- Punto único de verdad usado por los triggers de sellado,
+-- renumeración offline e inmutabilidad. Se califica como public.*
+-- desde las funciones SECURITY DEFINER (search_path = '').
 -- ============================================================
---   -- Los documentos previos a factura y toda la compra NO se sellan.
---   IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
---      OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
---     NEW.record_hash := NULL;
---     NEW.prev_hash   := NULL;
---     NEW.chain_index := NULL;
---     NEW.sealed_at   := NULL;
---     NEW.verifactu_hash             := NULL;
---     NEW.verifactu_timestamp        := NULL;
---     NEW.verifactu_signature_status := 'PENDING';
---     RETURN NEW;
---   END IF;
+
+CREATE OR REPLACE FUNCTION public.es_documento_sellable(tipo text, sentido text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ''
+AS $$
+  SELECT COALESCE(tipo, 'factura') IN ('factura', 'rectificativa')
+     AND COALESCE(sentido, 'venta') = 'venta';
+$$;
 
 
 -- ============================================================
@@ -61,8 +76,19 @@ DECLARE
   v_now        TIMESTAMPTZ := NOW();
 BEGIN
   -- Los documentos previos a factura y toda la compra NO se sellan.
-  IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
-     OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
+  -- En UPDATE se clasifica por OLD (estado real de la fila): una factura
+  -- ya sellada no puede entrar en esta rama ni siquiera cambiando
+  -- tipo/sentido en el mismo UPDATE (la re-clasificación de una sellada
+  -- es exactamente el vector que fn_invoice_immutable bloquea).
+  -- Nota (asimetría de conversión en un solo UPDATE): si un UPDATE convierte
+  -- un presupuesto en factura y la emite a la vez, OLD es presupuesto y esta
+  -- rama lo deja sin sellar. La app convierte siempre creando un borrador y
+  -- emitiendo después, así que no es alcanzable desde la aplicación.
+  IF (TG_OP = 'INSERT'
+        AND NOT public.es_documento_sellable(NEW.tipo, NEW.sentido))
+     OR (TG_OP = 'UPDATE'
+        AND OLD.sealed_at IS NULL
+        AND NOT public.es_documento_sellable(OLD.tipo, OLD.sentido)) THEN
     NEW.record_hash := NULL;
     NEW.prev_hash   := NULL;
     NEW.chain_index := NULL;
@@ -203,7 +229,10 @@ $$;
 -- ============================================================
 -- 2. TRIGGER DE INMUTABILIDAD (base: migration_002)
 --    Una factura emitida no se toca. Punto. El resto de documentos
---    (presupuestos, pedidos, albaranes, compras) quedan editables.
+--    (presupuestos, pedidos, albaranes, compras) quedan editables porque
+--    nunca se sellan (OLD.sealed_at siempre NULL para ellos).
+--    La clasificación se basa en OLD: una factura sellada es intocable
+--    incluso si el UPDATE intenta re-clasificarla como presupuesto.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.fn_invoice_immutable()
@@ -215,34 +244,32 @@ AS $$
 DECLARE
   v_changed TEXT[] := ARRAY[]::TEXT[];
 BEGIN
-  -- Los documentos previos a factura y toda la compra NO se sellan.
-  IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
-     OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
-    NEW.record_hash := NULL;
-    NEW.prev_hash   := NULL;
-    NEW.chain_index := NULL;
-    NEW.sealed_at   := NULL;
-    NEW.verifactu_hash             := NULL;
-    NEW.verifactu_timestamp        := NULL;
-    NEW.verifactu_signature_status := 'PENDING';
-    RETURN NEW;
-  END IF;
-
   IF OLD.sealed_at IS NULL THEN
-    RETURN NEW;  -- borrador: edición libre
+    RETURN NEW;  -- borrador (y todo documento no sellable): edición libre
   END IF;
 
-  -- Campos con efectos fiscales: intocables tras el sellado.
-  IF NEW.number         IS DISTINCT FROM OLD.number         THEN v_changed := v_changed || 'number';         END IF;
-  IF NEW.series         IS DISTINCT FROM OLD.series         THEN v_changed := v_changed || 'series';         END IF;
-  IF NEW.issue_date     IS DISTINCT FROM OLD.issue_date     THEN v_changed := v_changed || 'issue_date';     END IF;
-  IF NEW.subtotal       IS DISTINCT FROM OLD.subtotal       THEN v_changed := v_changed || 'subtotal';       END IF;
-  IF NEW.total_tax      IS DISTINCT FROM OLD.total_tax      THEN v_changed := v_changed || 'total_tax';      END IF;
-  IF NEW.total          IS DISTINCT FROM OLD.total          THEN v_changed := v_changed || 'total';          END IF;
-  IF NEW.total_discount IS DISTINCT FROM OLD.total_discount THEN v_changed := v_changed || 'total_discount'; END IF;
-  IF NEW.client_nif     IS DISTINCT FROM OLD.client_nif     THEN v_changed := v_changed || 'client_nif';     END IF;
-  IF NEW.client_name    IS DISTINCT FROM OLD.client_name    THEN v_changed := v_changed || 'client_name';    END IF;
-  IF NEW.user_id        IS DISTINCT FROM OLD.user_id        THEN v_changed := v_changed || 'user_id';        END IF;
+  -- Campos con efectos fiscales o documentales: intocables tras el sellado.
+  -- tipo/sentido/origen/vendedor se protegen aquí: re-clasificar una factura
+  -- sellada como presupuesto (o traspasarla a otro vendedor/origen) sería la
+  -- puerta para reescribir su contenido y sacarla de la cadena de verificación.
+  -- sealed_at/record_hash/prev_hash/chain_index NO se listan a propósito:
+  -- fn_invoice_seal los restaura desde OLD en todo UPDATE (defensa en
+  -- profundidad). Si se refactoriza el seal, añadirlos aquí.
+  IF NEW.number                  IS DISTINCT FROM OLD.number                  THEN v_changed := array_append(v_changed, 'number');                  END IF;
+  IF NEW.series                  IS DISTINCT FROM OLD.series                  THEN v_changed := array_append(v_changed, 'series');                  END IF;
+  IF NEW.issue_date              IS DISTINCT FROM OLD.issue_date              THEN v_changed := array_append(v_changed, 'issue_date');              END IF;
+  IF NEW.subtotal                IS DISTINCT FROM OLD.subtotal                THEN v_changed := array_append(v_changed, 'subtotal');                END IF;
+  IF NEW.total_tax               IS DISTINCT FROM OLD.total_tax               THEN v_changed := array_append(v_changed, 'total_tax');               END IF;
+  IF NEW.total                   IS DISTINCT FROM OLD.total                   THEN v_changed := array_append(v_changed, 'total');                   END IF;
+  IF NEW.total_discount          IS DISTINCT FROM OLD.total_discount          THEN v_changed := array_append(v_changed, 'total_discount');          END IF;
+  IF NEW.client_nif              IS DISTINCT FROM OLD.client_nif              THEN v_changed := array_append(v_changed, 'client_nif');              END IF;
+  IF NEW.client_name             IS DISTINCT FROM OLD.client_name             THEN v_changed := array_append(v_changed, 'client_name');             END IF;
+  IF NEW.user_id                 IS DISTINCT FROM OLD.user_id                 THEN v_changed := array_append(v_changed, 'user_id');                 END IF;
+  IF NEW.tipo                    IS DISTINCT FROM OLD.tipo                    THEN v_changed := array_append(v_changed, 'tipo');                    END IF;
+  IF NEW.sentido                 IS DISTINCT FROM OLD.sentido                 THEN v_changed := array_append(v_changed, 'sentido');                 END IF;
+  IF NEW.documento_origen_id     IS DISTINCT FROM OLD.documento_origen_id     THEN v_changed := array_append(v_changed, 'documento_origen_id');     END IF;
+  IF NEW.documento_origen_number IS DISTINCT FROM OLD.documento_origen_number THEN v_changed := array_append(v_changed, 'documento_origen_number'); END IF;
+  IF NEW.vendedor_id             IS DISTINCT FROM OLD.vendedor_id             THEN v_changed := array_append(v_changed, 'vendedor_id');             END IF;
 
   IF array_length(v_changed, 1) > 0 THEN
     PERFORM public.log_invoice_event(
@@ -299,7 +326,8 @@ $$;
 -- ============================================================
 -- 3. TRIGGER ANTIBORRADO (base: migration_002)
 --    Una factura emitida no se borra jamás: se anula.
---    El resto de documentos se pueden borrar libremente.
+--    El resto de documentos (nunca sellados) se pueden borrar libremente.
+--    No hace falta guarda de tipo: el check de OLD.sealed_at es suficiente.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.fn_invoice_no_delete()
@@ -309,19 +337,6 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  -- Los documentos previos a factura y toda la compra NO se sellan.
-  IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
-     OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
-    NEW.record_hash := NULL;
-    NEW.prev_hash   := NULL;
-    NEW.chain_index := NULL;
-    NEW.sealed_at   := NULL;
-    NEW.verifactu_hash             := NULL;
-    NEW.verifactu_timestamp        := NULL;
-    NEW.verifactu_signature_status := 'PENDING';
-    RETURN NEW;
-  END IF;
-
   IF OLD.sealed_at IS NOT NULL THEN
     PERFORM public.log_invoice_event(
       OLD.user_id, OLD.id, OLD.number, 'DELETE_BLOCKED', 'critical',
@@ -346,6 +361,7 @@ $$;
 -- ============================================================
 -- 4. NUMERACIÓN TEMPORAL OFFLINE (base: migration_011)
 --    Solo renumera tickets offline de factura/rectificativa de venta.
+--    Se clasifica por OLD (estado real de la fila).
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.fn_invoice_offline_renumber()
@@ -362,16 +378,10 @@ DECLARE
   v_candidate TEXT;
   v_num       TEXT;
 BEGIN
-  -- Los documentos previos a factura y toda la compra NO se sellan.
-  IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
-     OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
-    NEW.record_hash := NULL;
-    NEW.prev_hash   := NULL;
-    NEW.chain_index := NULL;
-    NEW.sealed_at   := NULL;
-    NEW.verifactu_hash             := NULL;
-    NEW.verifactu_timestamp        := NULL;
-    NEW.verifactu_signature_status := 'PENDING';
+  -- Solo se renumera factura/rectificativa de venta.
+  IF NOT public.es_documento_sellable(
+       COALESCE(OLD.tipo, NEW.tipo, 'factura'),
+       COALESCE(OLD.sentido, NEW.sentido, 'venta')) THEN
     RETURN NEW;
   END IF;
 

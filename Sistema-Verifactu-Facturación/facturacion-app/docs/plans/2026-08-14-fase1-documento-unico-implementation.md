@@ -150,17 +150,32 @@ ALTER TABLE public.company_settings
   ADD COLUMN IF NOT EXISTS series_documentos jsonb NOT NULL DEFAULT '{}'::jsonb;
 ```
 
-**Step 2:** Añadir la guarda al inicio de `fn_invoice_seal` (después de `BEGIN`). El trigger ahora debe ignorar presupuesto/pedido/albarán y toda compra:
+> ⚠️ CORRECCIÓN DE DISEÑO (revisión de calidad, C1): la guarda NO debe clasificar por `NEW.tipo`/`NEW.sentido` en UPDATE/DELETE. Un cliente con la clave pública podría hacer `UPDATE invoices SET tipo='presupuesto', total=0 WHERE <sellada>` y la guarda con `NEW.tipo` le permitiría reescribir campos fiscales y "dessellar" la factura. Reglas correctas:
+> - **Clasificación por el estado real de la fila**: en UPDATE, por `OLD.tipo`/`OLD.sentido`; en INSERT, por `NEW`.
+> - **`fn_invoice_immutable`**: NO lleva guarda de tipo. El check original `OLD.sealed_at IS NULL → RETURN NEW` ya deja editables los documentos no sellables (nunca se sellan). En cambio `tipo`, `sentido`, `documento_origen_id`, `documento_origen_number` y `vendedor_id` pasan a la lista de campos **intocables** tras el sellado (re-clasificar una sellada como presupuesto queda bloqueado).
+> - **`fn_invoice_no_delete`**: NO lleva guarda de tipo. El check original `OLD.sealed_at IS NOT NULL → bloquea` es suficiente.
+> - **`fn_invoice_seal` / `fn_invoice_offline_renumber`**: la guarda "no sellable → nullify/return" se evalúa por `OLD` en UPDATE y solo cuando `OLD.sealed_at IS NULL` (en seal), para que una fila ya sellada jamás entre en la rama que borra la huella.
+> - **Helper único**: `public.es_documento_sellable(tipo, sentido) RETURNS boolean` — punto único de verdad para los 4 triggers.
+> - Fix bug heredado de migration_002: `v_changed := v_changed || 'campo'` lanza `malformed array literal` en PG16 (el literal unknown resuelve a `array_cat`). Usar `array_append(v_changed, 'campo')` para que el evento `TAMPER_BLOCKED` se escriba con el detalle correcto.
 
+**Step 2:** Definir el helper común (tras los ALTER):
 ```sql
-CREATE OR REPLACE FUNCTION public.fn_invoice_seal()
-RETURNS TRIGGER ... (copiar el cuerpo actual completo de migration_002 L187-315)
+CREATE OR REPLACE FUNCTION public.es_documento_sellable(tipo text, sentido text)
+RETURNS boolean LANGUAGE sql IMMUTABLE PARALLEL SAFE
+RETURN COALESCE(tipo, 'factura') IN ('factura', 'rectificativa')
+   AND COALESCE(sentido, 'venta') = 'venta';
 ```
-> Sustituir el cuerpo por el mismo pero con este bloque justo tras `BEGIN`:
+
+**Step 3:** `fn_invoice_seal`: guarda al inicio (tras `BEGIN`), clasificando por `NEW` en INSERT y por `OLD` en UPDATE (solo si aún no está sellada):
 ```sql
   -- Los documentos previos a factura y toda la compra NO se sellan.
-  IF COALESCE(NEW.tipo, 'factura') NOT IN ('factura', 'rectificativa')
-     OR COALESCE(NEW.sentido, 'venta') <> 'venta' THEN
+  -- En UPDATE se clasifica por OLD (estado real): una factura ya sellada
+  -- no puede entrar en esta rama ni siquiera cambiando tipo/sentido.
+  IF (TG_OP = 'INSERT'
+        AND NOT public.es_documento_sellable(NEW.tipo, NEW.sentido))
+     OR (TG_OP = 'UPDATE'
+        AND OLD.sealed_at IS NULL
+        AND NOT public.es_documento_sellable(OLD.tipo, OLD.sentido)) THEN
     NEW.record_hash := NULL;
     NEW.prev_hash   := NULL;
     NEW.chain_index := NULL;
@@ -173,19 +188,32 @@ RETURNS TRIGGER ... (copiar el cuerpo actual completo de migration_002 L187-315)
 ```
 > Copia el resto del cuerpo sin cambios (respetando `SET search_path = ''` y `SECURITY DEFINER`).
 
-**Step 3:** Mismo tratamiento en `fn_invoice_immutable` (L323) y `fn_invoice_no_delete` (L405): añadir al inicio (tras `BEGIN`) la misma guarda de tipo/sentido con `RETURN NEW;` (inmutabilidad y antiborrado solo para sellables). En `fn_invoice_immutable` la guarda debe ser idéntica a la de arriba.
+**Step 4:** `fn_invoice_immutable`: quitar la guarda de tipo; el check `OLD.sealed_at IS NULL → RETURN NEW` cubre borradores y no-sellables. Añadir a los campos intocables `tipo`, `sentido`, `documento_origen_id`, `documento_origen_number`, `vendedor_id` (además de number, series, issue_date, subtotal, total_tax, total, total_discount, client_nif, client_name, user_id). Cambiar los `||` por `array_append(v_changed, '...')`.
 
-**Step 4:** En `fn_invoice_offline_renumber` (migration_011) añadir la misma guarda (`RETURN NEW;` si no es factura/rectificativa de venta).
+**Step 5:** `fn_invoice_no_delete`: quitar la guarda de tipo (código muerto: en DELETE `NEW` es NULL). El check `OLD.sealed_at IS NOT NULL` es suficiente y correcto.
 
-**Step 5:** `fn_recalc_invoice_totals`, `fn_line_items_guard`, `fn_tax_breakdown_guard` NO se tocan: recalculan/validan líneas para todo tipo de documento.
+**Step 6:** `fn_invoice_offline_renumber` (migration_011): guarda al inicio clasificando por `OLD`:
+```sql
+  -- Solo se renumera factura/rectificativa de venta, clasificando por OLD.
+  IF NOT public.es_documento_sellable(
+       COALESCE(OLD.tipo, NEW.tipo, 'factura'),
+       COALESCE(OLD.sentido, NEW.sentido, 'venta')) THEN
+    RETURN NEW;
+  END IF;
+```
 
-**Step 6:** Aplicar en local si hay stack local o anotar para el entorno remoto. Comando de verificación cuando se aplique (local):
+**Step 7:** `fn_recalc_invoice_totals`, `fn_line_items_guard`, `fn_tax_breakdown_guard` NO se tocan: recalculan/validan líneas para todo tipo de documento.
+
+**Step 8:** Aplicar en local si hay stack local o anotar para el entorno remoto. Comando de verificación cuando se aplique (local):
 ```bash
 npx supabase db push 2>&1 | Select-String "migration_018"
 ```
 > Si no hay proyecto local: la migración se aplica con `apply_migration` de Supabase en el proyecto remoto, y se verifica con `list_tables` (columna `tipo` en `invoices`).
 
-**Step 7:** Commit
+**Step 9:** Verificación antifraude (smoke test): con la cadena 001→018 aplicada en Postgres 16, comprobar que `UPDATE invoices SET tipo='presupuesto', total=0 WHERE id=<factura sellada>` **falla** con `ANTIFRAUDE` (también combinando `SET tipo='presupuesto', status='borrador'` y `SET sentido='compra'`). Presupuesto/pedido/albarán/compra: editables, borrables, nunca sellados. Ticket offline de venta: se renumera y sella. Ticket offline de compra/presupuesto: NO se renumera ni sella.
+> ⚠️ Nota sobre el log: el evento `TAMPER_BLOCKED` del intento bloqueado NO persiste (se revierte con la transacción abortada — comportamiento preexistente de migration_002 en todos los triggers). La garantía operativa es el bloqueo, no el evento. Dejar como seguimiento (no bloqueante) el log autónomo en transacción separada.
+
+**Step 10:** Commit
 ```bash
 git add supabase/migration_018_tipo_documento.sql
 git commit -m "feat(doc): tipo y sentido en invoices; triggers antifraude solo para factura/rectificativa de venta"
