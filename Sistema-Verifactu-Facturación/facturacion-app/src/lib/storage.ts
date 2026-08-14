@@ -2027,6 +2027,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     custom_categories: settings.customCategories || [],
     iva_rates: settings.ivaRates || DEFAULT_IVA_RATES,
     igic_rates: settings.igicRates || DEFAULT_IGIC_RATES,
+    series_documentos: settings.seriesDocumentos || {},
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2057,7 +2058,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
         // Si alguna columna aún no existe en BD (migración sin aplicar),
         // reintenta sin custom_categories ni iva_rates/igic_rates para no
         // romper el resto del guardado.
-        if (/custom_categories|iva_rates|igic_rates/i.test(String(res.error.message))) {
+        if (/custom_categories|iva_rates|igic_rates|series_documentos/i.test(String(res.error.message))) {
           const retry = await write(row);
           if (retry?.error) await enqueueSyncAction('upsert', 'company_settings', row);
         } else {
@@ -2289,6 +2290,37 @@ export function mapProductFromDb(p: any): Product {
   };
 }
 
+/**
+ * Series de documento por (tipo, sentido) a partir del JSONB `series_documentos`.
+ * Superpone lo persistido sobre los defaults y, si el usuario aún no tiene
+ * entradas, siembra `factura_venta`/`albaran_venta` desde los contadores legacy
+ * (invoice_series/next_invoice_number y albaran_series/next_albaran_number).
+ * Así el nuevo motor no reinicia la numeración a 1 y no colisiona con
+ * documentos existentes.
+ */
+function buildSeriesDocumentosFromDb(
+  raw: unknown,
+  legacy: { invoice_series?: string; next_invoice_number?: number; albaran_series?: string; next_albaran_number?: number },
+): Record<string, SerieDocumento> {
+  const base: Record<string, SerieDocumento> = { ...DEFAULT_SERIES_DOCUMENTOS };
+  const rawObj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, { serie?: string; nextNumber?: number }>;
+  for (const [k, v] of Object.entries(rawObj)) {
+    if (v && typeof v === 'object') {
+      base[k] = {
+        serie: typeof v.serie === 'string' && v.serie ? v.serie : (base[k]?.serie ?? 'DOC'),
+        nextNumber: Number.isFinite(Number(v.nextNumber)) ? Number(v.nextNumber) : (base[k]?.nextNumber ?? 1),
+      };
+    }
+  }
+  if (!rawObj.factura_venta) {
+    base.factura_venta = { serie: legacy.invoice_series || 'FAC', nextNumber: Number(legacy.next_invoice_number || 1) };
+  }
+  if (!rawObj.albaran_venta) {
+    base.albaran_venta = { serie: legacy.albaran_series || 'ALB', nextNumber: Number(legacy.next_albaran_number || 1) };
+  }
+  return base;
+}
+
 export function mapSettingsFromDb(s: any): CompanySettings {
   return {
     businessName: s.business_name || '',
@@ -2305,6 +2337,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     province: s.province || '',
     invoiceSeries: s.invoice_series || 'FAC',
     nextInvoiceNumber: s.next_invoice_number || 1,
+    seriesDocumentos: buildSeriesDocumentosFromDb(s.series_documentos, s),
     tpvSeries: s.tpv_series || 'TPV',
     nextTpvNumber: s.next_tpv_number || 1,
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),

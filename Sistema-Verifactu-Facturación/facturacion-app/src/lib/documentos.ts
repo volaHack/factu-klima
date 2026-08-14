@@ -3,12 +3,12 @@ import {
   InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento,
 } from './types';
 import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax } from './utils';
+import { getDefaultTaxRate } from './constants';
 import { serieDeTipo } from './storage';
 
 export interface TotalesDocumento { subtotal: number; totalDiscount: number; totalTax: number; total: number; }
 
 export function lineaVacia(settings: CompanySettings): InvoiceLineItem {
-  const tasa = settings.igicEnabled ? (settings.igicRates?.[0] ?? 7) : (settings.ivaRates?.[0] ?? 21);
   return {
     id: crypto.randomUUID(),
     productId: '',
@@ -17,7 +17,7 @@ export function lineaVacia(settings: CompanySettings): InvoiceLineItem {
     quantity: 1,
     unitPrice: 0,
     unit: UnitOfMeasure.UNIDAD,
-    taxRate: tasa,
+    taxRate: getDefaultTaxRate(settings),
     discountPercent: 0,
     subtotal: 0,
     taxAmount: 0,
@@ -44,7 +44,7 @@ export function numeroDeDocumento(
 export const ESTADOS_POR_TIPO: Record<TipoDocumento, readonly InvoiceStatus[]> = {
   presupuesto: [InvoiceStatus.BORRADOR, InvoiceStatus.EMITIDA, InvoiceStatus.ANULADA],
   pedido: [InvoiceStatus.BORRADOR, InvoiceStatus.PRE_APROBACION, InvoiceStatus.APROBADO, InvoiceStatus.APROBADO_PARCIAL, InvoiceStatus.RECHAZADO, InvoiceStatus.EMITIDA, InvoiceStatus.ANULADA],
-  albaran: [InvoiceStatus.BORRADOR, InvoiceStatus.EMITIDA, InvoiceStatus.ANULADA],
+  albaran: [InvoiceStatus.BORRADOR, InvoiceStatus.EXPEDIDO, InvoiceStatus.FACTURADO, InvoiceStatus.ANULADA],
   factura: [InvoiceStatus.BORRADOR, InvoiceStatus.PRE_APROBACION, InvoiceStatus.APROBADO, InvoiceStatus.APROBADO_PARCIAL, InvoiceStatus.RECHAZADO, InvoiceStatus.EMITIDA, InvoiceStatus.PENDIENTE, InvoiceStatus.PAGADA, InvoiceStatus.VENCIDA, InvoiceStatus.ANULADA],
   rectificativa: [InvoiceStatus.BORRADOR, InvoiceStatus.EMITIDA, InvoiceStatus.ANULADA],
 };

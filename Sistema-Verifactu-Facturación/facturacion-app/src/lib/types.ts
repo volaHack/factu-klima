@@ -15,6 +15,8 @@ export enum InvoiceStatus {
   PAGADA = 'pagada',
   VENCIDA = 'vencida',
   ANULADA = 'anulada',
+  EXPEDIDO = 'expedido',
+  FACTURADO = 'facturado',
 }
 
 export type TipoDocumento = 'presupuesto' | 'pedido' | 'albaran' | 'factura' | 'rectificativa';
