@@ -281,7 +281,7 @@ export const DEFAULT_SERIES_DOCUMENTOS: Record<string, { serie: string; nextNumb
   rectificativa_venta: { serie: 'FCR', nextNumber: 1 },
   pedido_compra: { serie: 'PEDC', nextNumber: 1 },
   albaran_compra: { serie: 'ALBC', nextNumber: 1 },
-  factura_compra: { serie: 'FAC', nextNumber: 1 },
+  factura_compra: { serie: 'FACC', nextNumber: 1 },
   rectificativa_compra: { serie: 'FCRC', nextNumber: 1 },
 };
 
