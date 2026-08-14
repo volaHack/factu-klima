@@ -292,33 +292,29 @@ describe('generación del PDF', () => {
     expect(texto).toContain('Producto de prueba número 60');
   }, 60_000);
 
-  it('mantiene los totales pegados a la tabla: ni huecos ni saltos de página', async () => {
-    // La muestra trae 12 líneas. La altura de reserva de la tabla es la de la
-    // muestra, así que el bloque de totales queda siempre a la distancia de
-    // diseño del pie de la tabla: se imprima la factura con 3 líneas o con
-    // las 12 del PDF de muestra, no hay huecos de centímetros ni nada salta a
-    // la página siguiente.
+  it('no mueve los totales de su posición de diseño al cambiar el número de líneas', async () => {
+    // La muestra trae 12 líneas. Los totales se quedan donde están en el
+    // diseño: mientras la tabla no llegue a ellos, da igual si la factura
+    // trae 1 línea o 5, la Y del total no cambia (quedaría un hueco en
+    // blanco entre las líneas y él, no campos arrastrados hacia arriba).
     const { plantilla } = compilar(12);
-    const hueco = async (filas: number): Promise<{ hueco: number; paginas: number }> => {
+    const posicion = async (filas: number): Promise<{ y: number; paginas: number }> => {
       const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(filas) }, AJUSTES);
       const bytes = await generarPdf(plantilla, datos);
       const posiciones = await leerPosiciones(bytes);
-      const ultimaFila = Math.max(...posiciones.filter(p => p.texto.startsWith('Producto de prueba')).map(p => p.y));
       const dinero = posiciones.filter(p => /^[\d.,]+ €$/.test(p.texto.trim()));
       const total = dinero[dinero.length - 1];
-      return { hueco: total.y - ultimaFila, paginas: total.pagina };
+      return { y: total.y, paginas: total.pagina };
     };
 
-    const conPocas = await hueco(3);
-    const conMismas = await hueco(12);
+    const conPocas = await posicion(1);
+    const conAlgunas = await posicion(5);
 
-    // El hueco entre la última línea y el total es una constante de diseño,
-    // no un desajuste del repaginador: con la altura de reserva recortada al
-    // mínimo este hueco valdría ~95 mm y las 12 líneas saltarían de página.
-    expect(Math.abs(conPocas.hueco - conMismas.hueco)).toBeLessThan(1);
-    expect(conPocas.hueco).toBeGreaterThan(5);
-    expect(conPocas.hueco).toBeLessThan(45);
-    expect(conMismas.paginas).toBe(1);
+    // La Y absoluta del total es una constante de diseño: no depende de
+    // cuántas líneas traiga la factura mientras la tabla no lo alcance.
+    expect(Math.abs(conPocas.y - conAlgunas.y)).toBeLessThan(1);
+    expect(conPocas.paginas).toBe(1);
+    expect(conAlgunas.paginas).toBe(1);
   }, 60_000);
 
   it('deja en blanco los campos sin dato en vez de arrastrar el del ejemplo', async () => {

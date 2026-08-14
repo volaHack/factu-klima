@@ -216,41 +216,28 @@ function redondear(n: number): number {
 // TABLA
 // ============================================================
 
-function alturaMinimaCabecera(tabla: TablaDetectada): number {
-  const relleno = (tabla.estilo.relleno ?? {}) as Partial<{ top: number; bottom: number }>;
-  return (tabla.estilo.tamanoCabecera || 9) * 1.3 + (relleno.top ?? 0) + (relleno.bottom ?? 0);
-}
-
 /**
  * La altura de reserva de la tabla.
  *
  * La medida ideal es la real del PDF de muestra (`altoTotal`): así, una
- * factura con las mismas líneas queda idéntica al diseño, con menos líneas la
- * tabla encoge y lo que va debajo (los totales) sube con ella, y con más
- * líneas crece y empuja hacia abajo o a la siguiente página.
+ * factura con las mismas líneas queda idéntica al diseño. La reserva sólo
+ * sirve de referencia de lo que mide la tabla de la muestra; los campos que
+ * van debajo se quedan en su posición de diseño (el repaginador de pdfme
+ * está parcheado para que nunca arrastre un campo por encima de donde está
+ * asignado), de modo que con menos líneas la tabla encoge y queda un hueco en
+ * blanco hasta los totales, y con más líneas crece y empuja hacia abajo o a
+ * la siguiente página.
  *
- * Pero si esa altura quedara por encima del espacio útil de la página o de lo
- * que hay hasta el campo que viene justo debajo, una factura con pocas líneas
- * arrastraría ese campo a una coordenada negativa y el repaginador de pdfme
- * fallaría con «Cannot read properties of undefined (reading 'push')». Por
- * eso la altura se recorta a esos dos topes.
+ * Sólo se recorta si la tabla de muestra es más alta que el espacio útil de
+ * la página.
  */
 function alturaReservaTabla(
   tabla: TablaDetectada,
-  campos: CampoDetectado[],
   altoPagina: number,
   inicioPie: number,
-  alturaMinima: number,
 ): number {
   const topePagina = altoPagina - Math.max(MARGEN_PIE_MINIMO, altoPagina - inicioPie) - tabla.y;
-  const masCercanoDebajo = campos
-    .filter(c => c.y > tabla.y + 0.5)
-    .sort((a, b) => a.y - b.y)[0];
-  const topeCampos = masCercanoDebajo
-    ? masCercanoDebajo.y - tabla.y + alturaMinima
-    : Number.POSITIVE_INFINITY;
-  const tope = Math.min(topePagina, topeCampos);
-  return redondear(Math.max(Math.min(tabla.altoTotal, tope), 0.1));
+  return redondear(Math.max(Math.min(tabla.altoTotal, topePagina), 0.1));
 }
 
 function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif', alturaReserva: number): Schema {
@@ -286,10 +273,10 @@ function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif', altura
     position: { x: redondear(tabla.x), y: redondear(tabla.y) },
     width: redondear(tabla.ancho),
     // La altura es de reserva, no la real: la ocupa cada factura según sus
-    // líneas. Es la real de la tabla de muestra recortada a los topes de
-    // seguridad (ver `alturaReservaTabla`), de modo que una factura con las
-    // mismas líneas queda idéntica al diseño y los totales siguen de cerca a
-    // la tabla tanto si ésta encoge como si crece.
+    // líneas. Es la real de la tabla de muestra (ver `alturaReservaTabla`),
+    // de modo que una factura con las mismas líneas queda idéntica al diseño.
+    // Los campos que van debajo no la siguen: quedan fijos en su posición de
+    // diseño, y sólo una tabla más larga que la de la muestra los empuja.
     height: alturaReserva,
     content: '[]',
     showHead: tabla.estilo.mostrarCabecera !== false,
@@ -415,7 +402,9 @@ export function compilarPlantilla(
       : esquemaDeTexto(campo, nombre, caja);
 
     // Cabecera y pie se repiten en todas las páginas; lo que está entre la
-    // tabla y el pie acompaña a las líneas y baja con ellas.
+    // tabla y el pie fluye: se queda fijo en su posición de diseño mientras
+    // la tabla no llegue a él, y baja cuando la tabla crece más que la
+    // muestra (los campos no pueden quedar encima de las líneas).
     const enCabecera = campo.y + campo.alto <= limiteTabla + 1;
     const enPie = campo.y >= inicioPie;
     // El contador de páginas sólo lo sabe pdfme al componer, y sólo lo
@@ -457,10 +446,8 @@ export function compilarPlantilla(
     },
     schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaReservaTabla(
       tabla,
-      campos,
       pagina.alto,
       inicioPie,
-      alturaMinimaCabecera(tabla),
     )), ...fluyen]],
   };
 
