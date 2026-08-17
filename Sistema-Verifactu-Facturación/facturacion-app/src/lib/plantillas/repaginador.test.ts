@@ -158,7 +158,12 @@ describe('plantilla con la tabla pegada al pie de página', () => {
     const base = plantilla.basePdf as { height: number; padding: number[] };
     const contentHeight = base.height - base.padding[0] - base.padding[2];
 
-    expect(contentHeight).toBeLessThanOrEqual(0);
+    // El compilador ya no deja que el hueco de la tabla llegue a cero: por
+    // apretado que venga el diseño, reserva un resto positivo. Es lo que
+    // antes hacía reventar al repaginador («Cannot read properties of
+    // undefined»), y ahora no se llega a producir.
+    expect(contentHeight).toBeGreaterThan(0);
+    expect(contentHeight).toBeLessThan(1);
 
     const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(3) }, AJUSTES);
     const bytes = await generarPdf(plantilla, datos, { titulo: 'borde-inferior' });

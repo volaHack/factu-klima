@@ -27,6 +27,25 @@
  * PDF y las líneas que sobran se pierden. Por eso el calco viaja como imagen
  * dentro de `staticSchema`: al ser estático se repite en todas las páginas,
  * y la tabla puede crecer y saltar de página con el membrete puesto.
+ *
+ * NINGÚN CAMPO SE MUEVE: TODOS VAN ANCLADOS
+ * -----------------------------------------
+ * Consecuencia de que el fondo sea un calco: los recuadros del pie
+ * («SUBTOTAL», «TOTAL €»), los marcos y los rótulos están *pintados* en la
+ * imagen, en un sitio concreto, y no se mueven nunca. Si el importe que va
+ * dentro de un recuadro se moviera, quedaría fuera de su recuadro. Así que
+ * todos los campos viven en `staticSchema`, que pdfme pinta en coordenadas
+ * fijas, y en la página sólo queda la tabla de líneas.
+ *
+ * Antes los campos de debajo de la tabla iban en la página y el repaginador
+ * de pdfme los subía cuando la factura traía menos líneas que la muestra: una
+ * factura de una línea imprimía los totales pegados a la tabla, a mitad de
+ * hoja, y dejaba vacíos los recuadros del pie. Anclarlos no lo arregla «casi
+ * siempre»: lo hace imposible.
+ *
+ * La tabla, entonces, tiene un hueco fijo —el mismo que ocupaba en el papel,
+ * desde donde empieza hasta lo primero que haya debajo— y lo que no cabe pasa
+ * a otra hoja, como en un talonario. Ese hueco es el `padding` del `basePdf`.
  */
 
 import type { Schema, Template } from '@pdfme/common';
@@ -196,6 +215,11 @@ function esquemaDeTexto(campo: CampoDetectado, nombre: string, caja: { x: number
   return esquema as unknown as Schema;
 }
 
+/**
+ * Logotipo o QR. Va anclado como todo lo demás, así que pdfme no lee su valor
+ * de la entrada sino del propio `content`: es `generar.ts` quien lo incrusta
+ * ahí justo antes de componer (ver `incrustarImagenes`).
+ */
 function esquemaDeImagen(campo: CampoDetectado, nombre: string): Schema {
   return {
     name: nombre,
@@ -204,6 +228,7 @@ function esquemaDeImagen(campo: CampoDetectado, nombre: string): Schema {
     position: { x: redondear(campo.x), y: redondear(campo.y) },
     width: redondear(campo.ancho),
     height: redondear(campo.alto),
+    readOnly: true,
   } as unknown as Schema;
 }
 
@@ -246,27 +271,32 @@ function redondear(n: number): number {
 // ============================================================
 
 /**
- * La altura de reserva de la tabla.
+ * El hueco de la tabla: cuánto puede crecer antes de pasar a otra hoja.
  *
- * La medida ideal es la real del PDF de muestra (`altoTotal`): así, una
- * factura con las mismas líneas queda idéntica al diseño. La reserva sólo
- * sirve de referencia de lo que mide la tabla de la muestra; los campos que
- * van debajo se quedan en su posición de diseño (el repaginador de pdfme
- * está parcheado para que nunca arrastre un campo por encima de donde está
- * asignado), de modo que con menos líneas la tabla encoge y queda un hueco en
- * blanco hasta los totales, y con más líneas crece y empuja hacia abajo o a
- * la siguiente página.
+ * Es el mismo que tenía en el papel. Empieza donde empezaba la tabla de la
+ * muestra y acaba en lo primero que haya debajo —el recuadro de los totales,
+ * la caja del pie, lo que sea—, porque eso está pintado en el calco y la
+ * tabla no puede invadirlo. Se mira tanto lo que quedó impreso en el calco
+ * (`pagina.lineas`) como los campos que se rellenan, que van encima de él.
  *
- * Sólo se recorta si la tabla de muestra es más alta que el espacio útil de
- * la página.
+ * Con menos líneas que la muestra la tabla encoge y queda hueco en blanco
+ * hasta los totales; con más, se llena el hueco y el resto pasa a la hoja
+ * siguiente. Lo que nunca ocurre es que algo se desplace.
  */
-function alturaReservaTabla(
-  tabla: TablaDetectada,
-  altoPagina: number,
-  inicioPie: number,
-): number {
-  const topePagina = altoPagina - Math.max(MARGEN_PIE_MINIMO, altoPagina - inicioPie) - tabla.y;
-  return redondear(Math.max(Math.min(tabla.altoTotal, topePagina), 0.1));
+function alturaHuecoTabla(analisis: AnalisisPdf, tabla: TablaDetectada): number {
+  const { pagina } = analisis;
+  const finDeLaMuestra = tabla.y + tabla.altoTotal;
+  const debajo = [
+    ...pagina.lineas.map(l => l.y),
+    ...analisis.campos.map(c => c.y),
+  ].filter(y => y > finDeLaMuestra - 0.5);
+
+  const tope = debajo.length > 0 ? Math.min(...debajo) : pagina.alto - MARGEN_PIE_MINIMO;
+  const maximo = pagina.alto - MARGEN_PIE_MINIMO - tabla.y;
+  // Aunque el diseño esté apretado, tiene que caber la cabecera y una línea:
+  // una tabla de altura cero rompe el repaginador.
+  const minimo = Math.min(tabla.altoCabecera + tabla.altoFila, maximo);
+  return redondear(Math.max(Math.min(tope - tabla.y, maximo), minimo, 0.1));
 }
 
 function esquemaDeTabla(tabla: TablaDetectada, familia: 'sans' | 'serif', alturaReserva: number): Schema {
@@ -410,10 +440,9 @@ export function compilarPlantilla(
     .map(l => ({ x: l.x, y: l.y, ancho: l.ancho, alto: l.alto }));
 
   const limiteTabla = tabla.y;
-  const inicioPie = calcularInicioPie(campos, pagina.alto, tabla);
+  const alturaHueco = alturaHuecoTabla(analisis, tabla);
 
   const estaticos: Schema[] = [];
-  const fluyen: Schema[] = [];
   const confianza: Record<string, number> = {};
   const usados = new Set<string>([TABLA_LINEAS]);
 
@@ -429,31 +458,11 @@ export function compilarPlantilla(
       ? { x: campo.x, ancho: campo.ancho }
       : estirarCaja(campo, vecinos, pagina.ancho);
 
-    const esquema = campo.tipo === 'imagen'
+    // Todos anclados, sin excepción: el calco está pintado en coordenadas
+    // fijas y un campo desplazado se sale de su recuadro.
+    estaticos.push(campo.tipo === 'imagen'
       ? esquemaDeImagen(campo, nombre)
-      : esquemaDeTexto(campo, nombre, caja);
-
-    // Cabecera y pie se repiten en todas las páginas; lo que está entre la
-    // tabla y el pie fluye: se queda fijo en su posición de diseño mientras
-    // la tabla no llegue a él, y baja cuando la tabla crece más que la
-    // muestra (los campos no pueden quedar encima de las líneas).
-    const enCabecera = campo.y + campo.alto <= limiteTabla + 1;
-    const enPie = campo.y >= inicioPie;
-    // El contador de páginas sólo lo sabe pdfme al componer, y sólo lo
-    // resuelve en los elementos estáticos. Colocado en la zona que fluye
-    // saldría el texto del marcador en crudo.
-    const esContadorDePaginas = campo.clave === 'doc_pagina';
-    // Una imagen no puede ir en `staticSchema`: allí el valor llega como
-    // marcador `{clave}` dentro del contenido, y pdfme intentaría incrustar
-    // la cadena «{empresa_logo}» como si fuera un PNG. El logotipo y el QR se
-    // quedan en la página, que es donde sí reciben su valor de la entrada.
-    const esImagen = campo.tipo === 'imagen';
-
-    if (!esImagen && (enCabecera || enPie || esContadorDePaginas)) {
-      estaticos.push(convertirEnEstatico(esquema, campo, nombre));
-    } else {
-      fluyen.push(esquema);
-    }
+      : convertirEnEstatico(esquemaDeTexto(campo, nombre, caja), campo, nombre));
   }
 
   // Los rótulos escritos a mano son estáticos por definición: no dependen de
@@ -474,22 +483,20 @@ export function compilarPlantilla(
     basePdf: {
       width: redondear(pagina.ancho),
       height: redondear(pagina.alto),
-      // El margen superior marca dónde vuelve a empezar la tabla en la
-      // segunda página: justo donde empezaba en la primera, debajo del
-      // membrete. El inferior reserva el sitio del pie.
+      // El margen delimita el hueco de la tabla, y sólo eso: es la zona de la
+      // hoja donde pdfme puede repartir líneas. Arriba, donde empieza la
+      // tabla en el diseño (y donde vuelve a empezar en la hoja siguiente,
+      // debajo del membrete); abajo, lo que queda por debajo del hueco.
       padding: [
         redondear(limiteTabla),
         0,
-        redondear(Math.max(MARGEN_PIE_MINIMO, pagina.alto - inicioPie)),
+        redondear(Math.max(pagina.alto - limiteTabla - alturaHueco, 0)),
         0,
       ],
       staticSchema: [fondo, ...estaticos],
     },
-    schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaReservaTabla(
-      tabla,
-      pagina.alto,
-      inicioPie,
-    )), ...fluyen]],
+    // En la página, sólo la tabla. Todo lo demás está anclado.
+    schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaHueco)]],
   };
 
   return {
@@ -521,22 +528,6 @@ function convertirEnEstatico(esquema: Schema, campo: CampoDetectado, nombre: str
 
 function solapan(a: { x: number; y: number; ancho: number; alto: number }, b: { x: number; y: number; ancho: number; alto: number }): boolean {
   return a.x < b.x + b.ancho && a.x + a.ancho > b.x && a.y < b.y + b.alto && a.y + a.alto > b.y;
-}
-
-/**
- * Dónde empieza el pie de página. Todo lo que esté por debajo se repite en
- * cada hoja y no lo empuja el crecimiento de la tabla.
- */
-function calcularInicioPie(campos: CampoDetectado[], altoPagina: number, tabla: TablaDetectada): number {
-  const zonaPie = altoPagina * 0.87;
-  const finTabla = tabla.y + tabla.altoTotal;
-  const candidatos = campos
-    .filter(c => c.y >= zonaPie && c.y > finTabla)
-    .map(c => c.y);
-  const inicio = candidatos.length > 0 ? Math.min(...candidatos) - 2 : altoPagina - MARGEN_PIE_MINIMO;
-  // Nunca por encima del final de la tabla original: el pie no puede comerse
-  // el sitio de las líneas.
-  return Math.max(inicio, Math.min(finTabla + 4, altoPagina - MARGEN_PIE_MINIMO));
 }
 
 /** El calco de una plantilla ya compilada, para enseñarlo como miniatura. */
@@ -598,12 +589,71 @@ export function clavesManualesUsadasPorPlantilla(plantilla: Template): string[] 
 }
 
 /**
+ * Ancla los campos de las plantillas guardadas antes de que todos los campos
+ * fueran anclados.
+ *
+ * En aquéllas, lo que caía por debajo de la tabla vivía en la página, y el
+ * repaginador de pdfme lo subía cuando la factura traía menos líneas que la
+ * muestra: una factura de una línea sacaba los totales pegados a la tabla, a
+ * media hoja, y dejaba en blanco los recuadros del pie donde tenían que ir.
+ *
+ * Se arregla aquí, al leer la plantilla, y no obligando a rehacerla: quien ya
+ * tiene su diseño montado no debería tener que volver a subir el PDF porque
+ * hayamos cambiado de idea sobre cómo maquetar.
+ */
+function anclarCamposDePagina(plantilla: Template): void {
+  const base = plantilla.basePdf as { staticSchema?: Schema[]; height?: number; padding?: number[] } | undefined;
+  if (!base || typeof base !== 'object' || !('staticSchema' in base)) return;
+
+  const estaticos = base.staticSchema ?? [];
+  let movidos = 0;
+
+  for (const pagina of plantilla.schemas ?? []) {
+    const tablas = pagina.filter(e => e.type === 'table');
+    for (const esquema of pagina) {
+      if (esquema.type === 'table') continue;
+      const campo = esquema as unknown as Record<string, unknown>;
+      // En `staticSchema` el valor no llega por la entrada sino por un
+      // marcador dentro del contenido. Las imágenes son la excepción: las
+      // rellena `incrustarImagenes` al generar.
+      if (campo.type === 'text' && typeof campo.name === 'string' && !campo.readOnly) {
+        campo.content = `{${campo.name}}`;
+      }
+      campo.readOnly = true;
+      estaticos.push(esquema);
+      movidos++;
+    }
+    pagina.length = 0;
+    pagina.push(...tablas);
+  }
+
+  base.staticSchema = estaticos;
+  if (movidos === 0) return;
+
+  // El hueco de la tabla lo marcaba el pie; ahora lo marca lo primero que
+  // haya debajo de ella, que es hasta donde puede crecer sin pisar nada.
+  const tabla = (plantilla.schemas ?? [])[0]?.find(e => e.type === 'table');
+  const altoPagina = typeof base.height === 'number' ? base.height : 297;
+  if (!tabla || !Array.isArray(base.padding)) return;
+
+  const finDeLaMuestra = tabla.position.y + (tabla.height ?? 0);
+  const debajo = estaticos
+    .filter(e => e.name !== '__calco' && e.position?.y > finDeLaMuestra - 0.5)
+    .map(e => e.position.y);
+  if (debajo.length === 0) return;
+
+  const margenInferior = altoPagina - Math.min(...debajo);
+  base.padding[2] = Math.round(Math.max(margenInferior, MARGEN_PIE_MINIMO) * 100) / 100;
+}
+
+/**
  * Normaliza y sanea cualquier objeto Template (incluso los guardados previamente en BD)
  * para asegurar compatibilidad total con pdfme y evitar errores al componer el PDF.
  */
 export function normalizarPlantilla(plantilla: Template): Template {
   if (!plantilla || typeof plantilla !== 'object') return plantilla;
   const copia: Template = JSON.parse(JSON.stringify(plantilla));
+  anclarCamposDePagina(copia);
   const paginas = copia.schemas || [];
   const baseStatic = (copia.basePdf && typeof copia.basePdf === 'object' && 'staticSchema' in copia.basePdf)
     ? ((copia.basePdf as { staticSchema?: Schema[] }).staticSchema || [])

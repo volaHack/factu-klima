@@ -33,14 +33,16 @@ export function construirEntrada(plantilla: Template, datos: DatosDocumento): Re
     ? ((plantilla.basePdf as { staticSchema?: unknown[] }).staticSchema || [])
     : [];
 
+  // Todo campo de la plantilla tiene que aparecer en la entrada, aunque sea
+  // vacío. Los campos anclados reciben su valor por un marcador `{clave}`
+  // dentro del contenido, y pdfme, cuando no sabe resolver un marcador, deja
+  // el texto tal cual: una factura sin teléfono imprimiría «{empresa_telefono}»
+  // en mitad del membrete.
   for (const esq of [...paginas.flat(), ...baseStatic] as { name?: string }[]) {
     if (!esq.name || esq.name === TABLA_LINEAS) continue;
-    if (entrada[esq.name] === undefined) {
-      const claveBase = esq.name.replace(/_\d+$/, '');
-      if (datos.campos[claveBase] !== undefined) {
-        entrada[esq.name] = datos.campos[claveBase];
-      }
-    }
+    if (entrada[esq.name] !== undefined) continue;
+    const claveBase = esq.name.replace(/_\d+$/, '');
+    entrada[esq.name] = datos.campos[claveBase] ?? '';
   }
 
   return {
@@ -55,54 +57,62 @@ export interface OpcionesPdf {
   autor?: string;
 }
 
+/** Descarga una imagen y la devuelve como `data:` URL. */
+async function comoDataUrl(direccion: string): Promise<string> {
+  const respuesta = await fetch(direccion);
+  if (!respuesta.ok) throw new Error(String(respuesta.status));
+  const bytes = new Uint8Array(await respuesta.arrayBuffer());
+  // En trozos: `String.fromCharCode(...)` con un array de cientos de miles de
+  // elementos desborda la pila de llamadas.
+  let binario = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binario += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  const tipo = respuesta.headers.get('content-type') || 'image/png';
+  return `data:${tipo};base64,${btoa(binario)}`;
+}
+
 /**
- * Deja los valores de las imágenes (logotipo, QR) en un formato que pdfme
- * sepa incrustar.
+ * Mete el logotipo y el QR dentro de la plantilla, en el `content` de su
+ * campo.
  *
- * pdfme sólo admite un `data:` URL: con una dirección `https://…` —que es
- * justo lo que guarda Ajustes cuando el logotipo se sube a Supabase— intenta
- * interpretar la propia URL como un JPEG y la generación entera falla. Aquí
- * se descarga y se convierte; si no se puede, el campo se queda vacío, que es
- * mucho mejor que una factura que no llega a generarse.
+ * Los campos van anclados (ver `plantilla.ts`), y de un campo anclado pdfme
+ * lee el valor del `content`, no de la entrada. Los textos lo resuelven solos
+ * con el marcador `{clave}`; una imagen no puede, porque ahí pdfme intentaría
+ * incrustar la cadena «{empresa_logo}» como si fuera un PNG. Así que se
+ * coloca aquí, ya resuelta.
+ *
+ * De paso se descarga: pdfme sólo admite `data:` URL, y con una dirección
+ * `https://…` —que es justo lo que guarda Ajustes cuando el logotipo se sube
+ * a Supabase— falla la generación entera. Si no se puede descargar, el campo
+ * se queda vacío, que es mucho mejor que una factura que no llega a salir.
+ *
+ * Muta la plantilla, que a estas alturas ya es una copia (`normalizarPlantilla`).
  */
-async function resolverImagenes(
-  plantilla: Template,
-  entrada: Record<string, string>,
-): Promise<Record<string, string>> {
-  const paginas = plantilla.schemas || [];
+async function incrustarImagenes(plantilla: Template, entrada: Record<string, string>): Promise<void> {
   const baseStatic = (plantilla.basePdf && typeof plantilla.basePdf === 'object' && 'staticSchema' in plantilla.basePdf)
     ? ((plantilla.basePdf as { staticSchema?: unknown[] }).staticSchema || [])
     : [];
 
-  const nombresDeImagen = [...paginas.flat(), ...baseStatic]
-    .filter((e): e is { name: string; type: string } => {
+  const imagenes = [...(plantilla.schemas || []).flat(), ...baseStatic]
+    .filter((e): e is { name: string; type: string; content: string } => {
       const esq = e as { name?: string; type?: string };
-      return typeof esq.name === 'string' && esq.type === 'image';
-    })
-    .map(e => e.name);
+      return typeof esq.name === 'string' && esq.type === 'image' && esq.name !== '__calco';
+    });
 
-  if (nombresDeImagen.length === 0) return entrada;
-
-  const resuelta = { ...entrada };
-  await Promise.all(nombresDeImagen.map(async (nombre) => {
-    const valor = resuelta[nombre];
-    if (!valor || valor.startsWith('data:')) return;
+  await Promise.all(imagenes.map(async (esquema) => {
+    const valor = entrada[esquema.name];
+    if (valor === undefined) return;
+    if (!valor || valor.startsWith('data:')) {
+      esquema.content = valor;
+      return;
+    }
     try {
-      const respuesta = await fetch(valor);
-      if (!respuesta.ok) throw new Error(String(respuesta.status));
-      const blob = await respuesta.blob();
-      resuelta[nombre] = await new Promise<string>((resolver, rechazar) => {
-        const lector = new FileReader();
-        lector.onload = () => resolver(String(lector.result));
-        lector.onerror = () => rechazar(lector.error);
-        lector.readAsDataURL(blob);
-      });
+      esquema.content = await comoDataUrl(valor);
     } catch {
-      resuelta[nombre] = '';
+      esquema.content = '';
     }
   }));
-
-  return resuelta;
 }
 
 export async function generarPdf(
@@ -131,7 +141,8 @@ export async function generarPdf(
     qrcode: esquemas.barcodes.qrcode,
   };
 
-  const entrada = await resolverImagenes(plantilla, construirEntrada(plantilla, datos));
+  const entrada = construirEntrada(plantilla, datos);
+  await incrustarImagenes(plantilla, entrada);
 
   try {
     return await generate({

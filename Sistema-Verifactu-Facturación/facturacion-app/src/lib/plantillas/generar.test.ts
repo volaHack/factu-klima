@@ -18,6 +18,7 @@ import { detectar } from './deteccion';
 import { agruparEnLineas } from './extraccion';
 import { construirEntrada, generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
+import type { Schema } from '@pdfme/common';
 import type { ItemTexto, PaginaExtraida } from './tipos';
 
 const RAIZ = process.cwd();
@@ -83,7 +84,10 @@ function paginaDeEjemplo(filasMuestra = 1): PaginaExtraida {
     items.push(texto('21%', 155, y));
     items.push(texto('1,00 €', 170, y));
   }
-  const yTotales = 98 + filasMuestra * 6 + 6;
+  // El bloque de totales va donde va en una factura de verdad: abajo, con la
+  // zona de líneas libre por encima. Ponerlo pegado a la última línea de la
+  // muestra describiría un impreso en el que no cabe ninguna factura.
+  const yTotales = Math.max(98 + filasMuestra * 6 + 8, 205);
   items.push(texto('Base imponible', 140, yTotales));
   items.push(texto('1,00 €', 172, yTotales));
   items.push(texto('TOTAL', 140, yTotales + 13, 11, true));
@@ -230,10 +234,14 @@ describe('compilación de la plantilla', () => {
     expect(base.padding[0]).toBeLessThan(95);
   });
 
-  it('pone la tabla y los totales en la parte que fluye', () => {
-    const nombres = plantilla.schemas[0].map(s => s.name);
-    expect(nombres).toContain('lineas');
-    expect(nombres).toContain('total_general');
+  it('en la página deja sólo la tabla: todo lo demás va anclado', () => {
+    // El calco es una imagen, y los recuadros del pie están pintados en ella,
+    // en un sitio fijo. Un importe que se moviera se saldría de su recuadro,
+    // así que el único elemento que puede cambiar de sitio es la tabla.
+    expect(plantilla.schemas[0].map(s => s.name)).toEqual(['lineas']);
+
+    const base = plantilla.basePdf as { staticSchema?: { name: string }[] };
+    expect((base.staticSchema ?? []).map(s => s.name)).toContain('total_general');
   });
 
   it('reparte el ancho de las columnas sumando el 100 %', () => {
@@ -244,17 +252,22 @@ describe('compilación de la plantilla', () => {
     expect(suma).toBeCloseTo(100, 5);
   });
 
-  it('reserva como altura de la tabla la real del PDF de muestra, no el mínimo', () => {
-    const tabla = plantilla.schemas[0].find(s => s.name === 'lineas') as unknown as {
-      height: number;
-    };
-    // La altura de reserva es la que ocupó la tabla en el PDF de muestra (una
-    // fila y su cabecera, en este ejemplo): así una factura con las mismas
-    // líneas queda idéntica al diseño. Si se recortara al mínimo, los totales
-    // se separarían de la tabla y las facturas de tamaño similar saltarían a
-    // la página siguiente.
-    expect(tabla.height).toBeGreaterThanOrEqual(10);
-    expect(tabla.height).toBeLessThan(30);
+  it('da a la tabla todo el hueco que hay hasta el bloque de totales', () => {
+    // El impreso de la muestra trae una sola línea de ejemplo, pero por
+    // debajo hay medio folio en blanco antes de los totales. Ese hueco es de
+    // la tabla: si la reserva se quedara en lo que ocupa la línea de ejemplo,
+    // una factura de cinco líneas se iría a la segunda página teniendo sitio
+    // de sobra en la primera.
+    const tabla = plantilla.schemas[0].find(s => s.name === 'lineas') as unknown as { height: number };
+    const base = plantilla.basePdf as { height: number; padding: number[] };
+
+    // Desde donde empieza la tabla (y=90) hasta el bloque de totales (y=205).
+    expect(tabla.height).toBeGreaterThan(100);
+    // Y no invade los totales: el hueco acaba justo donde empiezan.
+    expect(base.padding[0] + tabla.height).toBeLessThanOrEqual(205.5);
+    // El margen del `basePdf` delimita ese mismo hueco, que es la zona en la
+    // que pdfme puede repartir líneas.
+    expect(base.height - base.padding[0] - base.padding[2]).toBeCloseTo(tabla.height, 1);
   });
 });
 
@@ -292,29 +305,42 @@ describe('generación del PDF', () => {
     expect(texto).toContain('Producto de prueba número 60');
   }, 60_000);
 
-  it('no mueve los totales de su posición de diseño al cambiar el número de líneas', async () => {
-    // La muestra trae 12 líneas. Los totales se quedan donde están en el
-    // diseño: mientras la tabla no llegue a ellos, da igual si la factura
-    // trae 1 línea o 5, la Y del total no cambia (quedaría un hueco en
-    // blanco entre las líneas y él, no campos arrastrados hacia arriba).
+  it('imprime el total en su posición de diseño traiga la factura las líneas que traiga', async () => {
+    // El fallo que esto vigila: la muestra traía 12 líneas y la factura sólo
+    // una, así que la tabla encogía ~70 mm y el repaginador subía con ella
+    // todo lo que tenía debajo. El total acababa pegado a la tabla, a media
+    // hoja, y el recuadro «TOTAL» impreso en el calco quedaba vacío.
     const { plantilla } = compilar(12);
-    const posicion = async (filas: number): Promise<{ y: number; paginas: number }> => {
+    const base = plantilla.basePdf as { staticSchema: { name: string; position: { y: number } }[] };
+    const yDeDiseno = base.staticSchema.find(s => s.name === 'total_general')!.position.y;
+
+    const posicionDelTotal = async (filas: number) => {
       const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(filas) }, AJUSTES);
       const bytes = await generarPdf(plantilla, datos);
       const posiciones = await leerPosiciones(bytes);
-      const dinero = posiciones.filter(p => /^[\d.,]+ €$/.test(p.texto.trim()));
-      const total = dinero[dinero.length - 1];
-      return { y: total.y, paginas: total.pagina };
+      // El total es el último importe de la hoja, el que está más abajo.
+      const dinero = posiciones
+        .filter(p => /^[\d.,]+ €$/.test(p.texto.trim()))
+        .sort((a, b) => b.y - a.y);
+      return { y: dinero[0].y, paginas: Math.max(...posiciones.map(p => p.pagina)) };
     };
 
-    const conPocas = await posicion(1);
-    const conAlgunas = await posicion(5);
-
-    // La Y absoluta del total es una constante de diseño: no depende de
-    // cuántas líneas traiga la factura mientras la tabla no lo alcance.
-    expect(Math.abs(conPocas.y - conAlgunas.y)).toBeLessThan(1);
-    expect(conPocas.paginas).toBe(1);
-    expect(conAlgunas.paginas).toBe(1);
+    const medidas: number[] = [];
+    // Cantidades que caben de sobra en el hueco: lo que se mide aquí es que
+    // la tabla al encoger no arrastre nada, no dónde se parte la página.
+    for (const filas of [1, 4, 8]) {
+      const { y, paginas } = await posicionDelTotal(filas);
+      medidas.push(y);
+      // Contra la posición de diseño, no sólo «igual entre dos pruebas»: dos
+      // valores mal puestos por igual pasarían esa comparación. Lo que se lee
+      // del PDF es la línea base del texto, que cae dentro de su caja, unos
+      // milímetros por debajo del borde superior.
+      expect(y, `con ${filas} línea(s)`).toBeGreaterThanOrEqual(yDeDiseno);
+      expect(y, `con ${filas} línea(s)`).toBeLessThan(yDeDiseno + 8);
+      expect(paginas, `con ${filas} línea(s)`).toBe(1);
+    }
+    // Y clavado: el mismo milímetro en los tres casos.
+    expect(Math.max(...medidas) - Math.min(...medidas)).toBeLessThan(0.05);
   }, 60_000);
 
   it('deja en blanco los campos sin dato en vez de arrastrar el del ejemplo', async () => {
@@ -345,6 +371,38 @@ describe('generación del PDF', () => {
     const entradaDuplicada = construirEntrada(plantillaConDuplicado, datos);
     expect(entradaDuplicada.doc_numero_2).toBe('FAC-2026-0042');
   });
+
+  it('endereza una plantilla guardada con los campos sueltos en la página', async () => {
+    // Las plantillas guardadas antes de anclar los campos los llevaban en la
+    // página, y ahí el repaginador los subía al encoger la tabla. Se arreglan
+    // al leerlas: quien ya tiene su diseño montado no debería tener que
+    // volver a subir el PDF porque nosotros hayamos cambiado de idea.
+    const { plantilla } = compilar(12);
+    const base = plantilla.basePdf as { staticSchema: Schema[]; padding: number[] };
+    const yDeDiseno = (base.staticSchema.find(s => s.name === 'total_general') as { position: { y: number } }).position.y;
+
+    // Se deshace el anclaje para reproducir una plantilla del formato viejo.
+    const antigua = JSON.parse(JSON.stringify(plantilla));
+    const baseAntigua = antigua.basePdf as { staticSchema: Schema[]; padding: number[] };
+    const sueltos = baseAntigua.staticSchema.filter((s: Schema) => s.name.startsWith('total_'));
+    baseAntigua.staticSchema = baseAntigua.staticSchema.filter((s: Schema) => !s.name.startsWith('total_'));
+    for (const campo of sueltos) {
+      delete (campo as unknown as Record<string, unknown>).readOnly;
+      (campo as unknown as Record<string, unknown>).content = '';
+      antigua.schemas[0].push(campo);
+    }
+    expect(antigua.schemas[0].map((s: Schema) => s.name)).toContain('total_general');
+
+    const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(1) }, AJUSTES);
+    const bytes = await generarPdf(antigua, datos);
+    const posiciones = await leerPosiciones(bytes);
+    const total = posiciones
+      .filter(p => /^[\d.,]+ €$/.test(p.texto.trim()))
+      .sort((a, b) => b.y - a.y)[0];
+
+    expect(total.y).toBeGreaterThanOrEqual(yDeDiseno);
+    expect(total.y).toBeLessThan(yDeDiseno + 8);
+  }, 60_000);
 
   it('no rompe el repaginador cuando la tabla de muestra es grande y la factura trae pocas líneas', async () => {
     const { plantilla } = compilar();
