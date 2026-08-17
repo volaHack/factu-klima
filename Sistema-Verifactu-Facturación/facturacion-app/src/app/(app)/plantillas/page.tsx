@@ -10,15 +10,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ArrowLeft, Download, Eye, FileUp, LayoutTemplate, Loader2,
+  ArrowLeft, Copy, Download, Eye, FileUp, LayoutTemplate, Loader2, Pencil,
   Save, Star, Trash2, X,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
-import RevisorPlantilla from '@/components/plantillas/RevisorPlantilla';
+import RevisorPlantilla, { type CambioAnalisis } from '@/components/plantillas/RevisorPlantilla';
 import { useToast } from '@/hooks/useToast';
 import { getCompanySettings, getInvoices } from '@/lib/storage';
 import {
-  analizarPdf, compilar, ErrorArchivo, ErrorPdf, type SesionAnalisis,
+  abrirPlantillaGuardada, analizarPdf, compilar, ErrorArchivo, ErrorPdf,
+  origenDeSesion, PlantillaNoEditable, type SesionAnalisis,
 } from '@/lib/plantillas/analisis';
 import {
   borrarPlantilla, getPlantillas, guardarPlantilla, marcarPredeterminada,
@@ -27,9 +28,7 @@ import {
 import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
-import type {
-  CampoDetectado, PlantillaDocumento, TablaDetectada, TipoDocumentoPlantilla, ZonaBorrado,
-} from '@/lib/plantillas/tipos';
+import type { PlantillaDocumento, TipoDocumentoPlantilla } from '@/lib/plantillas/tipos';
 import type { CompanySettings, Invoice } from '@/lib/types';
 
 export default function PlantillasPage() {
@@ -48,6 +47,8 @@ export default function PlantillasPage() {
   const [guardando, setGuardando] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
   const [generandoVista, setGenerandoVista] = useState(false);
+  /** Plantilla que se está reeditando, o null si es una subida nueva. */
+  const [editando, setEditando] = useState<PlantillaDocumento | null>(null);
 
   const cargar = useCallback(async () => {
     const [lista, config, facturas] = await Promise.all([
@@ -90,6 +91,8 @@ export default function PlantillasPage() {
     setAnalizando(true);
     try {
       const nueva = await analizarPdf(archivo, ajustes);
+      setEditando(null);
+      setAplicaA(['factura']);
       setSesion(nueva);
       setNombre(archivo.name.replace(/\.pdf$/i, '').slice(0, 60) || 'Mi factura');
       const reconocidos = nueva.analisis.campos.filter(c => c.clave).length;
@@ -107,16 +110,31 @@ export default function PlantillasPage() {
     }
   };
 
-  const cambiarCampos = (campos: CampoDetectado[]) => {
-    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, campos } } : actual));
-  };
+  /** El editor manda los cambios ya resueltos; aquí sólo se posan encima. */
+  const cambiarAnalisis = useCallback((cambios: CambioAnalisis) => {
+    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, ...cambios } } : actual));
+  }, []);
 
-  const cambiarTabla = (tabla: TablaDetectada) => {
-    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, tabla } } : actual));
-  };
-
-  const cambiarZonas = (zonasExtra: ZonaBorrado[]) => {
-    setSesion(actual => (actual ? { ...actual, analisis: { ...actual.analisis, zonasExtra } } : actual));
+  /**
+   * Reabre una plantilla guardada en el editor. Se puede porque al guardarla
+   * se conservó el análisis completo, mapa de bits original incluido.
+   */
+  const editarPlantilla = async (plantilla: PlantillaDocumento, comoCopia = false) => {
+    setAnalizando(true);
+    try {
+      const recuperada = await abrirPlantillaGuardada(plantilla);
+      setSesion(recuperada);
+      setEditando(comoCopia ? null : plantilla);
+      setNombre(comoCopia ? `${plantilla.nombre} (copia)`.slice(0, 60) : plantilla.nombre);
+      setAplicaA(plantilla.aplicaA);
+    } catch (err) {
+      const mensaje = err instanceof PlantillaNoEditable
+        ? err.message
+        : 'No se ha podido abrir la plantilla para editarla.';
+      avisarError('No se puede editar', mensaje);
+    } finally {
+      setAnalizando(false);
+    }
   };
 
   // ============================================================
@@ -170,20 +188,27 @@ export default function PlantillasPage() {
       const { plantilla, diagnostico } = compilar(sesion);
       const ahora = new Date().toISOString();
       await guardarPlantilla({
-        id: crypto.randomUUID(),
+        id: editando?.id ?? crypto.randomUUID(),
         nombre: nombre.trim(),
         aplicaA,
         plantilla,
         diagnostico,
+        // El análisis viaja con la plantilla: es lo que permite volver a
+        // abrirla en el editor sin tener que buscar otra vez el PDF original.
+        origen: origenDeSesion(sesion),
         // La primera plantilla pasa a usarse por defecto: si alguien se toma
         // el trabajo de subir su diseño es porque quiere imprimir con él.
-        predeterminada: plantillas.length === 0,
-        createdAt: ahora,
+        predeterminada: editando?.predeterminada ?? plantillas.length === 0,
+        createdAt: editando?.createdAt ?? ahora,
         updatedAt: ahora,
       });
       await cargar();
       setSesion(null);
-      success('Plantilla guardada', 'Tus facturas ya se descargan con este diseño.');
+      setEditando(null);
+      success(
+        editando ? 'Cambios guardados' : 'Plantilla guardada',
+        'Tus facturas ya se descargan con este diseño.',
+      );
     } catch (err) {
       const mensaje = err instanceof PlantillaInvalida
         ? err.message
@@ -231,21 +256,25 @@ export default function PlantillasPage() {
         <div className="page-header">
           <div className="page-header-left">
             <p className="page-eyebrow"><LayoutTemplate /> Plantillas</p>
-            <h1 className="page-title">Revisa lo que se ha detectado</h1>
+            <h1 className="page-title">
+              {editando ? `Editando «${editando.nombre}»` : 'Revisa lo que se ha detectado'}
+            </h1>
             <p className="page-subtitle">
               Cada recuadro es un dato que se rellenará solo en cada factura. Todo lo demás —
               tu logotipo, los colores, los rótulos y el pie — se conserva exactamente como está.
+              Mueve, estira y reordena lo que quieras: el diseño se adapta a lo que pida cada cliente.
             </p>
           </div>
           <div className="page-header-actions">
-            <button className="btn btn-secondary" onClick={() => setSesion(null)} disabled={guardando}>
-              <ArrowLeft size={16} /> Descartar
+            <button className="btn btn-secondary" onClick={() => { setSesion(null); setEditando(null); }} disabled={guardando}>
+              <ArrowLeft size={16} /> {editando ? 'Salir sin guardar' : 'Descartar'}
             </button>
             <button className="btn btn-secondary" onClick={verComoQueda} disabled={generandoVista || guardando}>
               {generandoVista ? <Loader2 size={16} className="spin" /> : <Eye size={16} />} Ver cómo queda
             </button>
             <button className="btn btn-primary" onClick={guardar} disabled={guardando}>
-              {guardando ? <Loader2 size={16} className="spin" /> : <Save size={16} />} Guardar plantilla
+              {guardando ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+              {editando ? 'Guardar cambios' : 'Guardar plantilla'}
             </button>
           </div>
         </div>
@@ -293,12 +322,7 @@ export default function PlantillasPage() {
           )}
         </div>
 
-        <RevisorPlantilla
-          analisis={sesion.analisis}
-          onCambiarCampos={cambiarCampos}
-          onCambiarTabla={cambiarTabla}
-          onCambiarZonas={cambiarZonas}
-        />
+        <RevisorPlantilla analisis={sesion.analisis} onCambiar={cambiarAnalisis} />
 
         {vistaPrevia && (
           <VistaPreviaPdf url={vistaPrevia} onCerrar={() => { URL.revokeObjectURL(vistaPrevia); setVistaPrevia(null); }} />
@@ -381,9 +405,29 @@ export default function PlantillasPage() {
                     {plantilla.diagnostico.archivoOrigen ? ` · de ${plantilla.diagnostico.archivoOrigen}` : ''}
                   </p>
                   <div className="plantilla-tarjeta-acciones">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => editarPlantilla(plantilla)}
+                      disabled={analizando || !plantilla.origen}
+                      title={plantilla.origen
+                        ? 'Abrir el editor de diseño'
+                        : 'Esta plantilla se guardó antes del editor: vuelve a subir el PDF para poder ajustarla'}
+                    >
+                      {analizando ? <Loader2 size={14} className="spin" /> : <Pencil size={14} />} Editar diseño
+                    </button>
                     <button className="btn btn-secondary btn-sm" onClick={() => probarPlantillaGuardada(plantilla)} disabled={generandoVista}>
                       {generandoVista ? <Loader2 size={14} className="spin" /> : <Eye size={14} />} Ver
                     </button>
+                    {plantilla.origen && (
+                      <button
+                        className="btn btn-ghost btn-icon btn-sm"
+                        onClick={() => editarPlantilla(plantilla, true)}
+                        disabled={analizando}
+                        title="Duplicar para hacer una variante sin tocar la original"
+                      >
+                        <Copy size={14} />
+                      </button>
+                    )}
                     {!plantilla.predeterminada && (
                       <button className="btn btn-secondary btn-sm" onClick={() => hacerPredeterminada(plantilla)}>
                         <Star size={14} /> Usar esta

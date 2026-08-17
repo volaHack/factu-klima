@@ -12,10 +12,13 @@
 
 import type { CompanySettings } from '../types';
 import { detectar } from './deteccion';
-import { extraerPagina, lineasHorizontales, muestrearColor, type PaginaConLienzo } from './extraccion';
+import {
+  agruparEnLineas, extraerPagina, lineasHorizontales, muestrearColor,
+  rehidratarLienzo, type PaginaConLienzo,
+} from './extraccion';
 import { construirCalco, type Zona } from './limpieza';
 import { compilarPlantilla, type ResultadoCompilacion } from './plantilla';
-import type { AnalisisPdf } from './tipos';
+import type { AnalisisPdf, OrigenPlantilla, PlantillaDocumento } from './tipos';
 
 export { ErrorPdf } from './extraccion';
 
@@ -59,6 +62,71 @@ export async function analizarPdf(
   });
 
   return { analisis, pagina, nombreArchivo: archivo.name };
+}
+
+// ============================================================
+// REABRIR UNA PLANTILLA YA GUARDADA
+// ============================================================
+
+/** Lo que hay que guardar junto a la plantilla para poder reeditarla. */
+export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
+  const { pagina, campos, tabla, zonasExtra, avisos, familia } = sesion.analisis;
+  return {
+    version: 1,
+    pagina: {
+      ancho: pagina.ancho,
+      alto: pagina.alto,
+      items: pagina.items,
+      totalPaginas: pagina.totalPaginas,
+      bitmap: pagina.bitmap,
+    },
+    campos,
+    tabla,
+    zonasExtra,
+    avisos,
+    familia,
+  };
+}
+
+export class PlantillaNoEditable extends Error {}
+
+/**
+ * Devuelve una sesión de edición a partir de una plantilla guardada.
+ *
+ * El mapa de bits se vuelve a pintar en un lienzo para recuperar los píxeles
+ * (hacen falta para tapar zonas y muestrear colores) y las líneas de texto se
+ * recalculan agrupando los items, igual que al leer el PDF por primera vez.
+ */
+export async function abrirPlantillaGuardada(
+  plantilla: PlantillaDocumento,
+): Promise<SesionAnalisis> {
+  const origen = plantilla.origen;
+  if (!origen || !origen.pagina?.bitmap?.dataUrl) {
+    throw new PlantillaNoEditable(
+      'Esta plantilla se guardó antes de que existiera el editor y no conserva el PDF original. Vuelve a subir la factura para poder ajustarla.',
+    );
+  }
+
+  const { lienzo, pixeles } = await rehidratarLienzo(origen.pagina.bitmap);
+  const pagina: PaginaConLienzo = {
+    ...origen.pagina,
+    lineas: agruparEnLineas(origen.pagina.items),
+    lienzo,
+    pixeles,
+  };
+
+  return {
+    analisis: {
+      pagina,
+      campos: origen.campos,
+      tabla: origen.tabla,
+      avisos: origen.avisos ?? [],
+      zonasExtra: origen.zonasExtra ?? [],
+      familia: origen.familia ?? 'sans',
+    },
+    pagina,
+    nombreArchivo: plantilla.diagnostico?.archivoOrigen ?? '',
+  };
 }
 
 /**
@@ -114,8 +182,9 @@ function ajustarAlTexto(zonas: Zona[], analisis: AnalisisPdf): Zona[] {
   const segmentos = analisis.pagina.lineas.flatMap(l => l.segmentos);
 
   return zonas.map(zona => {
-    let { x, y } = zona;
-    let derecha = zona.x + zona.ancho;
+    const { x } = zona;
+    let { y } = zona;
+    const derecha = zona.x + zona.ancho;
     let abajo = zona.y + zona.alto;
 
     for (const segmento of segmentos) {

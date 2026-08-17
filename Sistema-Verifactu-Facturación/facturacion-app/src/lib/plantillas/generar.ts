@@ -55,6 +55,56 @@ export interface OpcionesPdf {
   autor?: string;
 }
 
+/**
+ * Deja los valores de las imágenes (logotipo, QR) en un formato que pdfme
+ * sepa incrustar.
+ *
+ * pdfme sólo admite un `data:` URL: con una dirección `https://…` —que es
+ * justo lo que guarda Ajustes cuando el logotipo se sube a Supabase— intenta
+ * interpretar la propia URL como un JPEG y la generación entera falla. Aquí
+ * se descarga y se convierte; si no se puede, el campo se queda vacío, que es
+ * mucho mejor que una factura que no llega a generarse.
+ */
+async function resolverImagenes(
+  plantilla: Template,
+  entrada: Record<string, string>,
+): Promise<Record<string, string>> {
+  const paginas = plantilla.schemas || [];
+  const baseStatic = (plantilla.basePdf && typeof plantilla.basePdf === 'object' && 'staticSchema' in plantilla.basePdf)
+    ? ((plantilla.basePdf as { staticSchema?: unknown[] }).staticSchema || [])
+    : [];
+
+  const nombresDeImagen = [...paginas.flat(), ...baseStatic]
+    .filter((e): e is { name: string; type: string } => {
+      const esq = e as { name?: string; type?: string };
+      return typeof esq.name === 'string' && esq.type === 'image';
+    })
+    .map(e => e.name);
+
+  if (nombresDeImagen.length === 0) return entrada;
+
+  const resuelta = { ...entrada };
+  await Promise.all(nombresDeImagen.map(async (nombre) => {
+    const valor = resuelta[nombre];
+    if (!valor || valor.startsWith('data:')) return;
+    try {
+      const respuesta = await fetch(valor);
+      if (!respuesta.ok) throw new Error(String(respuesta.status));
+      const blob = await respuesta.blob();
+      resuelta[nombre] = await new Promise<string>((resolver, rechazar) => {
+        const lector = new FileReader();
+        lector.onload = () => resolver(String(lector.result));
+        lector.onerror = () => rechazar(lector.error);
+        lector.readAsDataURL(blob);
+      });
+    } catch {
+      resuelta[nombre] = '';
+    }
+  }));
+
+  return resuelta;
+}
+
 export async function generarPdf(
   plantillaBruta: Template,
   datos: DatosDocumento,
@@ -81,10 +131,12 @@ export async function generarPdf(
     qrcode: esquemas.barcodes.qrcode,
   };
 
+  const entrada = await resolverImagenes(plantilla, construirEntrada(plantilla, datos));
+
   try {
     return await generate({
       template: plantilla,
-      inputs: [construirEntrada(plantilla, datos)],
+      inputs: [entrada],
       plugins: tipos,
       options: {
         font: fuentes,

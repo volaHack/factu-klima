@@ -109,6 +109,13 @@ export interface CampoDetectado {
   fijo: boolean;
   /** Campos añadidos a mano en el revisor, para distinguirlos de los detectados. */
   manual?: boolean;
+  /**
+   * Texto literal a imprimir. Sólo lo usan los campos `fijo` añadidos a mano:
+   * un rótulo nuevo que el diseño original no traía («Condiciones de entrega»,
+   * un aviso propio…). Los campos fijos detectados no lo necesitan, porque su
+   * texto sigue impreso en el calco.
+   */
+  texto?: string;
   /** El texto que traía el PDF de muestra en esa posición. */
   valorOriginal: string;
   /** La etiqueta impresa que hay al lado, si se encontró («Nº factura:»). */
@@ -223,6 +230,30 @@ export interface DiagnosticoPlantilla {
   archivoOrigen: string;
 }
 
+/**
+ * Todo lo necesario para volver a abrir una plantilla en el editor.
+ *
+ * La plantilla compilada no sirve para editar: en ella el diseño ya es un
+ * calco con los datos borrados y los campos han perdido de dónde salieron.
+ * Aquí se guarda el análisis tal cual quedó —el mapa de bits ORIGINAL, los
+ * textos leídos, los campos, la tabla y las zonas tapadas— para que «Editar»
+ * devuelva al usuario exactamente donde lo dejó, sin volver a subir el PDF.
+ *
+ * `lineas` no se guarda: se recalcula agrupando `items`, y guardarla
+ * triplicaría el tamaño porque cada item aparecería además dentro de su
+ * segmento y de su línea.
+ */
+export interface OrigenPlantilla {
+  /** Versión del formato, para poder migrar sin romper lo ya guardado. */
+  version: 1;
+  pagina: Omit<PaginaExtraida, 'lineas'>;
+  campos: CampoDetectado[];
+  tabla: TablaDetectada | null;
+  zonasExtra: ZonaBorrado[];
+  avisos: AvisoAnalisis[];
+  familia: 'sans' | 'serif';
+}
+
 export interface PlantillaDocumento {
   id: string;
   nombre: string;
@@ -231,6 +262,12 @@ export interface PlantillaDocumento {
   /** Plantilla pdfme lista para `generate()`. */
   plantilla: Template;
   diagnostico: DiagnosticoPlantilla;
+  /**
+   * Análisis del que salió, para poder reeditarla. Las plantillas guardadas
+   * antes de que existiera esta pieza no lo tienen: se avisa al usuario y se
+   * le ofrece volver a subir el PDF.
+   */
+  origen?: OrigenPlantilla | null;
   /** La plantilla que se usa por defecto al descargar un PDF. */
   predeterminada: boolean;
   createdAt: string;

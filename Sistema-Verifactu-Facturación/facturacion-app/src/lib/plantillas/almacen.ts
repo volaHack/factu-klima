@@ -25,13 +25,26 @@ function supabase() {
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 type FilaBd = any;
 
+/**
+ * El análisis de origen viaja dentro de `diagnostics`, que ya es una columna
+ * JSON libre. Es lo que permite reabrir una plantilla en el editor sin volver
+ * a subir el PDF, y no obliga a migrar la tabla.
+ */
 function desdeBd(fila: FilaBd): PlantillaDocumento {
+  const diagnostics = fila.diagnostics ?? {};
+  const { origen, ...diagnostico } = diagnostics as Record<string, unknown>;
   return {
     id: fila.id,
     nombre: fila.name ?? 'Plantilla',
     aplicaA: (fila.applies_to ?? ['factura']) as TipoDocumentoPlantilla[],
     plantilla: fila.template,
-    diagnostico: fila.diagnostics ?? { avisos: [], confianza: {}, archivoOrigen: '' },
+    diagnostico: {
+      avisos: [],
+      confianza: {},
+      archivoOrigen: '',
+      ...(diagnostico as object),
+    } as PlantillaDocumento['diagnostico'],
+    origen: (origen as PlantillaDocumento['origen']) ?? null,
     predeterminada: Boolean(fila.is_default),
     createdAt: fila.created_at ?? new Date().toISOString(),
     updatedAt: fila.updated_at ?? new Date().toISOString(),
@@ -45,7 +58,9 @@ function haciaBd(plantilla: PlantillaDocumento, userId: string): Record<string, 
     name: plantilla.nombre,
     applies_to: plantilla.aplicaA,
     template: plantilla.plantilla,
-    diagnostics: plantilla.diagnostico,
+    diagnostics: plantilla.origen
+      ? { ...plantilla.diagnostico, origen: plantilla.origen }
+      : plantilla.diagnostico,
     is_default: plantilla.predeterminada,
     updated_at: new Date().toISOString(),
   };

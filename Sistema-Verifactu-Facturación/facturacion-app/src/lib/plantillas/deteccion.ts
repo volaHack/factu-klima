@@ -25,7 +25,7 @@
  */
 
 import type { CompanySettings } from '../types';
-import { COLUMNAS_LINEAS } from './contrato';
+import { COLUMNAS_LINEAS, siguienteColumnaPersonalizada } from './contrato';
 import type {
   Alineacion,
   AnalisisPdf,
@@ -173,21 +173,80 @@ function buscarEtiqueta(texto: string): ReglaEtiqueta | null {
   return mejor;
 }
 
+/** Rótulos de la zona de totales que no tienen campo propio en el contrato. */
+const RE_ROTULO_TOTALES = /^(retencion|retenciones|irpf|recargo( de equivalencia)?|re|portes|suplidos|anticipo|entrega a cuenta|forma de pago|vencimientos?)$/;
+
+/**
+ * ¿Este texto es un rótulo impreso del diseño y no el dato de nadie?
+ *
+ * Hace falta porque la búsqueda «etiqueta a la izquierda, valor a la derecha»
+ * es ciega: en una plantilla en blanco, a la derecha de «FACTURA Nº:» no hay
+ * un número, hay OTRO rótulo («POBLACIÓN DEL CLIENTE:»), y sin este filtro se
+ * guardaba como si fuera el número de factura. El resultado era una plantilla
+ * que imprimía rótulos en el sitio de los datos.
+ */
+export function pareceEtiqueta(texto: string): boolean {
+  const limpio = texto.trim();
+  if (!limpio) return true;
+  // Nada que termine en dos puntos es un dato: es lo que los anuncia.
+  if (/[:：]\s*$/.test(limpio)) return true;
+
+  const n = normalizar(limpio);
+  if (!n) return true;
+  return (
+    Boolean(buscarEtiqueta(limpio)) ||
+    RE_ETIQUETA_NIF.test(n) || RE_ETIQUETA_DIRECCION.test(n) ||
+    RE_ETIQUETA_TELEFONO.test(n) || RE_ETIQUETA_EMAIL.test(n) ||
+    RE_ROTULO_CLIENTE.test(n) || RE_ROTULO_EMISOR.test(n) ||
+    RE_ROTULO_TOTALES.test(n)
+  );
+}
+
+/**
+ * Claves cuyo valor es SIEMPRE numérico: un número de factura, una fecha o un
+ * importe llevan cifras. Si lo que se ha encontrado no las lleva, no es el
+ * dato — es un rótulo que se ha colado.
+ */
+const CLAVES_CON_CIFRAS = new Set([
+  'doc_numero', 'doc_fecha', 'doc_vencimiento', 'doc_fecha_pago',
+  'total_base', 'total_descuento', 'total_impuestos', 'total_general',
+  'empresa_nif', 'cliente_nif', 'empresa_cp', 'cliente_cp',
+  'empresa_iban', 'empresa_telefono', 'cliente_telefono',
+]);
+
+function valorCoherente(clave: string, valor: string): boolean {
+  if (!CLAVES_CON_CIFRAS.has(clave)) return true;
+  return /\d/.test(valor);
+}
+
 // ============================================================
 // COLUMNAS DE LA TABLA
 // ============================================================
 
+/**
+ * Cabeceras de columna reconocidas.
+ *
+ * Van por PREFIJO y no por coincidencia exacta: en las facturas reales la
+ * cabecera casi nunca es la palabra limpia. Es «CÓDIGO SIG», «PRECIO UD.»,
+ * «IMPORTE €» o «Cant.», y exigir el texto entero dejaba media tabla sin
+ * mapear — que es exactamente lo que hace que luego falten datos al imprimir.
+ */
 const CABECERAS_COLUMNA: { re: RegExp; clave: string }[] = [
-  { re: /^(ref|referencia|codigo|cod|sku|articulo|art|clave|item|cod\.?|cód|código|prod|producto)$/i, clave: 'ref' },
-  { re: /(descripcion|concepto|detalle|producto|articulo|denominacion|description|servicio|detalles|conceptos)/i, clave: 'descripcion' },
-  { re: /^(cantidad|cant|uds|ud|unidades|c dad|qty|n uds|kg|peso|unid|horas|hrs|cant\.?)$/i, clave: 'cantidad' },
-  { re: /^(u ?m|unidad|medida|formato|envase|ud|tipo unidad)$/i, clave: 'unidad' },
-  { re: /(precio|p unit|p ?u|unitario|pvp|price|importe unitario|precio ud|precio unit|precio\/u|p\. unit|p\.v\.p)/i, clave: 'precio' },
-  { re: /^(dto|dcto|desc|descuento|% ?dto|% ?descuento|% ?desc|dtos)( %)?$/i, clave: 'descuento_pct' },
-  { re: /^(iva|igic|imp|impuesto|% ?iva|% ?igic|tipo|tax|tipo iva|tipo igic|% ?imp)( %)?$/i, clave: 'impuesto_pct' },
-  { re: /^(cuota|cuota iva|cuota igic|total iva|impuesto imp)$/i, clave: 'importe_impuesto' },
-  { re: /^(importe|subtotal|base|neto|amount|valor|importe neto|total linea|base linea)$/i, clave: 'importe' },
-  { re: /^(total|total linea|importe total|total con iva|total con impuestos|total fila)$/i, clave: 'importe_total' },
+  { re: /^(n|no|num|orden|linea|pos)$/i, clave: 'indice' },
+  { re: /^(ref|referencia|codigo|cod|sku|clave|item|articulo|art|prod)\b/i, clave: 'ref' },
+  { re: /(descripcion|concepto|detalle|denominacion|description|servicio|producto|articulo)/i, clave: 'descripcion' },
+  { re: /^(cantidad|cant|uds|udes|ud|unidades|c dad|qty|n uds|kg|peso|unid|horas|hrs)\b/i, clave: 'cantidad' },
+  { re: /^(u ?m|unidad|medida|formato|envase|tipo unidad)\b/i, clave: 'unidad' },
+  // `p?recio` no es un capricho: hay PDFs (facturas de Sucamosa, por ejemplo)
+  // en los que la «P» de PRECIO no llega en el flujo de texto y pdf.js sólo
+  // entrega «RECIO». Sin esta tolerancia la columna de precios se queda sin
+  // mapear y las facturas salen sin precio unitario.
+  { re: /(p?recio|p unit|p ?u|unitario|pvp|price|importe unitario)/i, clave: 'precio' },
+  { re: /^(dto|dcto|desc|descuento|% ?dto|% ?descuento|% ?desc|dtos)\b/i, clave: 'descuento_pct' },
+  { re: /^(iva|igic|imp|impuesto|% ?iva|% ?igic|tipo|tax)\b/i, clave: 'impuesto_pct' },
+  { re: /^(cuota)\b/i, clave: 'importe_impuesto' },
+  { re: /^(importe|subtotal|base|neto|amount|valor)\b/i, clave: 'importe' },
+  { re: /^(total)\b/i, clave: 'importe_total' },
 ];
 
 function claveDeCabecera(texto: string): string | null {
@@ -222,15 +281,61 @@ function mediana(valores: number[]): number {
   return orden[Math.floor(orden.length / 2)];
 }
 
-function alineacionDe(items: { x: number; ancho: number }[], izquierda: number, derechaCol: number): Alineacion {
-  if (items.length === 0) return 'left';
-  const errIzq = mediana(items.map(i => Math.abs(i.x - izquierda)));
-  const errDer = mediana(items.map(i => Math.abs(derecha(i) - derechaCol)));
-  const centroCol = (izquierda + derechaCol) / 2;
-  const errCentro = mediana(items.map(i => Math.abs((i.x + derecha(i)) / 2 - centroCol)));
-  if (errDer < errIzq && errDer <= errCentro) return 'right';
-  if (errCentro < errIzq && errCentro < errDer) return 'center';
-  return 'left';
+/** Cuánto se separan unos valores de su mediana. Cero = todos iguales. */
+function dispersion(valores: number[]): number {
+  if (valores.length === 0) return Infinity;
+  const centro = mediana(valores);
+  return valores.reduce((suma, v) => suma + Math.abs(v - centro), 0) / valores.length;
+}
+
+/**
+ * Deduce la alineación de una columna por el borde que comparten sus celdas.
+ *
+ * No se mide la distancia al borde de la columna —que es una frontera que nos
+ * hemos inventado nosotros a medio camino entre dos cabeceras— sino cuál de
+ * los tres bordes de las celdas está más igualado. Unas descripciones de
+ * longitudes distintas empiezan todas en la misma x: eso es alineación a la
+ * izquierda, sin discusión. Unos importes acaban todos en la misma x: a la
+ * derecha. Medir contra la frontera hacía que descripciones largas salieran
+ * alineadas a la derecha, que es de las cosas que peor se ven en una factura.
+ */
+function alineacionDe(
+  celdas: { x: number; ancho: number }[],
+  porDefecto: Alineacion,
+): Alineacion {
+  // Con menos de tres celdas no hay muestra suficiente: dos importes del
+  // mismo ancho comparten los tres bordes a la vez y cualquier conclusión
+  // geométrica sería una moneda al aire.
+  if (celdas.length < 3) return porDefecto;
+
+  const izq = dispersion(celdas.map(c => c.x));
+  const der = dispersion(celdas.map(c => derecha(c)));
+  const centro = dispersion(celdas.map(c => (c.x + derecha(c)) / 2));
+
+  // Sólo se contradice al contenido cuando la geometría es concluyente: un
+  // borde tiene que estar claramente más igualado que los otros dos.
+  const MARGEN = 0.4;
+  if (izq + MARGEN < der && izq + MARGEN < centro) return 'left';
+  if (der + MARGEN < izq && der + MARGEN < centro) return 'right';
+  if (centro + MARGEN < izq && centro + MARGEN < der) return 'center';
+  return porDefecto;
+}
+
+/**
+ * Alineación que le corresponde a una columna por lo que contiene: los
+ * importes y las cantidades a la derecha, los textos a la izquierda. Es el
+ * criterio de cualquier factura impresa y sirve de red cuando la geometría
+ * del PDF de muestra no dice nada claro.
+ */
+function alineacionPorContenido(clave: string | null, celdas: { texto: string }[]): Alineacion {
+  const conocida = clave ? COLUMNAS_LINEAS.find(c => c.clave === clave) : undefined;
+  if (conocida) return conocida.numerica ? 'right' : 'left';
+
+  // Columna sin dato conocido: manda lo que hay escrito en ella.
+  const conTexto = celdas.filter(c => c.texto.trim().length > 0);
+  if (conTexto.length === 0) return 'left';
+  const numericas = conTexto.filter(c => /^[-−+]?[\d.,\s%€]+$/.test(c.texto.trim())).length;
+  return numericas >= conTexto.length * 0.7 ? 'right' : 'left';
 }
 
 // ============================================================
@@ -243,15 +348,57 @@ interface CandidataCabecera {
   claves: (string | null)[];
 }
 
+/**
+ * Máxima separación, en milímetros, para considerar que dos trozos de texto
+ * son la misma celda de cabecera.
+ *
+ * Es deliberadamente estrecha. Los segmentos normales agrupan con una holgura
+ * de un espacio largo, y eso en una tabla apretada se come las separaciones
+ * reales: en las facturas de Sucamosa, «CAJ.», «U/C», «UDES.» y «PRECIO» están
+ * a menos de 4,5 mm unas de otras y son cuatro columnas distintas. Aquí sólo
+ * se unen los trozos que se tocan, que es el caso de una palabra partida por
+ * un cambio de fuente o de interletrado.
+ */
+const HUECO_CELDA_CABECERA_MM = 0.8;
+
+/**
+ * Parte la fila de cabecera en celdas: una por columna.
+ *
+ * Ni los items sueltos (una palabra partida daría dos columnas) ni los
+ * segmentos (fusionan columnas estrechas). El criterio es el contacto.
+ */
+function celdasDeCabecera(linea: LineaTexto): SegmentoTexto[] {
+  const enOrden = [...linea.items].sort((a, b) => a.x - b.x);
+  const grupos: ItemTexto[][] = [];
+
+  for (const item of enOrden) {
+    const grupo = grupos[grupos.length - 1];
+    const ultimo = grupo?.[grupo.length - 1];
+    const separacion = ultimo ? item.x - derecha(ultimo) : Infinity;
+    if (grupo && separacion <= HUECO_CELDA_CABECERA_MM) grupo.push(item);
+    else grupos.push([item]);
+  }
+
+  return grupos.map(items => ({
+    items,
+    texto: items.map(i => i.texto).join('').replace(/\s+/g, ' ').trim(),
+    x: Math.min(...items.map(i => i.x)),
+    y: Math.min(...items.map(i => i.y)),
+    ancho: Math.max(...items.map(i => derecha(i))) - Math.min(...items.map(i => i.x)),
+    alto: Math.max(...items.map(i => abajo(i))) - Math.min(...items.map(i => i.y)),
+  })).filter(celda => celda.texto.length > 0);
+}
+
 function buscarCabeceraTabla(lineas: LineaTexto[], altoPagina: number): CandidataCabecera | null {
   let mejor: CandidataCabecera | null = null;
 
   for (const linea of lineas) {
     // La cabecera de líneas nunca está en el extremo superior ni en el pie.
     if (linea.y < altoPagina * 0.08 || linea.y > altoPagina * 0.85) continue;
-    if (linea.items.length < 2) continue;
+    const celdas = celdasDeCabecera(linea);
+    if (celdas.length < 2) continue;
 
-    const claves = linea.items.map(i => claveDeCabecera(i.texto));
+    const claves = celdas.map(c => claveDeCabecera(c.texto));
     const aciertos = new Set(claves.filter(Boolean) as string[]).size;
     // Con dos columnas reconocidas ya no es casualidad; una sola palabra
     // suelta como «Importe» aparece también en la zona de totales.
@@ -269,31 +416,45 @@ function construirColumnas(
   izquierdaTabla: number,
   derechaTabla: number,
 ): ColumnaDetectada[] {
-  const items = [...cabecera.items].sort((a, b) => a.x - b.x);
+  const titulos = celdasDeCabecera(cabecera);
   const columnas: ColumnaDetectada[] = [];
 
-  // Los items de cabecera son las anclas. El límite entre dos columnas cae a
+  // Cada título de cabecera es un ancla. El límite entre dos columnas cae a
   // medio camino entre el final de una cabecera y el principio de la
   // siguiente, que es donde el ojo también pone la separación.
-  for (let i = 0; i < items.length; i++) {
-    const anterior = i === 0 ? null : items[i - 1];
-    const siguiente = i === items.length - 1 ? null : items[i + 1];
-    const inicio = anterior ? (derecha(anterior) + items[i].x) / 2 : Math.min(izquierdaTabla, items[i].x);
-    const fin = siguiente ? (derecha(items[i]) + siguiente.x) / 2 : Math.max(derechaTabla, derecha(items[i]));
+  for (let i = 0; i < titulos.length; i++) {
+    const anterior = i === 0 ? null : titulos[i - 1];
+    const siguiente = i === titulos.length - 1 ? null : titulos[i + 1];
+    const inicio = anterior ? (derecha(anterior) + titulos[i].x) / 2 : Math.min(izquierdaTabla, titulos[i].x);
+    const fin = siguiente ? (derecha(titulos[i]) + siguiente.x) / 2 : Math.max(derechaTabla, derecha(titulos[i]));
 
-    const celdas = filas.flatMap(f =>
-      f.items.filter(it => {
+    // Una celda por fila: todos los items de esa fila cuyo centro cae dentro
+    // de la franja de la columna, unidos en una sola caja.
+    //
+    // Se reparte por items y no por segmentos porque en una tabla apretada el
+    // agrupador de segmentos junta la referencia con la descripción —están a
+    // menos de 3 mm— y entonces la columna de descripciones «hereda» una caja
+    // que empieza en el margen izquierdo de la tabla. Con las fronteras de
+    // columna ya calculadas no hace falta ningún umbral: el reparto es exacto.
+    const celdas = filas
+      .map(f => f.items.filter(it => {
         const centro = (it.x + derecha(it)) / 2;
         return centro >= inicio && centro < fin;
-      }),
-    );
+      }))
+      .filter(items => items.length > 0)
+      .map(items => ({
+        x: Math.min(...items.map(it => it.x)),
+        ancho: Math.max(...items.map(it => derecha(it))) - Math.min(...items.map(it => it.x)),
+        texto: items.map(it => it.texto).join(' ').replace(/\s+/g, ' ').trim(),
+      }));
 
+    const clave = claveDeCabecera(titulos[i].texto);
     columnas.push({
-      clave: claveDeCabecera(items[i].texto),
-      cabecera: items[i].texto.trim(),
+      clave,
+      cabecera: titulos[i].texto.trim(),
       x: inicio,
       ancho: fin - inicio,
-      alineacion: celdas.length > 0 ? alineacionDe(celdas, inicio + 1, fin - 1) : (claveDeCabecera(items[i].texto) === 'descripcion' ? 'left' : 'right'),
+      alineacion: alineacionDe(celdas, alineacionPorContenido(clave, celdas)),
     });
   }
 
@@ -307,6 +468,19 @@ function construirColumnas(
       columna.clave = alternativa && !usadas.has(alternativa) ? alternativa : null;
     }
     if (columna.clave) usadas.add(columna.clave);
+  }
+
+  // Una columna con cabecera que no encaja con ningún dato conocido pasa a
+  // ser un dato propio de la plantilla («CAJ.», «U/C», «LOTE», «BULTOS»…).
+  //
+  // Es la diferencia entre una plantilla que imprime la tabla completa y una
+  // que deja huecos: así la columna se pide línea a línea al crear la factura
+  // en vez de salir en blanco. Si al usuario no le hace falta, la deja vacía
+  // desde el editor con un clic.
+  for (const columna of columnas) {
+    if (columna.clave || !columna.cabecera.trim()) continue;
+    columna.clave = siguienteColumnaPersonalizada([...usadas]);
+    usadas.add(columna.clave);
   }
 
   return columnas;
@@ -348,13 +522,50 @@ function detectarTabla(
   const filas: LineaTexto[] = [];
   let yAnterior = inicioCuerpo;
 
+  // Rayas horizontales que hay por debajo de la cabecera. Sirven de frontera:
+  // una raya seguida de un hueco mayor que una fila normal es el cierre de la
+  // tabla, y lo que viene después ya es el bloque de totales. Las rayas que
+  // separan fila de fila no cuentan, porque el texto siguiente va pegado.
+  const rayas = buscarLineas
+    ? buscarLineas(
+        cabecera.x,
+        derecha(cabecera) - cabecera.x,
+        abajo(cabecera),
+        Math.max(0, pagina.alto - abajo(cabecera)),
+      )
+    : [];
+
   for (const linea of posibles) {
     const hueco = linea.y - yAnterior;
     if (filas.length > 0 && hueco > altoLinea * 3.5) break;
+
+    const cruzaElCierre = filas.length > 0 &&
+      hueco > altoLinea * 1.5 &&
+      rayas.some(y => y > yAnterior + 0.3 && y < linea.y - 0.3);
+    if (cruzaElCierre) break;
+
     if (RE_FIN_DE_TABLA.test(normalizar(linea.texto)) && linea.items.length <= 3) break;
+
     // Una fila de la tabla ocupa varias columnas; una nota suelta debajo, no.
     const columnasTocadas = new Set(linea.items.map(i => Math.round(i.x))).size;
-    if (filas.length > 0 && columnasTocadas === 1 && linea.items.length === 1 && !pareceDato(linea.texto)) break;
+    const pareceNota = filas.length > 0 && columnasTocadas === 1 &&
+      linea.items.length === 1 && !pareceDato(linea.texto);
+
+    if (pareceNota) {
+      // …salvo cuando es la segunda línea de una descripción larga («HARIBO
+      // MEGA TORCIDAS REGALIZ 200 / GRS 14 UNDS»): tiene la misma pinta que
+      // una nota, pero va pegada a la anterior, más junta de lo que van dos
+      // filas seguidas, y cae dentro del ancho de la tabla.
+      //
+      // Ante la duda se sigue. Meter una línea de más en la tabla sólo tapa
+      // un poco más de calco; cortar de menos deja media docena de líneas de
+      // la factura de muestra impresas en TODAS las facturas que se emitan,
+      // que es el defecto más visible que puede tener una plantilla.
+      const pegadaALaAnterior = hueco <= altoLinea * 0.9;
+      const dentroDelAncho = linea.x >= cabecera.x - 2 && derecha(linea) <= derecha(cabecera) + 2;
+      if (!(pegadaALaAnterior && dentroDelAncho)) break;
+    }
+
     filas.push(linea);
     yAnterior = abajo(linea);
   }
@@ -649,6 +860,8 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     if (!pareja) continue;
     const regla = buscarEtiqueta(pareja.etiqueta);
     if (!regla) continue;
+    const valor = pareja.valorItems.map(i => i.texto).join(' ').trim();
+    if (!valorCoherente(regla.clave, valor)) continue;
     registrar(
       campoDesde(pareja.valorItems, regla.clave, 0.95, `Estaba junto a la etiqueta «${pareja.etiqueta.trim()}»`, pareja.etiqueta),
       segmento,
@@ -656,16 +869,23 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
   }
 
   // b) Etiqueta sola y valor a su derecha, a la misma altura.
+  //
+  // «A su derecha» tiene que ser de verdad al lado: en una factura, a la
+  // misma altura que «Fecha:» y en el otro extremo de la hoja puede haber el
+  // domicilio del cliente, que no tiene nada que ver.
+  const HUECO_MAXIMO_MM = 55;
   for (const fila of filasFuera) {
     for (let i = 0; i < fila.segmentos.length - 1; i++) {
       const etiqueta = fila.segmentos[i];
       const valor = fila.segmentos[i + 1];
       if (usadas.has(etiqueta) || usadas.has(valor)) continue;
+      if (valor.x - derecha(etiqueta) > HUECO_MAXIMO_MM) continue;
       const regla = buscarEtiqueta(etiqueta.texto.replace(/[:\s]+$/, ''));
       if (!regla || yaAsignadas.has(regla.clave)) continue;
-      // El texto de al lado no puede ser a su vez otra etiqueta: en
-      // «Base imponible | IVA | Total» no hay ningún dato, son tres rótulos.
-      if (buscarEtiqueta(valor.texto)) continue;
+      // El texto de al lado no puede ser a su vez otro rótulo: en
+      // «Base imponible | IVA | Total» no hay ningún dato, son tres títulos.
+      if (pareceEtiqueta(valor.texto)) continue;
+      if (!valorCoherente(regla.clave, valor.texto)) continue;
       registrar(
         campoDesde(valor.items, regla.clave, 0.9, `Estaba a la derecha de «${etiqueta.texto.trim()}»`, etiqueta.texto),
         valor,
@@ -685,7 +905,8 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
       solapeHorizontal(segmento, otro) > 0.35,
     );
     if (!debajo) continue;
-    if (buscarEtiqueta(debajo.texto)) continue;
+    if (pareceEtiqueta(debajo.texto)) continue;
+    if (!valorCoherente(regla.clave, debajo.texto)) continue;
     registrar(
       campoDesde(debajo.items, regla.clave, 0.85, `Estaba debajo de la etiqueta «${segmento.texto.trim()}»`, segmento.texto),
       debajo,

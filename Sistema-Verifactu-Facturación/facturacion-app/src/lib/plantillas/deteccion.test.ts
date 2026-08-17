@@ -274,9 +274,12 @@ describe('cuando faltan los datos de la empresa', () => {
 });
 
 describe('detección ampliada por diccionario', () => {
+  // El valor va justo detrás de la etiqueta y con cifras dentro, como en
+  // cualquier factura: el detector rechaza a propósito los valores que están
+  // en la otra punta de la hoja o que no son más que otro rótulo.
   const asignar = (etiqueta: string): Record<string, string> => {
     const analisis = detectar(
-      paginaDeEjemplo([texto(etiqueta, 20, 120), texto('X', 120, 120)]),
+      paginaDeEjemplo([texto(etiqueta, 20, 120), texto('12345', 70, 120)]),
       { ajustes: AJUSTES },
     );
     return claves(analisis);

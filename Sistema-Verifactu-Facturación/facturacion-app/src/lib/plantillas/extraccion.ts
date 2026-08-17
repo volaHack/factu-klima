@@ -30,6 +30,52 @@ export interface PaginaConLienzo extends PaginaExtraida {
   pixeles: ImageData;
 }
 
+/** Por encima de este tamaño el PNG se cambia por JPEG. */
+const LIMITE_PNG_BYTES = 1_400_000;
+
+/**
+ * PNG mientras el tamaño sea razonable (respeta los bordes finos y el texto
+ * pequeño del membrete) y JPEG cuando el diseño lleva fotos o degradados y el
+ * PNG se dispara. Una plantilla viaja entera en cada sincronización —y ahora
+ * además guarda el calco original para poder reabrirse—, así que no puede
+ * pesar varios megas.
+ */
+export function aDataUrlOptimo(lienzo: HTMLCanvasElement): string {
+  const png = lienzo.toDataURL('image/png');
+  if (png.length * 0.75 <= LIMITE_PNG_BYTES) return png;
+  return lienzo.toDataURL('image/jpeg', 0.88);
+}
+
+/**
+ * Reconstruye el lienzo y los píxeles de una página a partir de su mapa de
+ * bits guardado.
+ *
+ * Es lo que permite reabrir una plantilla ya guardada y seguir editándola: el
+ * borrado de zonas y el muestreo de color necesitan los píxeles del original,
+ * y volver a leer el PDF no es una opción porque el archivo ya no está.
+ */
+export async function rehidratarLienzo(
+  bitmap: PaginaExtraida['bitmap'],
+): Promise<{ lienzo: HTMLCanvasElement; pixeles: ImageData }> {
+  const imagen = await new Promise<HTMLImageElement>((resolver, rechazar) => {
+    const img = new Image();
+    img.onload = () => resolver(img);
+    img.onerror = () => rechazar(new ErrorPdf('No se ha podido recuperar el calco de la plantilla.'));
+    img.src = bitmap.dataUrl;
+  });
+
+  const lienzo = document.createElement('canvas');
+  lienzo.width = bitmap.anchoPx || imagen.naturalWidth;
+  lienzo.height = bitmap.altoPx || imagen.naturalHeight;
+  const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new ErrorPdf('Este navegador no permite dibujar el PDF (canvas no disponible).');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+  ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+
+  return { lienzo, pixeles: ctx.getImageData(0, 0, lienzo.width, lienzo.height) };
+}
+
 // ============================================================
 // CARGA DE PDF.JS
 // ============================================================
@@ -508,7 +554,10 @@ export async function extraerPagina(archivo: ArrayBuffer): Promise<PaginaConLien
     lineas,
     totalPaginas: documento.numPages,
     bitmap: {
-      dataUrl: lienzo.toDataURL('image/png'),
+      // Optimizado desde el principio: este mismo mapa de bits se guarda con
+      // la plantilla para poder reabrirla, y un PNG de 200 ppp sin comprimir
+      // haría que cada sincronización arrastrara varios megas.
+      dataUrl: aDataUrlOptimo(lienzo),
       anchoPx: lienzo.width,
       altoPx: lienzo.height,
       pxPorMm,

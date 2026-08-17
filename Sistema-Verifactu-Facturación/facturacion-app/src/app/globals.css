@@ -7101,6 +7101,20 @@ a.stats-item:focus-visible {
 .plantilla-lienzo--dibujando { cursor: crosshair; }
 .plantilla-lienzo-img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
+/* El zoom cambia el ancho real del lienzo, no una transformación: así el
+   rectángulo que mide el navegador coincide con lo que se ve y las
+   conversiones milímetro ↔ píxel siguen siendo exactas a cualquier aumento. */
+.plantilla-lienzo-scroll {
+  width: 100%;
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(45deg, var(--bg-tertiary) 25%, transparent 25%) 0 0 / 16px 16px,
+    linear-gradient(-45deg, var(--bg-tertiary) 25%, transparent 25%) 0 8px / 16px 16px,
+    var(--bg-secondary);
+}
+
 /* --- Recuadros de campo --- */
 
 .campo-caja {
@@ -7151,34 +7165,40 @@ a.stats-item:focus-visible {
   pointer-events: none;
 }
 
+/* Las etiquetas se ven al pasar por encima y en lo seleccionado; el resto del
+   tiempo se quitan de en medio para no tapar la factura. Quien quiera verlas
+   todas a la vez tiene el interruptor «Etiquetas» en la barra. */
+.campo-caja:hover .campo-caja-etiqueta { opacity: 1; }
 .campo-caja--activa .campo-caja-etiqueta { opacity: 1; }
 .campo-caja--sin-asignar .campo-caja-etiqueta { opacity: 1; background: var(--color-danger); }
 
-/* Al hacer hover sobre el lienzo o sobre cualquier recuadro, DESAPARECEN TODAS las etiquetas ("¿Qué es esto?", etc.) para no tapar el texto original del PDF */
-.plantilla-lienzo:hover .campo-caja-etiqueta {
-  opacity: 0 !important;
-  visibility: hidden !important;
+.campo-caja:hover {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  z-index: 8;
 }
 
-/* El recuadro del campo sobre el que está el ratón se destaca con un marco alrededor bien claro */
-.campo-caja:hover {
-  border: 2px solid var(--accent-500) !important;
-  box-shadow: 0 0 0 2px var(--accent-glow), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-  background: color-mix(in srgb, var(--accent-500) 18%, transparent) !important;
-  z-index: 10;
-}
+/* --- Tiradores de redimensión: los ocho de cualquier editor --- */
 
 .campo-caja-tirador {
   position: absolute;
-  right: -5px;
-  bottom: -5px;
-  width: 11px;
-  height: 11px;
-  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   background: var(--accent-500);
   border: 2px solid var(--bg-elevated);
-  cursor: nwse-resize;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  z-index: 9;
 }
+
+.campo-caja-tirador--nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.campo-caja-tirador--n  { left: 50%; top: -5px; margin-left: -5px; cursor: ns-resize; }
+.campo-caja-tirador--ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.campo-caja-tirador--e  { right: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
+.campo-caja-tirador--se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.campo-caja-tirador--s  { left: 50%; bottom: -5px; margin-left: -5px; cursor: ns-resize; }
+.campo-caja-tirador--sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.campo-caja-tirador--w  { left: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
 
 .plantilla-tabla-etiqueta {
   position: absolute;
@@ -7560,4 +7580,275 @@ a.stats-item:focus-visible {
 }
 .plantilla-btn-transparente:hover { background: var(--bg-card-hover); }
 .plantilla-btn-transparente--activo { background: var(--accent-50); border-color: var(--accent-300); color: var(--accent-500); font-weight: 600; }
+
+/* ============================================================
+   EDITOR DE DISEÑO · PIEZAS NUEVAS
+   ============================================================ */
+
+.plantilla-toolbar-grupo--final { margin-left: auto; }
+
+.plantilla-medida {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.plantilla-medida--ancha { min-width: 84px; padding-right: var(--space-2); }
+
+.plantilla-color--mini { width: 26px; height: 24px; border-radius: 4px; padding: 2px; }
+.plantilla-fila-color { display: flex; gap: 6px; align-items: center; }
+
+/* --- Guías de alineación --- */
+
+.plantilla-guia {
+  position: absolute;
+  background: var(--color-danger);
+  pointer-events: none;
+  z-index: 12;
+  opacity: 0.85;
+}
+.plantilla-guia--x { top: 0; bottom: 0; width: 1px; }
+.plantilla-guia--y { left: 0; right: 0; height: 1px; }
+
+/* --- Marquesina de selección múltiple --- */
+
+.plantilla-marquesina {
+  position: absolute;
+  border: 1px dashed var(--accent-400);
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* --- Campo de imagen (logotipo, QR) --- */
+
+.campo-caja--imagen {
+  border-style: solid;
+  border-color: var(--accent-400);
+  background: color-mix(in srgb, var(--accent-500) 8%, transparent);
+}
+.plantilla-marca-imagen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-500);
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* --- Tabla dibujada sobre el papel ---
+   El papel opaco es lo que hace que el editor sea fiel: tapa la tabla del PDF
+   original igual que la tapará el calco al imprimir, de modo que lo que se ve
+   editando es lo que sale. */
+
+.plantilla-tabla-papel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.plantilla-tabla-cabecera {
+  position: absolute;
+  inset: 0 0 auto 0;
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+}
+
+.plantilla-tabla-fila {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.plantilla-tabla-celda {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1.15;
+  font-family: var(--font-sans);
+}
+.plantilla-tabla-celda--cabecera { cursor: grab; pointer-events: auto; }
+.plantilla-tabla-celda--cabecera:active { cursor: grabbing; }
+.plantilla-tabla-celda--cabecera:hover { background: color-mix(in srgb, var(--accent-500) 14%, transparent); }
+.plantilla-tabla-celda--moviendo { opacity: 0.45; }
+.plantilla-tabla-celda--destino {
+  box-shadow: inset 2px 0 0 var(--accent-500), inset -2px 0 0 var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 18%, transparent);
+}
+.plantilla-tabla-texto { overflow: hidden; text-overflow: ellipsis; }
+.plantilla-tabla-asa { flex-shrink: 0; opacity: 0.5; }
+
+/* --- Panel: interruptor dato / fijo --- */
+
+.plantilla-interruptor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.plantilla-interruptor .btn { justify-content: center; }
+
+.plantilla-separador {
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--space-3) 0;
+}
+
+/* --- Posición y tamaño en milímetros --- */
+
+.plantilla-caja-numerica {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.plantilla-caja-numerica label { display: flex; flex-direction: column; gap: 2px; }
+.plantilla-caja-numerica label span {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.plantilla-caja-unidad {
+  grid-column: 1 / -1;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+/* --- Columnas --- */
+
+.plantilla-columnas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.plantilla-columna {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1.1fr) 68px 58px 28px;
+  gap: 5px;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+.plantilla-columna--moviendo { opacity: 0.4; }
+.plantilla-columna--destino { box-shadow: 0 -2px 0 var(--accent-500); }
+.plantilla-columna-asa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+}
+.plantilla-columna-asa:active { cursor: grabbing; }
+.plantilla-columna-ancho { font-size: var(--text-2xs); padding: 4px 5px; text-align: right; }
+.plantilla-columnas-acciones { display: flex; gap: var(--space-2); margin-top: var(--space-3); flex-wrap: wrap; }
+
+/* --- Lista de todo el texto --- */
+
+.plantilla-buscador {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 var(--space-2);
+  color: var(--text-muted);
+}
+.plantilla-buscador .form-input { flex: 1; }
+
+.plantilla-filtros {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.plantilla-fijos { max-height: 320px; }
+
+.plantilla-elemento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: var(--text-xs);
+}
+.plantilla-elemento:hover { background: var(--bg-tertiary); }
+.plantilla-elemento--activo {
+  background: var(--accent-glow);
+  border-color: var(--accent-400);
+}
+.plantilla-elemento--diseno { opacity: 0.82; }
+.plantilla-elemento-cuerpo { min-width: 0; flex: 1; }
+.plantilla-elemento-texto {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+.plantilla-elemento-estado { margin-top: 1px; }
+
+.plantilla-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.plantilla-marca--fijo { color: var(--text-muted); }
+.plantilla-marca--dato { color: var(--accent-400); }
+.plantilla-marca--pendiente { color: var(--color-warning); }
+
+/* --- Selección múltiple en el panel --- */
+
+.plantilla-grupo-lista { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; }
+.plantilla-grupo-lista li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 4px 0;
+  font-size: var(--text-xs);
+  border-bottom: 1px solid var(--border-color);
+}
+.plantilla-grupo-lista li:last-child { border-bottom: none; }
+.plantilla-grupo-etiqueta { color: var(--accent-400); font-weight: 600; white-space: nowrap; }
+.plantilla-grupo-valor {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Recordatorio de atajos --- */
+
+.plantilla-atajos {
+  margin-top: var(--space-3);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.plantilla-atajos strong { color: var(--text-tertiary); }
+.plantilla-atajos kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--border-color);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .plantilla-columna { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 1fr) 56px 50px 26px; }
+  .plantilla-caja-numerica { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plantilla-lienzo-scroll { max-height: 70vh; }
+}
 

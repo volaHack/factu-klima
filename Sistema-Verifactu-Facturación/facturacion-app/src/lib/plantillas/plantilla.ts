@@ -33,7 +33,6 @@ import type { Schema, Template } from '@pdfme/common';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
 import type {
-  Alineacion,
   AnalisisPdf,
   CampoDetectado,
   DiagnosticoPlantilla,
@@ -208,6 +207,36 @@ function esquemaDeImagen(campo: CampoDetectado, nombre: string): Schema {
   } as unknown as Schema;
 }
 
+/**
+ * Rótulo escrito a mano en el editor: no se rellena con ningún dato, se
+ * imprime tal cual. Es lo que permite añadir a la plantilla algo que el PDF
+ * de muestra no traía —«Condiciones de entrega», un aviso, una nota— sin
+ * tener que retocar el PDF original y volver a subirlo.
+ *
+ * El nombre lleva `__` delante porque no es una clave del contrato: así el
+ * validador lo deja pasar y el generador no intenta rellenarlo.
+ */
+function esquemaDeRotulo(campo: CampoDetectado, indice: number): Schema {
+  const tamanoMm = campo.tamano * 0.3528;
+  return {
+    name: `__rotulo_${indice}`,
+    type: 'text',
+    content: campo.texto ?? '',
+    position: { x: redondear(campo.x), y: redondear(campo.y) },
+    width: redondear(campo.ancho),
+    height: redondear(Math.max(campo.alto, tamanoMm * 1.2)),
+    fontName: nombreDeFuente(campo),
+    fontSize: redondear(campo.tamano),
+    fontColor: campo.color,
+    backgroundColor: '',
+    alignment: campo.alineacion,
+    verticalAlignment: 'top',
+    lineHeight: redondear(Math.max(1, campo.interlineado)),
+    characterSpacing: 0,
+    readOnly: true,
+  } as unknown as Schema;
+}
+
 function redondear(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -369,6 +398,9 @@ export function compilarPlantilla(
   // calco, que es exactamente como estaba en el PDF original. Y uno sin
   // clave asignada tampoco, porque no sabríamos con qué rellenarlo.
   const campos = analisis.campos.filter(c => !c.fijo && c.clave);
+  // Salvo los rótulos escritos a mano: ésos no están en el calco (nadie los
+  // imprimió nunca) y hay que pintarlos.
+  const rotulos = analisis.campos.filter(c => c.fijo && (c.texto ?? '').trim() !== '');
   decidirAlineaciones(campos, pagina.ancho);
 
   // Vecinos con los que puede chocar una caja al estirarse: los demás campos
@@ -411,13 +443,22 @@ export function compilarPlantilla(
     // resuelve en los elementos estáticos. Colocado en la zona que fluye
     // saldría el texto del marcador en crudo.
     const esContadorDePaginas = campo.clave === 'doc_pagina';
+    // Una imagen no puede ir en `staticSchema`: allí el valor llega como
+    // marcador `{clave}` dentro del contenido, y pdfme intentaría incrustar
+    // la cadena «{empresa_logo}» como si fuera un PNG. El logotipo y el QR se
+    // quedan en la página, que es donde sí reciben su valor de la entrada.
+    const esImagen = campo.tipo === 'imagen';
 
-    if (enCabecera || enPie || esContadorDePaginas) {
+    if (!esImagen && (enCabecera || enPie || esContadorDePaginas)) {
       estaticos.push(convertirEnEstatico(esquema, campo, nombre));
     } else {
       fluyen.push(esquema);
     }
   }
+
+  // Los rótulos escritos a mano son estáticos por definición: no dependen de
+  // la factura, así que se repiten en todas las páginas igual que el calco.
+  rotulos.forEach((rotulo, indice) => estaticos.push(esquemaDeRotulo(rotulo, indice)));
 
   const fondo: Schema = {
     name: '__calco',

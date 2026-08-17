@@ -12,16 +12,14 @@
  * factura sin que aparezcan parches blancos en mitad del diseño.
  */
 
-import { fondoAlrededor, type PaginaConLienzo } from './extraccion';
+import { aDataUrlOptimo, fondoAlrededor, type PaginaConLienzo } from './extraccion';
 import type { Zona } from './tipos';
 
 export type { Zona };
+export { aDataUrlOptimo };
 
 /** Milímetros que se añaden a cada lado para llevarse el antialias del texto. */
 const HOLGURA_MM = 0.45;
-
-/** Por encima de este tamaño el PNG se cambia por JPEG. */
-const LIMITE_PNG_BYTES = 1_400_000;
 
 export function construirCalco(pagina: PaginaConLienzo, zonas: Zona[]): string {
   const { pxPorMm } = pagina.bitmap;
@@ -48,16 +46,4 @@ export function construirCalco(pagina: PaginaConLienzo, zonas: Zona[]): string {
   }
 
   return aDataUrlOptimo(lienzo);
-}
-
-/**
- * PNG mientras el tamaño sea razonable (respeta los bordes finos y el texto
- * pequeño del membrete) y JPEG cuando el diseño lleva fotos o degradados y
- * el PNG se dispara. Una plantilla viaja entera en cada sincronización, así
- * que no puede pesar varios megas.
- */
-export function aDataUrlOptimo(lienzo: HTMLCanvasElement): string {
-  const png = lienzo.toDataURL('image/png');
-  if (png.length * 0.75 <= LIMITE_PNG_BYTES) return png;
-  return lienzo.toDataURL('image/jpeg', 0.88);
 }
