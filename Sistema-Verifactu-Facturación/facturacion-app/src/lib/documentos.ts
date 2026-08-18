@@ -203,3 +203,26 @@ export async function serieParaCliente(
 }
 
 
+
+/**
+ * El descuento que de verdad se le hace a una línea, en un solo porcentaje.
+ *
+ * Los tres descuentos van en cascada, no sumados: un 10 y luego otro 10 no son
+ * un 20, son un 19, porque el segundo se aplica sobre lo que quedó del
+ * primero. Sumarlos en el papel diría un número que no cuadra con el importe
+ * impreso al lado, y eso es lo primero que mira un cliente que revisa.
+ *
+ * Hace falta porque en la factura impresa y en la vista del documento sólo
+ * cabe una casilla de descuento: lo que se enseña ahí tiene que ser el
+ * efectivo, no el primero de los tres.
+ */
+export function descuentoEfectivo(line: {
+  discountPercent: number;
+  discountPercent2?: number;
+  discountPercent3?: number;
+}): number {
+  const queda = (1 - (line.discountPercent || 0) / 100)
+    * (1 - (line.discountPercent2 || 0) / 100)
+    * (1 - (line.discountPercent3 || 0) / 100);
+  return Number(((1 - queda) * 100).toFixed(2));
+}

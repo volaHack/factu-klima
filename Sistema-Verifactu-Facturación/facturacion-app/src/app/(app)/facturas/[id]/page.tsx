@@ -18,6 +18,7 @@ import {
 import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalItem } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import { descuentoEfectivo } from '@/lib/documentos';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -385,7 +386,13 @@ export default function InvoiceDetailPage() {
                     <td style={{ textAlign: 'right' }}>{line.quantity} {line.unit}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
-                    <td style={{ textAlign: 'right' }}>{line.discountPercent > 0 ? `${line.discountPercent}%` : '-'}</td>
+                    <td style={{ textAlign: 'right' }} title={
+                      (line.discountPercent2 || line.discountPercent3)
+                        ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
+                        : undefined
+                    }>
+                      {descuentoEfectivo(line) > 0 ? `${descuentoEfectivo(line)}%` : '-'}
+                    </td>
                     <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
                   </tr>
                 ))}

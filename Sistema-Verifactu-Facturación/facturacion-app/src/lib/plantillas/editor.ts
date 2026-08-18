@@ -11,7 +11,7 @@
  */
 
 import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
-import type { Alineacion, CampoDetectado, ColumnaDetectada, RejillaDetectada, TablaDetectada } from './tipos';
+import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, RejillaDetectada, TablaDetectada } from './tipos';
 
 export interface Caja {
   x: number;
@@ -484,4 +484,37 @@ export function hacerSitio(
       ? { ...bajar(r), yPrimerRenglon: r.yPrimerRenglon + sitio }
       : r)),
   };
+}
+
+/**
+ * Mueve la raya que separa dos columnas del cuadro de desglose.
+ *
+ * Lo que se ensancha por un lado se estrecha por el otro: el cuadro entero no
+ * cambia de tamaño, porque está calzado sobre un recuadro impreso y moverle
+ * el borde lo sacaría de su sitio. Sólo se reparte de otra manera lo de
+ * dentro, que es justo lo que hace falta cuando una cifra larga no cabe en su
+ * casilla y la de al lado va sobrada.
+ */
+export function redimensionarColumnaRejilla(
+  columnas: ColumnaRejilla[],
+  indice: number,
+  anchoIzquierda: number,
+): ColumnaRejilla[] {
+  const izquierda = columnas[indice];
+  const derecha = columnas[indice + 1];
+  if (!izquierda || !derecha) return columnas;
+
+  const MINIMO = 6;
+  const disponible = izquierda.ancho + derecha.ancho;
+  if (disponible < MINIMO * 2) return columnas;
+
+  const nuevo = acotar(anchoIzquierda, MINIMO, disponible - MINIMO);
+  return columnas.map((columna, i) => {
+    if (i === indice) return { ...columna, ancho: nuevo };
+    // La de la derecha se estrecha lo mismo Y se corre para no dejar hueco.
+    if (i === indice + 1) {
+      return { ...columna, x: izquierda.x + nuevo, ancho: disponible - nuevo };
+    }
+    return columna;
+  });
 }

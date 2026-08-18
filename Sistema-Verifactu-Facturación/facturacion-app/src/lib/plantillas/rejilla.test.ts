@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Schema, Template } from '@pdfme/common';
 import { materializarRejillas } from './plantilla';
-import { hacerSitio, rejillaNueva } from './editor';
+import { hacerSitio, redimensionarColumnaRejilla, rejillaNueva } from './editor';
 import type { CampoDetectado, RejillaDetectada, TablaDetectada } from './tipos';
 
 const REJILLA: RejillaDetectada = {
@@ -313,5 +313,38 @@ describe('la cabecera del cuadro', () => {
     const conY = casillasDe(conCabecera).find(c => String(c.name).includes('_0_base'))!.position.y;
     const sinY = casillasDe(REJILLA).find(c => String(c.name).includes('_0_base'))!.position.y;
     expect(conY).toBe(sinY + REJILLA.altoRenglon);
+  });
+});
+
+describe('repartir el ancho entre dos columnas del cuadro', () => {
+  const cols = () => REJILLA.columnas.map(c => ({ ...c }));
+
+  it('lo que gana una lo pierde la de al lado', () => {
+    // El cuadro está calzado sobre un recuadro impreso: si al ensanchar una
+    // columna creciera el total, se saldría de su sitio en el papel.
+    const antes = cols();
+    const total = antes.reduce((s, c) => s + c.ancho, 0);
+    const despues = redimensionarColumnaRejilla(antes, 0, antes[0].ancho + 8);
+    expect(despues.reduce((s, c) => s + c.ancho, 0)).toBeCloseTo(total, 5);
+  });
+
+  it('la de la derecha se corre para no dejar hueco', () => {
+    // Si sólo se estrechara sin moverse, quedaría una franja en blanco entre
+    // las dos y las cifras saldrían descolocadas respecto a las rayas.
+    const despues = redimensionarColumnaRejilla(cols(), 0, cols()[0].ancho + 8);
+    expect(despues[1].x).toBeCloseTo(despues[0].x + despues[0].ancho, 5);
+  });
+
+  it('ninguna se queda sin anchura utilizable', () => {
+    // Una columna de cero milímetros no imprime su cifra y no hay manera de
+    // volver a agarrarla con el ratón para arreglarlo.
+    const despues = redimensionarColumnaRejilla(cols(), 0, 999);
+    expect(despues[0].ancho).toBeGreaterThanOrEqual(6);
+    expect(despues[1].ancho).toBeGreaterThanOrEqual(6);
+  });
+
+  it('la última no tiene a quién quitarle: se queda como está', () => {
+    const antes = cols();
+    expect(redimensionarColumnaRejilla(antes, antes.length - 1, 5)).toEqual(antes);
   });
 });

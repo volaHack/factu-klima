@@ -45,7 +45,7 @@ import {
   acotar, alinear, anadirColumna, calcularImanes, campoNuevo, distribuir,
   duplicarCampo, ejemploDeColumna, escalarColumnas, igualarColumnas, intersecan,
   moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
-  hacerSitio, redimensionarColumna, redondearMm, rejillaNueva,
+  hacerSitio, redimensionarColumna, redimensionarColumnaRejilla, redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
 import type {
@@ -77,6 +77,7 @@ type Arrastre =
   | { tipo: 'mover'; px: number; py: number; principal: Ref; origen: Map<Ref, Caja> }
   | { tipo: 'redimensionar'; px: number; py: number; dir: Direccion; ref: Ref; caja: Caja }
   | { tipo: 'columna-ancho'; px: number; indice: number; anchoIzquierda: number }
+  | { tipo: 'rejilla-ancho'; px: number; rejillaId: string; indice: number; anchoIzquierda: number }
   | { tipo: 'columna-orden'; desde: number; sobre: number }
   | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
 
@@ -646,6 +647,17 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         break;
       }
 
+      case 'rejilla-ancho': {
+        const rejilla = rejillas.find(r => r.id === arrastre.rejillaId);
+        if (!rejilla) break;
+        const delta = (evento.clientX - arrastre.px) / pxPorMm;
+        onCambiar({
+          rejillas: rejillas.map(r => (r.id === arrastre.rejillaId
+            ? { ...r, columnas: redimensionarColumnaRejilla(r.columnas, arrastre.indice, arrastre.anchoIzquierda + delta) }
+            : r)),
+        });
+        break;
+      }
       case 'columna-ancho': {
         if (!tabla) return;
         const delta = (evento.clientX - arrastre.px) * escala;
@@ -921,6 +933,30 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                         left: pct(columna.x - rejilla.x, rejilla.ancho),
                         width: pct(columna.ancho, rejilla.ancho),
                       }}
+                    />
+                  ))}
+                  {/* Un tirador por cada raya entre columnas: hay cifras que no
+                      caben en su casilla mientras la de al lado va sobrada, y
+                      sin poder moverlas el cuadro no se puede calzar sobre un
+                      impreso que reparte el ancho de otra manera. */}
+                  {activa && rejilla.columnas.slice(0, -1).map((columna, i) => (
+                    <div
+                      key={`div-${i}`}
+                      className="plantilla-divisor"
+                      style={{ left: pct(columna.x + columna.ancho - rejilla.x, rejilla.ancho) }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        marcar();
+                        setArrastre({
+                          tipo: 'rejilla-ancho',
+                          px: e.clientX,
+                          rejillaId: rejilla.id,
+                          indice: i,
+                          anchoIzquierda: columna.ancho,
+                        });
+                        capturar(e);
+                      }}
+                      title="Arrastra para repartir el ancho entre las dos columnas"
                     />
                   ))}
                   {verEtiquetas && (

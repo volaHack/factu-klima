@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { esSellable, tipoDocumento } from './storage';
-import { lineaVacia, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
+import { calculateLineSubtotal } from './utils';
+import { descuentoEfectivo, lineaVacia, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
 import { InvoiceStatus, type CompanySettings } from './types';
 
 describe('esSellable', () => {
@@ -326,3 +327,42 @@ describe('Fase 4: Cobros, Pagos, Tesorería y Extractos', () => {
 
 
 
+
+describe('el descuento que se enseña cuando sólo cabe uno', () => {
+  const linea = (d1: number, d2 = 0, d3 = 0) =>
+    ({ discountPercent: d1, discountPercent2: d2, discountPercent3: d3 });
+
+  it('con un solo descuento es ese mismo', () => {
+    expect(descuentoEfectivo(linea(10))).toBe(10);
+  });
+
+  it('dos del 10% no son un 20%, son un 19%', () => {
+    // Van en cascada: el segundo se aplica sobre lo que quedó del primero.
+    // Sumarlos diría un número que no cuadra con el importe impreso al lado,
+    // y es lo primero que mira un cliente que revisa la factura.
+    expect(descuentoEfectivo(linea(10, 10))).toBe(19);
+  });
+
+  it('los tres en cascada', () => {
+    // 100 → 90 → 81 → 76,95
+    expect(descuentoEfectivo(linea(10, 10, 5))).toBe(23.05);
+  });
+
+  it('sin descuentos es cero', () => {
+    expect(descuentoEfectivo(linea(0))).toBe(0);
+  });
+
+  it('explica el importe que se cobra, con el redondeo propio de un %', () => {
+    // El porcentaje se enseña con dos decimales, así que en una línea grande
+    // no reproduce el céntimo exacto: 15/10/5 da un 27,325% que se imprime
+    // como 27,33 y sobre 1.000 € se desvía cinco céntimos.
+    //
+    // Manda el importe, que se calcula con los tres porcentajes sin redondear;
+    // el que se enseña es para que el cliente entienda de dónde sale. Por eso
+    // se comprueba que lo explica, no que lo reproduzca al céntimo.
+    const bruto = 1000;
+    const cobrado = calculateLineSubtotal(1, bruto, 15, 10, 5);
+    const explicado = bruto * (1 - descuentoEfectivo(linea(15, 10, 5)) / 100);
+    expect(Math.abs(explicado - cobrado)).toBeLessThan(bruto * 0.0001);
+  });
+});

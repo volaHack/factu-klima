@@ -285,3 +285,49 @@ describe('la asignación llega con datos, no con cajas vacías', () => {
     if (ejemplo) expect(texto).not.toContain(ejemplo);
   }, 60_000);
 });
+
+describe('los descuentos llegan a la factura impresa', () => {
+  const conDescuentos = () => {
+    const factura = facturaDeMuestra();
+    // Tres en cascada sobre la primera línea: 10 y 10 y 5.
+    factura.lineItems[0] = {
+      ...factura.lineItems[0],
+      discountPercent: 10, discountPercent2: 10, discountPercent3: 5,
+    };
+    return factura;
+  };
+
+  it('la casilla de descuento lleva el efectivo, no el primero de los tres', () => {
+    // El fallo: se mandaba `linea.discountPercent` a secas, así que la
+    // factura decía «10%» donde se había hecho un 23,05% y el importe de al
+    // lado no cuadraba con el porcentaje impreso.
+    const datos = construirDatos({ tipo: 'factura', documento: conDescuentos() }, AJUSTES);
+    expect(datos.lineas[0].descuento_pct).toContain('23,05');
+  });
+
+  it('y por separado, para quien los quiera desglosados', () => {
+    const datos = construirDatos({ tipo: 'factura', documento: conDescuentos() }, AJUSTES);
+    expect(datos.lineas[0].descuento_1_pct).toContain('10');
+    expect(datos.lineas[0].descuento_2_pct).toContain('10');
+    expect(datos.lineas[0].descuento_3_pct).toContain('5');
+  });
+
+  it('sin descuento no ensucia la casilla', () => {
+    const datos = construirDatos({ tipo: 'factura', documento: facturaDeMuestra() }, AJUSTES);
+    expect(datos.lineas[0].descuento_2_pct).toBe('');
+  });
+
+  it('el descuento sale impreso en el PDF', async () => {
+    // De punta a punta: si la columna de descuento no está en la plantilla o
+    // el dato no llega, esto lo caza.
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    analisis.tabla!.columnas.splice(1, 0, {
+      clave: 'descuento_pct', cabecera: 'Dto.', x: 100, ancho: 18,
+      alineacion: 'right', numerica: true,
+    } as never);
+    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    const datos = construirDatos({ tipo: 'factura', documento: conDescuentos() }, AJUSTES);
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    expect(texto.replace(/\s/g, '')).toContain('23,05');
+  }, 60_000);
+});

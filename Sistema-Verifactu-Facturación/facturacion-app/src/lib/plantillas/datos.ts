@@ -11,6 +11,7 @@
  * aplicar formato numérico por su cuenta.
  */
 
+import { descuentoEfectivo } from '../documentos';
 import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
 import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
@@ -255,6 +256,28 @@ export function construirDatos(
   // seguridad para quien llame sin documento con datosExtras.
   const clienteManual = clienteManualDesdeDatosExtras(opciones.datosExtras ?? doc.datosExtras);
 
+  /**
+   * Las casillas de descuento de una línea.
+   *
+   * La de siempre lleva el EFECTIVO, no el primero de los tres: los
+   * descuentos van en cascada y en la factura sólo cabe una casilla. Enseñar
+   * el primero decía un 10% donde se había hecho un 19, y el importe de al
+   * lado no cuadraba con el porcentaje impreso.
+   *
+   * Las otras tres están para quien quiera desglosarlos en su plantilla. Un
+   * albarán no lleva cascada, así que sólo tiene el primero.
+   */
+  function descuentosDeLinea(linea: { discountPercent: number; discountPercent2?: number; discountPercent3?: number }) {
+    const efectivo = descuentoEfectivo(linea);
+    const pct = (n?: number) => (n ?? 0) > 0 ? porcentaje(n!) : '';
+    return {
+      descuento_pct: efectivo > 0 ? porcentaje(efectivo) : '—',
+      descuento_1_pct: pct(linea.discountPercent),
+      descuento_2_pct: pct(linea.discountPercent2),
+      descuento_3_pct: pct(linea.discountPercent3),
+    };
+  }
+
   // --- Líneas ---
   const lineas = doc.lineItems.map((linea, indice) => ({
     indice: String(indice + 1),
@@ -264,7 +287,11 @@ export function construirDatos(
     unidad: linea.unit,
     cantidad_unidad: `${linea.quantity} ${linea.unit}`,
     precio: formatCurrency(linea.unitPrice),
-    descuento_pct: linea.discountPercent > 0 ? porcentaje(linea.discountPercent) : '—',
+    // El EFECTIVO, no el primero de los tres. Los descuentos van en cascada y
+    // en la factura sólo cabe una casilla: enseñar el primero decía un 10%
+    // donde se había hecho un 19, y el importe de al lado no cuadraba con el
+    // porcentaje impreso.
+    ...descuentosDeLinea(linea),
     impuesto_pct: porcentaje(linea.taxRate),
     importe: formatCurrency(linea.subtotal),
     importe_impuesto: formatCurrency(linea.taxAmount),

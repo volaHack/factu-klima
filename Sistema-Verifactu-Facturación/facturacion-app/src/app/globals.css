@@ -7965,3 +7965,36 @@ a.stats-item:focus-visible {
 /* --- Hacer sitio a la tabla --- */
 .plantilla-hacer-sitio { align-items: center; }
 .plantilla-hacer-sitio-botones { display: flex; gap: var(--space-1); }
+
+/* --- Visor de PDF a pantalla casi completa ---
+   `.modal` no es flex y tiene `overflow-y: auto`, así que un cuerpo con
+   `flex: 1` no crecía y el iframe con `height: 100%` se quedaba sin altura
+   contra la que resolver: el visor salía aplastado. Esto le da al modal la
+   columna que le falta. El `min-height: 0` del cuerpo es imprescindible: sin
+   él, un hijo flex no encoge por debajo de su contenido y el visor se comería
+   el pie con el botón de descargar. */
+
+.modal--visor {
+  display: flex;
+  flex-direction: column;
+  max-width: 900px;
+  height: 90vh;
+  overflow: hidden;
+}
+
+.modal--visor .modal-header,
+.modal--visor .modal-footer { flex: 0 0 auto; }
+
+.modal--visor .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.modal--visor .plantilla-visor {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: var(--bg-tertiary);
+}

@@ -175,7 +175,11 @@ export const COLUMNAS_LINEAS: ColumnaTabla[] = [
   { clave: 'unidad', etiqueta: 'Unidad', cabeceraSugerida: 'Ud.', numerica: false, ejemplo: 'ud' },
   { clave: 'cantidad_unidad', etiqueta: 'Cantidad + unidad', cabeceraSugerida: 'Cantidad', numerica: true, ejemplo: '10 ud' },
   { clave: 'precio', etiqueta: 'Precio unitario', cabeceraSugerida: 'Precio', numerica: true, ejemplo: '12,50 €' },
-  { clave: 'descuento_pct', etiqueta: '% Descuento', cabeceraSugerida: 'Dto.', numerica: true, ejemplo: '—' },
+  // El efectivo: los tres descuentos en cascada ya combinados en uno.
+  { clave: 'descuento_pct', etiqueta: '% Descuento', cabeceraSugerida: 'Dto.', numerica: true, ejemplo: '19 %' },
+  { clave: 'descuento_1_pct', etiqueta: '% Descuento 1', cabeceraSugerida: 'Dto. 1', numerica: true, ejemplo: '10 %' },
+  { clave: 'descuento_2_pct', etiqueta: '% Descuento 2', cabeceraSugerida: 'Dto. 2', numerica: true, ejemplo: '10 %' },
+  { clave: 'descuento_3_pct', etiqueta: '% Descuento 3', cabeceraSugerida: 'Dto. 3', numerica: true, ejemplo: '' },
   { clave: 'impuesto_pct', etiqueta: '% Impuesto', cabeceraSugerida: 'IVA', numerica: true, ejemplo: '21%' },
   { clave: 'importe', etiqueta: 'Importe sin impuestos', cabeceraSugerida: 'Importe', numerica: true, ejemplo: '125,00 €' },
   { clave: 'importe_impuesto', etiqueta: 'Cuota de impuesto', cabeceraSugerida: 'Cuota', numerica: true, ejemplo: '26,25 €' },
