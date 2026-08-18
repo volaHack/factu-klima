@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Percent, ChevronDown, ChevronUp } from 'lucide-react';
 import { InvoiceLineItem, CompanySettings, Product } from '@/lib/types';
+import { unidadesTotales } from '@/lib/documentos';
 import { formatCurrency } from '@/lib/utils';
 import { recalcularLinea, lineaVacia, getPrecioProductoParaCliente } from '@/lib/documentos';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
@@ -52,6 +53,9 @@ export default function LineasDocumento({
         unitPrice: resolvedPrice,
         unit: product.unit,
         taxRate: product.defaultTaxRate,
+        // Las unidades por bulto vienen de la ficha del producto: se ponen
+        // una vez y no hay que teclearlas en cada factura.
+        unitsPerPackage: product.unitsPerPackage,
         discountPercent: d1,
         discountPercent2: d2,
         discountPercent3: d3,
@@ -100,6 +104,10 @@ export default function LineasDocumento({
     onChange(lineItems.filter((_, i) => i !== index));
   };
 
+  // Lo que se descarga del camión: doce cajas de veinticuatro son 288
+  // botellas, y ese es el número que se comprueba contra el albarán.
+  const totalUnidades = unidadesTotales(lineItems);
+  const totalBultos = lineItems.reduce((s, l) => s + l.quantity, 0);
   const hasAnyExtraDiscount = lineItems.some(l => (l.discountPercent2 && l.discountPercent2 > 0) || (l.discountPercent3 && l.discountPercent3 > 0));
 
   return (
@@ -118,115 +126,140 @@ export default function LineasDocumento({
         </button>
       </div>
 
-      <div className="line-items">
-        <div className="line-items-header" style={{ display: 'grid', gridTemplateColumns: (showExtraDiscounts || hasAnyExtraDiscount) ? '2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr 1.2fr 36px' : '3fr 1fr 1.2fr 1.5fr 1fr 1.2fr 36px' }}>
-          <span>Producto</span>
-          <span>Cantidad</span>
-          <span>Precio ud.</span>
-          <span>{settings.igicEnabled ? 'IGIC' : 'IVA'}</span>
-          <span>Dto. 1 %</span>
-          {(showExtraDiscounts || hasAnyExtraDiscount) && <span>Dto. 2 %</span>}
-          {(showExtraDiscounts || hasAnyExtraDiscount) && <span>Dto. 3 %</span>}
-          <span style={{ textAlign: 'right' }}>Subtotal</span>
-          <span></span>
-        </div>
-        {lineItems.map((line, index) => (
-          <div className="line-item-row" key={line.id} style={{ display: 'grid', gridTemplateColumns: (showExtraDiscounts || hasAnyExtraDiscount) ? '2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr 1.2fr 36px' : '3fr 1fr 1.2fr 1.5fr 1fr 1.2fr 36px' }}>
-            <select
-              value={line.productId}
-              onChange={e => handleProductSelect(index, e.target.value)}
-              style={{ minWidth: 0 }}
-            >
-              <option value="">Seleccionar producto</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>
-                  [{p.ref}] {p.name} {p.supplierRef ? `(Ref Prov: ${p.supplierRef})` : ''}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={line.quantity}
-              onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-              style={{ textAlign: 'right' }}
-            />
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={line.unitPrice}
-              onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-              style={{ textAlign: 'right' }}
-            />
-            <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={0.5}
-              placeholder="0"
-              value={line.discountPercent || ''}
-              onChange={e => handleLineChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
-              style={{ textAlign: 'right' }}
-            />
-            {(showExtraDiscounts || hasAnyExtraDiscount) && (
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                placeholder="0"
-                value={line.discountPercent2 || ''}
-                onChange={e => handleLineChange(index, 'discountPercent2', parseFloat(e.target.value) || 0)}
-                style={{ textAlign: 'right' }}
-              />
-            )}
-            {(showExtraDiscounts || hasAnyExtraDiscount) && (
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                placeholder="0"
-                value={line.discountPercent3 || ''}
-                onChange={e => handleLineChange(index, 'discountPercent3', parseFloat(e.target.value) || 0)}
-                style={{ textAlign: 'right' }}
-              />
-            )}
-            <div className="line-item-subtotal">
-              {formatCurrency(line.subtotal)}
-            </div>
-            <button
-              type="button"
-              className="line-item-delete"
-              onClick={() => removeLine(index)}
-              disabled={lineItems.length <= 1}
-            >
-              <Trash2 size={14} />
-            </button>
-            {columnasCustom.length > 0 && (
-              <div className="line-item-custom" style={{ gridColumn: '1 / -1' }}>
+      {/* Una ficha por línea, no una rejilla de nueve columnas.
+          
+          Con los tres descuentos abiertos salían nueve columnas apretadas y
+          había que ir contando cabeceras hacia arriba para saber qué era cada
+          casilla. Cada campo lleva ahora su rótulo al lado, así que se lee sin
+          buscar, y los campos se reparten solos cuando la pantalla es
+          estrecha en vez de quedarse en una tira ilegible. */}
+      <div className="lineas-doc">
+        {lineItems.map((line, index) => {
+          const uds = line.unitsPerPackage && line.unitsPerPackage > 0 ? line.unitsPerPackage : 0;
+          return (
+            <div className="lineas-doc-ficha" key={line.id}>
+              <div className="lineas-doc-cabeza">
+                <select
+                  className="lineas-doc-producto"
+                  value={line.productId}
+                  onChange={e => handleProductSelect(index, e.target.value)}
+                  aria-label={`Producto de la línea ${index + 1}`}
+                >
+                  <option value="">Seleccionar producto</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      [{p.ref}] {p.name} {p.supplierRef ? `(Ref Prov: ${p.supplierRef})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="lineas-doc-importe">{formatCurrency(line.subtotal)}</div>
+                <button
+                  type="button"
+                  className="line-item-delete"
+                  onClick={() => removeLine(index)}
+                  disabled={lineItems.length <= 1}
+                  aria-label={`Quitar la línea ${index + 1}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+
+              <div className="lineas-doc-campos">
+                <label className="lineas-doc-campo">
+                  <span>Cantidad</span>
+                  <input
+                    type="number" min={0} step={0.01} value={line.quantity}
+                    onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                  />
+                </label>
+
+                {/* Unidades por bulto. Se hereda del producto y sólo se toca
+                    cuando esta entrega viene en otro formato. */}
+                <label className="lineas-doc-campo">
+                  <span>U/C</span>
+                  <input
+                    type="number" min={0} step={1} placeholder="—"
+                    value={line.unitsPerPackage || ''}
+                    onChange={e => handleLineChange(index, 'unitsPerPackage', parseFloat(e.target.value) || 0)}
+                  />
+                </label>
+
+                <label className="lineas-doc-campo">
+                  <span>Precio ud.</span>
+                  <input
+                    type="number" min={0} step={0.01} value={line.unitPrice}
+                    onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                  />
+                </label>
+
+                <div className="lineas-doc-campo lineas-doc-campo--impuesto">
+                  <span>{settings.igicEnabled ? 'IGIC' : 'IVA'}</span>
+                  <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
+                </div>
+
+                <label className="lineas-doc-campo">
+                  <span>Dto. %</span>
+                  <input
+                    type="number" min={0} max={100} step={0.5} placeholder="0"
+                    value={line.discountPercent || ''}
+                    onChange={e => handleLineChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
+                  />
+                </label>
+
+                {(showExtraDiscounts || hasAnyExtraDiscount) && (
+                  <>
+                    <label className="lineas-doc-campo">
+                      <span>Dto. 2 %</span>
+                      <input
+                        type="number" min={0} max={100} step={0.5} placeholder="0"
+                        value={line.discountPercent2 || ''}
+                        onChange={e => handleLineChange(index, 'discountPercent2', parseFloat(e.target.value) || 0)}
+                      />
+                    </label>
+                    <label className="lineas-doc-campo">
+                      <span>Dto. 3 %</span>
+                      <input
+                        type="number" min={0} max={100} step={0.5} placeholder="0"
+                        value={line.discountPercent3 || ''}
+                        onChange={e => handleLineChange(index, 'discountPercent3', parseFloat(e.target.value) || 0)}
+                      />
+                    </label>
+                  </>
+                )}
+
                 {columnasCustom.map(col => (
-                  <div className="form-group" key={col.clave} style={{ flex: '1 1 160px', margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: 'var(--text-xs)' }}>{col.cabecera}</label>
+                  <label className="lineas-doc-campo lineas-doc-campo--ancho" key={col.clave}>
+                    <span>{col.cabecera}</span>
                     <input
-                      className="form-input"
                       value={line.customCols?.[col.clave] ?? ''}
                       onChange={e => handleCustomColChange(index, col.clave, e.target.value)}
-                      placeholder={col.cabecera}
                     />
-                  </div>
+                  </label>
                 ))}
               </div>
-            )}
-          </div>
-        ))}
-        <div className="line-items-add">
+
+              {/* Lo que de verdad se descarga del camión, dicho aquí para no
+                  tener que multiplicarlo de cabeza. */}
+              {uds > 0 && (
+                <p className="lineas-doc-pie">
+                  {line.quantity} × {uds} = <strong>{line.quantity * uds}</strong> unidades
+                </p>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="lineas-doc-suma">
           <button type="button" className="btn btn-ghost btn-sm" onClick={addLine}>
             <Plus size={14} /> Añadir producto
           </button>
+          {totalUnidades > 0 && (
+            <span className="lineas-doc-total-uds">
+              {totalBultos} {totalBultos === 1 ? 'bulto' : 'bultos'}
+              {' · '}
+              <strong>{totalUnidades}</strong> unidades en total
+            </span>
+          )}
         </div>
       </div>
     </div>

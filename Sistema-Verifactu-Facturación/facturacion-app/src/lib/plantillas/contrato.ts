@@ -133,7 +133,8 @@ export const CAMPOS: CampoPlantilla[] = [
   // «UNIDADES», «BULTOS», «Nº de líneas». Se calculan solos a partir de las
   // líneas de la factura; el usuario sólo tiene que decir qué casilla es cuál.
   { clave: 'total_lineas', etiqueta: 'Nº de líneas', descripcion: 'Cuántas líneas tiene el documento', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
-  { clave: 'total_unidades', etiqueta: 'Total de unidades', descripcion: 'Suma de las cantidades de todas las líneas', grupo: 'totales', tipo: 'texto', ejemplo: '196' },
+  { clave: 'total_unidades', etiqueta: 'Total de unidades', descripcion: 'Unidades sueltas: cantidad × unidades por bulto de cada línea', grupo: 'totales', tipo: 'texto', ejemplo: '288' },
+  { clave: 'total_bultos', etiqueta: 'Total de bultos', descripcion: 'Suma de las cantidades de todas las líneas, sin desglosar en unidades', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
   { clave: 'total_peso', etiqueta: 'Peso total', descripcion: 'Suma de la columna de peso, si la plantilla la tiene', grupo: 'totales', tipo: 'texto', ejemplo: '45,5' },
 
   // --- Desglose por tipo impositivo, casilla a casilla ---
@@ -177,6 +178,8 @@ export const COLUMNAS_LINEAS: ColumnaTabla[] = [
   { clave: 'precio', etiqueta: 'Precio unitario', cabeceraSugerida: 'Precio', numerica: true, ejemplo: '12,50 €' },
   // El efectivo: los tres descuentos en cascada ya combinados en uno.
   { clave: 'descuento_pct', etiqueta: '% Descuento', cabeceraSugerida: 'Dto.', numerica: true, ejemplo: '19 %' },
+  { clave: 'uds_caja', etiqueta: 'Unidades por bulto', cabeceraSugerida: 'U/C', numerica: true, ejemplo: '24' },
+  { clave: 'uds_linea', etiqueta: 'Unidades de la línea', cabeceraSugerida: 'Udes.', numerica: true, ejemplo: '288' },
   { clave: 'descuento_1_pct', etiqueta: '% Descuento 1', cabeceraSugerida: 'Dto. 1', numerica: true, ejemplo: '10 %' },
   { clave: 'descuento_2_pct', etiqueta: '% Descuento 2', cabeceraSugerida: 'Dto. 2', numerica: true, ejemplo: '10 %' },
   { clave: 'descuento_3_pct', etiqueta: '% Descuento 3', cabeceraSugerida: 'Dto. 3', numerica: true, ejemplo: '' },

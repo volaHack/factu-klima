@@ -383,3 +383,49 @@ describe('la relación de pagos del pie', () => {
     expect(texto.replace(/\s/g, '')).toContain('30días');
   }, 60_000);
 });
+
+describe('las unidades por bulto en la factura impresa', () => {
+  const conCajas = () => {
+    const f = facturaDeMuestra();
+    f.lineItems = f.lineItems.map((l, i) => ({ ...l, quantity: i === 0 ? 12 : 3, unitsPerPackage: i === 0 ? 24 : 6 }));
+    return f;
+  };
+
+  it('cada línea dice su formato y a cuántas unidades sale', () => {
+    const { lineas } = construirDatos({ tipo: 'factura', documento: conCajas() }, AJUSTES);
+    expect(lineas[0].uds_caja).toBe('24');
+    expect(lineas[0].uds_linea).toBe('288');
+  });
+
+  it('el pie suma las unidades y los bultos', () => {
+    const factura = conCajas();
+    const unidades = factura.lineItems.reduce((s, l) => s + l.quantity * (l.unitsPerPackage ?? 1), 0);
+    const bultos = factura.lineItems.reduce((s, l) => s + l.quantity, 0);
+    // Las unidades son bastantes más que los bultos: eso es justo lo que
+    // distingue las dos casillas.
+    expect(unidades).toBeGreaterThan(bultos);
+
+    const { campos } = construirDatos({ tipo: 'factura', documento: factura }, AJUSTES);
+    expect(campos.total_unidades).toBe(String(unidades));
+    expect(campos.total_bultos).toBe(String(bultos));
+  });
+
+  it('lo que se vende suelto no ensucia la casilla de formato', () => {
+    // Un «1» en la columna U/C de una factura de servicios no dice nada y
+    // llena el impreso de unos.
+    const { lineas } = construirDatos({ tipo: 'factura', documento: facturaDeMuestra() }, AJUSTES);
+    expect(lineas[0].uds_caja).toBe('');
+  });
+
+  it('sale impreso en el PDF', async () => {
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    analisis.tabla!.columnas.splice(1, 0, {
+      clave: 'uds_linea', cabecera: 'Udes.', x: 96, ancho: 16,
+      alineacion: 'right', numerica: true,
+    } as never);
+    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    const datos = construirDatos({ tipo: 'factura', documento: conCajas() }, AJUSTES);
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    expect(texto).toContain('288');
+  }, 60_000);
+});

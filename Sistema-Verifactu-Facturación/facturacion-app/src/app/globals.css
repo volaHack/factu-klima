@@ -7998,3 +7998,130 @@ a.stats-item:focus-visible {
   display: block;
   background: var(--bg-tertiary);
 }
+
+/* --- Logotipo de la empresa en Ajustes --- */
+
+.ajustes-logo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* Fondo a cuadros: un logotipo con transparencia se ve tal cual va a
+   imprimirse, y no como un rectángulo blanco sobre otro blanco. */
+.ajustes-logo-muestra {
+  flex: 0 0 auto;
+  width: 128px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-tertiary);
+  background-image:
+    linear-gradient(45deg, rgba(128, 128, 128, 0.14) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(128, 128, 128, 0.14) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(128, 128, 128, 0.14) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(128, 128, 128, 0.14) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+.ajustes-logo-muestra img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.ajustes-logo-vacio { color: var(--text-muted); }
+
+.ajustes-logo-acciones { flex: 1 1 260px; min-width: 0; }
+
+.ajustes-logo-botones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* El botón de subir es una <label> con el input escondido dentro: hay que
+   darle el aspecto de botón a mano porque no es un <button>. */
+.ajustes-logo-botones label.btn { cursor: pointer; }
+
+/* --- Líneas de un documento: una ficha por línea ---
+   Con los tres descuentos abiertos, la rejilla de nueve columnas dejaba
+   casillas de treinta píxeles y había que contar cabeceras hacia arriba para
+   saber qué era cada una. Cada campo lleva ahora su rótulo al lado y se
+   reparten solos cuando no caben. */
+
+.lineas-doc { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.lineas-doc-ficha {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+}
+
+.lineas-doc-cabeza {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* min-width:0 para que el <select> pueda encogerse: sin él, un nombre de
+   producto largo estira la fila y desborda la tarjeta. */
+.lineas-doc-producto { flex: 1 1 auto; min-width: 0; }
+
+.lineas-doc-importe {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lineas-doc-campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.lineas-doc-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 96px;
+  min-width: 84px;
+}
+
+.lineas-doc-campo--ancho { flex: 1 1 180px; }
+.lineas-doc-campo--impuesto { flex: 1 1 140px; }
+
+.lineas-doc-campo > span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.lineas-doc-campo input { width: 100%; text-align: right; }
+.lineas-doc-campo--ancho input { text-align: left; }
+
+.lineas-doc-pie {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lineas-doc-suma {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+}
+
+.lineas-doc-total-uds {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}

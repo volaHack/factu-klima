@@ -59,7 +59,7 @@ export default function ProductosPage() {
   const [form, setForm] = useState({
     ref: '', supplierRef: '', name: '', description: '', category: 'otros',
     unitPrice: 0, defaultTaxRate: TaxRate.REDUCIDO as TaxRate, unit: UnitOfMeasure.KG as UnitOfMeasure,
-    active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: '',
+    active: true, stockQuantity: 100, lowStockThreshold: 10, imageUrl: '', unitsPerPackage: '',
     tarifaPrices: {} as Record<string, number>,
     costePmp: 0,
     costeUltimaCompra: 0,
@@ -142,7 +142,7 @@ export default function ProductosPage() {
       supplierRef: '',
       name: '', description: '', category: defaultCat,
       unitPrice: 0, defaultTaxRate: getDefaultTaxRate(settings), unit: UnitOfMeasure.UNIDAD, active: true,
-      stockQuantity: 50, lowStockThreshold: 5, imageUrl: '',
+      stockQuantity: 50, lowStockThreshold: 5, imageUrl: '', unitsPerPackage: '',
       tarifaPrices: {},
       costePmp: 0,
       costeUltimaCompra: 0,
@@ -165,6 +165,7 @@ export default function ProductosPage() {
       stockQuantity: p.stockQuantity ?? 50,
       lowStockThreshold: p.lowStockThreshold ?? 5,
       imageUrl: p.imageUrl || '',
+      unitsPerPackage: p.unitsPerPackage ? String(p.unitsPerPackage) : '',
       tarifaPrices: p.tarifaPrices || {},
       costePmp: p.costePmp ?? 0,
       costeUltimaCompra: p.costeUltimaCompra ?? 0,
@@ -181,6 +182,7 @@ export default function ProductosPage() {
       costeUltimaCompra: Number(form.costeUltimaCompra || 0),
       supplierRef: form.supplierRef.trim() || undefined,
       imageUrl: form.imageUrl || undefined,
+      unitsPerPackage: Number(form.unitsPerPackage) > 0 ? Number(form.unitsPerPackage) : undefined,
       createdAt: editing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -650,6 +652,23 @@ export default function ProductosPage() {
                   <select className="form-select" value={form.unit} onChange={e => updateForm('unit', e.target.value)}>
                     {UNITS_OF_MEASURE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                   </select>
+                </div>
+                {/* Se pone una vez aquí y cada línea que use el producto la
+                    hereda, en vez de teclearla en cada factura. */}
+                <div className="form-group">
+                  <label className="form-label">Unidades por bulto (U/C)</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="—"
+                    value={form.unitsPerPackage}
+                    onChange={e => updateForm('unitsPerPackage', e.target.value)}
+                  />
+                  <p className="form-hint">
+                    Cuántas unidades sueltas trae cada caja. Déjalo vacío si lo vendes por unidades.
+                  </p>
                 </div>
               </div>
 

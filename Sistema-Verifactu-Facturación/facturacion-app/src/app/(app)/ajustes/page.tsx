@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor } from '@/lib/storage';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
+import { processLogoFile } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
@@ -147,6 +148,18 @@ export default function AjustesPage() {
     const next = field === 'ivaRates' ? [...DEFAULT_IVA_RATES] : [...DEFAULT_IGIC_RATES];
     if (field === 'ivaRates') setIvaRatesDraft(next); else setIgicRatesDraft(next);
     updateField(field, next);
+  };
+
+  const elegirLogo = async (archivo?: File) => {
+    if (!archivo) return;
+    try {
+      updateField('logoUrl', await processLogoFile(archivo));
+    } catch (err) {
+      toastError(
+        'No se pudo cargar el logotipo',
+        err instanceof Error ? err.message : 'Prueba con un PNG o un JPG.',
+      );
+    }
   };
 
   const updateField = (field: keyof CompanySettings, value: unknown) => {
@@ -297,7 +310,40 @@ export default function AjustesPage() {
         </div>
         <p className="settings-section-subtitle">Información fiscal que aparecerá en tus facturas e impresos</p>
 
-        <div className="form-row">
+        {/* El logotipo. Va aquí, con la razón social y el NIF, porque es parte
+            de lo mismo: quién eres en el papel que le llega al cliente. */}
+        <div className="ajustes-logo">
+          <div className="ajustes-logo-muestra">
+            {settings.logoUrl
+              ? <img src={settings.logoUrl} alt="Logotipo de la empresa" />
+              : <span className="ajustes-logo-vacio"><ImageIcon size={22} /></span>}
+          </div>
+          <div className="ajustes-logo-acciones">
+            <label className="form-label">Logotipo</label>
+            <p className="settings-section-subtitle" style={{ margin: '0 0 var(--space-2)' }}>
+              Sale en las facturas que se generan con diseño automático. Un PNG con el fondo
+              transparente queda mejor sobre membretes de color.
+            </p>
+            <div className="ajustes-logo-botones">
+              <label className="btn btn-secondary btn-sm">
+                <Upload size={14} /> {settings.logoUrl ? 'Cambiar' : 'Subir logotipo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={e => { void elegirLogo(e.target.files?.[0]); e.target.value = ''; }}
+                />
+              </label>
+              {settings.logoUrl && (
+                <button className="btn btn-ghost btn-sm" onClick={() => updateField('logoUrl', '')}>
+                  <Trash2 size={14} /> Quitar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="form-row" style={{ marginTop: 'var(--space-5)' }}>
           <div className="form-group">
             <label className="form-label required">Razón social</label>
             <input className="form-input" value={settings.businessName} onChange={e => updateField('businessName', e.target.value)} />

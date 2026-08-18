@@ -226,3 +226,21 @@ export function descuentoEfectivo(line: {
     * (1 - (line.discountPercent3 || 0) / 100);
   return Number(((1 - queda) * 100).toFixed(2));
 }
+
+/**
+ * Cuántas unidades sueltas suman las líneas de un documento.
+ *
+ * En distribución la factura va en cajas —es lo que se cobra— pero quien la
+ * recibe cuenta unidades al descargar el camión: doce cajas de veinticuatro
+ * son 288 botellas, y ese es el número que se comprueba contra el albarán.
+ * Sin él hay que multiplicar a mano línea por línea.
+ *
+ * Una línea sin unidades por bulto cuenta su cantidad tal cual: lo que se
+ * vende suelto ya viene en unidades.
+ */
+export function unidadesTotales(lineItems: { quantity: number; unitsPerPackage?: number }[]): number {
+  return lineItems.reduce(
+    (suma, l) => suma + l.quantity * (l.unitsPerPackage && l.unitsPerPackage > 0 ? l.unitsPerPackage : 1),
+    0,
+  );
+}

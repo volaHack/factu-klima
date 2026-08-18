@@ -381,6 +381,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     discount_percent: li.discountPercent,
     discount_percent_2: li.discountPercent2 ?? 0,
     discount_percent_3: li.discountPercent3 ?? 0,
+    units_per_package: li.unitsPerPackage ?? null,
     cost_price: li.costPrice ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
@@ -2863,6 +2864,7 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     discountPercent: Number(li.discount_percent ?? li.discountPercent ?? 0),
     discountPercent2: Number(li.discount_percent_2 ?? li.discountPercent2 ?? 0),
     discountPercent3: Number(li.discount_percent_3 ?? li.discountPercent3 ?? 0),
+    unitsPerPackage: li.units_per_package != null ? Number(li.units_per_package) : undefined,
     costPrice: Number(li.cost_price ?? li.costPrice ?? 0),
     subtotal: Number(li.subtotal ?? 0),
     taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
@@ -2923,6 +2925,7 @@ export function mapProductFromDb(p: any): Product {
     costePmp: Number(p.coste_pmp ?? 0),
     costeUltimaCompra: Number(p.coste_ultima_compra ?? 0),
     stocksByAlmacen: (p.stocks_by_almacen && typeof p.stocks_by_almacen === 'object') ? p.stocks_by_almacen : {},
+    unitsPerPackage: p.units_per_package != null ? Number(p.units_per_package) : undefined,
   };
 }
 

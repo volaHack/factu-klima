@@ -150,6 +150,17 @@ export interface InvoiceLineItem {
   discountPercent: number;
   discountPercent2?: number;
   discountPercent3?: number;
+  /**
+   * Cuántas unidades sueltas trae cada bulto de los que se facturan.
+   *
+   * En distribución se vende por cajas y se controla por unidades: doce cajas
+   * de veinticuatro son doce en la factura y 288 en el almacén. La cantidad
+   * sigue siendo la de bultos —es lo que se cobra— y esto dice a cuántas
+   * unidades equivale.
+   *
+   * Vacío o 1 en quien no trabaja así, que es la mayoría.
+   */
+  unitsPerPackage?: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -337,6 +348,14 @@ export interface Product {
   unitPrice: number;
   defaultTaxRate: number;
   unit: UnitOfMeasure;
+  /**
+   * Unidades sueltas por bulto, para venderlo por cajas.
+   *
+   * Se pone una vez en la ficha del producto y cada línea que lo use la
+   * hereda, en vez de teclearla en cada factura y equivocarse una de cada
+   * diez. Vacío o 1 en lo que no se vende por cajas.
+   */
+  unitsPerPackage?: number;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -486,6 +505,8 @@ export interface AlbaranLineItem {
   discountPercent: number;
   discountPercent2?: number;
   discountPercent3?: number;
+  /** Unidades sueltas por bulto. En un albarán es lo que se cuenta al descargar. */
+  unitsPerPackage?: number;
   subtotal: number;
   taxAmount: number;
   total: number;

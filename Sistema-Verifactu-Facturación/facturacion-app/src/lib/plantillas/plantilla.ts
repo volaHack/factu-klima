@@ -70,6 +70,9 @@ export const FUENTES = {
   serifCursiva: 'serif-italic',
 } as const;
 
+/** Un punto tipográfico en milímetros. */
+const PT_A_MM = 25.4 / 72;
+
 /** Margen inferior mínimo reservado al pie, en mm. */
 const MARGEN_PIE_MINIMO = 12;
 
@@ -1015,12 +1018,24 @@ function casillaDeRejilla(
   tamano: number,
   esTitulo: boolean,
 ): Schema {
+  // Un respiro contra las rayas.
+  //
+  // La casilla ocupaba su columna entera, así que el texto arrancaba pegado a
+  // la raya de la izquierda y las cifras alineadas a la derecha se pegaban a
+  // la de la derecha. Se veía todo comprimido, como si no cupiera.
+  //
+  // El margen se mide con la propia letra —un tercio del cuerpo— para que sea
+  // el mismo de ver con letra de 7 puntos que con una de 12, y se limita a un
+  // tercio de la columna: en una casilla muy estrecha, un margen fijo se
+  // comería el sitio del dato.
+  const aire = Math.min(tamano * PT_A_MM * 0.34, columna.ancho / 3);
+
   return {
     name: nombre,
     type: 'text',
     content: valor,
-    position: { x: redondear(columna.x), y: redondear(y) },
-    width: redondear(columna.ancho),
+    position: { x: redondear(columna.x + aire), y: redondear(y) },
+    width: redondear(Math.max(1, columna.ancho - aire * 2)),
     height: redondear(alto),
     fontName: nombreDeFuente({ ...rejilla, negrita: esTitulo || rejilla.negrita }),
     fontSize: redondear(tamano),

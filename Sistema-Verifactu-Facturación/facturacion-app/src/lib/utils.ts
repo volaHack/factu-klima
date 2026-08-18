@@ -284,3 +284,54 @@ export function processImageFile(file: File, maxSize = 160): Promise<string> {
     img.src = objectUrl;
   });
 }
+
+/**
+ * Prepara el logotipo de la empresa para que salga bien impreso.
+ *
+ * No vale `processImageFile`: comprime a 160 px de lado y aplasta la imagen
+ * sobre un fondo blanco. Para una miniatura de producto está bien, pero un
+ * logotipo tiene otras dos exigencias.
+ *
+ * LA TRANSPARENCIA SE CONSERVA. Sale en PNG, no en JPEG. Un logotipo con
+ * fondo transparente aplastado sobre blanco imprime un rectángulo blanco
+ * alrededor, y sobre una factura con membrete de color se ve el parche.
+ *
+ * Y ENTRA MÁS RESOLUCIÓN. En una factura A4 el logotipo ocupa unos 40 mm de
+ * ancho; a 300 puntos por pulgada, que es lo que resuelve una impresora
+ * corriente, eso son unos 470 píxeles. Con 160 se imprime borroso, que es
+ * justo lo que nadie quiere de su propia marca.
+ *
+ * Se queda en 600 px de lado mayor: da margen sobre esos 470 y el data URL
+ * sigue pesando poco.
+ */
+export function processLogoFile(file: File, maxSize = 600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // Nunca se agranda: estirar un logotipo pequeño no le añade detalle,
+        // sólo peso y bordes dentados.
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * ratio));
+        const h = Math.max(1, Math.round(img.height * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas no disponible en este navegador');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error('No se pudo procesar la imagen'));
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('No se pudo leer el archivo de imagen'));
+    };
+    img.src = objectUrl;
+  });
+}

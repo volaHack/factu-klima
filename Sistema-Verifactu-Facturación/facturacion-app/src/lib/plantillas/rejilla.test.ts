@@ -424,3 +424,40 @@ describe('el cuadro de pagos dibujado a mano', () => {
     expect(cols.find(c => c.clave === 'venc_importe')!.alineacion).toBe('right');
   });
 });
+
+describe('las casillas no van pegadas a las rayas', () => {
+  const pintar = (rejilla = REJILLA) => {
+    const p = plantillaCon(rejilla);
+    materializarRejillas(p, { impuestos: [tramo('21,0', '100,00')] });
+    return casillas(p);
+  };
+
+  it('el texto arranca por dentro de su columna', () => {
+    // Pegado a la raya se ve comprimido, como si el dato no cupiera.
+    const casilla = pintar().find(c => String(c.name).includes('_0_nombre'))!;
+    const columna = REJILLA.columnas.find(c => c.clave === 'nombre')!;
+    expect(casilla.position.x).toBeGreaterThan(columna.x);
+    expect(casilla.position.x + (casilla.width as number))
+      .toBeLessThan(columna.x + columna.ancho);
+  });
+
+  it('el aire es el mismo por los dos lados', () => {
+    // Descentrado se nota más que pegado.
+    const casilla = pintar().find(c => String(c.name).includes('_0_base'))!;
+    const columna = REJILLA.columnas.find(c => c.clave === 'base')!;
+    const izquierda = (casilla.position.x as number) - columna.x;
+    const derecha = (columna.x + columna.ancho) - (casilla.position.x + (casilla.width as number));
+    expect(izquierda).toBeCloseTo(derecha, 2);
+  });
+
+  it('en una columna estrecha el margen no se come el dato', () => {
+    // Un margen fijo dejaría sin sitio a la cifra en una casilla angosta.
+    const angosta = {
+      ...REJILLA,
+      columnas: REJILLA.columnas.map(c => ({ ...c, ancho: 3 })),
+    };
+    for (const casilla of pintar(angosta)) {
+      expect(casilla.width as number).toBeGreaterThan(0.9);
+    }
+  });
+});

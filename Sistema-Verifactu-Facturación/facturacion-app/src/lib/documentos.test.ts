@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { esSellable, tipoDocumento } from './storage';
 import { calculateInvoiceTotals, calculateLineSubtotal } from './utils';
-import { descuentoEfectivo, lineaVacia, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
+import { descuentoEfectivo, lineaVacia, unidadesTotales, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
 import { InvoiceStatus, type CompanySettings } from './types';
 
 describe('esSellable', () => {
@@ -396,5 +396,30 @@ describe('los totales cuadran con las líneas', () => {
     // Lo que hace que una factura cuadre al revisarla a mano.
     const suma = lineas.reduce((s, l) => s + l.subtotal, 0);
     expect(calculateInvoiceTotals(lineas).subtotal).toBeCloseTo(suma, 2);
+  });
+});
+
+describe('las unidades sueltas de un documento', () => {
+  const linea = (quantity: number, unitsPerPackage?: number) => ({ quantity, unitsPerPackage });
+
+  it('multiplica los bultos por lo que trae cada uno', () => {
+    // Doce cajas de veinticuatro son 288 botellas, que es el número que se
+    // cuenta al descargar el camión.
+    expect(unidadesTotales([linea(12, 24)])).toBe(288);
+  });
+
+  it('suma líneas con formatos distintos', () => {
+    expect(unidadesTotales([linea(2, 24), linea(3, 6)])).toBe(66);
+  });
+
+  it('lo que se vende suelto cuenta su cantidad tal cual', () => {
+    // La mayoría no trabaja por cajas: sin unidades por bulto, un bulto es
+    // una unidad y no cero.
+    expect(unidadesTotales([linea(7)])).toBe(7);
+    expect(unidadesTotales([linea(7, 0)])).toBe(7);
+  });
+
+  it('mezcla cajas y unidades sueltas en el mismo documento', () => {
+    expect(unidadesTotales([linea(2, 24), linea(5)])).toBe(53);
   });
 });
