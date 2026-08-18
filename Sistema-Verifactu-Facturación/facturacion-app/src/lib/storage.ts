@@ -6,6 +6,10 @@
 
 import { createClient } from '@/lib/supabase/client';
 import {
+  movimientosDeProducto, reproducirCostes,
+  type AjusteParaCostes, type DocumentoParaCostes,
+} from './costes';
+import {
   getAll, getById, put, putMany, remove as removeFromDb,
   clearStore, enqueueSyncAction, isOfflineDbAvailable,
 } from './offlineDb';
@@ -3929,3 +3933,140 @@ export async function getExtractoCuenta(
   };
 }
 
+
+// ============================================================
+// REGULARIZACIÓN DE COSTES
+// ============================================================
+
+/** Lo que costó de verdad vender un producto, y cuánto se sacó. */
+export interface RentabilidadProducto {
+  productId: string;
+  ref: string;
+  nombre: string;
+  categoria: string;
+  unidadesVendidas: number;
+  ingresos: number;
+  coste: number;
+  margen: number;
+  /** En porcentaje sobre los ingresos. */
+  margenPorcentaje: number;
+  /** El precio medio al final del histórico, ya regularizado. */
+  pmpFinal: number;
+  /** Alguna venta se costeó con un precio de compra posterior. */
+  tieneEstimados: boolean;
+  /** Se vendió más de lo que consta comprado: falta meter alguna compra. */
+  huboDescubierto: boolean;
+}
+
+/**
+ * Recalcula los costes de todo el histórico y saca la rentabilidad real.
+ *
+ * El precio medio se movía sólo hacia delante, y en una empresa de verdad los
+ * papeles no llegan en orden: se vende el lunes y la factura del proveedor
+ * llega el día 20 del mes siguiente. Esa venta se quedaba guardada con el
+ * coste que se supo entonces —el medio viejo, o cero si el producto era
+ * nuevo— y nadie la corregía. El margen que salía era mentira, y siempre a
+ * favor: con coste cero, un beneficio del cien por cien.
+ *
+ * Aquí se ponen todos los movimientos en orden de fecha y se recalcula desde
+ * el principio, que es lo que hace cualquier programa de contabilidad al
+ * cerrar el mes.
+ *
+ * NO SE TOCA NINGUNA FACTURA. El coste guardado en la línea se queda como
+ * está —es un dato histórico legítimo: lo que se sabía al emitirla— y de todas
+ * formas una factura sellada no se puede modificar. Lo que se devuelve es lo
+ * que costó realmente. Sí se corrige el precio medio de la ficha del
+ * producto, que no es un dato fiscal y estaba equivocado.
+ */
+export async function regularizarCostes(
+  opciones: { categoria?: string; guardarPmp?: boolean } = {},
+): Promise<RentabilidadProducto[]> {
+  const [productos, documentos, ajustes] = await Promise.all([
+    getProducts(),
+    getInvoices(),
+    getRegularizaciones(),
+  ]);
+
+  const paraCostes: DocumentoParaCostes[] = documentos.map(d => ({
+    id: d.id,
+    number: d.number,
+    issueDate: d.issueDate,
+    tipo: d.tipo,
+    sentido: d.sentido,
+    status: d.status,
+    lineItems: (d.lineItems ?? []).map(li => ({
+      id: li.id,
+      productId: li.productId,
+      quantity: li.quantity,
+      unitPrice: li.unitPrice,
+      discountPercent: li.discountPercent,
+      discountPercent2: li.discountPercent2,
+      discountPercent3: li.discountPercent3,
+    })),
+  }));
+
+  // Una factura que nace de un albarán ya expedido no vuelve a sacar género:
+  // el albarán lo sacó. Se reconoce porque lleva apuntado su origen.
+  const albaranes = new Set(paraCostes.filter(d => d.tipo === 'albaran').map(d => d.id));
+  const origenes = new Map(documentos.map(d => [d.id, d.documentoOrigenId]));
+  const vieneDeAlbaran = (doc: DocumentoParaCostes) => {
+    const origen = origenes.get(doc.id);
+    return Boolean(origen && albaranes.has(origen));
+  };
+
+  const deAjustes: AjusteParaCostes[] = ajustes.map(a => ({
+    id: a.id, fecha: a.fecha, productId: a.productId, diferencia: a.diferencia,
+  }));
+
+  const salida: RentabilidadProducto[] = [];
+
+  for (const producto of productos) {
+    if (opciones.categoria && producto.category !== opciones.categoria) continue;
+
+    const movimientos = movimientosDeProducto(producto.id, paraCostes, deAjustes, vieneDeAlbaran);
+    if (movimientos.length === 0) continue;
+
+    const resultado = reproducirCostes(movimientos);
+
+    // Los ingresos salen de las mismas líneas que las salidas, para que el
+    // margen compare exactamente lo mismo arriba y abajo.
+    const referencias = new Set(resultado.costes.map(c => c.referencia));
+    let ingresos = 0;
+    for (const doc of paraCostes) {
+      if ((doc.sentido ?? 'venta') === 'compra') continue;
+      for (const li of doc.lineItems) {
+        if (li.productId !== producto.id) continue;
+        if (!referencias.has(`${doc.number}#${li.id}`)) continue;
+        ingresos += li.quantity * li.unitPrice
+          * (1 - (li.discountPercent || 0) / 100)
+          * (1 - (li.discountPercent2 || 0) / 100)
+          * (1 - (li.discountPercent3 || 0) / 100);
+      }
+    }
+
+    const coste = resultado.costes.reduce((s, c) => s + c.costeTotal, 0);
+    const unidades = resultado.costes.reduce((s, c) => s + c.cantidad, 0);
+    const margen = ingresos - coste;
+
+    if (opciones.guardarPmp && resultado.pmpFinal > 0 && resultado.pmpFinal !== producto.costePmp) {
+      await saveProduct({ ...producto, costePmp: resultado.pmpFinal });
+    }
+
+    salida.push({
+      productId: producto.id,
+      ref: producto.ref,
+      nombre: producto.name,
+      categoria: producto.category,
+      unidadesVendidas: unidades,
+      ingresos: Math.round(ingresos * 100) / 100,
+      coste: Math.round(coste * 100) / 100,
+      margen: Math.round(margen * 100) / 100,
+      margenPorcentaje: ingresos > 0 ? Math.round((margen / ingresos) * 1000) / 10 : 0,
+      pmpFinal: resultado.pmpFinal,
+      tieneEstimados: resultado.costes.some(c => c.estimado),
+      huboDescubierto: resultado.huboDescubierto,
+    });
+  }
+
+  return salida.sort((a, b) => b.margen - a.margen);
+}

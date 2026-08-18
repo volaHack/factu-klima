@@ -8287,3 +8287,69 @@ a.stats-item:focus-visible {
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Rentabilidad --- */
+
+.rentabilidad-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.rentabilidad-titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rentabilidad-controles {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.rentabilidad-aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+}
+
+.rentabilidad-totales {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rentabilidad-totales > div { display: flex; flex-direction: column; gap: 2px; }
+.rentabilidad-totales span { font-size: var(--text-xs); color: var(--text-muted); }
+.rentabilidad-totales strong { font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
+
+/* Las cifras a la derecha y con dígitos de ancho fijo: una columna de
+   importes que no alinea decimales no se puede comparar de un vistazo. */
+.rentabilidad-tabla th:not(:first-child),
+.rentabilidad-tabla td:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rentabilidad-bien { color: var(--color-success); }
+.rentabilidad-mal { color: var(--color-danger); }
+
+.rentabilidad-marca {
+  margin-left: 6px;
+  color: var(--color-warning);
+  vertical-align: middle;
+}

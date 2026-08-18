@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { BarChart3 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import Rentabilidad from '@/components/informes/Rentabilidad';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, ChartLegend, AreaTrendChart, ComparisonBarChart } from '@/components/charts/Charts';
 import { SERIES, resolveAccent } from '@/components/charts/theme';
@@ -225,6 +226,10 @@ export default function InformesPage() {
           />
         </ChartCard>
       </div>
+
+      {/* Qué deja cada cosa, con los costes reconstruidos en orden de fecha
+          y no con los que se guardaron al vender. */}
+      <Rentabilidad />
     </div>
   );
 }
