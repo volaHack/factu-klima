@@ -124,7 +124,11 @@ interface ReglaEtiqueta {
 
 /** Etiquetas impresas que delatan qué dato viene al lado. */
 const ETIQUETAS: ReglaEtiqueta[] = [
-  { re: /^(n\.?[ºo°]?\.? ?(de )?)?(factura|albaran|documento|presupuesto|ticket)( n\.?[ºo°]?\.?)?$|^factura n|^n[ºo°] ?factura|^numero( de)? (factura|albaran|documento)$|^invoice( no| number)?$/i, clave: 'doc_numero', prioridad: 9 },
+  // «FACTURA VENTA», «ALBARÁN DE COMPRA»: los impresos de mayorista rotulan
+  // así la casilla del número, y sin la coletilla no se reconocía la
+  // etiqueta. El número se quedaba sin detectar y, al no borrarse del calco,
+  // el de la factura de muestra salía impreso en todas las facturas.
+  { re: /^(n\.?[ºo°]?\.? ?(de )?)?(factura|albaran|documento|presupuesto|ticket)( (de )?(venta|compra|abono|rectificativa|simplificada|proforma))?( n\.?[ºo°]?\.?)?$|^factura n|^n[ºo°] ?factura|^numero( de)? (factura|albaran|documento)$|^invoice( no| number)?$/i, clave: 'doc_numero', prioridad: 9 },
   { re: /^(fecha( de( la)?)?( emision( de( la)? factura)?| factura| expedicion| documento)?|f\.? emision|f\.? expedicion|date|issue date|fecha doc\.?)$/i, clave: 'doc_fecha', prioridad: 9 },
   { re: /(vencimiento|vence el?|fecha limite|forma de vencimiento|due date|f\.? vencimiento)/i, clave: 'doc_vencimiento', prioridad: 9 },
   { re: /(fecha de (cobro|pago)|pagada el|cobrada el|f\.? pago)/i, clave: 'doc_fecha_pago', prioridad: 8 },
@@ -980,6 +984,41 @@ interface ParejaEtiquetaValor {
  * dos puntos están dentro de un mismo item se estima la parte proporcional,
  * que es suficiente para colocar la caja del campo.
  */
+/**
+ * Ancho aproximado de cada carácter, en fracción del cuerpo de letra.
+ *
+ * Son los anchos de la Helvetica redondeados por familias. Sirven para saber
+ * por dónde cortar «N.I.F. / C.I.F.: B35045590» cuando el PDF lo entrega
+ * como un único trozo de texto y sólo conocemos el ancho total: repartirlo a
+ * partes iguales entre los caracteres se equivoca en tres milímetros —una
+ * etiqueta llena de puntos y barras ocupa mucho menos de lo que su número de
+ * letras sugiere—, y el corte caía dentro del valor. Lo que quedaba fuera no
+ * se borraba del calco: media «B» del NIF anterior pegada al NIF nuevo.
+ */
+function anchoDeCaracter(c: string): number {
+  if (' .,:;\'`!|iljItf()[]{}/\\-'.includes(c)) return 0.30;
+  if (c >= '0' && c <= '9') return 0.56;
+  if ('MW'.includes(c)) return 0.90;
+  if ('mw'.includes(c)) return 0.83;
+  if (c >= 'A' && c <= 'Z') return 0.68;
+  return 0.53;
+}
+
+/** Qué fracción del ancho de un texto ocupan sus primeros `corte` caracteres. */
+function proporcionHasta(item: ItemTexto, corte: number): number {
+  // En una monoespaciada todos los caracteres miden igual y el reparto a
+  // partes iguales es exacto.
+  if (item.monoespaciada) return corte / Math.max(1, item.texto.length);
+  let hasta = 0;
+  let total = 0;
+  for (let i = 0; i < item.texto.length; i++) {
+    const ancho = anchoDeCaracter(item.texto[i]);
+    total += ancho;
+    if (i < corte) hasta += ancho;
+  }
+  return total > 0 ? hasta / total : 0;
+}
+
 export function separarEtiquetaYValor(linea: SegmentoTexto): ParejaEtiquetaValor | null {
   const indiceDosPuntos = linea.items.findIndex(i => i.texto.includes(':'));
   if (indiceDosPuntos === -1) return null;
@@ -997,7 +1036,7 @@ export function separarEtiquetaYValor(linea: SegmentoTexto): ParejaEtiquetaValor
   const valorItems: ItemTexto[] = [];
 
   if (restoDelItem) {
-    const proporcion = (posicion + 1) / Math.max(1, item.texto.length);
+    const proporcion = proporcionHasta(item, posicion + 1);
     valorItems.push({
       ...item,
       texto: restoDelItem,
@@ -1066,7 +1105,8 @@ function detectarBloques(
   avisos: AvisoAnalisis[],
 ): void {
   const disponibles = lineas.filter(l => !usadas.has(l));
-  const bloques = agruparBloques(disponibles).filter(b => puntuarBloqueDireccion(b) >= 3);
+  const todos = agruparBloques(disponibles);
+  const bloques = todos.filter(b => puntuarBloqueDireccion(b) >= 3);
   if (bloques.length === 0) return;
 
   const nifPropio = ajustes?.nif ? normalizarNif(ajustes.nif) : '';
@@ -1136,8 +1176,63 @@ function detectarBloques(
     }
   }
 
-  if (emisor) asignarBloque(emisor, 'empresa', registrar, esDelEmisor(emisor) ? 0.9 : 0.6);
-  if (cliente) asignarBloque(cliente, 'cliente', registrar, 0.75);
+  // Una línea suelta a la altura del membrete es parte del membrete, aunque
+  // por sí sola no tenga forma de nada: el nombre del titular («MARCOS
+  // RODRIGUEZ GUILLEN») o la ciudad que quedó separada del código postal
+  // («35510» y «Las Palmas» en columnas distintas). Si no se recoge aquí,
+  // nadie la reclama, no se borra del calco y el dato de la muestra sale
+  // impreso en todas las facturas: el del titular es feo, el del cliente
+  // anterior es una fuga de datos.
+  const absorbidos = new Set<Bloque>(bloques);
+  for (const elegido of [emisor, cliente]) {
+    if (!elegido) continue;
+    for (const suelto of todos) {
+      if (absorbidos.has(suelto)) continue;
+      const dentro = suelto.y >= elegido.y - 1 && abajo(suelto) <= abajo(elegido) + 1;
+      if (!dentro || solapeHorizontal(elegido, suelto) < 0.5) continue;
+      absorbidos.add(suelto);
+      elegido.lineas.push(...suelto.lineas);
+    }
+    elegido.lineas.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  }
+
+  if (emisor) asignarBloque(emisor, 'empresa', registrar, esDelEmisor(emisor) ? 0.9 : 0.6, usadas);
+  if (cliente) asignarBloque(cliente, 'cliente', registrar, 0.75, usadas);
+}
+
+/**
+ * Junta los trozos que están a la misma altura dentro de un bloque.
+ *
+ * El código postal y la ciudad pueden venir en dos columnas separadas
+ * («35510» a un lado y «Las Palmas» al otro). Por separado no son nada; el
+ * renglón completo, «35510 Las Palmas», sí tiene forma de población.
+ */
+function renglonesDelBloque(segmentos: SegmentoTexto[]): SegmentoTexto[][] {
+  const renglones: SegmentoTexto[][] = [];
+  for (const segmento of [...segmentos].sort((a, b) => (a.y - b.y) || (a.x - b.x))) {
+    const ultimo = renglones[renglones.length - 1];
+    const referencia = ultimo?.[0];
+    const juntos = referencia &&
+      Math.abs(segmento.y - referencia.y) <= Math.min(referencia.alto, segmento.alto) * 0.6;
+    if (juntos) ultimo.push(segmento);
+    else renglones.push([segmento]);
+  }
+  return renglones;
+}
+
+/** Un renglón —uno o varios trozos a la misma altura— visto como uno solo. */
+function unirRenglon(segmentos: SegmentoTexto[]): SegmentoTexto {
+  if (segmentos.length === 1) return segmentos[0];
+  const x = Math.min(...segmentos.map(s => s.x));
+  const y = Math.min(...segmentos.map(s => s.y));
+  return {
+    items: segmentos.flatMap(s => s.items),
+    texto: segmentos.map(s => s.texto).join(' ').replace(/\s+/g, ' ').trim(),
+    x,
+    y,
+    ancho: Math.max(...segmentos.map(s => derecha(s))) - x,
+    alto: Math.max(...segmentos.map(s => abajo(s))) - y,
+  };
 }
 
 function asignarBloque(
@@ -1145,11 +1240,14 @@ function asignarBloque(
   prefijo: 'empresa' | 'cliente',
   registrar: Registrador,
   confianza: number,
+  usadas: Set<SegmentoTexto>,
 ): void {
   const quien = prefijo === 'empresa' ? 'tu empresa' : 'el cliente';
-  const pendientes: SegmentoTexto[] = [];
+  const pendientes: { linea: SegmentoTexto; partes: SegmentoTexto[] }[] = [];
 
-  for (const linea of bloque.lineas) {
+  for (const partes of renglonesDelBloque(bloque.lineas)) {
+    const linea = unirRenglon(partes);
+    const marcarPartes = () => { for (const parte of partes) usadas.add(parte); };
     const texto = linea.texto.trim();
     // Un rótulo como «FACTURAR A:» encabeza el bloque pero no es un dato:
     // si se colara, el nombre del cliente acabaría en el campo de dirección
@@ -1164,42 +1262,75 @@ function asignarBloque(
     const items = pareja ? pareja.valorItems : linea.items;
     const valor = pareja ? pareja.valorItems.map(i => i.texto).join(' ').trim() : texto;
 
+    // Un rótulo suelto —«Tfno:» sin número detrás, en un impreso que deja el
+    // hueco en blanco— es del diseño, no un dato: se queda impreso como está
+    // y no cuenta como línea de la dirección. `pareceEtiqueta` sólo dice que
+    // sí cuando el renglón ENTERO es rótulo, así que «CIF: 44708081Z» no se
+    // ve afectado.
+    if (pareceEtiqueta(texto)) continue;
+
     if (RE_ETIQUETA_NIF.test(etiqueta) || contieneNif(valor)) {
-      registrar(campoDesde(items, `${prefijo}_nif`, confianza, `NIF de ${quien}`, pareja?.etiqueta ?? ''), linea);
+      if (registrar(campoDesde(items, `${prefijo}_nif`, confianza, `NIF de ${quien}`, pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
     if (pareceEmail(valor) || RE_ETIQUETA_EMAIL.test(etiqueta)) {
-      registrar(campoDesde(items, `${prefijo}_email`, confianza * 0.9, `Correo de ${quien}`, pareja?.etiqueta ?? ''), linea);
+      if (registrar(campoDesde(items, `${prefijo}_email`, confianza * 0.9, `Correo de ${quien}`, pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
     if (pareceTelefono(valor) || RE_ETIQUETA_TELEFONO.test(etiqueta)) {
-      registrar(campoDesde(items, `${prefijo}_telefono`, confianza * 0.9, `Teléfono de ${quien}`, pareja?.etiqueta ?? ''), linea);
+      if (registrar(campoDesde(items, `${prefijo}_telefono`, confianza * 0.9, `Teléfono de ${quien}`, pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
-    if (pareceCpCiudad(valor)) {
-      registrar(campoDesde(items, `${prefijo}_poblacion`, confianza * 0.95, `Población de ${quien}`, pareja?.etiqueta ?? ''), linea);
+    // «35510 Las Palmas», y también un código postal a secas: en los
+    // impresos con casillas la ciudad va en la columna de al lado.
+    if (pareceCpCiudad(valor) || /^\d{5}$/.test(valor)) {
+      if (registrar(campoDesde(items, `${prefijo}_poblacion`, confianza * 0.95, `Población de ${quien}`, pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
     if (RE_ETIQUETA_DIRECCION.test(etiqueta) || /\b(calle|c\/|avda|avenida|plaza|pza|paseo|camino|carretera|ctra|poligono|urb|travesia)\b/i.test(valor)) {
-      registrar(campoDesde(items, `${prefijo}_direccion`, confianza * 0.95, `Dirección de ${quien}`, pareja?.etiqueta ?? ''), linea);
+      if (registrar(campoDesde(items, `${prefijo}_direccion`, confianza * 0.95, `Dirección de ${quien}`, pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
     if (prefijo === 'empresa' && pareceIban(valor)) {
-      registrar(campoDesde(items, 'empresa_iban', confianza, 'Cuenta bancaria', pareja?.etiqueta ?? ''), linea);
+      if (registrar(campoDesde(items, 'empresa_iban', confianza, 'Cuenta bancaria', pareja?.etiqueta ?? ''), linea)) marcarPartes();
       continue;
     }
-    pendientes.push(linea);
+    pendientes.push({ linea, partes });
   }
 
-  // Lo que queda sin forma reconocible: la primera línea es el nombre y el
-  // resto, dirección. Es el orden de cualquier membrete.
-  if (pendientes.length > 0) {
-    const nombre = pendientes.shift()!;
-    registrar(campoDesde(nombre.items, `${prefijo}_nombre`, confianza, `Nombre de ${quien}`, ''), nombre);
+  if (pendientes.length === 0) return;
+
+  // Lo que queda sin forma reconocible es el nombre y la dirección, en ese
+  // orden: es como se escribe cualquier membrete.
+  //
+  // El nombre suele ser una sola línea, pero cuando va en grande ocupa dos
+  // («ROGAR» / «DISTRIBUCIONES», la marca del membrete). Se reconoce porque
+  // el cuerpo de letra destaca sobre el del resto del bloque.
+  const cuerpos = pendientes.map(p => p.linea.alto);
+  const cuerpoHabitual = mediana(cuerpos);
+  let hastaNombre = 1;
+  if (cuerpos[0] > cuerpoHabitual * 1.25) {
+    while (hastaNombre < pendientes.length && cuerpos[hastaNombre] > cuerpoHabitual * 1.25) hastaNombre++;
   }
-  for (const resto of pendientes) {
-    registrar(campoDesde(resto.items, `${prefijo}_direccion`, confianza * 0.8, `Dirección de ${quien}`, ''), resto);
-  }
+
+  const deNombre = pendientes.slice(0, hastaNombre);
+  const deDireccion = pendientes.slice(hastaNombre);
+
+  const juntar = (grupo: typeof pendientes) => ({
+    items: grupo.flatMap(p => p.linea.items),
+    marcar: () => { for (const p of grupo) for (const parte of p.partes) usadas.add(parte); },
+  });
+
+  const nombre = juntar(deNombre);
+  if (registrar(campoDesde(nombre.items, `${prefijo}_nombre`, confianza, `Nombre de ${quien}`, ''))) nombre.marcar();
+
+  // Y la dirección, UN campo de tantas líneas como tenga. Registrar una por
+  // línea no valía: el registro descarta la segunda y las siguientes por
+  // llevar una clave ya usada, así que se quedaban sin borrar del calco y la
+  // dirección de la muestra salía impresa debajo de la nueva.
+  if (deDireccion.length === 0) return;
+  const direccion = juntar(deDireccion);
+  if (registrar(campoDesde(direccion.items, `${prefijo}_direccion`, confianza * 0.8, `Dirección de ${quien}`, ''))) direccion.marcar();
 }
 
 /**

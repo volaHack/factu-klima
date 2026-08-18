@@ -136,9 +136,29 @@ export async function abrirPlantillaGuardada(
  * campos como fijos, movido cajas o añadido campos nuevos desde el revisor.
  */
 export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
+  // Se borra TODO campo que no esté marcado como fijo, tenga clave asignada o
+  // no.
+  //
+  // Un campo sin clave es un dato de la factura de muestra que no hemos
+  // sabido a qué corresponde: el código del cliente anterior, su ciudad, un
+  // desglose. Nadie lo va a rellenar, así que si no se borra queda impreso
+  // en todas las facturas que se emitan con esta plantilla. Con los datos de
+  // la empresa sólo queda feo; con los del cliente de la muestra es enseñarle
+  // a un cliente los datos de otro.
+  //
+  // Dejar un hueco en blanco es peor de ver pero mejor de todas las demás
+  // maneras, y tiene arreglo: en el revisor se marca el campo como fijo y
+  // vuelve a salir impreso tal cual estaba.
+  // Medio milímetro de más a los lados de cada campo. La caja se calcula a
+  // partir de dónde dice el PDF que empieza el texto, y el trazo de la
+  // primera letra suele asomar una pizca por delante: sin este margen queda
+  // un pellizco de la «B» del NIF anterior pegado al NIF nuevo. Sólo se
+  // aplica a los campos: el marco de la tabla y las zonas que el usuario tapa
+  // a mano se borran exactamente donde dicen.
+  const MARGEN = 0.5;
   const zonas: Zona[] = analisis.campos
-    .filter(c => !c.fijo && c.clave)
-    .map(c => ({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto }));
+    .filter(c => !c.fijo)
+    .map(c => ({ x: c.x - MARGEN, y: c.y, ancho: c.ancho + MARGEN * 2, alto: c.alto }));
 
   if (analisis.tabla) {
     // La tabla se borra entera, cabecera incluida: la vuelve a pintar pdfme
@@ -152,16 +172,6 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
       alto: analisis.tabla.altoTotal + analisis.tabla.altoFila * 0.6,
     });
 
-    // Los datos de muestra que quedan sin mapear por debajo de la tabla
-    // (desgloses, filas de totales sin asignar, notas numéricas…) no se
-    // renderizan con datos reales: si no se borran del calco, aparecen
-    // impresos debajo de las líneas. Los que el usuario marcó como fijos se
-    // respetan, porque quieren que sigan saliendo tal cual estaban.
-    const finTabla = analisis.tabla.y + analisis.tabla.altoTotal;
-    for (const c of analisis.campos) {
-      if (c.fijo || c.clave || c.y < finTabla) continue;
-      zonas.push({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto });
-    }
   }
 
   zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));

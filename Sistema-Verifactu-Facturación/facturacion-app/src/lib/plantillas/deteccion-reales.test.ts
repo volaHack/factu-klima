@@ -234,3 +234,112 @@ describe('hasta dónde llega la tabla', () => {
     expect(analisis.tabla!.y + analisis.tabla!.altoTotal).toBeLessThan(116);
   });
 });
+
+describe('el membrete y el bloque del cliente', () => {
+  /** Membrete de dos columnas, como el de cualquier impreso de mayorista. */
+  function membrete(): ItemTexto[] {
+    return [
+      // Marca, en grande y a dos líneas.
+      texto('ROGAR', 63, 14.7, 18),
+      texto('DISTRIBUCIONES', 49, 21.4, 18),
+      // Y los datos, en cuerpo normal.
+      texto('MARCOS RODRIGUEZ GUILLEN', 48, 26.9),
+      texto('ISA NUM 15 ARGANA ALTA', 52, 30.9),
+      texto('ARRECIFE (LANZAROTE)', 53, 35.1),
+      texto('35000 LAS PALMAS', 57, 38.8),
+      texto('Tfno: 629529015', 60, 42.6),
+      texto('CIF: 44708081Z', 60, 46.8),
+    ];
+  }
+
+  it('guarda la dirección entera, no sólo su primera línea', () => {
+    // Registrar una línea por campo no valía: la segunda y las siguientes se
+    // descartaban por llevar una clave ya usada, se quedaban sin borrar del
+    // calco y la dirección de la muestra salía impresa debajo de la nueva.
+    const analisis = detectar(pagina(membrete()), { ajustes: AJUSTES });
+    const direccion = claves(analisis).empresa_direccion ?? '';
+    expect(direccion).toContain('ISA NUM 15 ARGANA ALTA');
+    expect(direccion).toContain('ARRECIFE (LANZAROTE)');
+  });
+
+  it('reconoce como nombre las dos líneas del rótulo grande', () => {
+    const analisis = detectar(pagina(membrete()), { ajustes: AJUSTES });
+    expect(claves(analisis).empresa_nombre).toBe('ROGAR DISTRIBUCIONES');
+  });
+
+  it('no mete un rótulo suelto en la dirección', () => {
+    // «Tfno:» sin número detrás es del impreso: se queda como está.
+    const analisis = detectar(pagina([
+      ...membrete().slice(0, 6),
+      texto('Tfno:', 60, 42.6),
+      texto('CIF: 44708081Z', 60, 46.8),
+    ]), { ajustes: AJUSTES });
+    expect(claves(analisis).empresa_direccion ?? '').not.toContain('Tfno');
+  });
+
+  it('recoge la ciudad aunque venga en la columna de al lado del código postal', () => {
+    // En los impresos con casillas el CP y la ciudad van separados. Sueltos
+    // no son nada; juntos son la población. Si nadie los reclama, la ciudad
+    // del cliente anterior se queda impresa en todas las facturas.
+    const analisis = detectar(pagina([
+      // Membrete propio a la izquierda, para que el de la derecha sea el
+      // cliente y no haya que adivinarlo.
+      ...membrete(),
+      texto('SUPERMERCADOS LOS MOJONES S.L.', 107.8, 25.6),
+      texto('C JUAN CARLOS I LOCAL 2', 107.8, 30.4),
+      texto('ARRECIFE', 107.8, 35.2),
+      texto('35510', 107.8, 40),
+      texto('Las Palmas', 121.8, 40),
+      texto('Tfno:', 107.8, 44.8),
+      texto('N.I.F. / C.I.F.: B35045590', 107.8, 49.8),
+    ]), { ajustes: { ...AJUSTES, nif: '44708081Z' } });
+    expect(claves(analisis).cliente_poblacion).toBe('35510 Las Palmas');
+  });
+});
+
+describe('el número de factura', () => {
+  it('lo encuentra bajo el rótulo «FACTURA VENTA»', () => {
+    // Sin reconocer la coletilla, el número no se detectaba y, al no borrarse
+    // del calco, el de la factura de muestra salía impreso en TODAS las
+    // facturas emitidas con la plantilla.
+    const analisis = detectar(pagina([
+      texto('FACTURA VENTA', 13.4, 59.7, 9, NEGRITA),
+      texto('FECHA', 49.7, 59.7, 9, NEGRITA),
+      texto('26 / 26003239', 16.8, 66.1),
+      texto('12/08/2026', 46.9, 66.3),
+    ]), { ajustes: AJUSTES });
+    expect(claves(analisis).doc_numero).toBe('26 / 26003239');
+    expect(claves(analisis).doc_fecha).toBe('12/08/2026');
+  });
+
+  it('no confunde un código postal con el número de factura', () => {
+    const analisis = detectar(pagina([
+      texto('SUPERMERCADOS LOS MOJONES S.L.', 107.8, 25.6),
+      texto('C JUAN CARLOS I LOCAL 2', 107.8, 30.4),
+      texto('35510 Las Palmas', 107.8, 40),
+      texto('Tfno:', 107.8, 44.8),
+      texto('N.I.F. / C.I.F.: B35045590', 107.8, 49.8),
+    ]), { ajustes: AJUSTES });
+    expect(claves(analisis).doc_numero).toBeUndefined();
+  });
+});
+
+describe('etiqueta y valor dentro del mismo trozo de texto', () => {
+  it('corta por donde acaba la etiqueta, no por el número de letras', () => {
+    // «N.I.F. / C.I.F.: B35045590» llega como un único trozo y hay que
+    // estimar dónde empieza el valor. Repartir el ancho a partes iguales
+    // entre los caracteres se equivoca en milímetros —una etiqueta llena de
+    // puntos ocupa mucho menos de lo que su número de letras sugiere— y el
+    // corte caía dentro del valor: lo que quedaba fuera no se borraba y
+    // aparecía media «B» del NIF anterior pegada al NIF nuevo.
+    const item = texto('N.I.F. / C.I.F.: B35045590', 107.8, 49.8);
+    item.ancho = 37;
+    const analisis = detectar(pagina([item]), { ajustes: AJUSTES });
+    const nif = analisis.campos.find(c => c.clave === 'cliente_nif' || c.clave === 'empresa_nif');
+    expect(nif).toBeDefined();
+    // La «B» empieza de verdad en x≈128,3. Vale acercarse por la izquierda
+    // (se borra un poco de blanco), nunca pasarse por la derecha.
+    expect(nif!.x).toBeLessThanOrEqual(128.5);
+    expect(nif!.x).toBeGreaterThan(124);
+  });
+});
