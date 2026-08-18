@@ -269,8 +269,13 @@ export default function TesoreriaPage() {
       success(`${isCobro ? 'Cobro' : 'Pago'} ${record.number} por ${formatCurrency(record.importeTotal)} registrado con éxito`);
       setShowModal(false);
       await loadData();
-    } catch {
-      toastError('Error al guardar el registro de tesorería');
+    } catch (err) {
+      // Con el motivo delante. Sin él, un fallo de permisos, uno de red y uno
+      // de sellado se ven exactamente igual y no hay por dónde empezar.
+      toastError(
+        'Error al guardar el registro de tesorería',
+        err instanceof Error ? err.message : 'Error desconocido',
+      );
     }
   };
 
@@ -280,8 +285,8 @@ export default function TesoreriaPage() {
       await deleteCobroPago(id);
       success(`Registro ${number} eliminado y saldos revertidos`);
       await loadData();
-    } catch {
-      toastError('Error al eliminar registro');
+    } catch (err) {
+      toastError('Error al eliminar registro', err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 

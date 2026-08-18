@@ -289,6 +289,70 @@ export async function saveDocumento(doc: Invoice): Promise<Invoice> {
   return saveInvoice(doc);
 }
 
+/**
+ * Anota en la factura lo que se le ha cobrado.
+ *
+ * COBRAR UNA FACTURA NO ES MODIFICARLA.
+ *
+ * `saveDocumento` rechaza cualquier cambio sobre un documento sellado, y una
+ * factura cobrable está EMITIDA, PENDIENTE o VENCIDA, que son estados
+ * sellados. Con lo cual el registro de un cobro reventaba SIEMPRE, y por eso
+ * la tesorería daba «Error al guardar el registro» pasara lo que pasara.
+ *
+ * Pero lo que se sella es el CONTENIDO FISCAL —el número, la fecha, las
+ * bases, las cuotas, el NIF, la cadena de huellas—, no si el cliente ha
+ * pagado. Que una factura de marzo se cobre en junio no cambia nada de lo que
+ * se declaró en marzo. La propia base de datos lo tiene claro: su disparador
+ * de inmutabilidad enumera los campos intocables y `paid_amount`, `status` y
+ * `paid_date` no están en la lista.
+ *
+ * Por eso esto NO pasa por `saveInvoice`: aquél reescribe también las líneas,
+ * y el guardián de líneas rechaza tocarlas en una factura sellada aunque los
+ * valores sean idénticos —y de paso anota un aviso de manipulación grave en
+ * el registro de seguridad, que es lo último que hace falta al cobrar una
+ * factura corriente.
+ *
+ * Se toca la fila de la factura y sólo las cuatro columnas del cobro.
+ */
+export async function anotarCobroEnFactura(
+  factura: Invoice,
+  cobro: {
+    paidAmount: number;
+    paidDate?: string;
+    status: InvoiceStatus;
+    paymentRecordIds: string[];
+  },
+): Promise<void> {
+  const userId = await requireUserId();
+  const campos = {
+    paid_amount: cobro.paidAmount,
+    paid_date: cobro.paidDate ?? null,
+    status: cobro.status,
+    payment_record_ids: cobro.paymentRecordIds,
+  };
+
+  if (await isOfflineDbAvailable()) {
+    const guardada = await getById<Record<string, unknown>>('invoices', factura.id);
+    if (guardada) await put('invoices', { ...guardada, ...campos });
+  }
+
+  // Va como 'upsert' porque es lo único que entiende la cola, pero el
+  // sincronizador reconoce que la fila sólo trae columnas de cobro y aplica
+  // ésas sin tocar ni el contenido fiscal ni las líneas.
+  const encolar = () => enqueueSyncAction('upsert', 'invoices', { id: factura.id, user_id: userId, ...campos });
+
+  if (!navigator.onLine) {
+    await encolar();
+    return;
+  }
+  try {
+    const { error } = await supabase().from('invoices').update(campos).eq('id', factura.id);
+    if (error) await encolar();
+  } catch {
+    await encolar();
+  }
+}
+
 export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
   const userId = await requireUserId();
 
@@ -3712,15 +3776,17 @@ export async function saveCobroPago(cobroPago: CobroPago): Promise<CobroPago> {
     const recIds = new Set(inv.paymentRecordIds || []);
     recIds.add(cobroPago.id);
 
-    const updatedInv: Invoice = {
-      ...inv,
+    // Por la vía del cobro, NO por `saveDocumento`.
+    //
+    // Una factura cobrable está EMITIDA, PENDIENTE o VENCIDA, y los tres son
+    // estados sellados: `saveDocumento` los rechaza de plano, así que esto
+    // reventaba en cuanto se intentaba cobrar cualquier cosa.
+    await anotarCobroEnFactura(inv, {
       paidAmount: newPaid,
       paidDate: isTotal ? cobroPago.fecha : inv.paidDate,
       status: newStatus,
       paymentRecordIds: Array.from(recIds),
-    };
-
-    await saveDocumento(updatedInv);
+    });
   }
 
   return cobroPago;
@@ -3743,13 +3809,15 @@ export async function deleteCobroPago(id: string): Promise<void> {
 
     const recIds = (inv.paymentRecordIds || []).filter(rid => rid !== id);
 
-    const updatedInv: Invoice = {
-      ...inv,
+    // Por la vía del cobro, igual que al anotarlo: deshacerlo tampoco es
+    // modificar la factura.
+    await anotarCobroEnFactura(inv, {
       paidAmount: newPaid,
+      // Si ya no queda nada cobrado, tampoco queda fecha de cobro.
+      paidDate: newPaid > 0 ? inv.paidDate : undefined,
       status: newStatus,
       paymentRecordIds: recIds,
-    };
-    await saveDocumento(updatedInv);
+    });
   }
 
   const offlineAvail = await isOfflineDbAvailable();

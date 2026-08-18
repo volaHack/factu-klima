@@ -233,6 +233,168 @@ body.theme-plum {
   --accent-gradient: linear-gradient(135deg, #954a71, #672f4a);
 }
 
+
+/* ============================================================
+   MODO OSCURO
+   ============================================================
+
+   El esquema claro vive en :root y es el que manda mientras nadie diga
+   lo contrario. Aquí sólo se REDEFINEN los tokens: ni una regla de
+   componente se repite, así que lo que se pinte mañana sale bien en los
+   dos esquemas sin tocar nada.
+
+   El atributo `data-theme` SIEMPRE lleva un valor resuelto —lo estampa
+   el guion que corre antes de pintar—, así que la paleta se escribe una
+   sola vez y no hay dos copias que se puedan desincronizar. El guion es
+   quien mira si la persona eligió o si hay que hacer caso al sistema.
+
+   Y los colores NO son los claros invertidos. Sobre fondo oscuro el
+   mismo rosa se apaga, así que la rampa de acento sube de luz; y los
+   textos se quedan en un hueso cálido en vez de blanco puro, porque el
+   blanco sobre casi negro vibra y cansa a las dos páginas de leer.
+
+   Los ratios van MEDIDOS en el navegador contra --bg-primary (#191013),
+   que es el peor caso de los tres fondos oscuros, igual que los del
+   esquema claro de arriba. El más justo de todos es --text-muted sobre
+   --bg-elevated, a 4,75:1, que sigue pasando el mínimo de 4,5:1. */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Superficies. Suben de luz según se acercan a quien mira: el fondo
+     de la página es el más oscuro y una tarjeta flotante el más claro,
+     que es como se lee la profundidad sin necesidad de sombras (que
+     sobre negro casi no se ven). */
+  --bg-primary: #191013;
+  --bg-secondary: #211619;
+  --bg-tertiary: #1e1417;
+  --bg-card: #211619;
+  --bg-card-hover: #2b1e23;
+  --bg-elevated: #2b1e23;
+  --bg-input: #161013;
+  --bg-overlay: rgba(10, 6, 8, 0.66);
+
+  /* Acento rosa, aclarado para que se lea sobre oscuro. Aquí --accent-300
+     hace de "aclarar al pasar el ratón", el papel inverso al que tiene en
+     el esquema claro, donde oscurece. */
+  --accent-50: #2a171f;
+  --accent-100: #3a1e29;
+  --accent-200: #5c2b3d;
+  --accent-300: #f5b3ca;
+  --accent-400: #ef9ab9;
+  --accent-500: #e87fa6;   /*  7.1:1 */
+  --accent-600: #d95f8d;   /*  5.3:1 */
+  --accent-700: #c04674;
+  --accent-800: #9c3159;
+  --accent-glow: rgba(232, 127, 166, 0.20);
+  --accent-gradient: linear-gradient(135deg, #ef9ab9 0%, #c04674 100%);
+
+  --wine-500: #3d1520;
+  --wine-600: #2c0f18;
+
+  /* Texto. Hueso cálido, no blanco puro. */
+  --text-primary: #f7ebef;    /* 16.1:1 */
+  --text-secondary: #d3bfc7;  /* 10.7:1 */
+  --text-tertiary: #ab949d;   /*  6.6:1 */
+  --text-muted: #9d868f;      /*  5.6:1 */
+  --text-inverse: #191013;
+
+  /* Estados. Los del esquema claro son tintas oscuras pensadas para
+     leerse sobre papel; sobre negro desaparecen, así que suben de luz. */
+  --color-success: #5cc98a;
+  --color-success-bg: rgba(92, 201, 138, 0.16);
+  --color-warning: #e8b23c;
+  --color-warning-bg: rgba(232, 178, 60, 0.16);
+  --color-danger: #f27b72;
+  --color-danger-bg: rgba(242, 123, 114, 0.16);
+  --color-info: #7ba7f5;
+  --color-info-bg: rgba(123, 167, 245, 0.16);
+  --color-neutral: #ab949d;
+  --color-neutral-bg: rgba(171, 148, 157, 0.14);
+
+  /* El oro del sello. Sobre negro necesita mucha menos tinta que sobre
+     claro para el mismo contraste, así que vuelve a ser oro de verdad. */
+  --verifactu-gold: #e0b455;
+  --verifactu-bg: rgba(224, 180, 85, 0.16);
+
+  /* Bordes claros sobre fondo oscuro, no oscuros sobre claro. */
+  --border-color: rgba(247, 235, 239, 0.14);
+  --border-color-hover: rgba(247, 235, 239, 0.26);
+  --border-color-focus: var(--accent-500);
+  --border-subtle: rgba(247, 235, 239, 0.08);
+  --border-strong: rgba(247, 235, 239, 0.34);
+
+  /* Sombras más densas y con menos difuminado: sobre oscuro una sombra
+     suave no se ve, y lo que separa una tarjeta del fondo acaba siendo
+     el borde más que la sombra. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.44);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.58);
+  --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.66);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+}
+
+/* Los otros tres temas de acento, también aclarados.
+   Van con el atributo delante para ganar en especificidad a las reglas
+   `body.theme-*` del esquema claro, que si no se aplicarían encima por
+   estar más abajo en el archivo. */
+:root[data-theme="dark"] body.theme-wine {
+  --accent-50: #2b1519; --accent-100: #3b1c22; --accent-200: #5e2b34;
+  --accent-300: #f0b4bd; --accent-400: #e79aa6; --accent-500: #dd8090;
+  --accent-600: #c85f72; --accent-700: #ac4557; --accent-800: #8b3242;
+  --accent-glow: rgba(221, 128, 144, 0.20);
+  --accent-gradient: linear-gradient(135deg, #e79aa6, #ac4557);
+}
+:root[data-theme="dark"] body.theme-terracotta {
+  --accent-50: #2d1810; --accent-100: #3e2015; --accent-200: #63321f;
+  --accent-300: #f8bfa2; --accent-400: #f2a884; --accent-500: #e89066;
+  --accent-600: #d1714a; --accent-700: #b25835; --accent-800: #8d4327;
+  --accent-glow: rgba(232, 144, 102, 0.20);
+  --accent-gradient: linear-gradient(135deg, #f2a884, #b25835);
+}
+:root[data-theme="dark"] body.theme-plum {
+  --accent-50: #281628; --accent-100: #371e36; --accent-200: #572d53;
+  --accent-300: #eeb4e0; --accent-400: #e59ad4; --accent-500: #d67fc4;
+  --accent-600: #bd5faa; --accent-700: #a0468e; --accent-800: #7f3271;
+  --accent-glow: rgba(214, 127, 196, 0.20);
+  --accent-gradient: linear-gradient(135deg, #e59ad4, #a0468e);
+}
+
+/* El interruptor de la barra superior. */
+.tema-boton {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tema-boton:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color-hover);
+}
+
+.tema-boton:focus-visible {
+  outline: 2px solid var(--border-color-focus);
+  outline-offset: 2px;
+}
+
+/* El icono gira al cambiar, para que el cambio se note como una acción
+   y no como un parpadeo. Quien haya pedido menos animación no lo ve. */
+.tema-boton svg { transition: transform 0.3s ease; }
+.tema-boton:hover svg { transform: rotate(18deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tema-boton, .tema-boton svg { transition: none; }
+  .tema-boton:hover svg { transform: none; }
+}
+
 /* --- Reset & Base --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

@@ -190,6 +190,21 @@ async function syncInvoiceGroup(supabase: any, item: SyncQueueItem, queue: SyncQ
 
   const { data: existing } = await supabase.from('invoices').select('id, sealed_at').eq('id', invoiceId).maybeSingle();
   if (existing?.sealed_at) {
+    // Sellada: el contenido fiscal no se toca y las líneas se descartan.
+    //
+    // Pero lo que se le haya COBRADO mientras no había conexión sí sube. Que
+    // una factura de marzo se cobre en junio no cambia nada de lo que se
+    // declaró en marzo, y tirarlo dejaba el cobro anotado en el móvil y la
+    // factura eternamente pendiente en el servidor.
+    const cobro: Record<string, unknown> = {};
+    for (const columna of ['paid_amount', 'paid_date', 'status', 'payment_record_ids']) {
+      if (columna in row) cobro[columna] = row[columna];
+    }
+    if (Object.keys(cobro).length > 0) {
+      const { error } = await supabase.from('invoices').update(cobro).eq('id', invoiceId);
+      if (error) throw error;
+    }
+
     for (const c of children) { await removeSyncItem(c.id); processedIds.add(c.id); }
     await removeSyncItem(item.id);
     processedIds.add(item.id);

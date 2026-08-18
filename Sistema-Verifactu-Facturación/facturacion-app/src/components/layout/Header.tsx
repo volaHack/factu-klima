@@ -9,6 +9,7 @@ import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
 import { getPlan } from '@/lib/plans';
 import AccountMenu from './AccountMenu';
+import BotonTema from './BotonTema';
 import NotificationsPopover from './NotificationsPopover';
 
 interface HeaderProps {
@@ -172,6 +173,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           )}
         </div>
 
+        <BotonTema />
         <AccountMenu />
       </div>
     </header>

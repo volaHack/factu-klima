@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import AuthWrapper from '@/components/AuthWrapper';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import { ToastProvider } from '@/hooks/useToast';
+import { GUION_ANTI_FOGONAZO } from '@/lib/tema';
 
 export const metadata: Metadata = {
   title: {
@@ -36,6 +37,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" data-scroll-behavior="smooth">
+      <head>
+        {/* Antes de que se pinte nada: si no, la página nace clara y se
+            pone oscura cuando React arranca, y de noche eso es un
+            fogonazo blanco en toda la pantalla. */}
+        <script dangerouslySetInnerHTML={{ __html: GUION_ANTI_FOGONAZO }} />
+      </head>
       <body>
         <ToastProvider>
           <AuthWrapper>{children}</AuthWrapper>

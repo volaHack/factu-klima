@@ -36,6 +36,7 @@ interface FakeChain {
   eq: (col: string, val: unknown) => FakeChain;
   maybeSingle: () => Promise<{ data: Row | null; error: null }>;
   upsert: (row: Row) => Promise<{ data: null; error: { code: string; message: string } | null }>;
+  update: (row: Row) => FakeChain & { then: FakeChain['then'] };
   insert: (rows: Row[]) => Promise<{ data: null; error: null }>;
   delete: () => FakeChain;
   then: (resolve: (v: { data: Row[]; error: null }) => unknown) => unknown;
@@ -78,6 +79,12 @@ function makeSupabase(
         if (idx >= 0) arr[idx] = { ...arr[idx], ...row };
         else arr.push({ ...row });
         return { data: null, error: null };
+      },
+      update: (row) => {
+        record(table, 'update', [row]);
+        const arr = (store[table] ??= []);
+        for (const existente of applyFilters(arr)) Object.assign(existente, row);
+        return obj as FakeChain & { then: FakeChain['then'] };
       },
       insert: async (rows) => {
         record(table, 'insert', [rows]);
@@ -216,6 +223,38 @@ describe('syncEngine — facturas por grupo (padre→líneas→sellado)', () => 
 
     const removed = (removeSyncItem as Mock).mock.calls.map(c => c[0]);
     expect(removed).toHaveLength(queue.length);
+    expect(getSyncState().rejections).toEqual([]);
+  });
+
+  it('de una factura sellada sube lo cobrado, aunque lo demás se descarte', async () => {
+    // Cobrar una factura no es modificarla: lo que se selló es el contenido
+    // fiscal, no si el cliente ha pagado. Tirando la cola entera, el cobro se
+    // quedaba anotado en el móvil y la factura eternamente pendiente en el
+    // servidor.
+    const invoiceId = 'inv-1';
+    const cobrada = { ...invoiceItem(invoiceId, 'pagada'), paid_amount: 121, paid_date: '2026-06-01' };
+    const queue = [
+      queueItem('invoices', cobrada),
+      queueItem('invoice_line_items', lineItem(invoiceId)),
+    ];
+    vi.mocked(getSyncQueue).mockResolvedValue(queue as never);
+
+    const supabase = makeSupabase({ invoices: [{ id: invoiceId, sealed_at: '2026-01-01T00:00:00Z' }] });
+    (createClient as Mock).mockReturnValue(supabase);
+
+    await processSyncQueue();
+
+    const updates = supabase.calls.filter(c => c.method === 'update');
+    expect(updates).toHaveLength(1);
+    expect(updates[0].args[0]).toEqual({
+      paid_amount: 121,
+      paid_date: '2026-06-01',
+      status: 'pagada',
+    });
+
+    // Las líneas y el contenido fiscal, ni tocarlos.
+    expect(supabase.calls.filter(c => c.method === 'upsert')).toHaveLength(0);
+    expect(supabase.calls.filter(c => c.table === 'invoice_line_items' && c.method === 'insert')).toHaveLength(0);
     expect(getSyncState().rejections).toEqual([]);
   });
 
