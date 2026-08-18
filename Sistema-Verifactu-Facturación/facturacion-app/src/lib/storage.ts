@@ -299,6 +299,39 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     current = await nextFreeInvoiceNumber(userId, invoice.series, invoice.number, invoice);
   }
 
+  // --- Los totales SIEMPRE salen de las líneas ---
+  //
+  // Antes se guardaba lo que trajera el documento, y un documento puede venir
+  // con los totales mal. Pasó: una factura llegó con la base calculada
+  // aplicando sólo el primero de los tres descuentos. El formulario enseñaba
+  // 183,16 € y la factura impresa 190,71 €, con los subtotales de línea
+  // correctos y el total mintiendo. Se cobra de más y el cliente que suma las
+  // líneas no llega al total que se le pide.
+  //
+  // No basta con arreglar el sitio donde se calcularon mal: cualquier página
+  // que monte un documento puede volver a equivocarse. Recalculándolos aquí,
+  // el que llegue mal se arregla al guardar.
+  //
+  // Un documento sellado NO se toca: sus importes son los que se firmaron y
+  // se declararon, y recalcularlos rompería la huella. Si uno sellado tuviera
+  // los totales mal, se corrige con una rectificativa, que es como se corrige
+  // una factura ya emitida.
+  if (!sealed) {
+    const totales = calculateInvoiceTotals(current.lineItems, [
+      current.globalDiscountPercent1 ?? 0,
+      current.globalDiscountPercent2 ?? 0,
+      current.globalDiscountPercent3 ?? 0,
+    ]);
+    current = {
+      ...current,
+      subtotal: totales.subtotal,
+      totalDiscount: totales.totalDiscount,
+      totalTax: totales.totalTax,
+      total: totales.total,
+      taxBreakdown: totales.taxBreakdown,
+    };
+  }
+
   const buildInvRow = (inv: Invoice) => ({
     id: inv.id,
     user_id: userId,
@@ -1760,6 +1793,8 @@ export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
     unit: li.unit,
     tax_rate: li.taxRate,
     discount_percent: li.discountPercent,
+    discount_percent_2: li.discountPercent2 ?? 0,
+    discount_percent_3: li.discountPercent3 ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
     total: li.total,
@@ -1909,7 +1944,11 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
       unitPrice: li.unitPrice,
       unit: li.unit,
       taxRate: li.taxRate,
+      // Los tres descuentos, no sólo el primero: copiando a mano se quedaban
+      // por el camino y la factura que salía del albarán cobraba de más.
       discountPercent: li.discountPercent,
+      discountPercent2: li.discountPercent2 ?? 0,
+      discountPercent3: li.discountPercent3 ?? 0,
       subtotal: li.subtotal,
       taxAmount: li.taxAmount,
       total: li.total,

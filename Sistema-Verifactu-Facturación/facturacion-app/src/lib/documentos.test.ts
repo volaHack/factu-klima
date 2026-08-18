@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { esSellable, tipoDocumento } from './storage';
-import { calculateLineSubtotal } from './utils';
+import { calculateInvoiceTotals, calculateLineSubtotal } from './utils';
 import { descuentoEfectivo, lineaVacia, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
 import { InvoiceStatus, type CompanySettings } from './types';
 
@@ -364,5 +364,37 @@ describe('el descuento que se enseña cuando sólo cabe uno', () => {
     const cobrado = calculateLineSubtotal(1, bruto, 15, 10, 5);
     const explicado = bruto * (1 - descuentoEfectivo(linea(15, 10, 5)) / 100);
     expect(Math.abs(explicado - cobrado)).toBeLessThan(bruto * 0.0001);
+  });
+});
+
+describe('los totales cuadran con las líneas', () => {
+  // Los números son los de una factura real que salió mal: dos líneas con
+  // tres descuentos cada una.
+  const lineas = [
+    { quantity: 21, unitPrice: 1.2, taxRate: 21, discountPercent: 2, discountPercent2: 3, discountPercent3: 4 },
+    { quantity: 121, unitPrice: 1.4, taxRate: 21, discountPercent: 2, discountPercent2: 0.54, discountPercent3: 3 },
+  ].map(l => ({
+    ...l,
+    id: crypto.randomUUID(), productId: '', productName: '', productRef: '',
+    unit: 'ud' as never,
+    subtotal: calculateLineSubtotal(l.quantity, l.unitPrice, l.discountPercent, l.discountPercent2, l.discountPercent3),
+    taxAmount: 0, total: 0,
+  }));
+
+  it('la base sale de aplicar los tres descuentos, no sólo el primero', () => {
+    // Con sólo el primero daba 190,71 € y el formulario enseñaba 183,16 €:
+    // el cliente que suma las líneas no llegaba al total que se le pedía.
+    expect(calculateInvoiceTotals(lineas).subtotal).toBeCloseTo(183.16, 2);
+  });
+
+  it('el descuento total es el de verdad', () => {
+    // Salía 3,89 € cuando eran 11,44 €.
+    expect(calculateInvoiceTotals(lineas).totalDiscount).toBeCloseTo(11.44, 2);
+  });
+
+  it('la base es exactamente la suma de los subtotales de las líneas', () => {
+    // Lo que hace que una factura cuadre al revisarla a mano.
+    const suma = lineas.reduce((s, l) => s + l.subtotal, 0);
+    expect(calculateInvoiceTotals(lineas).subtotal).toBeCloseTo(suma, 2);
   });
 });

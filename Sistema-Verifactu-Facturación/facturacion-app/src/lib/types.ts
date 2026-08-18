@@ -477,7 +477,15 @@ export interface AlbaranLineItem {
   unitPrice: number;
   unit: UnitOfMeasure;
   taxRate: number;
+  /**
+   * Hasta tres descuentos en cascada, igual que en una factura.
+   *
+   * Un albarán se convierte en factura, y si la línea del albarán sólo
+   * guardara el primero, la factura que sale de él cobraría de más.
+   */
   discountPercent: number;
+  discountPercent2?: number;
+  discountPercent3?: number;
   subtotal: number;
   taxAmount: number;
   total: number;
