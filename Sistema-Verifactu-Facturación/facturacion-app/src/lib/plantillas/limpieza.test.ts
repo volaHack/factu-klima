@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { fondoAlrededor, muestrearColor } from './extraccion';
 import { zonasABorrar } from './analisis';
-import type { AnalisisPdf, CampoDetectado, ItemTexto, PaginaExtraida } from './tipos';
+import type { AnalisisPdf, CampoDetectado, ItemTexto, PaginaExtraida, RejillaDetectada } from './tipos';
 import { agruparEnLineas } from './extraccion';
 
 /** ImageData de mentira: en Node no existe, pero su forma es trivial. */
@@ -216,5 +216,67 @@ describe('cuánto blanco se come alrededor de un campo', () => {
     // holgura también: un milímetro fijo es poco al lado de un rótulo de 18
     // puntos y muchísimo al lado de un 7.
     expect(sobresale(18)).toBeGreaterThan(sobresale(7));
+  });
+});
+
+
+describe('tapar el cuadro de desglose sin romperlo', () => {
+  /**
+   * El fallo que esto vigila, visto en un PDF de verdad: el cuadro de
+   * impuestos salía partido por un pegote blanco, con el marco de abajo
+   * comido y las separaciones entre columnas borradas, porque se tapaba la
+   * banda entera de renglones de una pasada.
+   *
+   * Las rayas del cuadro son del impreso, no de la factura de muestra. Lo que
+   * hay que hacer desaparecer son las cifras, y nada más.
+   */
+  const rejilla = (): RejillaDetectada => ({
+    id: 'r', fuente: 'impuestos',
+    x: 11, y: 212, ancho: 91, alto: 34,
+    yPrimerRenglon: 218, altoRenglon: 5,
+    columnas: [
+      { clave: 'nombre', cabecera: 'IMPUESTO', x: 11, ancho: 28, alineacion: 'left' },
+      { clave: 'cuota', cabecera: 'CUOTA', x: 81, ancho: 21, alineacion: 'right' },
+    ],
+    celdasMuestra: [
+      { x: 13, y: 218, ancho: 12, alto: 3.2 },
+      { x: 90, y: 218, ancho: 10, alto: 3.2 },
+    ],
+    contorno: false,
+    tamano: 9, negrita: false, cursiva: false, serif: false, color: '#000000',
+  });
+
+  const analisis = (): AnalisisPdf => ({
+    pagina: { ancho: 210, alto: 297, items: [], lineas: [], totalPaginas: 1,
+      bitmap: { dataUrl: '', anchoPx: 1, altoPx: 1, pxPorMm: 1 } },
+    campos: [], tabla: null, rejillas: [rejilla()],
+    avisos: [], zonasExtra: [], familia: 'sans',
+  });
+
+  it('tapa las cifras de la muestra', () => {
+    // Si no, los tipos impositivos de la factura de muestra se quedarían
+    // impresos debajo de los de la factura de verdad.
+    const zonas = zonasABorrar(analisis());
+    expect(zonas.some(z => z.x < 14 && z.y < 219 && z.y + z.alto > 218)).toBe(true);
+  });
+
+  it('no tapa de lado a lado del cuadro', () => {
+    // Una zona del ancho del cuadro entero se lleva por delante las rayas que
+    // lo dividen. Ninguna zona debe cruzar de la primera columna a la última.
+    const zonas = zonasABorrar(analisis());
+    for (const zona of zonas) {
+      expect(zona.ancho).toBeLessThan(80);
+    }
+  });
+
+  it('deja en pie el marco de abajo', () => {
+    // El fondo del recuadro está pintado en el papel, un par de renglones por
+    // debajo de lo que traía escrito la muestra. Borrarlo dejaba el cuadro
+    // abierto por abajo y se comía el recuadro siguiente.
+    const zonas = zonasABorrar(analisis());
+    const fondo = 212 + 34;
+    for (const zona of zonas) {
+      expect(zona.y + zona.alto).toBeLessThan(fondo - 5);
+    }
   });
 });

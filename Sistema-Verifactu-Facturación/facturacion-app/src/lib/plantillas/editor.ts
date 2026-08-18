@@ -418,6 +418,10 @@ export function rejillaNueva(
       ancho,
       alineacion: clave === 'nombre' ? 'left' : 'right',
     })),
+    // Sobre el papel no había nada escrito, así que no hay nada que tapar; y
+    // como tampoco hay recuadro impreso debajo, se pinta el suyo.
+    celdasMuestra: [],
+    contorno: true,
     tamano: 9,
     negrita: false,
     cursiva: false,

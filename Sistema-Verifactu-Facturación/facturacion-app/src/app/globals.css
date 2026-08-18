@@ -7915,3 +7915,49 @@ a.stats-item:focus-visible {
 }
 
 .rejilla-panel-columna:last-child { border-bottom: 0; }
+
+/* --- Elegir oficio al empezar desde cero --- */
+
+.plantilla-modal-oficios { max-width: 760px; width: 100%; }
+
+.plantilla-modal-nota {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+.plantilla-oficios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-2);
+}
+
+.plantilla-oficio {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.plantilla-oficio:hover {
+  border-color: var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 6%, var(--surface-raised));
+  transform: translateY(-1px);
+}
+
+.plantilla-oficio strong {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.plantilla-oficio span {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}

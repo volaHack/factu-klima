@@ -238,6 +238,26 @@ export interface RejillaDetectada {
   /** Lo que mide un renglón en el impreso de muestra. */
   altoRenglon: number;
   columnas: ColumnaRejilla[];
+  /**
+   * Dónde estaban escritas las cifras en el PDF de muestra.
+   *
+   * Hay que taparlas una a una. Tapar la banda entera de renglones —que es lo
+   * que se hacía— se lleva por delante las rayas del recuadro impreso: el
+   * cuadro sale partido por un pegote blanco, con el marco roto y las
+   * separaciones de columna comidas.
+   *
+   * Vacío en las rejillas dibujadas a mano: sobre el papel no había nada
+   * escrito, así que no hay nada que tapar.
+   */
+  celdasMuestra: Zona[];
+  /**
+   * Si la rejilla pinta su propio marco y sus rayas.
+   *
+   * Apagado cuando sale de un PDF: el recuadro ya está en el calco y volver a
+   * dibujarlo encima lo dejaría a doble raya. Encendido en las que se dibujan
+   * a mano, porque bajo ellas no hay más que papel en blanco.
+   */
+  contorno: boolean;
   /** Estilo del texto de los renglones, copiado del que traía la muestra. */
   tamano: number;
   negrita: boolean;

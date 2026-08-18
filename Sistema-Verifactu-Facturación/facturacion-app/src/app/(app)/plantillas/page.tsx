@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, Copy, Download, Eye, FileUp, LayoutTemplate, Loader2, Pencil,
-  Save, Star, Trash2, X,
+  Save, Sparkles, Star, Trash2, X,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import RevisorPlantilla, { type CambioAnalisis } from '@/components/plantillas/RevisorPlantilla';
@@ -28,6 +28,7 @@ import {
 import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
+import { facturaDesdeCero, OFICIOS, oficioPorId } from '@/lib/plantillas/desdeCero';
 import type { PlantillaDocumento, TipoDocumentoPlantilla } from '@/lib/plantillas/tipos';
 import type { CompanySettings, Invoice } from '@/lib/types';
 
@@ -41,6 +42,8 @@ export default function PlantillasPage() {
   const [ultimaFactura, setUltimaFactura] = useState<Invoice | null>(null);
 
   const [sesion, setSesion] = useState<SesionAnalisis | null>(null);
+  const [eligiendoOficio, setEligiendoOficio] = useState(false);
+
   const [nombre, setNombre] = useState('');
   const [aplicaA, setAplicaA] = useState<TipoDocumentoPlantilla[]>(['factura']);
   const [analizando, setAnalizando] = useState(false);
@@ -60,6 +63,24 @@ export default function PlantillasPage() {
     setAjustes(config);
     setUltimaFactura(facturas[0] ?? null);
   }, []);
+
+  /**
+   * Empezar sin PDF: se monta una factura española completa sobre papel en
+   * blanco y se abre en el editor, igual que si se hubiera subido un impreso.
+   *
+   * Hace falta porque hasta ahora la única puerta era subir una factura que ya
+   * existiera. Quien acaba de darse de alta no tiene ninguna, y se quedaba
+   * fuera del sistema entero.
+   */
+  const empezarDesdeCero = useCallback((oficioId: string) => {
+    const analisis = facturaDesdeCero(oficioId, ajustes);
+    setEligiendoOficio(false);
+    setEditando(null);
+    setAplicaA(['factura']);
+    setSesion({ analisis, pagina: analisis.pagina as SesionAnalisis['pagina'], nombreArchivo: '' });
+    setNombre(`Mi factura · ${oficioPorId(oficioId).nombre}`);
+    info('Factura nueva', 'Ya está todo lo obligatorio puesto. Mueve lo que quieras y guárdala.');
+  }, [ajustes, info]);
 
   useEffect(() => {
     (async () => {
@@ -363,6 +384,9 @@ export default function PlantillasPage() {
             {analizando ? <Loader2 size={16} className="spin" /> : <FileUp size={16} />}
             {analizando ? 'Analizando la factura…' : 'Subir factura en PDF'}
           </button>
+          <button className="btn btn-secondary" onClick={() => setEligiendoOficio(true)} disabled={analizando}>
+            <Sparkles size={16} /> Empezar desde cero
+          </button>
         </div>
       </div>
 
@@ -370,15 +394,18 @@ export default function PlantillasPage() {
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon"><LayoutTemplate /></div>
-            <div className="empty-state-title">Todavía no has subido ninguna factura</div>
+            <div className="empty-state-title">Todavía no tienes ninguna factura</div>
             <p className="empty-state-description">
-              Coge una factura que ya hayas emitido —da igual con qué programa o diseñador se
-              hiciera— y súbela en PDF. El sistema reconoce dónde va cada dato y a partir de ahí
-              imprime las tuyas igual.
+              Si ya emites facturas, sube una en PDF —da igual con qué programa o diseñador se
+              hiciera—: el sistema reconoce dónde va cada dato y a partir de ahí imprime las
+              tuyas igual. Y si empiezas de cero, dinos a qué te dedicas y te la montamos.
             </p>
             <div className="empty-state-actions">
               <button className="btn btn-primary" onClick={() => entradaArchivo.current?.click()} disabled={analizando}>
                 <FileUp size={16} /> Subir factura en PDF
+              </button>
+              <button className="btn btn-secondary" onClick={() => setEligiendoOficio(true)} disabled={analizando}>
+                <Sparkles size={16} /> Empezar desde cero
               </button>
             </div>
           </div>
@@ -456,9 +483,62 @@ export default function PlantillasPage() {
         </div>
       </div>
 
+      {eligiendoOficio && (
+        <ElegirOficio onElegir={empezarDesdeCero} onCerrar={() => setEligiendoOficio(false)} />
+      )}
+
       {vistaPrevia && (
         <VistaPreviaPdf url={vistaPrevia} onCerrar={() => { URL.revokeObjectURL(vistaPrevia); setVistaPrevia(null); }} />
       )}
+    </div>
+  );
+}
+
+/**
+ * A qué se dedica quien va a facturar.
+ *
+ * No es una encuesta: de la respuesta salen las columnas de la tabla y los
+ * rótulos del pie. Un taller necesita la matrícula y la referencia del
+ * recambio; un fisioterapeuta, el número de colegiado y el aviso de que su
+ * servicio está exento de IVA. Puestos a mano son diez minutos de editor por
+ * cada uno, y elegidos de una lista son un clic.
+ *
+ * Nada de lo que ponga queda cerrado: todo se cambia después en el editor, y
+ * quien no se vea en la lista tiene «Genérico».
+ */
+function ElegirOficio({ onElegir, onCerrar }: {
+  onElegir: (oficioId: string) => void;
+  onCerrar: () => void;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onCerrar}>
+      <div className="modal plantilla-modal-oficios" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2><Sparkles size={18} /> ¿A qué te dedicas?</h2>
+          <button className="btn-icon" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+        <div className="modal-body">
+          <p className="plantilla-modal-nota">
+            Montamos una factura completa con lo que lleva tu oficio. Después la ajustas a tu
+            gusto y la guardas.
+          </p>
+          <div className="plantilla-oficios">
+            {OFICIOS.map(oficio => (
+              <button
+                key={oficio.id}
+                type="button"
+                className="plantilla-oficio"
+                onClick={() => onElegir(oficio.id)}
+              >
+                <strong>{oficio.nombre}</strong>
+                <span>
+                  {[oficio.concepto, oficio.unidad, ...(oficio.columnas ?? [])].join(' · ')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

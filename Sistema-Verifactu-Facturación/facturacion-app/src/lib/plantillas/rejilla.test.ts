@@ -31,6 +31,7 @@ const REJILLA: RejillaDetectada = {
     // Sin asignar a propósito: unas retenciones que no son dato nuestro.
     { clave: null, cabecera: 'RETENCIONES', x: 102, ancho: 10, alineacion: 'right' },
   ],
+  celdasMuestra: [], contorno: false,
   tamano: 9, negrita: false, cursiva: false, serif: false, color: '#000000',
 };
 
@@ -153,5 +154,46 @@ describe('una rejilla dibujada a mano', () => {
     const plantilla = plantillaCon(rejillaNueva('r', caja, 'sans'));
     materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00')] });
     expect(casillas(plantilla).length).toBeGreaterThan(0);
+  });
+});
+
+describe('el contorno que se pinta la rejilla', () => {
+  const conContorno = { ...REJILLA, contorno: true };
+  const rayas = (p: Template) => {
+    const base = p.basePdf as { staticSchema: Schema[] };
+    return base.staticSchema.filter(s => s.type === 'line');
+  };
+
+  it('sin contorno no pinta ni una raya', () => {
+    // Sobre un PDF subido el recuadro ya está en el calco; volver a dibujarlo
+    // lo dejaría a doble raya.
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00')] });
+    expect(rayas(plantilla)).toHaveLength(0);
+  });
+
+  it('con contorno cierra el cuadro por los cuatro lados', () => {
+    // Es lo que permite hacer una factura desde cero: debajo no hay más que
+    // papel en blanco, así que el cuadro tiene que dibujárselo la rejilla.
+    const plantilla = plantillaCon(conContorno);
+    materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00'), tramo('10,0', '50,00')] });
+    const todas = rayas(plantilla);
+    // Tres horizontales para dos renglones (arriba, en medio y abajo)...
+    expect(todas.filter(r => (r.width as number) > (r.height as number))).toHaveLength(3);
+    // ...y una vertical por cada lado de cada columna.
+    expect(todas.filter(r => (r.height as number) > (r.width as number)))
+      .toHaveLength(conContorno.columnas.length + 1);
+  });
+
+  it('el marco se ajusta a los renglones que haya, no a los que cupieran', () => {
+    // Una factura de un solo tipo impositivo no puede salir con el cuadro
+    // dibujado hasta abajo y cuatro renglones vacíos debajo de la cifra.
+    const uno = plantillaCon(conContorno);
+    materializarRejillas(uno, { impuestos: [tramo('21,0', '100,00')] });
+    const tres = plantillaCon(conContorno);
+    materializarRejillas(tres, { impuestos: [tramo('21,0', '1'), tramo('10,0', '2'), tramo('4,0', '3')] });
+
+    const fondo = (p: Template) => Math.max(...rayas(p).map(r => r.position.y + (r.height as number)));
+    expect(fondo(uno)).toBeLessThan(fondo(tres));
   });
 });

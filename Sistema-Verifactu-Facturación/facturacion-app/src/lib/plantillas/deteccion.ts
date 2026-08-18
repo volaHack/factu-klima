@@ -1587,6 +1587,15 @@ function detectarRejillaDeImpuestos(
 
   // El estilo se copia del primer dato de la muestra: la letra que el impreso
   // usa en ese cuadro, no la que a nosotros nos parezca.
+  // Dónde estaba escrita cada cifra de la muestra, para taparlas una a una.
+  // Tapar la banda entera partiría el recuadro impreso por la mitad.
+  const celdasMuestra = renglones.flatMap(r => r.celdas.map(c => ({
+    x: c.segmento.x,
+    y: c.segmento.y,
+    ancho: c.segmento.ancho,
+    alto: c.segmento.alto,
+  })));
+
   const muestra = renglones[0].celdas[0].segmento.items[0];
 
   return {
@@ -1599,6 +1608,10 @@ function detectarRejillaDeImpuestos(
     yPrimerRenglon: redondearMm(yPrimerRenglon),
     altoRenglon: redondearMm(altoRenglon),
     columnas,
+    celdasMuestra,
+    // El recuadro ya viene pintado en el calco: dibujarlo otra vez lo dejaría
+    // a doble raya.
+    contorno: false,
     tamano: muestra.tamano,
     negrita: muestra.negrita,
     cursiva: muestra.cursiva,

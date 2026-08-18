@@ -892,6 +892,41 @@ export function materializarRejillas(
       );
     }
 
+    // --- El contorno, si la rejilla lo pinta ella.
+    //
+    // Sobre un PDF subido va apagado: el recuadro ya está en el calco y
+    // volver a dibujarlo lo dejaría a doble raya. Encendido hace falta para
+    // las facturas hechas desde cero, donde debajo no hay más que papel.
+    if (rejilla.contorno) {
+      const fondo = rejilla.yPrimerRenglon + cabidas * altoRenglon;
+      const grosor = 0.2;
+      const raya = (x: number, y: number, ancho: number, alto: number, n: string) => ({
+        name: `${PREFIJO_REJILLA}${rejilla.id}_${n}`,
+        type: 'line',
+        content: '',
+        position: { x: redondear(x), y: redondear(y) },
+        width: redondear(ancho),
+        height: redondear(alto),
+        color: rejilla.color,
+        readOnly: true,
+      } as unknown as Schema);
+
+      const izquierda = rejilla.columnas[0]?.x ?? rejilla.x;
+      const ultima = rejilla.columnas[rejilla.columnas.length - 1];
+      const derecha = ultima ? ultima.x + ultima.ancho : rejilla.x + rejilla.ancho;
+      const ancho = derecha - izquierda;
+
+      // Una raya por cada separación de renglón, la de la cabecera incluida.
+      for (let i = 0; i <= cabidas; i++) {
+        estaticos.push(raya(izquierda, rejilla.yPrimerRenglon + i * altoRenglon, ancho, grosor, `h${i}`));
+      }
+      // Y una vertical a cada lado de cada columna.
+      for (let i = 0; i < rejilla.columnas.length; i++) {
+        estaticos.push(raya(rejilla.columnas[i].x, rejilla.yPrimerRenglon, grosor, fondo - rejilla.yPrimerRenglon, `v${i}`));
+      }
+      estaticos.push(raya(derecha, rejilla.yPrimerRenglon, grosor, fondo - rejilla.yPrimerRenglon, 'vfin'));
+    }
+
     for (let i = 0; i < cabidas; i++) {
       for (const columna of rejilla.columnas) {
         // Una columna sin asignar —las retenciones, un dato del negocio que

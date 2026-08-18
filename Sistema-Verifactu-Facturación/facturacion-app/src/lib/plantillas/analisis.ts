@@ -170,20 +170,23 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
 
   }
 
-  // La banda de renglones de cada rejilla, entera.
+  // Las cifras que el cuadro de desglose traía escritas, UNA A UNA.
   //
-  // Sus casillas ya no son campos sueltos, así que nadie las borraría: se
+  // Sus casillas ya no son campos sueltos, así que nadie las taparía: se
   // quedarían impresos los tipos impositivos de la factura de muestra debajo
-  // de los de la factura de verdad. Se tapa desde el primer renglón hasta el
-  // fondo del recuadro, que es justo donde la rejilla vuelve a escribir; la
-  // cabecera y el marco se dejan intactos porque son del impreso.
+  // de los de la factura de verdad.
+  //
+  // Pero no vale taparlas de una pasada. Un rectángulo blanco del ancho del
+  // cuadro se lleva por delante las rayas que lo dividen —las verticales
+  // entre columnas, las horizontales entre renglones y el propio marco de
+  // abajo— y el recuadro sale partido por un pegote blanco. Es lo que se veía
+  // en el PDF: el cuadro de impuestos cortado y el de «Detalle de Pagos»
+  // comido por arriba.
+  //
+  // Tapando cifra a cifra, el impreso queda intacto y sólo desaparece lo que
+  // había escrito, que es exactamente lo que hace falta.
   for (const rejilla of analisis.rejillas) {
-    zonas.push({
-      x: rejilla.x,
-      y: rejilla.yPrimerRenglon,
-      ancho: rejilla.ancho,
-      alto: Math.max(0, rejilla.y + rejilla.alto - rejilla.yPrimerRenglon),
-    });
+    zonas.push(...rejilla.celdasMuestra.map(c => ({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto })));
   }
 
   zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));
