@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Schema, Template } from '@pdfme/common';
 import { materializarRejillas } from './plantilla';
+import { rejillaNueva } from './editor';
 import type { RejillaDetectada } from './tipos';
 
 const REJILLA: RejillaDetectada = {
@@ -118,5 +119,39 @@ describe('el desglose del pie se expande al imprimir', () => {
     materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1'), tramo('7,0', '2'), tramo('15,0', '3')] });
     materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1')] });
     expect(casillas(plantilla)).toHaveLength(4);
+  });
+});
+
+describe('una rejilla dibujada a mano', () => {
+  const caja = { x: 20, y: 200, ancho: 100, alto: 40 };
+
+  it('nace con las columnas del desglose español', () => {
+    // Sobre un impreso que el detector no reconoció, hay que poder montar el
+    // cuadro sin empezar de cero: concepto, base, tipo y cuota es lo que
+    // lleva casi toda factura española.
+    const rejilla = rejillaNueva('r', caja, 'sans');
+    expect(rejilla.columnas.map(c => c.clave)).toEqual(['nombre', 'base', 'tipo', 'cuota']);
+  });
+
+  it('deja el primer renglón por debajo de la cabecera impresa', () => {
+    // El usuario rodea el cuadro entero, cabecera incluida, porque es lo que
+    // ve. Escribir en el primer renglón taparía los títulos del impreso.
+    const rejilla = rejillaNueva('r', caja, 'sans');
+    expect(rejilla.yPrimerRenglon).toBeGreaterThan(caja.y);
+  });
+
+  it('reparte el ancho sin dejar huecos ni solapes', () => {
+    const rejilla = rejillaNueva('r', caja, 'sans');
+    const ultima = rejilla.columnas[rejilla.columnas.length - 1];
+    expect(rejilla.columnas[0].x).toBe(caja.x);
+    expect(ultima.x + ultima.ancho).toBeCloseTo(caja.x + caja.ancho, 5);
+  });
+
+  it('sirve para imprimir en cuanto se dibuja', () => {
+    // Sin esto habría que tocar cuatro ajustes antes de que saliera nada, y
+    // el usuario no sabría si la ha colocado bien hasta emitir una factura.
+    const plantilla = plantillaCon(rejillaNueva('r', caja, 'sans'));
+    materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00')] });
+    expect(casillas(plantilla).length).toBeGreaterThan(0);
   });
 });

@@ -10,8 +10,8 @@
  * papel, igual que en el resto del módulo de plantillas.
  */
 
-import { COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
-import type { Alineacion, CampoDetectado, ColumnaDetectada, TablaDetectada } from './tipos';
+import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
+import type { Alineacion, CampoDetectado, ColumnaDetectada, RejillaDetectada, TablaDetectada } from './tipos';
 
 export interface Caja {
   x: number;
@@ -385,3 +385,46 @@ export function ordenDeLectura(a: Caja, b: Caja): number {
   const filaB = Math.round(b.y * 2);
   return filaA - filaB || a.x - b.x;
 }
+
+/**
+ * Una rejilla dibujada a mano sobre un impreso que el detector no reconoció.
+ *
+ * Es lo que permite montar el cuadro de desglose de un impreso cualquiera sin
+ * depender de que nuestras reglas entiendan cómo lo titula ese negocio. Nace
+ * con las cuatro columnas del desglose español —concepto, base, tipo y
+ * cuota—, repartidas por igual, y desde ahí se ajusta a mano.
+ */
+export function rejillaNueva(
+  id: string,
+  caja: { x: number; y: number; ancho: number; alto: number },
+  familia: 'sans' | 'serif',
+): RejillaDetectada {
+  // Se reserva la primera banda para la cabecera que el impreso ya trae
+  // pintada: los renglones empiezan por debajo de ella.
+  const altoRenglon = Math.max(3.5, caja.alto / 5);
+  const claves = ['nombre', 'base', 'tipo', 'cuota'];
+  const ancho = caja.ancho / claves.length;
+
+  return {
+    id,
+    fuente: 'impuestos',
+    ...caja,
+    yPrimerRenglon: caja.y + altoRenglon,
+    altoRenglon,
+    columnas: claves.map((clave, i) => ({
+      clave,
+      cabecera: etiquetaDeColumnaDeImpuestos(clave),
+      x: caja.x + i * ancho,
+      ancho,
+      alineacion: clave === 'nombre' ? 'left' : 'right',
+    })),
+    tamano: 9,
+    negrita: false,
+    cursiva: false,
+    serif: familia === 'serif',
+    color: '#000000',
+  };
+}
+
+const etiquetaDeColumnaDeImpuestos = (clave: string) =>
+  COLUMNAS_IMPUESTOS.find(c => c.clave === clave)?.cabeceraSugerida ?? clave;

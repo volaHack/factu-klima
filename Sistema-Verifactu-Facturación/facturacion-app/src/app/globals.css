@@ -7852,3 +7852,66 @@ a.stats-item:focus-visible {
   .plantilla-lienzo-scroll { max-height: 70vh; }
 }
 
+
+/* --- Rejilla: el cuadro de desglose del pie ---
+   Se dibuja como un recuadro con sus renglones y sus columnas a la vista, para
+   que se vea DÓNDE va a escribir antes de emitir la primera factura. */
+
+.rejilla-caja {
+  position: absolute;
+  border: 1.5px solid var(--accent-500);
+  background: color-mix(in srgb, var(--accent-500) 8%, transparent);
+  border-radius: 3px;
+  cursor: grab;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.rejilla-caja:hover { background: color-mix(in srgb, var(--accent-500) 16%, transparent); }
+.rejilla-caja:active { cursor: grabbing; }
+
+.rejilla-caja--activa {
+  box-shadow: 0 0 0 2px var(--accent-glow), var(--shadow-md);
+  background: color-mix(in srgb, var(--accent-500) 18%, transparent);
+  z-index: 3;
+}
+
+.rejilla-caja:hover .campo-caja-etiqueta,
+.rejilla-caja--activa .campo-caja-etiqueta { opacity: 1; }
+
+/* Cada renglón donde va a caer un tipo impositivo. */
+.rejilla-renglon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--accent-500) 55%, transparent);
+  pointer-events: none;
+}
+
+/* Las rayas que separan columnas. */
+.rejilla-columna {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid color-mix(in srgb, var(--accent-500) 45%, transparent);
+  pointer-events: none;
+}
+
+/* Una columna sin dato asignado: se queda en blanco al imprimir, y se avisa. */
+.rejilla-columna--libre {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--color-warning) 18%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+.rejilla-panel-columna {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rejilla-panel-columna:last-child { border-bottom: 0; }

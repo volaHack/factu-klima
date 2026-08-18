@@ -32,11 +32,12 @@ import {
   AlignLeft, AlignRight, AlignStartHorizontal, AlignVerticalJustifyCenter,
   Bold, Check, Copy, Eraser, Eye, EyeOff, GripVertical, Image as ImageIcon,
   Info, Italic, Layers, Lock, Maximize2, Move, Plus, Redo2, Search, Sparkles,
+  Rows3,
   Table2, Tag, Trash2, Type, Undo2, Unlock, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import {
   campoPorClave, camposPorGrupo, COLUMNAS_LINEAS, columnaDeTotal, datosDeEjemplo,
-  esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
+  COLUMNAS_IMPUESTOS, esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
   siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
 import { describirParaIa, fusionarSugerencias } from '@/lib/plantillas/ia';
@@ -44,15 +45,16 @@ import {
   acotar, alinear, anadirColumna, calcularImanes, campoNuevo, distribuir,
   duplicarCampo, ejemploDeColumna, escalarColumnas, igualarColumnas, intersecan,
   moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
-  redimensionarColumna, redondearMm,
+  redimensionarColumna, redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
 import type {
-  AnalisisPdf, CampoDetectado, SegmentoTexto, TablaDetectada, ZonaBorrado,
+  AnalisisPdf, CampoDetectado, ColumnaRejilla, RejillaDetectada, SegmentoTexto,
+  TablaDetectada, ZonaBorrado,
 } from '@/lib/plantillas/tipos';
 
 /** Cambios que el editor puede pedir sobre el análisis. */
-export type CambioAnalisis = Partial<Pick<AnalisisPdf, 'campos' | 'tabla' | 'zonasExtra'>>;
+export type CambioAnalisis = Partial<Pick<AnalisisPdf, 'campos' | 'tabla' | 'zonasExtra' | 'rejillas'>>;
 
 interface Props {
   analisis: AnalisisPdf;
@@ -64,7 +66,10 @@ interface Props {
 // ============================================================
 
 /** Identificador estable de cualquier cosa que se pueda seleccionar. */
-type Ref = string; // `campo:ID` | `zona:ID` | `tabla`
+type Ref = string; // `campo:ID` | `zona:ID` | `rejilla:ID` | `tabla`
+
+/** Las herramientas de dibujo de la barra. */
+type ModoDibujo = 'campo' | 'rotulo' | 'zona' | 'rejilla' | null;
 
 type Direccion = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -73,7 +78,7 @@ type Arrastre =
   | { tipo: 'redimensionar'; px: number; py: number; dir: Direccion; ref: Ref; caja: Caja }
   | { tipo: 'columna-ancho'; px: number; indice: number; anchoIzquierda: number }
   | { tipo: 'columna-orden'; desde: number; sobre: number }
-  | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
+  | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
 
 interface Instantanea {
   campos: CampoDetectado[];
@@ -135,7 +140,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const [seleccion, setSeleccion] = useState<Ref[]>([]);
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
   const [guias, setGuias] = useState<Guia[]>([]);
-  const [modoDibujo, setModoDibujo] = useState<'campo' | 'rotulo' | 'zona' | null>(null);
+  const [modoDibujo, setModoDibujo] = useState<ModoDibujo>(null);
   const [zoom, setZoom] = useState(1);
   const [pxPorMm, setPxPorMm] = useState(0);
   const [vistaPrevia, setVistaPrevia] = useState(false);
@@ -248,10 +253,11 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       return tabla ? { x: tabla.x, y: tabla.y, ancho: tabla.ancho, alto: tabla.altoTotal } : null;
     }
     const [clase, id] = ref.split(':');
-    const lista = clase === 'campo' ? campos : zonas;
+    const lista: { id: string; x: number; y: number; ancho: number; alto: number }[] =
+      clase === 'campo' ? campos : clase === 'rejilla' ? rejillas : zonas;
     const encontrado = lista.find(e => e.id === id);
     return encontrado ? { x: encontrado.x, y: encontrado.y, ancho: encontrado.ancho, alto: encontrado.alto } : null;
-  }, [campos, zonas, tabla]);
+  }, [campos, zonas, rejillas, tabla]);
 
   /** Aplica de golpe las cajas nuevas de varios elementos. Un solo `onCambiar`. */
   const aplicarCajas = useCallback((nuevas: Map<Ref, Caja>) => {
@@ -273,6 +279,30 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       });
     }
 
+    // Al mover o estirar una rejilla, sus columnas y sus renglones van con
+    // ella: son bandas dentro del recuadro, no elementos sueltos. Si no se
+    // reescalaran, arrastrar el cuadro dejaría las cifras donde estaban.
+    const rejillasTocadas = [...nuevas.keys()].some(r => r.startsWith('rejilla:'));
+    if (rejillasTocadas) {
+      cambios.rejillas = rejillas.map(r => {
+        const caja = nuevas.get(`rejilla:${r.id}`);
+        if (!caja) return r;
+        const escalaX = r.ancho > 0 ? caja.ancho / r.ancho : 1;
+        const escalaY = r.alto > 0 ? caja.alto / r.alto : 1;
+        return {
+          ...r,
+          ...caja,
+          yPrimerRenglon: caja.y + (r.yPrimerRenglon - r.y) * escalaY,
+          altoRenglon: Math.max(1, r.altoRenglon * escalaY),
+          columnas: r.columnas.map(c => ({
+            ...c,
+            x: caja.x + (c.x - r.x) * escalaX,
+            ancho: Math.max(1, c.ancho * escalaX),
+          })),
+        };
+      });
+    }
+
     const cajaTabla = nuevas.get('tabla');
     if (cajaTabla && tabla) {
       const columnas = cajaTabla.ancho !== tabla.ancho
@@ -289,7 +319,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     }
 
     onCambiar(cambios);
-  }, [campos, zonas, tabla, onCambiar]);
+  }, [campos, zonas, rejillas, tabla, onCambiar]);
 
   const actualizarCampo = useCallback((id: string, cambios: Partial<CampoDetectado>) => {
     onCambiar({ campos: campos.map(c => (c.id === id ? { ...c, ...cambios } : c)) });
@@ -660,7 +690,11 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         }
       } else if (ancho >= 3 && alto >= 2) {
         marcar();
-        if (arrastre.modo === 'zona') {
+        if (arrastre.modo === 'rejilla') {
+          const rejilla = rejillaNueva(`rejilla-${siguienteId.current++}`, { x, y, ancho, alto }, analisis.familia);
+          onCambiar({ rejillas: [...rejillas, rejilla] });
+          setSeleccion([`rejilla:${rejilla.id}`]);
+        } else if (arrastre.modo === 'zona') {
           const zona: ZonaBorrado = { id: `zona-${siguienteId.current++}`, x, y, ancho, alto };
           onCambiar({ zonasExtra: [...zonas, zona] });
           setSeleccion([`zona:${zona.id}`]);
@@ -749,6 +783,9 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     .filter(c => c.clave && esColumnaPersonalizada(c.clave))
     .map(c => ({ clave: totalDeColumna(c.clave!)!, cabecera: c.cabecera || c.clave! }));
   const sinAsignar = campos.filter(c => !c.clave && !c.fijo).length;
+  const rejillaActiva = seleccion.length === 1 && seleccion[0].startsWith('rejilla:')
+    ? rejillas.find(r => r.id === seleccion[0].slice(8)) ?? null
+    : null;
 
   /** Tamaño en píxeles de pantalla de un texto medido en puntos tipográficos. */
   const puntosAPx = (puntos: number) => Math.max(4, puntos * 0.3528 * pxPorMm);
@@ -820,6 +857,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             {modoDibujo === 'campo' && 'Dibuja un recuadro sobre la factura para colocar un dato que se rellenará solo.'}
             {modoDibujo === 'rotulo' && 'Dibuja un recuadro y escribe el texto fijo que quieres añadir al diseño.'}
             {modoDibujo === 'zona' && 'Dibuja un recuadro sobre lo que quieras borrar del diseño original.'}
+            {modoDibujo === 'rejilla' && 'Rodea el cuadro de desglose del pie, cabecera incluida. Se rellenará con un renglón por cada tipo impositivo de la factura.'}
           </p>
         )}
 
@@ -839,6 +877,61 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={pagina.bitmap.dataUrl} alt="Factura subida" className="plantilla-lienzo-img" draggable={false} />
+
+            {/* --- Rejillas: el cuadro de desglose del pie --- */}
+            {rejillas.map(rejilla => {
+              const activa = seleccionados.has(`rejilla:${rejilla.id}`);
+              // Cuántos renglones caben, para enseñar dónde van a caer. Es lo
+              // que el usuario necesita ver para saber si su cuadro se queda
+              // corto ANTES de emitir la primera factura.
+              const caben = Math.max(1, Math.floor(
+                (rejilla.y + rejilla.alto - rejilla.yPrimerRenglon) / rejilla.altoRenglon,
+              ));
+              return (
+                <div
+                  key={rejilla.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`rejilla-caja ${activa ? 'rejilla-caja--activa' : ''}`}
+                  style={{
+                    left: pct(rejilla.x, pagina.ancho), top: pct(rejilla.y, pagina.alto),
+                    width: pct(rejilla.ancho, pagina.ancho), height: pct(rejilla.alto, pagina.alto),
+                  }}
+                  onPointerDown={(e) => empezarMover(e, `rejilla:${rejilla.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') seleccionar(`rejilla:${rejilla.id}`, false); }}
+                  title="Cuadro de desglose: un renglón por tipo impositivo"
+                >
+                  {/* Las rayas de los renglones, donde va a escribir */}
+                  {Array.from({ length: caben }, (_, i) => (
+                    <div
+                      key={i}
+                      className="rejilla-renglon"
+                      style={{
+                        top: pct(rejilla.yPrimerRenglon - rejilla.y + i * rejilla.altoRenglon, rejilla.alto),
+                        height: pct(rejilla.altoRenglon, rejilla.alto),
+                      }}
+                    />
+                  ))}
+                  {/* Las columnas, con la que no lleva dato marcada aparte */}
+                  {rejilla.columnas.map((columna, i) => (
+                    <div
+                      key={i}
+                      className={`rejilla-columna ${columna.clave ? '' : 'rejilla-columna--libre'}`}
+                      style={{
+                        left: pct(columna.x - rejilla.x, rejilla.ancho),
+                        width: pct(columna.ancho, rejilla.ancho),
+                      }}
+                    />
+                  ))}
+                  {verEtiquetas && (
+                    <span className="campo-caja-etiqueta">Desglose · {caben} renglones</span>
+                  )}
+                  {activa && seleccion.length === 1 && (
+                    <Tiradores onEmpezar={(e, dir) => empezarRedimensionar(e, `rejilla:${rejilla.id}`, dir)} />
+                  )}
+                </div>
+              );
+            })}
 
             {/* --- Zonas tapadas --- */}
             {zonas.map(zona => {
@@ -1054,6 +1147,21 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           </div>
         )}
 
+        {rejillaActiva && (
+          <PanelRejilla
+            rejilla={rejillaActiva}
+            onCambiar={(nueva) => {
+              marcar();
+              onCambiar({ rejillas: rejillas.map(r => (r.id === nueva.id ? nueva : r)) });
+            }}
+            onEliminar={() => {
+              marcar();
+              onCambiar({ rejillas: rejillas.filter(r => r.id !== rejillaActiva.id) });
+              setSeleccion([]);
+            }}
+          />
+        )}
+
         {tablaSeleccionada && tabla && (
           <PanelTabla
             tabla={tabla}
@@ -1151,8 +1259,8 @@ function Tiradores({ onEmpezar }: { onEmpezar: (e: React.PointerEvent, dir: Dire
 // ============================================================
 
 interface PropsBarra {
-  modoDibujo: 'campo' | 'rotulo' | 'zona' | null;
-  onModoDibujo: (modo: 'campo' | 'rotulo' | 'zona' | null) => void;
+  modoDibujo: ModoDibujo;
+  onModoDibujo: (modo: ModoDibujo) => void;
   hayTabla: boolean;
   tablaSeleccionada: boolean;
   onSeleccionarTabla: () => void;
@@ -1173,7 +1281,7 @@ interface PropsBarra {
 }
 
 function BarraHerramientas(p: PropsBarra) {
-  const alternar = (modo: 'campo' | 'rotulo' | 'zona') =>
+  const alternar = (modo: NonNullable<ModoDibujo>) =>
     p.onModoDibujo(p.modoDibujo === modo ? null : modo);
 
   return (
@@ -1202,6 +1310,14 @@ function BarraHerramientas(p: PropsBarra) {
           title="Tapa cualquier resto del documento de muestra"
         >
           <Eraser size={14} /> Tapar
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${p.modoDibujo === 'rejilla' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => alternar('rejilla')}
+          title="Marca el cuadro de desglose del pie: se rellena con un renglón por tipo impositivo"
+        >
+          <Rows3 size={14} /> Desglose
         </button>
         {p.hayTabla && (
           <button
@@ -2196,4 +2312,98 @@ function ListaElementos({
 
 function normalizarColor(color: string): string {
   return /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffffff';
+}
+
+
+/**
+ * Ajustes del cuadro de desglose.
+ *
+ * Lo que hay que poder decir aquí es qué dato lleva cada columna, porque eso
+ * cambia de un impreso a otro: unos ponen el nombre del impuesto y otros no,
+ * unos separan base y cuota y otros traen además el total, y algunos llevan
+ * columnas —las retenciones— que no son parte del desglose. Sin poder
+ * asignarlas a mano, un impreso que no siga el patrón español de siempre no
+ * habría manera de montarlo.
+ */
+function PanelRejilla({ rejilla, onCambiar, onEliminar }: {
+  rejilla: RejillaDetectada;
+  onCambiar: (r: RejillaDetectada) => void;
+  onEliminar: () => void;
+}) {
+  const caben = Math.max(1, Math.floor(
+    (rejilla.y + rejilla.alto - rejilla.yPrimerRenglon) / rejilla.altoRenglon,
+  ));
+  const asignadas = new Set(rejilla.columnas.map(c => c.clave).filter(Boolean) as string[]);
+
+  const cambiarColumna = (indice: number, cambios: Partial<ColumnaRejilla>) =>
+    onCambiar({
+      ...rejilla,
+      columnas: rejilla.columnas.map((c, i) => (i === indice ? { ...c, ...cambios } : c)),
+    });
+
+  return (
+    <div className="card plantilla-panel">
+      <div className="plantilla-panel-cabecera">
+        <h3><Rows3 size={15} /> Cuadro de desglose</h3>
+        <button type="button" className="btn btn-sm btn-secondary" onClick={onEliminar}>
+          <Trash2 size={13} /> Quitar
+        </button>
+      </div>
+
+      <p className="plantilla-panel-nota">
+        Se rellena solo, con un renglón por cada tipo impositivo de la factura.
+        Aquí caben <strong>{caben}</strong>; si alguna factura trae más, los
+        renglones se aprietan para que quepan dentro del recuadro.
+      </p>
+
+      <div className="plantilla-panel-campo">
+        <label htmlFor="rejilla-alto">Alto de renglón</label>
+        <input
+          id="rejilla-alto"
+          type="number"
+          step="0.1"
+          min="1.5"
+          value={Math.round(rejilla.altoRenglon * 10) / 10}
+          onChange={(e) => {
+            const alto = Number(e.target.value);
+            if (alto >= 1.5) onCambiar({ ...rejilla, altoRenglon: alto });
+          }}
+        />
+      </div>
+
+      <div className="plantilla-panel-campo">
+        <label htmlFor="rejilla-primer">Primer renglón (mm desde arriba)</label>
+        <input
+          id="rejilla-primer"
+          type="number"
+          step="0.5"
+          value={Math.round(rejilla.yPrimerRenglon * 10) / 10}
+          onChange={(e) => onCambiar({ ...rejilla, yPrimerRenglon: Number(e.target.value) })}
+        />
+      </div>
+
+      <h4 className="plantilla-panel-subtitulo">Qué lleva cada columna</h4>
+      {rejilla.columnas.map((columna, i) => (
+        <div key={i} className="rejilla-panel-columna">
+          <select
+            value={columna.clave ?? ''}
+            onChange={(e) => cambiarColumna(i, { clave: e.target.value || null })}
+            aria-label={`Dato de la columna ${columna.cabecera || i + 1}`}
+          >
+            <option value="">— sin dato, se deja en blanco —</option>
+            {COLUMNAS_IMPUESTOS.map(opcion => (
+              <option
+                key={opcion.clave}
+                value={opcion.clave}
+                disabled={asignadas.has(opcion.clave) && opcion.clave !== columna.clave}
+              >
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+          <span className="plantilla-panel-pista">{columna.cabecera || '—'}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
