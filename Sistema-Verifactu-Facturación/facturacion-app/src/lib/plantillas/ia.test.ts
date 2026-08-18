@@ -13,7 +13,6 @@ import { agruparEnLineas } from './extraccion';
 
 function campo(parcial: Partial<CampoDetectado> & { id: string }): CampoDetectado {
   return {
-    id: parcial.id,
     clave: null,
     tipo: 'texto',
     fijo: false,

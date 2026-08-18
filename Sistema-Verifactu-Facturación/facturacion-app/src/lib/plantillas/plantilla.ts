@@ -291,7 +291,19 @@ function alturaHuecoTabla(analisis: AnalisisPdf, tabla: TablaDetectada): number 
     ...analisis.campos.map(c => c.y),
   ].filter(y => y > finDeLaMuestra - 0.5);
 
-  const tope = debajo.length > 0 ? Math.min(...debajo) : pagina.alto - MARGEN_PIE_MINIMO;
+  // Se para un poco ANTES de lo que haya debajo, no justo encima.
+  //
+  // De lo que hay debajo sólo sabemos dónde empieza su TEXTO: `pagina.lineas`
+  // lleva letras, no las rayas del impreso. Y el marco que rodea a ese texto
+  // —el cuadro del desglose de impuestos, el recuadro de los totales— está
+  // dibujado un par de milímetros más arriba que la primera letra que
+  // contiene. Sin este respiro, una factura con muchas líneas llenaba el
+  // hueco hasta la última fila posible y la tabla acababa metida dentro del
+  // recuadro impreso, pisándole el borde.
+  const RESPIRO = 2;
+  const tope = debajo.length > 0
+    ? Math.min(...debajo) - RESPIRO
+    : pagina.alto - MARGEN_PIE_MINIMO;
   const maximo = pagina.alto - MARGEN_PIE_MINIMO - tabla.y;
   // Aunque el diseño esté apretado, tiene que caber la cabecera y una línea:
   // una tabla de altura cero rompe el repaginador.
@@ -642,7 +654,10 @@ function anclarCamposDePagina(plantilla: Template): void {
     .map(e => e.position.y);
   if (debajo.length === 0) return;
 
-  const margenInferior = altoPagina - Math.min(...debajo);
+  // El mismo respiro que al compilar: la tabla no debe llegar a tocar lo
+  // primero que haya debajo, porque el marco que lo rodea está dibujado más
+  // arriba que su texto.
+  const margenInferior = altoPagina - Math.min(...debajo) + 2;
   base.padding[2] = Math.round(Math.max(margenInferior, MARGEN_PIE_MINIMO) * 100) / 100;
 }
 

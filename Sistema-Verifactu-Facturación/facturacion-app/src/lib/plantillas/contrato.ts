@@ -206,10 +206,35 @@ export function campoPorClave(clave: string): CampoPlantilla | undefined {
   return CAMPOS_POR_CLAVE.get(clave);
 }
 
-export function etiquetaDeClave(clave: string): string {
+/**
+ * El nombre con el que se le enseña un campo al usuario.
+ *
+ * `cabecera` es el título de la columna cuando la clave es el recuento de una
+ * columna propia del impreso. Sin él, la casilla del pie de un albarán de
+ * reparto salía en el revisor como «total_col_1» —un nombre interno— justo al
+ * lado de «Total de unidades», y no había manera de saber cuál era la de las
+ * cajas y cuál la de las unidades. Con él dice «Total de CAJ.», que es como lo
+ * llama el propio papel.
+ */
+export function etiquetaDeClave(clave: string, cabecera?: string): string {
   if (clave === TABLA_LINEAS) return 'Tabla de líneas';
   if (clave === TABLA_IMPUESTOS) return 'Tabla de impuestos';
-  return CAMPOS_POR_CLAVE.get(clave)?.etiqueta ?? clave;
+  const conocida = CAMPOS_POR_CLAVE.get(clave)?.etiqueta;
+  if (conocida) return conocida;
+  if (esTotalDeColumna(clave)) return etiquetaDeTotalDeColumna(clave, cabecera);
+  if (esColumnaPersonalizada(clave)) return etiquetaDeColumnaPersonalizada(clave);
+  return clave;
+}
+
+/**
+ * «Total de CAJ.» si se sabe cómo titula la columna el impreso; si no, algo
+ * legible antes que el nombre interno.
+ */
+export function etiquetaDeTotalDeColumna(clave: string, cabecera?: string): string {
+  const titulo = cabecera?.trim().replace(/[:.]+$/, '');
+  if (titulo) return `Total de ${titulo}`;
+  const m = clave.match(RE_TOTAL_DE_COLUMNA);
+  return m ? `Total de la columna ${m[1]}` : clave;
 }
 
 /** Todas las claves que una plantilla puede usar como nombre de campo. */

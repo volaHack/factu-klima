@@ -35,7 +35,7 @@ import {
   Table2, Tag, Trash2, Type, Undo2, Unlock, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import {
-  campoPorClave, camposPorGrupo, COLUMNAS_LINEAS, datosDeEjemplo,
+  campoPorClave, camposPorGrupo, COLUMNAS_LINEAS, columnaDeTotal, datosDeEjemplo,
   esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
   siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
@@ -110,6 +110,22 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const campos = analisis.campos;
   const zonas = analisis.zonasExtra;
   const tabla = analisis.tabla;
+
+  /**
+   * El nombre de un campo tal y como se le enseña al usuario.
+   *
+   * Los recuentos de columnas propias del impreso no tienen nombre fijo: se lo
+   * da la cabecera de su columna. Sin esto la casilla de las cajas de un
+   * albarán de reparto salía como «total_col_1» —el nombre interno— justo al
+   * lado de «Total de unidades», y no había forma de saber cuál era cuál.
+   */
+  const nombreDe = useCallback((clave: string): string => {
+    const columna = columnaDeTotal(clave);
+    const cabecera = columna
+      ? tabla?.columnas.find(c => c.clave === columna)?.cabecera
+      : undefined;
+    return etiquetaDeClave(clave, cabecera);
+  }, [tabla]);
 
   const lienzoRef = useRef<HTMLDivElement>(null);
   const siguienteId = useRef(1);
@@ -907,7 +923,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                   }}
                   onPointerDown={(e) => empezarMover(e, `campo:${campo.id}`)}
                   onKeyDown={(e) => { if (e.key === 'Enter') seleccionar(`campo:${campo.id}`, false); }}
-                  title={campo.fijo ? 'Texto fijo' : campo.clave ? etiquetaDeClave(campo.clave) : 'Sin asignar'}
+                  title={campo.fijo ? 'Texto fijo' : campo.clave ? nombreDe(campo.clave) : 'Sin asignar'}
                 >
                   {vistaPrevia && campo.tipo !== 'imagen' && (
                     <div
@@ -933,7 +949,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
                   {verEtiquetas && !vistaPrevia && (
                     <span className="campo-caja-etiqueta">
-                      {campo.fijo ? 'Texto fijo' : campo.clave ? etiquetaDeClave(campo.clave) : '¿Qué dato es?'}
+                      {campo.fijo ? 'Texto fijo' : campo.clave ? nombreDe(campo.clave) : '¿Qué dato es?'}
                     </span>
                   )}
 
@@ -1007,7 +1023,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               {camposSeleccionados.map(c => (
                 <li key={c.id}>
                   <span className="plantilla-grupo-etiqueta">
-                    {c.fijo ? 'Texto fijo' : c.clave ? etiquetaDeClave(c.clave) : 'Sin asignar'}
+                    {c.fijo ? 'Texto fijo' : c.clave ? nombreDe(c.clave) : 'Sin asignar'}
                   </span>
                   <span className="plantilla-grupo-valor">{c.valorOriginal || c.texto || '—'}</span>
                 </li>
@@ -1067,6 +1083,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         )}
 
         <ListaElementos
+          nombreDe={nombreDe}
           campos={campos}
           textosFijos={textosFijos}
           filtro={filtro}
@@ -2025,7 +2042,7 @@ function PanelColumnas({ tabla, onCambiar, onSeleccionarTabla }: {
 
 function ListaElementos({
   campos, textosFijos, filtro, onFiltro, busqueda, onBusqueda,
-  seleccionados, onSeleccionar, onAlternarFijo, onConvertir,
+  seleccionados, onSeleccionar, onAlternarFijo, onConvertir, nombreDe,
 }: {
   campos: CampoDetectado[];
   textosFijos: SegmentoTexto[];
@@ -2037,6 +2054,8 @@ function ListaElementos({
   onSeleccionar: (id: string, aditiva: boolean) => void;
   onAlternarFijo: (campo: CampoDetectado) => void;
   onConvertir: (segmento: SegmentoTexto) => void;
+  /** Cómo se llama un campo de cara al usuario (ver `nombreDe` del revisor). */
+  nombreDe: (clave: string) => string;
 }) {
   const texto = busqueda.trim().toLowerCase();
   const coincide = (valor: string) => !texto || valor.toLowerCase().includes(texto);
@@ -2049,10 +2068,10 @@ function ListaElementos({
       return true;
     });
     return filtrados
-      .filter(c => coincide(`${c.valorOriginal} ${c.texto ?? ''} ${c.clave ? etiquetaDeClave(c.clave) : ''}`))
+      .filter(c => coincide(`${c.valorOriginal} ${c.texto ?? ''} ${c.clave ? nombreDe(c.clave) : ''}`))
       .sort(ordenDeLectura);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campos, filtro, texto]);
+  }, [campos, filtro, texto, nombreDe]);
 
   const segmentosVisibles = useMemo(
     () => (filtro === 'todos' || filtro === 'fijos' ? textosFijos.filter(s => coincide(s.texto)) : []),
@@ -2120,7 +2139,7 @@ function ListaElementos({
                     <span className="plantilla-marca plantilla-marca--fijo"><Lock size={10} /> Fijo</span>
                   ) : c.clave ? (
                     <span className="plantilla-marca plantilla-marca--dato">
-                      {c.tipo === 'imagen' ? <ImageIcon size={10} /> : <Check size={10} />} {etiquetaDeClave(c.clave)}
+                      {c.tipo === 'imagen' ? <ImageIcon size={10} /> : <Check size={10} />} {nombreDe(c.clave)}
                     </span>
                   ) : (
                     <span className="plantilla-marca plantilla-marca--pendiente"><AlertTriangle size={10} /> Sin asignar</span>

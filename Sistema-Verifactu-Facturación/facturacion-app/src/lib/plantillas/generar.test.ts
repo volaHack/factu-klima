@@ -263,8 +263,15 @@ describe('compilación de la plantilla', () => {
 
     // Desde donde empieza la tabla (y=90) hasta el bloque de totales (y=205).
     expect(tabla.height).toBeGreaterThan(100);
-    // Y no invade los totales: el hueco acaba justo donde empiezan.
-    expect(base.padding[0] + tabla.height).toBeLessThanOrEqual(205.5);
+    // Y no invade los totales: el hueco acaba ANTES de que empiecen.
+    //
+    // Antes acababa justo en la primera letra de abajo. De lo de abajo sólo
+    // sabemos dónde empieza su texto, y el marco que lo rodea —el cuadro del
+    // desglose de impuestos, el recuadro de los totales— está dibujado un par
+    // de milímetros más arriba. Una factura con muchas líneas llenaba el
+    // hueco entero y la tabla acababa metida dentro del recuadro, pisándole
+    // el borde.
+    expect(base.padding[0] + tabla.height).toBeLessThanOrEqual(203.5);
     // El margen del `basePdf` delimita ese mismo hueco, que es la zona en la
     // que pdfme puede repartir líneas.
     expect(base.height - base.padding[0] - base.padding[2]).toBeCloseTo(tabla.height, 1);

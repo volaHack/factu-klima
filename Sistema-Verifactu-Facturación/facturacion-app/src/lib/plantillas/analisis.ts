@@ -149,9 +149,9 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
   // Dejar un hueco en blanco es peor de ver pero mejor de todas las demás
   // maneras, y tiene arreglo: en el revisor se marca el campo como fijo y
   // vuelve a salir impreso tal cual estaba.
-  const deCampos = analisis.campos.filter(c => !c.fijo).length;
-  const zonas: Zona[] = analisis.campos
-    .filter(c => !c.fijo)
+  const camposABorrar = analisis.campos.filter(c => !c.fijo);
+  const deCampos = camposABorrar.length;
+  const zonas: Zona[] = camposABorrar
     .map(c => ({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto }));
 
   if (analisis.tabla) {
@@ -184,19 +184,32 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
   //
   // Y sólo a los campos: el marco de la tabla y las zonas que el usuario tapa
   // a mano se borran exactamente donde dicen.
-  const HOLGURA_LATERAL = 1;
-  const HOLGURA_VERTICAL = 0.4;
-  return ajustarAlTexto(zonas, analisis).map((zona, indice) => (
-    indice < deCampos
-      ? {
-          x: zona.x - HOLGURA_LATERAL,
-          y: zona.y - HOLGURA_VERTICAL,
-          ancho: zona.ancho + HOLGURA_LATERAL * 2,
-          alto: zona.alto + HOLGURA_VERTICAL * 2,
-        }
-      : zona
-  ));
+  // La holgura va POR CAMPO, a la medida de su letra.
+  //
+  // Antes era un milímetro fijo a cada lado. Un milímetro es poco al lado de
+  // un titular de 18 puntos y muchísimo al lado de una cifra de 7 en una
+  // casilla estrecha: el blanco sobresalía del recuadro impreso y se comía el
+  // filete de la casilla de al lado. En el editor se veía como un pegote
+  // blanco más grande que el propio recuadro del campo.
+  //
+  // Con la letra de 9 puntos que llevan casi todos los impresos sale medio
+  // milímetro, que es lo que asoma el trazo, y no dos.
+  return ajustarAlTexto(zonas, analisis).map((zona, indice) => {
+    if (indice >= deCampos) return zona;
+    const cuerpo = (camposABorrar[indice].tamano || 9) * PT_A_MM;
+    const lateral = Math.max(0.35, cuerpo * 0.15);
+    const vertical = Math.max(0.15, cuerpo * 0.06);
+    return {
+      x: zona.x - lateral,
+      y: zona.y - vertical,
+      ancho: zona.ancho + lateral * 2,
+      alto: zona.alto + vertical * 2,
+    };
+  });
 }
+
+/** Un punto tipográfico en milímetros. */
+const PT_A_MM = 25.4 / 72;
 
 /**
  * Estira cada zona hasta cubrir por completo los textos que sólo tapa a

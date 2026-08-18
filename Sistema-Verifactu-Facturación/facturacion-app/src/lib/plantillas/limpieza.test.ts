@@ -169,3 +169,51 @@ describe('zonas que se borran', () => {
     expect(cubre(130)).toBe(false);
   });
 });
+
+describe('cuánto blanco se come alrededor de un campo', () => {
+  /** Un campo suelto, sin tabla, del cuerpo de letra que se le pida. */
+  function analisisConCampo(tamano: number): AnalisisPdf {
+    const items = [texto('169,78', 90, 250, tamano)];
+    const pagina: PaginaExtraida = {
+      ancho: 210, alto: 297, items, lineas: agruparEnLineas(items), totalPaginas: 1,
+      bitmap: { dataUrl: '', anchoPx: 100, altoPx: 140, pxPorMm: 1 },
+    };
+    const campo = {
+      id: 'c1', clave: 'total_general', tipo: 'texto', fijo: false,
+      valorOriginal: '169,78', etiquetaCercana: '',
+      x: 90, y: 250, ancho: items[0].ancho, alto: items[0].alto,
+      tamano, alineacion: 'right', color: '#000000',
+      negrita: false, cursiva: false, serif: false,
+      interlineado: 1.15, confianza: 0.9, motivo: '',
+    } as unknown as CampoDetectado;
+    return { pagina, campos: [campo], tabla: null, avisos: [], zonasExtra: [], familia: 'sans' };
+  }
+
+  const sobresale = (tamano: number) => {
+    const zona = zonasABorrar(analisisConCampo(tamano))[0];
+    return 90 - zona.x;
+  };
+
+  it('tapa el campo entero, que es para lo que está', () => {
+    // Si no cubre el dato de la muestra, ese dato sale impreso en todas las
+    // facturas que se emitan con la plantilla.
+    const a = analisisConCampo(9);
+    const zona = zonasABorrar(a)[0];
+    expect(zona.x).toBeLessThanOrEqual(a.campos[0].x);
+    expect(zona.x + zona.ancho).toBeGreaterThanOrEqual(a.campos[0].x + a.campos[0].ancho);
+  });
+
+  it('no se come medio milímetro por cada lado de una cifra normal', () => {
+    // Era un milímetro fijo. En una casilla estrecha el blanco sobresalía del
+    // recuadro impreso y se llevaba por delante el filete de la de al lado;
+    // en el editor se veía como un pegote más grande que el propio campo.
+    expect(sobresale(9)).toBeLessThan(0.6);
+  });
+
+  it('un titular grande se lleva más holgura que una cifra pequeña', () => {
+    // El trazo que asoma es proporcional al cuerpo de la letra, así que la
+    // holgura también: un milímetro fijo es poco al lado de un rótulo de 18
+    // puntos y muchísimo al lado de un 7.
+    expect(sobresale(18)).toBeGreaterThan(sobresale(7));
+  });
+});

@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CAMPOS, COLUMNAS_LINEAS, campoPorClave, clavesValidas, datosDeEjemplo,
-  esColumnaPersonalizada, etiquetaDeColumnaPersonalizada, siguienteColumnaPersonalizada,
+  esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, siguienteColumnaPersonalizada,
 } from './contrato';
 import {
   construirDatos, clienteManualComoDatosExtras, customColsDeLineas, lineasConCustomCols,
@@ -247,5 +247,29 @@ describe('columnas personalizadas', () => {
       AJUSTES,
     );
     expect(conCols.lineas[0].custom_col_1).toBe('PALETS');
+  });
+});
+
+describe('el nombre que ve el usuario', () => {
+  it('nunca enseña un nombre interno', () => {
+    // «total_col_1» es cómo se llama por dentro el recuento de una columna
+    // propia del impreso. Al usuario le salía tal cual en el revisor, justo
+    // al lado de «Total de unidades», y no había manera de saber cuál era la
+    // casilla de las cajas y cuál la de las unidades.
+    expect(etiquetaDeClave('total_col_1')).not.toContain('_');
+    expect(etiquetaDeClave('custom_col_2')).not.toContain('_');
+  });
+
+  it('llama al recuento como lo llama el papel', () => {
+    expect(etiquetaDeClave('total_col_1', 'CAJ.')).toBe('Total de CAJ');
+    expect(etiquetaDeClave('total_col_3', 'PALÉS')).toBe('Total de PALÉS');
+  });
+
+  it('sin cabecera, algo legible antes que la clave', () => {
+    expect(etiquetaDeClave('total_col_2')).toBe('Total de la columna 2');
+  });
+
+  it('no toca los campos de siempre', () => {
+    expect(etiquetaDeClave('total_unidades')).toBe('Total de unidades');
   });
 });
