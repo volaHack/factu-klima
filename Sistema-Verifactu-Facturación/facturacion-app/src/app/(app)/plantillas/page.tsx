@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/useToast';
 import { getCompanySettings, getInvoices } from '@/lib/storage';
 import {
   abrirPlantillaGuardada, analizarPdf, compilar, ErrorArchivo, ErrorPdf,
-  origenDeSesion, PlantillaNoEditable, type SesionAnalisis,
+  origenDeSesion, PlantillaNoEditable, sesionDesdeCero, type SesionAnalisis,
 } from '@/lib/plantillas/analisis';
 import {
   borrarPlantilla, getPlantillas, guardarPlantilla, marcarPredeterminada,
@@ -72,15 +72,23 @@ export default function PlantillasPage() {
    * existiera. Quien acaba de darse de alta no tiene ninguna, y se quedaba
    * fuera del sistema entero.
    */
-  const empezarDesdeCero = useCallback((oficioId: string) => {
-    const analisis = facturaDesdeCero(oficioId, ajustes);
+  const empezarDesdeCero = useCallback(async (oficioId: string) => {
     setEligiendoOficio(false);
-    setEditando(null);
-    setAplicaA(['factura']);
-    setSesion({ analisis, pagina: analisis.pagina as SesionAnalisis['pagina'], nombreArchivo: '' });
-    setNombre(`Mi factura · ${oficioPorId(oficioId).nombre}`);
-    info('Factura nueva', 'Ya está todo lo obligatorio puesto. Mueve lo que quieras y guárdala.');
-  }, [ajustes, info]);
+    try {
+      // Por `sesionDesdeCero` y no montando la sesión a mano: el papel en
+      // blanco tiene que pasar por el lienzo igual que el calco de un PDF,
+      // porque compilar lee sus píxeles. Sin eso, la vista previa fallaba con
+      // «Cannot read properties of undefined (reading 'width')».
+      const nueva = await sesionDesdeCero(facturaDesdeCero(oficioId, ajustes));
+      setEditando(null);
+      setAplicaA(['factura']);
+      setSesion(nueva);
+      setNombre(`Mi factura · ${oficioPorId(oficioId).nombre}`);
+      info('Factura nueva', 'Ya está todo lo obligatorio puesto. Mueve lo que quieras y guárdala.');
+    } catch {
+      avisarError('No se ha podido crear la factura', 'Vuelve a intentarlo en un momento.');
+    }
+  }, [ajustes, info, avisarError]);
 
   useEffect(() => {
     (async () => {
@@ -507,7 +515,7 @@ export default function PlantillasPage() {
  * quien no se vea en la lista tiene «Genérico».
  */
 function ElegirOficio({ onElegir, onCerrar }: {
-  onElegir: (oficioId: string) => void;
+  onElegir: (oficioId: string) => void | Promise<void>;
   onCerrar: () => void;
 }) {
   return (
@@ -528,7 +536,7 @@ function ElegirOficio({ onElegir, onCerrar }: {
                 key={oficio.id}
                 type="button"
                 className="plantilla-oficio"
-                onClick={() => onElegir(oficio.id)}
+                onClick={() => { void onElegir(oficio.id); }}
               >
                 <strong>{oficio.nombre}</strong>
                 <span>

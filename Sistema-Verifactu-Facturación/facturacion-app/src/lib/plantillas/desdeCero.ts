@@ -31,6 +31,7 @@
  */
 
 import type { CompanySettings } from '../types';
+import { campoPorClave } from './contrato';
 import { campoNuevo, rejillaNueva } from './editor';
 import type {
   AnalisisPdf, CampoDetectado, ColumnaDetectada, PaginaExtraida, TablaDetectada,
@@ -371,6 +372,21 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   qr.motivo = 'Colocado al empezar desde cero';
   campos.push(qr);
   campos.push(colocar({ clave: 'verifactu_leyenda', x: media - 20, y: 272, ancho: 90, tamano: 6, derecha: true }));
+
+  // --- Con qué se ven llenos los recuadros en el editor ---
+  //
+  // Un campo sin valor sale como una caja vacía, y una factura entera de
+  // cajas vacías no se puede revisar: no hay manera de saber si el nombre del
+  // cliente cabe donde está puesto, ni si el total se sale de su sitio, hasta
+  // que se emite la primera de verdad.
+  //
+  // Así que cada campo arranca con el ejemplo que el contrato tiene para su
+  // clave. No se imprime nunca —al generar se sustituye por el dato de la
+  // factura— pero deja ver la plantilla como se va a ver de verdad.
+  for (const campo of campos) {
+    if (!campo.clave || campo.valorOriginal) continue;
+    campo.valorOriginal = campoPorClave(campo.clave)?.ejemplo ?? '';
+  }
 
   // El valor de arranque sale de los ajustes de la empresa: así lo que se ve
   // en el editor es ya la factura de quien la está haciendo.

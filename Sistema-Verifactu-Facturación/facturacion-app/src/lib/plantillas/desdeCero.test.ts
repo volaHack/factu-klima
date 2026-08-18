@@ -221,3 +221,61 @@ describe('nada se pisa con nada', () => {
     expect(rejilla.y + rejilla.alto).toBeLessThan(Math.min(...pie));
   });
 });
+
+describe('la vista previa de una factura desde cero', () => {
+  it('la página que se le entrega al editor no vale tal cual', () => {
+    // El fallo que esto vigila: la sesión se montaba a mano metiendo la página
+    // pelada donde se espera una CON LIENZO, forzándolo con un `as`. Al pedir
+    // la vista previa, compilar iba a leer los píxeles del calco y reventaba
+    // con «Cannot read properties of undefined (reading 'width')».
+    //
+    // La página de una factura nueva no trae lienzo ni píxeles —no ha pasado
+    // por ningún navegador todavía—, así que hay que rehidratarla antes, que
+    // es lo que hace `sesionDesdeCero`.
+    const pagina = facturaDesdeCero('generico').pagina as unknown as Record<string, unknown>;
+    expect(pagina.lienzo).toBeUndefined();
+    expect(pagina.pixeles).toBeUndefined();
+    // Y trae el mapa de bits del que rehidratarla.
+    expect(String(pagina.bitmap && (pagina.bitmap as { dataUrl: string }).dataUrl))
+      .toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('el papel tiene el tamaño del A4 que dice ser', () => {
+    // Si el mapa de bits no cuadrara con los milímetros de la página, todo lo
+    // que se coloque encima saldría desplazado al imprimir.
+    const pagina = facturaDesdeCero('generico').pagina;
+    expect(pagina.ancho).toBe(210);
+    expect(pagina.alto).toBe(297);
+    expect(pagina.bitmap.anchoPx / pagina.bitmap.pxPorMm).toBeCloseTo(210, 0);
+    expect(pagina.bitmap.altoPx / pagina.bitmap.pxPorMm).toBeCloseTo(297, 0);
+  });
+});
+
+describe('la asignación llega con datos, no con cajas vacías', () => {
+  it('cada campo asignado arranca con un ejemplo de su dato', () => {
+    // Una factura entera de recuadros vacíos no se puede revisar: no hay
+    // manera de ver si el nombre del cliente cabe donde está puesto, ni si el
+    // total se sale de su sitio, hasta emitir la primera de verdad.
+    const campos = facturaDesdeCero('generico').campos.filter(c => c.clave && !c.fijo);
+    const conValor = campos.filter(c => c.valorOriginal.trim().length > 0);
+    expect(conValor.length / campos.length).toBeGreaterThan(0.7);
+  });
+
+  it('los datos de la empresa mandan sobre el ejemplo', () => {
+    // Si el ejemplo pisara los ajustes, el editor enseñaría el NIF de un
+    // inventado en lugar del de quien está haciendo la factura.
+    const campos = facturaDesdeCero('taller', AJUSTES).campos;
+    expect(campos.find(c => c.clave === 'empresa_nif')?.valorOriginal).toBe('B12345678');
+  });
+
+  it('el ejemplo no se cuela en el PDF impreso', async () => {
+    // Es sólo para ver la plantilla en el editor. Si se imprimiera, cada
+    // factura saldría con el nombre del cliente de mentira.
+    const { plantilla } = compilar();
+    const datos = construirDatos({ tipo: 'factura', documento: facturaDeMuestra() }, AJUSTES);
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    const ejemplo = facturaDesdeCero('generico').campos
+      .find(c => c.clave === 'cliente_nombre')?.valorOriginal ?? '';
+    if (ejemplo) expect(texto).not.toContain(ejemplo);
+  }, 60_000);
+});

@@ -45,7 +45,7 @@ import {
   acotar, alinear, anadirColumna, calcularImanes, campoNuevo, distribuir,
   duplicarCampo, ejemploDeColumna, escalarColumnas, igualarColumnas, intersecan,
   moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
-  redimensionarColumna, redondearMm, rejillaNueva,
+  hacerSitio, redimensionarColumna, redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
 import type {
@@ -1166,6 +1166,15 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           <PanelTabla
             tabla={tabla}
             onCambiar={(nueva) => { marcar(); cambiarTabla(nueva); }}
+            onHacerSitio={(mm) => {
+              const hecho = hacerSitio(mm, tabla, campos, rejillas, pagina.alto);
+              if (!hecho) {
+                setEstadoIa({ cargando: false, aviso: 'No queda sitio en la hoja para bajar más lo de abajo.' });
+                return;
+              }
+              marcar();
+              onCambiar(hecho);
+            }}
           />
         )}
 
@@ -1890,7 +1899,11 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
   );
 }
 
-function PanelTabla({ tabla, onCambiar }: { tabla: TablaDetectada; onCambiar: (t: TablaDetectada) => void }) {
+function PanelTabla({ tabla, onCambiar, onHacerSitio }: {
+  tabla: TablaDetectada;
+  onCambiar: (t: TablaDetectada) => void;
+  onHacerSitio: (milimetros: number) => void;
+}) {
   const estilo = tabla.estilo;
   const cambiarEstilo = (cambios: Partial<typeof estilo>) => onCambiar({ ...tabla, estilo: { ...estilo, ...cambios } });
   const esFondoTransparente = !estilo.cabeceraFondo || estilo.cabeceraFondo === 'transparent' || estilo.cabeceraFondo === '#ffffff';
@@ -1949,6 +1962,31 @@ function PanelTabla({ tabla, onCambiar }: { tabla: TablaDetectada; onCambiar: (t
           value={estilo.tamanoCuerpo}
           onChange={(e) => cambiarEstilo({ tamanoCuerpo: Number(e.target.value) || 9 })} />
 
+        <label className="form-label">Caben ahora</label>
+        <span className="plantilla-panel-pista">
+          {Math.max(0, Math.floor((tabla.altoTotal - tabla.altoCabecera) / Math.max(1, tabla.altoFila)))} líneas
+        </span>
+      </div>
+
+      <div className="plantilla-panel-fila plantilla-hacer-sitio">
+        <span className="form-label">Hacer sitio</span>
+        <div className="plantilla-hacer-sitio-botones">
+          {[10, 25].map(mm => (
+            <button key={mm} type="button" className="btn btn-sm btn-secondary" onClick={() => onHacerSitio(mm)}>
+              +{mm} mm
+            </button>
+          ))}
+          <button type="button" className="btn btn-sm btn-secondary" onClick={() => onHacerSitio(-15)}>
+            −15 mm
+          </button>
+        </div>
+      </div>
+      <p className="plantilla-panel-pista">
+        Agranda el hueco de la tabla y baja lo que tenga debajo —totales, desglose y pie— para
+        que no se le eche encima. Lo que no quepa seguirá pasando a la hoja siguiente.
+      </p>
+
+      <div className="plantilla-panel-fila">
         <label className="form-label" htmlFor="tabla-alto-fila">Alto de fila (mm)</label>
         <input id="tabla-alto-fila" className="form-input" type="number" min={2} max={30} step={0.2}
           value={redondearMm(tabla.altoFila)}
@@ -2381,6 +2419,21 @@ function PanelRejilla({ rejilla, onCambiar, onEliminar }: {
           onChange={(e) => onCambiar({ ...rejilla, yPrimerRenglon: Number(e.target.value) })}
         />
       </div>
+
+      <div className="plantilla-panel-fila">
+        <label className="form-label" htmlFor="rejilla-contorno">Dibujar el recuadro</label>
+        <input
+          id="rejilla-contorno"
+          type="checkbox"
+          checked={rejilla.contorno}
+          onChange={(e) => onCambiar({ ...rejilla, contorno: e.target.checked })}
+        />
+      </div>
+      <p className="plantilla-panel-pista">
+        {rejilla.contorno
+          ? 'El cuadro se dibuja con su marco y sus rayas, y crece con los renglones que traiga la factura.'
+          : 'Se aprovecha el recuadro que ya trae impreso tu factura. Enciéndelo si al imprimir el cuadro sale sin marco.'}
+      </p>
 
       <h4 className="plantilla-panel-subtitulo">Qué lleva cada columna</h4>
       {rejilla.columnas.map((columna, i) => (

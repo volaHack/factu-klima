@@ -432,3 +432,55 @@ export function rejillaNueva(
 
 const etiquetaDeColumnaDeImpuestos = (clave: string) =>
   COLUMNAS_IMPUESTOS.find(c => c.clave === clave)?.cabeceraSugerida ?? clave;
+
+/**
+ * HACER SITIO A LA TABLA EMPUJANDO LO DE ABAJO
+ *
+ * El hueco de la tabla es fijo: el mismo que ocupaba en el papel. Lo que no
+ * cabe pasa a otra hoja, que para un talonario está bien —así funciona un
+ * talonario— pero es un fastidio cuando lo que quieres es que quepan más
+ * líneas en la primera.
+ *
+ * Estirar la tabla a mano no vale por sí solo: crece hacia abajo y se mete
+ * encima de los totales y del cuadro de desglose, que están anclados. Hay que
+ * mover las dos cosas a la vez, y eso es lo que hace esto: agranda el hueco y
+ * baja todo lo que estuviera por debajo, exactamente lo mismo.
+ *
+ * Lo que quede por debajo del papel no se mueve: bajar el pie legal fuera del
+ * A4 sería peor que dejar la tabla como estaba.
+ */
+export function hacerSitio(
+  milimetros: number,
+  tabla: TablaDetectada,
+  campos: CampoDetectado[],
+  rejillas: RejillaDetectada[],
+  altoPagina: number,
+): {
+  tabla: TablaDetectada;
+  campos: CampoDetectado[];
+  rejillas: RejillaDetectada[];
+} | null {
+  const fondoTabla = tabla.y + tabla.altoTotal;
+
+  // Lo de abajo, y cuánto se puede bajar sin que nada se salga de la hoja.
+  const debajo = campos.filter(c => c.y >= fondoTabla);
+  const rejillasDebajo = rejillas.filter(r => r.y >= fondoTabla);
+  const masBajo = Math.max(
+    0,
+    ...debajo.map(c => c.y + c.alto),
+    ...rejillasDebajo.map(r => r.y + r.alto),
+  );
+  const margen = 6;
+  const sitio = Math.min(milimetros, Math.max(0, altoPagina - margen - masBajo));
+  if (sitio <= 0) return null;
+
+  const bajar = <T extends { y: number }>(e: T): T => ({ ...e, y: e.y + sitio });
+
+  return {
+    tabla: { ...tabla, altoTotal: tabla.altoTotal + sitio },
+    campos: campos.map(c => (c.y >= fondoTabla ? bajar(c) : c)),
+    rejillas: rejillas.map(r => (r.y >= fondoTabla
+      ? { ...bajar(r), yPrimerRenglon: r.yPrimerRenglon + sitio }
+      : r)),
+  };
+}

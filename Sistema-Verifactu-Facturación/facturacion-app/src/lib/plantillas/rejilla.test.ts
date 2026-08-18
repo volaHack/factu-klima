@@ -14,8 +14,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Schema, Template } from '@pdfme/common';
 import { materializarRejillas } from './plantilla';
-import { rejillaNueva } from './editor';
-import type { RejillaDetectada } from './tipos';
+import { hacerSitio, rejillaNueva } from './editor';
+import type { CampoDetectado, RejillaDetectada, TablaDetectada } from './tipos';
 
 const REJILLA: RejillaDetectada = {
   id: 'r1',
@@ -195,5 +195,50 @@ describe('el contorno que se pinta la rejilla', () => {
 
     const fondo = (p: Template) => Math.max(...rayas(p).map(r => r.position.y + (r.height as number)));
     expect(fondo(uno)).toBeLessThan(fondo(tres));
+  });
+});
+
+describe('hacer sitio a la tabla', () => {
+  const tabla = { x: 15, y: 100, ancho: 180, altoCabecera: 8, altoFila: 7, altoTotal: 60,
+    columnas: [], estilo: {}, filasOriginales: 0 } as unknown as TablaDetectada;
+  const campo = (id: string, y: number) => ({
+    id, clave: null, tipo: 'texto', fijo: false, valorOriginal: '', etiquetaCercana: '',
+    x: 15, y, ancho: 40, alto: 4, tamano: 9, alineacion: 'left', color: '#000',
+    negrita: false, cursiva: false, serif: false, interlineado: 1.15, confianza: 1, motivo: '',
+  } as unknown as CampoDetectado);
+
+  it('baja lo que está debajo tanto como crece la tabla', () => {
+    // Si la tabla crece y los totales no bajan, la tabla se les echa encima:
+    // están anclados y no se apartan solos.
+    const hecho = hacerSitio(20, tabla, [campo('arriba', 50), campo('abajo', 180)], [], 297)!;
+    expect(hecho.tabla.altoTotal).toBe(80);
+    expect(hecho.campos.find(c => c.id === 'abajo')!.y).toBe(200);
+  });
+
+  it('no toca lo que está por encima de la tabla', () => {
+    // El membrete y los datos del cliente no se mueven: el sitio sale de
+    // abajo, no de arriba.
+    const hecho = hacerSitio(20, tabla, [campo('arriba', 50)], [], 297)!;
+    expect(hecho.campos.find(c => c.id === 'arriba')!.y).toBe(50);
+  });
+
+  it('la rejilla baja con sus renglones', () => {
+    // Bajar el recuadro sin bajar el primer renglón dejaría las cifras fuera.
+    const rejilla = { ...REJILLA, y: 220, yPrimerRenglon: 226 };
+    const hecho = hacerSitio(10, tabla, [], [rejilla], 297)!;
+    expect(hecho.rejillas[0].y).toBe(230);
+    expect(hecho.rejillas[0].yPrimerRenglon).toBe(236);
+  });
+
+  it('no empuja nada fuera del papel', () => {
+    // Bajar el pie legal fuera del A4 es peor que dejar la tabla como estaba:
+    // no se imprime y nadie se entera.
+    const hecho = hacerSitio(60, tabla, [campo('pie', 275)], [], 297);
+    expect(hecho).not.toBeNull();
+    expect(hecho!.campos[0].y + hecho!.campos[0].alto).toBeLessThanOrEqual(291);
+  });
+
+  it('dice que no cuando ya no queda hueco', () => {
+    expect(hacerSitio(20, tabla, [campo('pie', 288)], [], 297)).toBeNull();
   });
 });

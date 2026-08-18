@@ -89,6 +89,21 @@ export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
   };
 }
 
+/**
+ * Sesión de edición para una factura empezada desde cero.
+ *
+ * El papel es una imagen de un píxel blanco estirada al A4, y hay que
+ * rehidratarla igual que el calco de un PDF subido: `compilar` construye el
+ * fondo leyendo los PÍXELES de la página para muestrear colores y tapar
+ * zonas, y con una página sin lienzo reventaba con «Cannot read properties of
+ * undefined (reading 'width')» en cuanto se pedía la vista previa.
+ */
+export async function sesionDesdeCero(analisis: AnalisisPdf): Promise<SesionAnalisis> {
+  const { lienzo, pixeles } = await rehidratarLienzo(analisis.pagina.bitmap);
+  const pagina: PaginaConLienzo = { ...analisis.pagina, lienzo, pixeles };
+  return { analisis: { ...analisis, pagina }, pagina, nombreArchivo: '' };
+}
+
 export class PlantillaNoEditable extends Error {}
 
 /**

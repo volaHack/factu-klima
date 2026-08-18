@@ -7961,3 +7961,7 @@ a.stats-item:focus-visible {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
+
+/* --- Hacer sitio a la tabla --- */
+.plantilla-hacer-sitio { align-items: center; }
+.plantilla-hacer-sitio-botones { display: flex; gap: var(--space-1); }
