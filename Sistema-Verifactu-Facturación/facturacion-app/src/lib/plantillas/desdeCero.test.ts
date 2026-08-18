@@ -74,16 +74,18 @@ describe('lo que trae puesto una factura nueva', () => {
     }
   });
 
-  it('trae la tabla de líneas y el cuadro de desglose', () => {
+  it('trae la tabla de líneas y los dos cuadros del pie', () => {
     const analisis = facturaDesdeCero('generico');
     expect(analisis.tabla).not.toBeNull();
-    expect(analisis.rejillas).toHaveLength(1);
+    // El desglose de impuestos y la relación de pagos: los dos recuadros que
+    // lleva abajo cualquier factura.
+    expect(analisis.rejillas.map(r => r.fuente).sort()).toEqual(['impuestos', 'vencimientos']);
   });
 
   it('el cuadro de desglose se pinta su propio marco', () => {
     // Sobre papel en blanco no hay ningún recuadro impreso debajo: si la
     // rejilla no se lo dibuja, las cifras salen flotando sin cuadro.
-    const rejilla = facturaDesdeCero('generico').rejillas[0];
+    const rejilla = facturaDesdeCero('generico').rejillas.find(r => r.fuente === 'impuestos')!;
     expect(rejilla.contorno.marco).toBe(true);
     expect(rejilla.contorno.renglones).toBe(true);
     expect(rejilla.contorno.columnas).toBe(true);
@@ -329,5 +331,55 @@ describe('los descuentos llegan a la factura impresa', () => {
     const datos = construirDatos({ tipo: 'factura', documento: conDescuentos() }, AJUSTES);
     const texto = await textoDelPdf(await generarPdf(plantilla, datos));
     expect(texto.replace(/\s/g, '')).toContain('23,05');
+  }, 60_000);
+});
+
+describe('la relación de pagos del pie', () => {
+  const conVencimiento = (extra: Record<string, unknown> = {}) => ({
+    ...facturaDeMuestra(),
+    issueDate: '2026-08-18',
+    dueDate: '2026-09-17',
+    ...extra,
+  });
+
+  it('dice cuándo, cuánto y de qué manera', () => {
+    // El recuadro que casi todos los impresos traen abajo y que hasta ahora
+    // se quedaba en blanco porque no había de dónde llenarlo.
+    const [fila] = construirDatos({ tipo: 'factura', documento: conVencimiento() }, AJUSTES).vencimientos;
+    expect(fila.venc_fecha).toContain('17');
+    expect(fila.venc_importe).toContain('€');
+    expect(fila.venc_forma).toBeTruthy();
+  });
+
+  it('cuenta los días de emisión a vencimiento', () => {
+    // De ahí sale el «a 30 días» que va escrito en el propio recuadro.
+    const [fila] = construirDatos({ tipo: 'factura', documento: conVencimiento() }, AJUSTES).vencimientos;
+    expect(fila.venc_dias).toBe('30 días');
+  });
+
+  it('distingue lo cobrado de lo que sigue debiéndose', () => {
+    const total = conVencimiento().total;
+    const cobrada = construirDatos({ tipo: 'factura', documento: conVencimiento({ paidAmount: total }) }, AJUSTES);
+    expect(cobrada.vencimientos[0].venc_estado).toBe('Cobrado');
+
+    const aMedias = construirDatos({ tipo: 'factura', documento: conVencimiento({ paidAmount: total / 2 }) }, AJUSTES);
+    expect(aMedias.vencimientos[0].venc_estado).toMatch(/^Pendiente .*€/);
+  });
+
+  it('un documento sin vencimiento no imprime renglones', () => {
+    // Un presupuesto o un albarán no tienen nada que decir aquí, y un cuadro
+    // lleno de guiones es peor que un cuadro vacío.
+    const sin = construirDatos({ tipo: 'factura', documento: conVencimiento({ dueDate: '' }) }, AJUSTES);
+    expect(sin.vencimientos).toHaveLength(0);
+  });
+
+  it('sale impreso en el PDF', async () => {
+    // De punta a punta: el cuadro está en la factura desde cero, así que si
+    // no llegan los datos o no se materializa, esto lo caza.
+    const { plantilla } = compilarPlantilla(facturaDesdeCero('generico', AJUSTES), { fondo: FONDO, archivoOrigen: '' });
+    const datos = construirDatos({ tipo: 'factura', documento: conVencimiento() }, AJUSTES);
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    expect(texto).toContain('RELACIÓN DE PAGOS');
+    expect(texto.replace(/\s/g, '')).toContain('30días');
   }, 60_000);
 });

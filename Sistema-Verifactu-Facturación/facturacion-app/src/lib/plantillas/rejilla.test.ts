@@ -186,16 +186,18 @@ describe('el contorno que se pinta la rejilla', () => {
       .toHaveLength(conContorno.columnas.length + 1);
   });
 
-  it('el marco se ajusta a los renglones que haya, no a los que cupieran', () => {
-    // Una factura de un solo tipo impositivo no puede salir con el cuadro
-    // dibujado hasta abajo y cuatro renglones vacíos debajo de la cifra.
+  it('las rayas de dentro sí siguen a los renglones escritos', () => {
+    // El marco es la caja y no se mueve, pero las separaciones interiores
+    // sólo tienen sentido donde hay cifras: rayar los renglones vacíos de
+    // debajo dejaría el cuadro con pautas en blanco.
     const uno = plantillaCon(conContorno);
     materializarRejillas(uno, { impuestos: [tramo('21,0', '100,00')] });
     const tres = plantillaCon(conContorno);
     materializarRejillas(tres, { impuestos: [tramo('21,0', '1'), tramo('10,0', '2'), tramo('4,0', '3')] });
 
-    const fondo = (p: Template) => Math.max(...rayas(p).map(r => r.position.y + (r.height as number)));
-    expect(fondo(uno)).toBeLessThan(fondo(tres));
+    const interiores = (p: Template) =>
+      rayas(p).filter(r => /_r\d+$/.test(String(r.name))).length;
+    expect(interiores(uno)).toBeLessThan(interiores(tres));
   });
 });
 
@@ -346,5 +348,79 @@ describe('repartir el ancho entre dos columnas del cuadro', () => {
   it('la última no tiene a quién quitarle: se queda como está', () => {
     const antes = cols();
     expect(redimensionarColumnaRejilla(antes, antes.length - 1, 5)).toEqual(antes);
+  });
+});
+
+describe('el marco rodea la cuadrícula, no lo escrito', () => {
+  const marcada = { ...REJILLA, contorno: { marco: true, renglones: false, columnas: false, grosor: 0.2 } };
+  const marcoDe = (n: number) => {
+    const p = plantillaCon(marcada);
+    materializarRejillas(p, { impuestos: Array.from({ length: n }, (_, i) => tramo(String(i), String(i))) });
+    const rayas = (p.basePdf as { staticSchema: Schema[] }).staticSchema
+      .filter(s => String(s.name).includes('_marco-'));
+    const arriba = rayas.find(r => String(r.name).endsWith('arriba'))!;
+    const izq = rayas.find(r => String(r.name).endsWith('izq'))!;
+    return { arriba, izq };
+  };
+
+  it('empieza donde empieza la caja del cuadro', () => {
+    // Antes arrancaba en la primera columna y en el primer renglón, así que
+    // dejaba fuera la franja del título y salía un rectángulo apretado
+    // alrededor de las cifras.
+    const { arriba, izq } = marcoDe(2);
+    expect(arriba.position.x).toBeCloseTo(REJILLA.x, 1);
+    expect(izq.position.y).toBeCloseTo(REJILLA.y, 1);
+  });
+
+  it('mide lo que mide la caja', () => {
+    const { arriba, izq } = marcoDe(2);
+    expect(arriba.width).toBeCloseTo(REJILLA.ancho, 1);
+    expect(izq.height).toBeCloseTo(REJILLA.alto, 1);
+  });
+
+  it('no se encoge porque la factura traiga un solo impuesto', () => {
+    // Este era el defecto que se veía: el recuadro cambiaba de tamaño según
+    // los tipos impositivos del documento, cuando el sitio que ocupa en el
+    // papel es siempre el mismo.
+    const uno = marcoDe(1);
+    const cuatro = marcoDe(4);
+    expect(uno.izq.height).toBeCloseTo(cuatro.izq.height, 5);
+    expect(uno.arriba.width).toBeCloseTo(cuatro.arriba.width, 5);
+  });
+});
+
+describe('el cuadro de pagos dibujado a mano', () => {
+  const caja = { x: 15, y: 200, ancho: 118, alto: 22 };
+  const pagos = () => rejillaNueva('r-pagos', caja, 'sans', 'vencimientos');
+
+  it('lleva las columnas de un cuadro de pagos, no las de impuestos', () => {
+    expect(pagos().columnas.map(c => c.clave))
+      .toEqual(['venc_fecha', 'venc_dias', 'venc_importe', 'venc_forma']);
+  });
+
+  it('las columnas se tocan sin solaparse y llenan la caja', () => {
+    // Una columna montada sobre la de al lado imprime un valor encima del
+    // otro; un hueco entre ellas descoloca las cifras respecto a las rayas.
+    const cols = pagos().columnas;
+    for (let i = 1; i < cols.length; i++) {
+      expect(cols[i].x).toBeCloseTo(cols[i - 1].x + cols[i - 1].ancho, 5);
+    }
+    const ultima = cols[cols.length - 1];
+    expect(ultima.x + ultima.ancho).toBeCloseTo(caja.x + caja.ancho, 5);
+  });
+
+  it('la forma de pago es la columna más ancha', () => {
+    // «Transferencia bancaria» al lado de «30 días»: repartir a partes
+    // iguales dejaba la forma de pago partida en dos renglones.
+    const cols = pagos().columnas;
+    const forma = cols.find(c => c.clave === 'venc_forma')!;
+    expect(forma.ancho).toBeGreaterThan(Math.max(...cols.filter(c => c !== forma).map(c => c.ancho)));
+  });
+
+  it('las fechas y la forma van a la izquierda, los importes a la derecha', () => {
+    const cols = pagos().columnas;
+    expect(cols.find(c => c.clave === 'venc_fecha')!.alineacion).toBe('left');
+    expect(cols.find(c => c.clave === 'venc_forma')!.alineacion).toBe('left');
+    expect(cols.find(c => c.clave === 'venc_importe')!.alineacion).toBe('right');
   });
 });

@@ -11,7 +11,8 @@
  */
 
 import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
-import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, RejillaDetectada, TablaDetectada } from './tipos';
+import { COLUMNAS_VENCIMIENTOS } from './contrato';
+import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FuenteRejilla, RejillaDetectada, TablaDetectada } from './tipos';
 
 export interface Caja {
   x: number;
@@ -398,25 +399,43 @@ export function rejillaNueva(
   id: string,
   caja: { x: number; y: number; ancho: number; alto: number },
   familia: 'sans' | 'serif',
+  fuente: FuenteRejilla = 'impuestos',
 ): RejillaDetectada {
   // Se reserva la primera banda para la cabecera que el impreso ya trae
   // pintada: los renglones empiezan por debajo de ella.
   const altoRenglon = Math.max(3.5, caja.alto / 5);
-  const claves = ['nombre', 'base', 'tipo', 'cuota'];
-  const ancho = caja.ancho / claves.length;
+  const claves = fuente === 'vencimientos'
+    ? ['venc_fecha', 'venc_dias', 'venc_importe', 'venc_forma']
+    : ['nombre', 'base', 'tipo', 'cuota'];
+  // Repartidos según lo que lleva cada uno, no a partes iguales: una fecha
+  // ocupa lo que ocupa y «Transferencia bancaria» necesita bastante más que
+  // «30 días».
+  const reparto: Record<string, number> = {
+    venc_fecha: 0.22, venc_dias: 0.14, venc_importe: 0.22, venc_forma: 0.42,
+  };
+  const peso = (clave: string) => reparto[clave] ?? 1 / claves.length;
+  const columnas = fuente === 'vencimientos' ? COLUMNAS_VENCIMIENTOS : null;
+  // La fecha y la forma de pago se leen mejor pegadas a la izquierda; las
+  // cifras, a la derecha, para que cuadren los decimales.
+  const alineacionDe = (clave: string): Alineacion =>
+    columnas
+      ? (columnas.find(c => c.clave === clave)?.numerica ? 'right' : 'left')
+      : (clave === 'nombre' ? 'left' : 'right');
 
   return {
     id,
-    fuente: 'impuestos',
+    fuente,
     ...caja,
     yPrimerRenglon: caja.y + altoRenglon,
     altoRenglon,
     columnas: claves.map((clave, i) => ({
       clave,
-      cabecera: etiquetaDeColumnaDeImpuestos(clave),
-      x: caja.x + i * ancho,
-      ancho,
-      alineacion: clave === 'nombre' ? 'left' : 'right',
+      cabecera: columnas
+        ? (columnas.find(c => c.clave === clave)?.cabeceraSugerida ?? clave)
+        : etiquetaDeColumnaDeImpuestos(clave),
+      x: caja.x + claves.slice(0, i).reduce((acc, c) => acc + peso(c) * caja.ancho, 0),
+      ancho: peso(clave) * caja.ancho,
+      alineacion: alineacionDe(clave),
     })),
     // Sobre el papel no había nada escrito, así que no hay nada que tapar; y
     // como tampoco hay recuadro impreso debajo, se pinta el suyo.

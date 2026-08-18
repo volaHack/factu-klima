@@ -37,6 +37,7 @@ import type {
   ColumnaDetectada,
   ColumnaRejilla,
   EstiloTabla,
+  FuenteRejilla,
   ItemTexto,
   LineaTexto,
   PaginaExtraida,
@@ -865,7 +866,16 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
   // primera celda del cuadro como si fuera el total de impuestos de la
   // factura, y el desglose salía descolocado.
   const rejillaImpuestos = detectarRejillaDeImpuestos(filasFuera, usadas, opciones.buscarLineas);
-  const rejillas = rejillaImpuestos ? [rejillaImpuestos] : [];
+
+  // El cuadro de pagos del pie, sobre lo que el de impuestos no se haya
+  // llevado: son dos recuadros distintos y casi siempre están uno al lado del
+  // otro o uno encima del otro.
+  const librasParaPagos = filasFuera.filter(f => f.segmentos.some(seg => !usadas.has(seg)));
+  const rejillaVencimientos = detectarRejillaDeImpuestos(
+    librasParaPagos, usadas, opciones.buscarLineas, cabecerasDeVencimientos, 'vencimientos',
+  );
+  const rejillas = [rejillaImpuestos, rejillaVencimientos]
+    .filter((r): r is RejillaDetectada => r !== null);
   detectarRecuentos(fuera, usadas, tabla, registrar);
 
   // --- 3. Etiquetas con su valor ---
@@ -1327,6 +1337,41 @@ const CABECERAS_DE_REJILLA: { re: RegExp; clave: string | null; grupo?: boolean 
 ];
 
 /**
+ * Los títulos del cuadro de pagos del pie.
+ *
+ * Van aparte de los del desglose de impuestos a propósito: «IMPORTE» significa
+ * una cosa debajo de «BASE IMP.» y otra debajo de «VENCIMIENTO», y mezclarlos
+ * haría que un cuadro se detectara como el otro.
+ */
+const CABECERAS_DE_VENCIMIENTOS: { re: RegExp; clave: string | null }[] = [
+  { re: /^(vencimiento|vencimientos|fecha vencimiento|fecha de vencimiento|f\. vencimiento|fecha)$/, clave: 'venc_fecha' },
+  { re: /^(dias|dias?|plazo|plazos|d\.?)$/, clave: 'venc_dias' },
+  { re: /^(importe|importe a pagar|a pagar|cantidad|total)$/, clave: 'venc_importe' },
+  { re: /^(forma de pago|forma pago|f\. pago|modo de pago|medio de pago|forma)$/, clave: 'venc_forma' },
+  { re: /^(estado|situacion|cobrado|pagado)$/, clave: 'venc_estado' },
+  { re: /^(efecto|efectos|n\.? efecto|documento)$/, clave: null },
+];
+
+/**
+ * Si una fila es la cabecera de un cuadro de pagos.
+ *
+ * Pide que aparezca alguno de los títulos que sólo salen ahí —«VENCIMIENTO»,
+ * «FORMA DE PAGO»— y no sólo dos genéricos: una fila con «IMPORTE» y «TOTAL»
+ * está en casi todos los pies de factura y no es una relación de pagos.
+ */
+function cabecerasDeVencimientos(fila: LineaTexto): CeldaCabecera[] {
+  const celdas = fila.segmentos
+    .map(segmento => {
+      const regla = CABECERAS_DE_VENCIMIENTOS.find(c => c.re.test(normalizar(segmento.texto)));
+      return regla ? { segmento, clave: regla.clave, grupo: false } : null;
+    })
+    .filter((c): c is CeldaCabecera => c !== null);
+
+  const propias = celdas.filter(c => c.clave === 'venc_fecha' || c.clave === 'venc_forma');
+  return propias.length > 0 && celdas.length >= 2 ? celdas : [];
+}
+
+/**
  * Qué dato lleva una columna que cuelga de un grupo: «IVA» con «%» debajo es
  * el tipo del IVA, y con «CUOTA» debajo, su cuota.
  *
@@ -1378,6 +1423,11 @@ function detectarRejillaDeImpuestos(
   filas: LineaTexto[],
   usadas: Set<SegmentoTexto>,
   buscarLineas: BuscadorDeLineas | undefined,
+  // El cuadro de pagos del pie se encuentra igual que el de impuestos: una
+  // fila de títulos y debajo renglones de datos. Lo único que cambia es qué
+  // títulos se reconocen y de dónde saldrán luego los renglones.
+  reconocer: (fila: LineaTexto) => CeldaCabecera[] = cabecerasDe,
+  fuente: FuenteRejilla = 'impuestos',
 ): RejillaDetectada | null {
   // --- La cabecera. Una sola coincidencia no basta: «IMPORTE» a secas es la
   // cabecera de la tabla de líneas, no la de un cuadro de desglose.
@@ -1385,7 +1435,7 @@ function detectarRejillaDeImpuestos(
   let filaCabecera: LineaTexto | null = null;
   let indiceCabecera = -1;
   for (let i = 0; i < filas.length; i++) {
-    const encontradas = cabecerasDe(filas[i]);
+    const encontradas = reconocer(filas[i]);
     if (encontradas.length >= 2) {
       nivel1 = encontradas;
       filaCabecera = filas[i];
@@ -1404,7 +1454,7 @@ function detectarRejillaDeImpuestos(
   // discrimina mejor que medir la separación, porque en un cuadro de casillas
   // altas las dos alturas quedan a un buen trecho una de otra.
   const siguiente: LineaTexto | undefined = filas[indiceCabecera + 1];
-  const candidatas = siguiente ? cabecerasDe(siguiente) : [];
+  const candidatas = siguiente ? reconocer(siguiente) : [];
   const nivel2 = siguiente
     && candidatas.length >= 2
     && candidatas.length === siguiente.segmentos.length
@@ -1600,7 +1650,7 @@ function detectarRejillaDeImpuestos(
 
   return {
     id: 'rejilla-impuestos',
-    fuente: 'impuestos',
+    fuente,
     x: redondearMm(bordeIzquierdo + HOLGURA / 2),
     y: redondearMm(filaCabecera.y),
     ancho: redondearMm(bordeDerecho - bordeIzquierdo - HOLGURA),

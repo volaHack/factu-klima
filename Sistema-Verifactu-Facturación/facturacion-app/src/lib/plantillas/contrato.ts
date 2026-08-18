@@ -195,6 +195,21 @@ export const COLUMNAS_IMPUESTOS: ColumnaTabla[] = [
   { clave: 'total', etiqueta: 'Base + cuota', cabeceraSugerida: 'Total', numerica: true, ejemplo: '1.512,50 €' },
 ];
 
+/**
+ * Columnas de la relación de pagos del pie (`vencimientos`).
+ *
+ * Casi todos los impresos traen abajo un recuadro con cuándo se paga, cuánto
+ * y de qué manera. Hasta ahora se quedaba en blanco porque no había de dónde
+ * llenarlo.
+ */
+export const COLUMNAS_VENCIMIENTOS: ColumnaTabla[] = [
+  { clave: 'venc_fecha', etiqueta: 'Fecha de vencimiento', cabeceraSugerida: 'Vencimiento', numerica: false, ejemplo: '17/09/2026' },
+  { clave: 'venc_dias', etiqueta: 'Plazo en días', cabeceraSugerida: 'Días', numerica: true, ejemplo: '30 días' },
+  { clave: 'venc_importe', etiqueta: 'Importe a pagar', cabeceraSugerida: 'Importe', numerica: true, ejemplo: '230,76 €' },
+  { clave: 'venc_forma', etiqueta: 'Forma de pago', cabeceraSugerida: 'Forma de pago', numerica: false, ejemplo: 'Transferencia' },
+  { clave: 'venc_estado', etiqueta: 'Cobrado o pendiente', cabeceraSugerida: 'Estado', numerica: false, ejemplo: 'Pendiente' },
+];
+
 /** Nombre reservado de la tabla de líneas dentro de una plantilla. */
 export const TABLA_LINEAS = 'lineas';
 /** Nombre reservado de la tabla de desglose de impuestos. */

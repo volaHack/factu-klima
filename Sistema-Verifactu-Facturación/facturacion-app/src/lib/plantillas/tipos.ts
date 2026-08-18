@@ -187,6 +187,9 @@ export interface TablaDetectada {
 // REJILLAS
 // ============================================================
 
+/** De dónde saca sus renglones un cuadro. */
+export type FuenteRejilla = 'impuestos' | 'vencimientos';
+
 /** Qué rayas pinta una rejilla, cada una por su lado. */
 export interface ContornoRejilla {
   /** El marco de fuera. */
@@ -238,8 +241,14 @@ export interface ColumnaRejilla {
  */
 export interface RejillaDetectada {
   id: string;
-  /** Qué desglose imprime. Hoy sólo el de impuestos. */
-  fuente: 'impuestos';
+  /**
+   * Qué cuadro imprime.
+   *
+   * `impuestos` es el desglose por tipo impositivo. `vencimientos` es la
+   * relación de pagos del pie —cuándo hay que pagar, cuánto y cómo—, que casi
+   * todos los impresos traen y que hasta ahora se quedaba en blanco.
+   */
+  fuente: FuenteRejilla;
   /** El recuadro entero, tal y como está pintado en el papel. */
   x: number;
   y: number;

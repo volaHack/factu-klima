@@ -32,6 +32,8 @@ export interface DatosDocumento {
   lineas: Record<string, string>[];
   /** Filas del desglose de impuestos, con las claves de COLUMNAS_IMPUESTOS. */
   impuestos: Record<string, string>[];
+  /** Filas de la relación de pagos, con las claves de COLUMNAS_VENCIMIENTOS. */
+  vencimientos: Record<string, string>[];
 }
 
 export interface OpcionesDatos {
@@ -309,6 +311,16 @@ export function construirDatos(
     total: formatCurrency(tramo.base + tramo.amount),
   }));
 
+  // --- Relación de pagos ---
+  //
+  // Casi todos los impresos traen abajo un recuadro de vencimientos y hasta
+  // ahora se quedaba en blanco: no había de dónde llenarlo.
+  //
+  // Un documento sin fecha de vencimiento —un albarán, un presupuesto— no
+  // tiene nada que decir aquí y se queda sin renglones, que es distinto de
+  // imprimir un cuadro con guiones.
+  const vencimientos = filasDeVencimientos(entrada, doc);
+
   const desgloseEnTexto = doc.taxBreakdown
     .map(t => `${impuesto} ${porcentaje(t.rate)} sobre ${formatCurrency(t.base)} — ${formatCurrency(t.amount)}`)
     .join('\n');
@@ -422,7 +434,7 @@ export function construirDatos(
     if (campos[campo.clave] === undefined) campos[campo.clave] = '';
   }
 
-  return { campos, lineas, impuestos };
+  return { campos, lineas, impuestos, vencimientos };
 }
 
 /**
@@ -482,4 +494,44 @@ export function esDocumentoAnulado(entrada: DocumentoImprimible): boolean {
   return entrada.tipo === 'factura'
     ? entrada.documento.status === InvoiceStatus.ANULADA
     : entrada.documento.status === 'anulado';
+}
+
+/**
+ * Los renglones de la relación de pagos.
+ *
+ * El sistema guarda un solo vencimiento por documento, así que sale un
+ * renglón. El cuadro admite más porque los impresos vienen con sitio para
+ * varios —los pagos a 30/60/90 son lo normal en muchos sectores— y el día que
+ * se puedan partir, el hueco ya está.
+ *
+ * Los días se cuentan de la fecha de emisión a la de vencimiento, que es de
+ * donde sale el «a 30 días» que va escrito en el propio recuadro.
+ */
+function filasDeVencimientos(
+  entrada: DocumentoImprimible,
+  doc: { total: number; paidAmount?: number },
+): Record<string, string>[] {
+  if (entrada.tipo === 'albaran') return [];
+  const factura = entrada.documento;
+  if (!factura.dueDate) return [];
+
+  const emision = Date.parse(factura.issueDate ?? '');
+  const vence = Date.parse(factura.dueDate);
+  const dias = Number.isFinite(emision) && Number.isFinite(vence)
+    ? Math.round((vence - emision) / 86_400_000)
+    : null;
+
+  const cobrado = doc.paidAmount ?? 0;
+  const pendiente = Math.max(0, doc.total - cobrado);
+
+  return [{
+    venc_fecha: formatDate(factura.dueDate),
+    venc_dias: dias === null ? '' : `${dias} días`,
+    venc_importe: formatCurrency(doc.total),
+    venc_forma: PAYMENT_METHODS.find(m => m.value === factura.paymentMethod)?.label ?? '',
+    // Lo que de verdad importa de un vencimiento: si sigue debiéndose.
+    venc_estado: pendiente <= 0.005
+      ? 'Cobrado'
+      : cobrado > 0 ? `Pendiente ${formatCurrency(pendiente)}` : 'Pendiente',
+  }];
 }

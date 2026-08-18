@@ -146,7 +146,7 @@ export async function generarPdf(
   // cuántos renglones lleva lo dice la factura que se está imprimiendo, no el
   // impreso: la misma plantilla saca hoy una factura de un tipo impositivo y
   // mañana otra de cuatro.
-  materializarRejillas(plantilla, { impuestos: datos.impuestos });
+  materializarRejillas(plantilla, { impuestos: datos.impuestos, vencimientos: datos.vencimientos });
   await incrustarImagenes(plantilla, entrada);
 
   try {

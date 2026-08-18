@@ -361,8 +361,17 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   const rejilla = rejillaNueva('rejilla-desglose', { x: MARGEN, y: yTotales - 6, ancho: 88, alto: 30 }, 'sans');
   campos.push(colocar({ texto: 'DESGLOSE DE IMPUESTOS', x: MARGEN, y: yTotales - 10, ancho: 88, tamano: 7 }));
 
+  // --- La relación de pagos ---
+  //
+  // Cuándo hay que pagar, cuánto y de qué manera. Va debajo del desglose
+  // porque es lo que se mira después de saber el total, y con contorno propio
+  // por lo mismo que el otro: debajo sólo hay papel.
+  const pagos = rejillaNueva(
+    'rejilla-pagos', { x: MARGEN, y: yTotales + 30, ancho: 118, alto: 22 }, 'sans', 'vencimientos',
+  );
+  campos.push(colocar({ texto: 'RELACIÓN DE PAGOS', x: MARGEN, y: yTotales + 26, ancho: 118, tamano: 7 }));
+
   // --- Forma de pago y sello Veri*Factu ---
-  campos.push(...rotuloConDato('FORMA DE PAGO', 'doc_forma_pago', MARGEN, 240, 60));
   campos.push(...rotuloConDato('CUENTA', 'empresa_iban', MARGEN, 250, 88));
   campos.push(colocar({ clave: 'doc_notas', x: MARGEN, y: 262, ancho: 120, tamano: 8 }));
 
@@ -407,7 +416,7 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
     pagina: hojaEnBlanco(),
     campos,
     tabla: tablaDelOficio(oficio),
-    rejillas: [rejilla],
+    rejillas: [rejilla, pagos],
     avisos: [{
       nivel: 'info',
       texto: 'Factura nueva lista. Mueve lo que quieras y guárdala; todo lo obligatorio ya está puesto.',

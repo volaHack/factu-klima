@@ -55,6 +55,7 @@ import type {
   AnalisisPdf,
   CampoDetectado,
   DiagnosticoPlantilla,
+  FuenteRejilla,
   RejillaDetectada,
   TablaDetectada,
 } from './tipos';
@@ -849,7 +850,9 @@ export function rejillasDePlantilla(plantilla: Template): RejillaDetectada[] {
  */
 export function materializarRejillas(
   plantilla: Template,
-  filasPorFuente: { impuestos: Record<string, string>[] },
+  // Parcial a propósito: quien sólo tenga impuestos no debería verse
+  // obligado a pasar un array vacío de vencimientos para nada.
+  filasPorFuente: Partial<Record<FuenteRejilla, Record<string, string>[]>>,
 ): string[] {
   const base = plantilla.basePdf as { staticSchema?: Schema[] } | undefined;
   const rejillas = rejillasDePlantilla(plantilla);
@@ -919,13 +922,20 @@ export function materializarRejillas(
     // y apagarlo deja sin las que faltan.
     const { marco, renglones: rayarRenglones, columnas: rayarColumnas, grosor } = rejilla.contorno;
     if (marco || rayarRenglones || rayarColumnas) {
-      const arriba = rejilla.yPrimerRenglon;
-      const fondo = yPrimerDato + cabidas * altoRenglon;
-      const izquierda = rejilla.columnas[0]?.x ?? rejilla.x;
-      const ultima = rejilla.columnas[rejilla.columnas.length - 1];
-      const derecha = ultima ? ultima.x + ultima.ancho : rejilla.x + rejilla.ancho;
-      const ancho = derecha - izquierda;
-      const alto = fondo - arriba;
+      // El marco es LA CAJA DEL CUADRO, no el contorno de lo escrito.
+      //
+      // Antes se dibujaba de la primera columna a la última y del primer
+      // renglón al último con cifras: salía un rectángulo apretado alrededor
+      // de los números, que se encogía cuando la factura traía un solo tipo
+      // impositivo y no se parecía en nada al recuadro que se había colocado.
+      // El cuadro es el sitio que ocupa en el papel, y ese sitio no depende
+      // de cuántos renglones traiga hoy la factura.
+      const izquierda = rejilla.x;
+      const derecha = rejilla.x + rejilla.ancho;
+      const arriba = rejilla.y;
+      const fondo = rejilla.y + rejilla.alto;
+      const ancho = rejilla.ancho;
+      const alto = rejilla.alto;
 
       const raya = (x: number, y: number, anchoRaya: number, altoRaya: number, n: string) => {
         estaticos.push({
@@ -1023,5 +1033,17 @@ function casillaDeRejilla(
     lineHeight: 1,
     characterSpacing: 0,
     readOnly: true,
+    // Se encoge hasta caber en vez de partirse en dos renglones.
+    //
+    // El renglón de un cuadro tiene la altura que tiene: un valor largo
+    // —«Transferencia bancaria» en la casilla de la forma de pago— se partía
+    // en dos líneas y, como la casilla está centrada en vertical, la mitad
+    // asomaba por encima de la raya de arriba y la otra por debajo de la de
+    // abajo. Encogiendo la letra el renglón sigue siendo un renglón.
+    dynamicFontSize: {
+      min: redondear(Math.max(4.5, tamano * 0.55)),
+      max: redondear(tamano),
+      fit: 'horizontal',
+    },
   } as unknown as Schema;
 }

@@ -33,11 +33,12 @@ import {
   Bold, Check, Copy, Eraser, Eye, EyeOff, GripVertical, Image as ImageIcon,
   Info, Italic, Layers, Lock, Maximize2, Move, Plus, Redo2, Search, Sparkles,
   Rows3,
+  CalendarClock,
   Table2, Tag, Trash2, Type, Undo2, Unlock, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import {
   campoPorClave, camposPorGrupo, COLUMNAS_LINEAS, columnaDeTotal, datosDeEjemplo,
-  COLUMNAS_IMPUESTOS, esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
+  COLUMNAS_IMPUESTOS, COLUMNAS_VENCIMIENTOS, esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
   siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
 import { describirParaIa, fusionarSugerencias } from '@/lib/plantillas/ia';
@@ -69,7 +70,7 @@ interface Props {
 type Ref = string; // `campo:ID` | `zona:ID` | `rejilla:ID` | `tabla`
 
 /** Las herramientas de dibujo de la barra. */
-type ModoDibujo = 'campo' | 'rotulo' | 'zona' | 'rejilla' | null;
+type ModoDibujo = 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'pagos' | null;
 
 type Direccion = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -79,7 +80,7 @@ type Arrastre =
   | { tipo: 'columna-ancho'; px: number; indice: number; anchoIzquierda: number }
   | { tipo: 'rejilla-ancho'; px: number; rejillaId: string; indice: number; anchoIzquierda: number }
   | { tipo: 'columna-orden'; desde: number; sobre: number }
-  | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
+  | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'pagos' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
 
 interface Instantanea {
   campos: CampoDetectado[];
@@ -702,8 +703,11 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         }
       } else if (ancho >= 3 && alto >= 2) {
         marcar();
-        if (arrastre.modo === 'rejilla') {
-          const rejilla = rejillaNueva(`rejilla-${siguienteId.current++}`, { x, y, ancho, alto }, analisis.familia);
+        if (arrastre.modo === 'rejilla' || arrastre.modo === 'pagos') {
+          const rejilla = rejillaNueva(
+            `rejilla-${siguienteId.current++}`, { x, y, ancho, alto }, analisis.familia,
+            arrastre.modo === 'pagos' ? 'vencimientos' : 'impuestos',
+          );
           onCambiar({ rejillas: [...rejillas, rejilla] });
           setSeleccion([`rejilla:${rejilla.id}`]);
         } else if (arrastre.modo === 'zona') {
@@ -870,6 +874,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             {modoDibujo === 'rotulo' && 'Dibuja un recuadro y escribe el texto fijo que quieres añadir al diseño.'}
             {modoDibujo === 'zona' && 'Dibuja un recuadro sobre lo que quieras borrar del diseño original.'}
             {modoDibujo === 'rejilla' && 'Rodea el cuadro de desglose del pie, cabecera incluida. Se rellenará con un renglón por cada tipo impositivo de la factura.'}
+            {modoDibujo === 'pagos' && 'Rodea el cuadro de vencimientos del pie. Se rellenará con la fecha de pago, el plazo, el importe y la forma de pago de cada factura.'}
           </p>
         )}
 
@@ -960,7 +965,9 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                     />
                   ))}
                   {verEtiquetas && (
-                    <span className="campo-caja-etiqueta">Desglose · {caben} renglones</span>
+                    <span className="campo-caja-etiqueta">
+                      {rejilla.fuente === 'vencimientos' ? 'Pagos' : 'Desglose'} · {caben} renglones
+                    </span>
                   )}
                   {activa && seleccion.length === 1 && (
                     <Tiradores onEmpezar={(e, dir) => empezarRedimensionar(e, `rejilla:${rejilla.id}`, dir)} />
@@ -1363,6 +1370,14 @@ function BarraHerramientas(p: PropsBarra) {
           title="Marca el cuadro de desglose del pie: se rellena con un renglón por tipo impositivo"
         >
           <Rows3 size={14} /> Desglose
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${p.modoDibujo === 'pagos' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => alternar('pagos')}
+          title="Marca el cuadro de vencimientos: se rellena con cuándo, cuánto y cómo se paga"
+        >
+          <CalendarClock size={14} /> Pagos
         </button>
         {p.hayTabla && (
           <button
@@ -2519,7 +2534,9 @@ function PanelRejilla({ rejilla, onCambiar, onEliminar }: {
             aria-label={`Dato de la columna ${columna.cabecera || i + 1}`}
           >
             <option value="">— sin dato, se deja en blanco —</option>
-            {COLUMNAS_IMPUESTOS.map(opcion => (
+            {/* Las de su cuadro, no las del otro: en el de pagos no hay
+                ninguna base imponible que asignar. */}
+            {(rejilla.fuente === 'vencimientos' ? COLUMNAS_VENCIMIENTOS : COLUMNAS_IMPUESTOS).map(opcion => (
               <option
                 key={opcion.clave}
                 value={opcion.clave}
