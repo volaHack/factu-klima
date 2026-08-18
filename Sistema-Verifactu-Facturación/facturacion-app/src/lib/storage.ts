@@ -856,6 +856,7 @@ function mapVendedorFromDb(v: any): Vendedor {
     nombre: v.nombre || '',
     activo: v.activo ?? true,
     series: v.series || {},
+    almacenId: v.almacen_id || undefined,
     createdAt: v.created_at || new Date().toISOString(),
     updatedAt: v.updated_at || new Date().toISOString(),
   };
@@ -918,6 +919,7 @@ export async function saveVendedor(vendedor: Vendedor): Promise<void> {
     nombre: vendedor.nombre,
     activo: vendedor.activo,
     series: vendedor.series || {},
+    almacen_id: vendedor.almacenId || null,
     updated_at: new Date().toISOString(),
   };
 

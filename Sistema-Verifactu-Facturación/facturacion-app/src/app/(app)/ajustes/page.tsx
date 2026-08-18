@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor } from '@/lib/storage';
-import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa } from '@/lib/types';
+import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor, getAlmacenes } from '@/lib/storage';
+import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
@@ -83,6 +83,7 @@ export default function AjustesPage() {
   const [stripeForm, setStripeForm] = useState({ secretKey: '', webhookSecret: '', publishableKey: '' });
   const [savingStripe, setSavingStripe] = useState(false);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState('');
   const [nuevoVendedorSerie, setNuevoVendedorSerie] = useState('');
   const [nuevaTarifaNombre, setNuevaTarifaNombre] = useState('');
@@ -107,12 +108,14 @@ export default function AjustesPage() {
 
   useEffect(() => {
     (async () => {
-      const [data, vendList] = await Promise.all([
+      const [data, vendList, almList] = await Promise.all([
         getCompanySettings(),
         getVendedores(),
+        getAlmacenes(),
       ]);
       setSettings(data);
       setVendedores(vendList);
+      setAlmacenes(almList);
       // Borradores iniciales de los porcentajes de impuesto
       setIvaRatesDraft((data.ivaRates?.length ? data.ivaRates : DEFAULT_IVA_RATES).map(r => r));
       setIgicRatesDraft((data.igicRates?.length ? data.igicRates : DEFAULT_IGIC_RATES).map(r => r));
@@ -797,6 +800,7 @@ export default function AjustesPage() {
                   <th>Vendedor</th>
                   <th>Serie Factura</th>
                   <th>Serie Albarán</th>
+                  <th>Almacén</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
@@ -806,7 +810,28 @@ export default function AjustesPage() {
                   <tr key={v.id}>
                     <td style={{ fontWeight: 600 }}>{v.nombre}</td>
                     <td><span className="badge badge-outline">{v.series?.factura_venta || 'Por defecto'}</span></td>
-                    <td><span className="badge badge-outline">{v.series?.albaran_venta || 'Por defecto'}</span></td>
+                    {/* De qué almacén saca género. El comercial de ruta suele
+                        tener el suyo, que es la furgoneta; el de oficina tira
+                        del de la empresa. Se aplica solo al hacer un documento
+                        para un cliente que tenga a este vendedor asignado. */}
+                    <td>
+                      <select
+                        className="form-select form-select-sm"
+                        value={v.almacenId || ''}
+                        aria-label={`Almacén de ${v.nombre}`}
+                        onChange={async e => {
+                          try {
+                            await saveVendedor({ ...v, almacenId: e.target.value || undefined });
+                            await recargarVendedores();
+                          } catch (err) {
+                            toastError('No se pudo cambiar el almacén', err instanceof Error ? err.message : 'Error');
+                          }
+                        }}
+                      >
+                        <option value="">El de la empresa</option>
+                        {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                      </select>
+                    </td>
                     <td>
                       <span className={`badge ${v.activo ? 'badge-activo' : 'badge-inactivo'}`}>
                         {v.activo ? 'Activo' : 'Inactivo'}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { esSellable, tipoDocumento } from './storage';
-import { calculateInvoiceTotals, calculateLineSubtotal } from './utils';
+import { addDays, calculateInvoiceTotals, calculateLineSubtotal } from './utils';
 import { descuentoEfectivo, lineaVacia, unidadesTotales, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
 import { InvoiceStatus, type CompanySettings } from './types';
 
@@ -421,5 +421,26 @@ describe('las unidades sueltas de un documento', () => {
 
   it('mezcla cajas y unidades sueltas en el mismo documento', () => {
     expect(unidadesTotales([linea(2, 24), linea(5)])).toBe(53);
+  });
+});
+
+describe('el vencimiento sigue a la fecha del documento', () => {
+  // Se calculaba una sola vez, al elegir cliente. Si luego se corregía la
+  // fecha de emisión —el albarán es del viernes y se factura el lunes— el
+  // vencimiento se quedaba colgado de la fecha vieja.
+  it('a 30 días desde la fecha que tenga el documento', () => {
+    expect(addDays('2026-08-19', 30)).toBe('2026-09-18');
+  });
+
+  it('mover la emisión un día mueve el vencimiento un día', () => {
+    const antes = addDays('2026-08-19', 30);
+    const despues = addDays('2026-08-22', 30);
+    const dias = (Date.parse(despues) - Date.parse(antes)) / 86_400_000;
+    expect(dias).toBe(3);
+  });
+
+  it('cruza el cambio de mes sin descuadrarse', () => {
+    // Un mes de 31 días y otro de 30: sumar «un mes» a ojo falla aquí.
+    expect(addDays('2026-01-31', 30)).toBe('2026-03-02');
   });
 });

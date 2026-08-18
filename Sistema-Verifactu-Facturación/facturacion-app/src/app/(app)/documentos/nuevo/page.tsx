@@ -3,23 +3,23 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Send, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Send, Plus, Wand2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
-  getAlmacenes,
+  getAlmacenes, getVendedores,
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
-  Almacen,
+  Almacen, Vendedor,
 } from '@/lib/types';
 import {
   generateId, getToday, addDays, calculateInvoiceTotals,
 } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import {
-  lineaVacia, numeroDeDocumento, etiquetaTipo, actualizarContadorSerie,
+  lineaVacia, numeroDeDocumento, etiquetaTipo, actualizarContadorSerie, serieParaCliente,
 } from '@/lib/documentos';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
@@ -55,6 +55,12 @@ function NuevoDocumentoContent() {
   const [notes, setNotes] = useState('');
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [vendedorId, setVendedorId] = useState('');
+  // La serie que impone el vendedor, si tiene una propia. Se resuelve al
+  // elegir cliente y se enseña antes de guardar, porque el número de una
+  // factura no puede ser una sorpresa.
+  const [serieVendedor, setSerieVendedor] = useState<{ serie: string; nextNumber: number } | null>(null);
   const { success, error: toastError } = useToast();
 
   const selectedClient = useMemo(() => clients.find(c => c.id === clientId), [clients, clientId]);
@@ -62,16 +68,18 @@ function NuevoDocumentoContent() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes] = await Promise.all([
+        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores] = await Promise.all([
           getCompanySettings(),
           getProducts(),
           sentidoParam === 'compra' ? getProveedores() : getClients(),
           getAlmacenes(),
+          getVendedores(),
         ]);
         setSettings(loadedSettings);
         setProducts(loadedProducts);
         setClients(loadedClients);
         setAlmacenes(loadedAlmacenes);
+        setVendedores(loadedVendedores);
 
         const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
         if (principalAlm) {
@@ -105,12 +113,36 @@ function NuevoDocumentoContent() {
       if (client.defaultPaymentMethod) {
         setPaymentMethod(client.defaultPaymentMethod);
       }
+
+      // El vendedor asignado al cliente, y con él dos cosas que hasta ahora
+      // había que acordarse de poner a mano en cada documento: su almacén y
+      // su serie. La serie por vendedor estaba programada desde hacía tiempo
+      // y no la usaba nadie, así que todos los documentos salían con la serie
+      // de la empresa aunque el vendedor tuviera la suya.
+      setVendedorId(client.vendedorId || '');
+      const vendedor = vendedores.find(v => v.id === client.vendedorId);
+      if (vendedor?.almacenId) setAlmacenId(vendedor.almacenId);
+      void serieParaCliente(client.id, tipo, sentido).then(setSerieVendedor);
     } else {
       setClientName('');
       setClientNif('');
       setClientAddress('');
       setTarifaId('');
+      setVendedorId('');
+      setSerieVendedor(null);
     }
+  };
+
+  // Cambiar la fecha del documento mueve también el vencimiento.
+  //
+  // Antes se calculaba una sola vez, al elegir el cliente. Si luego se
+  // corregía la fecha de emisión —cosa que se hace a diario, porque el
+  // albarán es del viernes y se factura el lunes— el vencimiento se quedaba
+  // colgado de la fecha vieja y salía a 33 días en vez de a 30.
+  const cambiarFechaEmision = (fecha: string) => {
+    setIssueDate(fecha);
+    const dias = selectedClient?.paymentDays;
+    if (dias) setDueDate(addDays(fecha, dias));
   };
 
   const totals = useMemo(
@@ -131,7 +163,11 @@ function NuevoDocumentoContent() {
 
     setSaving(true);
     try {
-      const { series, number } = numeroDeDocumento(settings, tipo, sentido);
+      // La serie del vendedor manda sobre la de la empresa: si el comercial
+      // tiene la suya, sus documentos van en ella.
+      const { series, number } = serieVendedor
+        ? { series: serieVendedor.serie, number: `${serieVendedor.serie}-${new Date(issueDate).getFullYear()}-${String(serieVendedor.nextNumber).padStart(4, '0')}` }
+        : numeroDeDocumento(settings, tipo, sentido);
       const now = new Date().toISOString();
 
       const lineItemsWithCosts: InvoiceLineItem[] = lineItems.map(li => {
@@ -154,6 +190,7 @@ function NuevoDocumentoContent() {
         clientAddress,
         tarifaId: tarifaId || undefined,
         almacenId: almacenId || undefined,
+        vendedorId: vendedorId || undefined,
         globalDiscountPercent1: globalDiscounts[0] || 0,
         globalDiscountPercent2: globalDiscounts[1] || 0,
         globalDiscountPercent3: globalDiscounts[2] || 0,
@@ -318,7 +355,7 @@ function NuevoDocumentoContent() {
                 type="date"
                 className="form-input"
                 value={issueDate}
-                onChange={e => setIssueDate(e.target.value)}
+                onChange={e => cambiarFechaEmision(e.target.value)}
               />
             </div>
             {(tipo === 'pedido' || tipo === 'albaran' || tipo === 'factura') && (
@@ -330,9 +367,33 @@ function NuevoDocumentoContent() {
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
                 />
+                {selectedClient?.paymentDays ? (
+                  <p className="form-hint">A {selectedClient.paymentDays} días, como tiene puesto el cliente.</p>
+                ) : null}
               </div>
             )}
           </div>
+
+          {/* Lo que se ha rellenado solo, dicho en voz alta.
+              Un formulario que decide por su cuenta y no lo cuenta da más
+              miedo que uno que no decide nada, sobre todo si lo que decide
+              es la serie con la que va a salir numerada la factura. */}
+          {(serieVendedor || vendedorId) && (
+            <p className="doc-automatico">
+              <Wand2 size={14} />
+              <span>
+                {vendedorId && (
+                  <>Vendedor <strong>{vendedores.find(v => v.id === vendedorId)?.nombre}</strong></>
+                )}
+                {serieVendedor && (
+                  <> · serie <strong>{serieVendedor.serie}</strong>, nº {String(serieVendedor.nextNumber).padStart(4, '0')}</>
+                )}
+                {almacenes.find(a => a.id === almacenId) && (
+                  <> · almacén <strong>{almacenes.find(a => a.id === almacenId)!.nombre}</strong></>
+                )}
+              </span>
+            </p>
+          )}
 
           <div className="form-row">
             {(tipo === 'pedido' || tipo === 'albaran' || tipo === 'factura') && (

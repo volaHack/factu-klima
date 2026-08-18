@@ -65,6 +65,10 @@
   --bg-elevated: #ffffff;
   --bg-input: #ffffff;
   --bg-overlay: rgba(23, 15, 18, 0.45);
+  /* La barra de arriba va translúcida con desenfoque por detrás, así que
+     necesita su propio color: un token opaco taparía el efecto y el mismo
+     con alfa sobre otro fondo daría un tono distinto. */
+  --bg-header: rgba(251, 246, 242, 0.82);
 
   /* Theme Dynamic Tokens (Default Rose) */
   --accent-50: #fdeef2;
@@ -273,6 +277,9 @@ body.theme-plum {
   --bg-elevated: #2b1e23;
   --bg-input: #161013;
   --bg-overlay: rgba(10, 6, 8, 0.66);
+  /* Más opaca que la clara: sobre fondo oscuro, el contenido que pasa por
+     debajo se transparenta mucho más y se lee a través de la barra. */
+  --bg-header: rgba(33, 22, 25, 0.88);
 
   /* Acento rosa, aclarado para que se lea sobre oscuro. Aquí --accent-300
      hace de "aclarar al pasar el ratón", el papel inverso al que tiene en
@@ -647,7 +654,7 @@ a:hover { color: var(--accent-300); }
   top: 0; right: 0;
   left: var(--sidebar-width);
   height: var(--header-height);
-  background: rgba(251, 246, 242, 0.82);
+  background: var(--bg-header);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border-color);
@@ -2039,8 +2046,8 @@ a:hover { color: var(--accent-300); }
 .approval-item:hover {
   box-shadow: var(--shadow-md);
 }
-.approval-item.accepted { border-color: rgba(16, 185, 129, 0.35); background: rgba(240, 253, 244, 0.4); }
-.approval-item.rejected { border-color: rgba(239, 68, 68, 0.35); background: rgba(254, 242, 242, 0.6); }
+.approval-item.accepted { border-color: rgba(16, 185, 129, 0.35); background: var(--color-success-bg); }
+.approval-item.rejected { border-color: rgba(239, 68, 68, 0.35); background: var(--color-danger-bg); }
 
 .approval-item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .approval-item-info { display: flex; flex-direction: column; gap: 3px; }
@@ -2097,10 +2104,10 @@ a:hover { color: var(--accent-300); }
   width: 100%; padding: 10px 14px;
   border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-lg);
   font-family: var(--font-family); font-size: var(--text-xs);
-  background: rgba(254, 242, 242, 0.8); color: var(--text-primary, #0f172a);
+  background: var(--color-danger-bg); color: var(--text-primary);
   transition: all var(--transition-fast);
 }
-.approval-item-reason input::placeholder { color: #fca5a5; }
+.approval-item-reason input::placeholder { color: var(--text-muted); }
 .approval-item-reason input:focus { outline: none; border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
 
 .approval-summary {
@@ -8353,3 +8360,22 @@ a.stats-item:focus-visible {
   color: var(--color-warning);
   vertical-align: middle;
 }
+
+/* Lo que el formulario ha rellenado por su cuenta, dicho en voz alta.
+   Un formulario que decide solo y no lo cuenta da más miedo que uno que no
+   decide nada, sobre todo si lo que decide es la serie de la factura. */
+.doc-automatico {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--accent-50);
+  border: 1px solid var(--accent-200);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.doc-automatico strong { color: var(--text-primary); }
+.doc-automatico svg { flex-shrink: 0; color: var(--accent-500); }

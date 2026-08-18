@@ -335,6 +335,12 @@ export interface Vendedor {
   activo: boolean;
   /** Serie propia por tipo de documento; si falta, usa la de la empresa. */
   series: Partial<Record<string, string>>; // clave `${tipo}_${sentido}` -> serie
+  /**
+   * Almacén del que saca género este comercial. Vacío si trabaja contra el
+   * de la empresa, que es lo corriente en oficina; el de ruta suele tener el
+   * suyo, que es la furgoneta.
+   */
+  almacenId?: string;
   createdAt: string;
   updatedAt: string;
 }
