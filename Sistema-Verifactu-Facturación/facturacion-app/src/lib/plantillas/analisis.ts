@@ -149,16 +149,10 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
   // Dejar un hueco en blanco es peor de ver pero mejor de todas las demás
   // maneras, y tiene arreglo: en el revisor se marca el campo como fijo y
   // vuelve a salir impreso tal cual estaba.
-  // Medio milímetro de más a los lados de cada campo. La caja se calcula a
-  // partir de dónde dice el PDF que empieza el texto, y el trazo de la
-  // primera letra suele asomar una pizca por delante: sin este margen queda
-  // un pellizco de la «B» del NIF anterior pegado al NIF nuevo. Sólo se
-  // aplica a los campos: el marco de la tabla y las zonas que el usuario tapa
-  // a mano se borran exactamente donde dicen.
-  const MARGEN = 0.5;
+  const deCampos = analisis.campos.filter(c => !c.fijo).length;
   const zonas: Zona[] = analisis.campos
     .filter(c => !c.fijo)
-    .map(c => ({ x: c.x - MARGEN, y: c.y, ancho: c.ancho + MARGEN * 2, alto: c.alto }));
+    .map(c => ({ x: c.x, y: c.y, ancho: c.ancho, alto: c.alto }));
 
   if (analisis.tabla) {
     // La tabla se borra entera, cabecera incluida: la vuelve a pintar pdfme
@@ -176,7 +170,32 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
 
   zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));
 
-  return ajustarAlTexto(zonas, analisis);
+  // Un poco de holgura alrededor de cada campo, y AL FINAL.
+  //
+  // La caja de un campo se calcula a partir de dónde dice el PDF que empieza
+  // el texto, y el trazo de la primera letra suele asomar una pizca por
+  // delante: sin holgura queda un pellizco de la «B» del NIF anterior pegado
+  // al NIF nuevo, o el punto de una cifra del cuadro de impuestos.
+  //
+  // Se aplica después de `ajustarAlTexto` a propósito. Estirando primero, una
+  // zona ensanchada llega a contener por completo el texto de al lado y el
+  // ajuste se lo lleva por delante: bastaba ese milímetro para que borrara un
+  // campo marcado como fijo, que es justo lo que el usuario pidió conservar.
+  //
+  // Y sólo a los campos: el marco de la tabla y las zonas que el usuario tapa
+  // a mano se borran exactamente donde dicen.
+  const HOLGURA_LATERAL = 1;
+  const HOLGURA_VERTICAL = 0.4;
+  return ajustarAlTexto(zonas, analisis).map((zona, indice) => (
+    indice < deCampos
+      ? {
+          x: zona.x - HOLGURA_LATERAL,
+          y: zona.y - HOLGURA_VERTICAL,
+          ancho: zona.ancho + HOLGURA_LATERAL * 2,
+          alto: zona.alto + HOLGURA_VERTICAL * 2,
+        }
+      : zona
+  ));
 }
 
 /**

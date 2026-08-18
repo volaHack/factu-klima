@@ -140,9 +140,15 @@ describe('zonas que se borran', () => {
     expect(zonas.some(z => z.y === 200 && z.ancho === 40)).toBe(true);
   });
 
-  it('borra los datos de muestra sin mapear que quedan bajo la tabla', () => {
-    // Desgloses y filas de totales sin asignar no se rellenan con datos
-    // reales: deben borrarse del calco o aparecen impresos bajo las líneas.
+  it('borra todo dato de la muestra que no esté marcado como fijo', () => {
+    // Un campo sin clave es un dato de la factura de muestra que no sabemos a
+    // qué corresponde y que nadie va a rellenar. Si no se borra, queda
+    // impreso en TODAS las facturas que se emitan con esta plantilla: con los
+    // datos de la empresa sólo queda feo, con los del cliente de la muestra
+    // es enseñarle a un cliente los datos de otro.
+    //
+    // Marcar el campo como fijo en el revisor es lo que lo conserva, y es la
+    // única excepción.
     const analisis = analisisConTabla(15);
     analisis.campos = [
       { clave: 'total_general', valorOriginal: '100,00 €', x: 170, y: 200, ancho: 20, alto: 4, fijo: false },
@@ -151,13 +157,15 @@ describe('zonas que se borran', () => {
       { clave: null, valorOriginal: '10,00 €', x: 170, y: 130, ancho: 15, alto: 4, fijo: true },
     ] as unknown as CampoDetectado[];
     const zonas = zonasABorrar(analisis);
-    const finTabla = 88 + 15;
-    const borradas = zonas.filter(z => z.y > finTabla);
-    // El desglose (y=120) y la fila de totales (y=200) se borran…
-    expect(borradas.some(z => z.y === 120)).toBe(true);
-    expect(borradas.some(z => z.y === 200)).toBe(true);
-    // …pero ni el dato por encima de la tabla ni el marcado como fijo.
-    expect(borradas.some(z => z.y === 60)).toBe(false);
-    expect(borradas.some(z => z.y === 130)).toBe(false);
+    // Las zonas llevan holgura alrededor del texto, así que se comprueba que
+    // lo cubran, no que coincidan al milímetro con su caja.
+    const cubre = (y: number) => zonas.some(z => z.y <= y && z.y + z.alto >= y + 4);
+    // El total (y=200), el desglose sin asignar (y=120) y la nota suelta de
+    // la cabecera (y=60) se borran…
+    expect(cubre(200)).toBe(true);
+    expect(cubre(120)).toBe(true);
+    expect(cubre(60)).toBe(true);
+    // …y el que el usuario marcó como fijo se queda impreso.
+    expect(cubre(130)).toBe(false);
   });
 });

@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import {
   campoPorClave, camposPorGrupo, COLUMNAS_LINEAS, datosDeEjemplo,
-  esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada,
+  esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
   siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
 import {
@@ -680,6 +680,11 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
   const cajaDibujo = arrastre?.tipo === 'dibujar' ? arrastre : null;
   const asignadas = new Set(campos.map(c => c.clave).filter(Boolean) as string[]);
+  // Un recuento por cada columna propia de la tabla: la casilla «CAJAS» del
+  // pie es la suma de la columna «CAJ.» de las líneas.
+  const recuentosDeColumna = (tabla?.columnas ?? [])
+    .filter(c => c.clave && esColumnaPersonalizada(c.clave))
+    .map(c => ({ clave: totalDeColumna(c.clave!)!, cabecera: c.cabecera || c.clave! }));
   const sinAsignar = campos.filter(c => !c.clave && !c.fijo).length;
 
   /** Tamaño en píxeles de pantalla de un texto medido en puntos tipográficos. */
@@ -714,6 +719,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           <BarraCampo
             campo={camposSeleccionados[0]}
             asignadas={asignadas}
+            recuentosDeColumna={recuentosDeColumna}
             onAsignar={(clave) => asignarClave(camposSeleccionados[0].id, clave)}
             onFijar={() => { marcar(); actualizarCampo(camposSeleccionados[0].id, { fijo: true, clave: null }); }}
             onCambiar={(cambios) => { marcar(); actualizarCampo(camposSeleccionados[0].id, cambios); }}
@@ -920,6 +926,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       <div className="plantilla-panel">
         {campoActivo && (
           <PanelCampo
+            recuentosDeColumna={recuentosDeColumna}
             campo={campoActivo}
             asignadas={asignadas}
             onAsignar={(clave) => asignarClave(campoActivo.id, clave)}
@@ -1193,9 +1200,11 @@ function BarraHerramientas(p: PropsBarra) {
 // BARRA FLOTANTE DE UN CAMPO
 // ============================================================
 
-function SelectorDeClave({ campo, asignadas, onAsignar, onFijar, ancho }: {
+function SelectorDeClave({ campo, asignadas, recuentosDeColumna, onAsignar, onFijar, ancho }: {
   campo: CampoDetectado;
   asignadas: Set<string>;
+  /** `total_col_N` por cada columna propia de la tabla, con su cabecera. */
+  recuentosDeColumna: { clave: string; cabecera: string }[];
   onAsignar: (clave: string | null) => void;
   onFijar: () => void;
   ancho?: string;
@@ -1225,13 +1234,28 @@ function SelectorDeClave({ campo, asignadas, onAsignar, onFijar, ancho }: {
           ))}
         </optgroup>
       ))}
+      {/* Recuentos de las columnas propias de esta plantilla. Es lo que hace
+          que la casilla «CAJAS» de un impreso de reparto salga sola: suma la
+          columna «CAJ.» de las líneas. Sirve igual para bultos, palés, kilos
+          u horas, según lo que tenga la tabla de cada negocio. */}
+      {recuentosDeColumna.length > 0 && (
+        <optgroup label="Recuentos de la tabla">
+          {recuentosDeColumna.map(opcion => (
+            <option key={opcion.clave} value={opcion.clave}>
+              Total de «{opcion.cabecera}»
+              {asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' · en uso' : ''}
+            </option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }
 
-function BarraCampo({ campo, asignadas, onAsignar, onFijar, onCambiar, onDuplicar, onEliminar }: {
+function BarraCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onFijar, onCambiar, onDuplicar, onEliminar }: {
   campo: CampoDetectado;
   asignadas: Set<string>;
+  recuentosDeColumna: { clave: string; cabecera: string }[];
   onAsignar: (clave: string | null) => void;
   onFijar: () => void;
   onCambiar: (cambios: Partial<CampoDetectado>) => void;
@@ -1241,7 +1265,7 @@ function BarraCampo({ campo, asignadas, onAsignar, onFijar, onCambiar, onDuplica
   return (
     <div className="plantilla-toolbar-canva animate-fade-in">
       <div className="plantilla-toolbar-grupo">
-        <SelectorDeClave campo={campo} asignadas={asignadas} onAsignar={onAsignar} onFijar={onFijar} ancho="180px" />
+        <SelectorDeClave campo={campo} asignadas={asignadas} recuentosDeColumna={recuentosDeColumna} onAsignar={onAsignar} onFijar={onFijar} ancho="180px" />
       </div>
 
       <div className="plantilla-toolbar-grupo">
@@ -1518,9 +1542,10 @@ function CajaNumerica({ caja, onCambiar }: {
   );
 }
 
-function PanelCampo({ campo, asignadas, onAsignar, onCambiar, onEliminar, onDuplicar }: {
+function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar, onEliminar, onDuplicar }: {
   campo: CampoDetectado;
   asignadas: Set<string>;
+  recuentosDeColumna: { clave: string; cabecera: string }[];
   onAsignar: (clave: string | null) => void;
   onCambiar: (cambios: Partial<CampoDetectado>) => void;
   onEliminar: () => void;
@@ -1584,6 +1609,7 @@ function PanelCampo({ campo, asignadas, onAsignar, onCambiar, onEliminar, onDupl
             <SelectorDeClave
               campo={campo}
               asignadas={asignadas}
+              recuentosDeColumna={recuentosDeColumna}
               onAsignar={onAsignar}
               onFijar={() => onCambiar({ fijo: true, clave: null, texto: campo.texto ?? campo.valorOriginal })}
             />

@@ -47,6 +47,29 @@ export interface CampoPlantilla {
 // CAMPOS SUELTOS
 // ============================================================
 
+/**
+ * Cuántos renglones de desglose de impuestos admite una plantilla.
+ *
+ * Cuatro cubre cualquier factura española —los tres tipos de IVA más el
+ * recargo de equivalencia, o los cuatro de IGIC— y es además el número de
+ * renglones que traen impresos los talonarios que hemos visto.
+ */
+export const RENGLONES_IMPUESTO = 4;
+
+function desgloseDeImpuestos(): CampoPlantilla[] {
+  const campos: CampoPlantilla[] = [];
+  for (let n = 1; n <= RENGLONES_IMPUESTO; n++) {
+    const orden = n === 1 ? 'primer' : n === 2 ? 'segundo' : n === 3 ? 'tercer' : 'cuarto';
+    campos.push(
+      { clave: `impuesto_${n}_nombre`, etiqueta: `Impuesto ${n}: nombre`, descripcion: `Nombre del ${orden} tipo impositivo`, grupo: 'totales', tipo: 'texto', ejemplo: n === 1 ? 'I.G.I.C.' : '' },
+      { clave: `impuesto_${n}_base`, etiqueta: `Impuesto ${n}: base`, descripcion: `Base imponible del ${orden} tipo`, grupo: 'totales', tipo: 'texto', ejemplo: n === 1 ? '109,03 €' : '' },
+      { clave: `impuesto_${n}_pct`, etiqueta: `Impuesto ${n}: %`, descripcion: `Porcentaje del ${orden} tipo`, grupo: 'totales', tipo: 'texto', ejemplo: n === 1 ? '3,0' : '' },
+      { clave: `impuesto_${n}_cuota`, etiqueta: `Impuesto ${n}: cuota`, descripcion: `Cuota del ${orden} tipo`, grupo: 'totales', tipo: 'texto', ejemplo: n === 1 ? '3,27 €' : '' },
+    );
+  }
+  return campos;
+}
+
 export const CAMPOS: CampoPlantilla[] = [
   // --- Emisor ---
   { clave: 'empresa_nombre', etiqueta: 'Nombre de tu empresa', descripcion: 'Nombre comercial (o razón social si no hay comercial)', grupo: 'empresa', tipo: 'texto', ejemplo: 'Distribuciones Ejemplo' },
@@ -103,6 +126,23 @@ export const CAMPOS: CampoPlantilla[] = [
   { clave: 'total_general', etiqueta: 'Total', descripcion: 'Total del documento', grupo: 'totales', tipo: 'texto', ejemplo: '1.512,50 €' },
   { clave: 'total_impuesto_nombre', etiqueta: 'Nombre del impuesto', descripcion: 'IVA o IGIC, según el régimen configurado', grupo: 'totales', tipo: 'texto', ejemplo: 'IVA' },
   { clave: 'total_desglose', etiqueta: 'Desglose de impuestos', descripcion: 'Una línea por tipo impositivo, p. ej. «IVA 21% sobre 1.250,00 € — 262,50 €»', grupo: 'totales', tipo: 'texto', ejemplo: 'IVA 21% sobre 1.250,00 € — 262,50 €' },
+
+  // --- Recuentos ---
+  //
+  // Los impresos de reparto llevan casillas de recuento al pie: «CAJAS»,
+  // «UNIDADES», «BULTOS», «Nº de líneas». Se calculan solos a partir de las
+  // líneas de la factura; el usuario sólo tiene que decir qué casilla es cuál.
+  { clave: 'total_lineas', etiqueta: 'Nº de líneas', descripcion: 'Cuántas líneas tiene el documento', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
+  { clave: 'total_unidades', etiqueta: 'Total de unidades', descripcion: 'Suma de las cantidades de todas las líneas', grupo: 'totales', tipo: 'texto', ejemplo: '196' },
+  { clave: 'total_peso', etiqueta: 'Peso total', descripcion: 'Suma de la columna de peso, si la plantilla la tiene', grupo: 'totales', tipo: 'texto', ejemplo: '45,5' },
+
+  // --- Desglose por tipo impositivo, casilla a casilla ---
+  //
+  // La rejilla «IMPUESTO / BASE IMP. / % / CUOTA» de los impresos tiene un
+  // número fijo de renglones pintados. Cada casilla es un campo con su sitio,
+  // y se rellena sola con el desglose de la factura: el primer tipo en el
+  // primer renglón, el segundo en el segundo, y los que sobren en blanco.
+  ...desgloseDeImpuestos(),
 
   // --- Sello Veri*Factu ---
   { clave: 'verifactu_huella', etiqueta: 'Huella Veri*Factu', descripcion: 'Huella SHA-256 encadenada completa', grupo: 'verifactu', tipo: 'texto', ejemplo: '' },
@@ -211,6 +251,34 @@ export function siguienteColumnaPersonalizada(usadas: Iterable<string>): string 
 
 export function columnaDeLineas(clave: string): ColumnaTabla | undefined {
   return COLUMNAS_LINEAS.find(c => c.clave === clave);
+}
+
+const RE_TOTAL_DE_COLUMNA = /^total_col_(\d+)$/;
+
+/**
+ * Total de una columna de la tabla, sumando lo que traiga cada línea.
+ *
+ * Es lo que hace que la casilla «CAJAS» de un impreso de reparto funcione sin
+ * saber nada de cajas. La columna «CAJ.» de ese impreso no corresponde a
+ * ningún concepto nuestro y se guarda como `custom_col_1`; su casilla de
+ * recuento al pie es entonces `total_col_1`, y se calcula sumando la columna.
+ * El mismo mecanismo vale para bultos, palés, kilos, horas o metros: sirve
+ * para el negocio que sea porque no supone nada sobre lo que se factura.
+ */
+export function esTotalDeColumna(clave: string): boolean {
+  return RE_TOTAL_DE_COLUMNA.test(clave);
+}
+
+/** `total_col_1` → `custom_col_1`, la columna cuya suma imprime. */
+export function columnaDeTotal(clave: string): string | null {
+  const m = clave.match(RE_TOTAL_DE_COLUMNA);
+  return m ? `custom_col_${m[1]}` : null;
+}
+
+/** `custom_col_1` → `total_col_1`. */
+export function totalDeColumna(claveColumna: string): string | null {
+  const m = claveColumna.match(RE_COLUMNA_PERSONALIZADA);
+  return m ? `total_col_${m[1]}` : null;
 }
 
 export function columnaDeImpuestos(clave: string): ColumnaTabla | undefined {

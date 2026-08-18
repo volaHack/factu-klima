@@ -343,3 +343,66 @@ describe('etiqueta y valor dentro del mismo trozo de texto', () => {
     expect(nif!.x).toBeGreaterThan(124);
   });
 });
+
+describe('el cuadro de impuestos y las casillas de recuento del pie', () => {
+  /** Pie de un impreso de reparto: rejilla de impuestos y recuentos al lado. */
+  function pieDeImpreso(): ItemTexto[] {
+    return [
+      // La tabla de líneas, para que existan las columnas del recuento.
+      ...tablaCon(
+        [['CÓDIGO', 13], ['DESCRIPCIÓN', 40], ['CAJ.', 100], ['UDES.', 120], ['TOTAL', 170]],
+        [
+          [['PRD-1', 13], ['Leche', 40], ['4', 100], ['96', 120], ['80,00', 170]],
+          [['PRD-2', 13], ['Galletas', 40], ['5', 100], ['100', 120], ['82,00', 170]],
+        ],
+      ),
+      // Y el cuadro del pie.
+      texto('IMPUESTO', 13.8, 212.3, 9, NEGRITA),
+      texto('BASE IMP.', 48.3, 212.3, 9, NEGRITA),
+      texto('%', 71, 212.3, 9, NEGRITA),
+      texto('CUOTA', 88.8, 212.3, 9, NEGRITA),
+      texto('I.G.I.C.', 13.1, 218.7), texto('15,00', 57.7, 218.8), texto('0,0', 72.7, 218.8), texto('0,00', 94.3, 218.8),
+      texto('I.G.I.C.', 13.1, 223.7), texto('109,03', 56, 223.7), texto('3,0', 72.7, 223.7), texto('3,27', 94.3, 223.7),
+      texto('I.G.I.C.', 13.1, 228.7), texto('14,93', 57.7, 228.7), texto('7,0', 72.7, 228.7), texto('1,05', 94.3, 228.7),
+      // Casillas de recuento, en su propia columna a la derecha.
+      texto('CAJAS', 108.1, 214.5),
+      texto('9,00', 112.8, 217.2),
+      texto('UNIDADES', 108.1, 221.3),
+      texto('196,00', 111, 225.9),
+    ];
+  }
+
+  it('reparte la rejilla por renglones, uno por tipo impositivo', () => {
+    // Sin esto las cifras eran datos sueltos que nadie sabía rellenar: se
+    // borraban del calco y el cuadro salía vacío en todas las facturas, con
+    // el desglose de impuestos —que es obligatorio— sin imprimir.
+    const c = claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }));
+    expect(c.impuesto_1_base).toBe('15,00');
+    expect(c.impuesto_1_pct).toBe('0,0');
+    expect(c.impuesto_1_cuota).toBe('0,00');
+    expect(c.impuesto_2_base).toBe('109,03');
+    expect(c.impuesto_3_cuota).toBe('1,05');
+  });
+
+  it('no cuenta como renglón lo que está fuera de las columnas del cuadro', () => {
+    // «CAJAS» y «UNIDADES» van a la derecha de la rejilla, en sus propias
+    // filas. Contarlas descolocaba el desglose: el segundo tipo impositivo
+    // acababa impreso en el tercer renglón.
+    const c = claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }));
+    expect(c.impuesto_2_base).toBe('109,03');
+    expect(c.impuesto_4_base).toBeUndefined();
+  });
+
+  it('ata la casilla «CAJAS» a la suma de la columna «CAJ.»', () => {
+    // El impreso no dice de qué es el recuento; lo dice la tabla. Así el
+    // mecanismo vale para palés, horas o metros sin saber nada de cajas.
+    const analisis = detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES });
+    const cajas = analisis.tabla!.columnas.find(col => col.cabecera === 'CAJ.');
+    expect(cajas!.clave).toMatch(/^custom_col_\d+$/);
+    expect(claves(analisis).total_col_1).toBe('9,00');
+  });
+
+  it('reconoce «UNIDADES» como el total de la columna de cantidad', () => {
+    expect(claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES })).total_unidades).toBe('196,00');
+  });
+});

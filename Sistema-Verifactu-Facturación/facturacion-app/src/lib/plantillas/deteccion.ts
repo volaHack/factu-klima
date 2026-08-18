@@ -25,7 +25,10 @@
  */
 
 import type { CompanySettings } from '../types';
-import { COLUMNAS_LINEAS, siguienteColumnaPersonalizada } from './contrato';
+import {
+  COLUMNAS_LINEAS, esColumnaPersonalizada, RENGLONES_IMPUESTO,
+  siguienteColumnaPersonalizada, totalDeColumna,
+} from './contrato';
 import type {
   Alineacion,
   AnalisisPdf,
@@ -849,14 +852,25 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     return true;
   };
 
-  // --- 2. Etiquetas con su valor ---
+  const filasFuera = pagina.lineas.filter(l => !consumidas.has(l));
+
+  // --- 2. Cuadros con estructura: rejilla de impuestos y recuentos ---
+  //
+  // Antes que las etiquetas sueltas, porque son una señal más fuerte. Una
+  // fila con dos o más títulos de un cuadro («BASE IMP.», «%», «CUOTA») dice
+  // mucho más que la palabra «CUOTA» encontrada por su cuenta: sin este
+  // orden, la búsqueda de «etiqueta encima, dato debajo» se llevaba la
+  // primera celda del cuadro como si fuera el total de impuestos de la
+  // factura, y el desglose salía descolocado.
+  detectarRejillaDeImpuestos(filasFuera, usadas, registrar);
+  detectarRecuentos(fuera, usadas, tabla, registrar);
+
+  // --- 3. Etiquetas con su valor ---
   //
   // Tres colocaciones, que son las tres que se usan en las facturas reales:
   //   «Fecha: 12/01/2026»      → todo junto, separado por dos puntos
   //   «Fecha:    12/01/2026»   → etiqueta y valor separados, misma altura
   //   «FECHA» / «12/01/2026»   → etiqueta encima del dato, en una caja
-  const filasFuera = pagina.lineas.filter(l => !consumidas.has(l));
-
   // a) Etiqueta y valor dentro del mismo trozo de texto.
   for (const segmento of fuera) {
     if (usadas.has(segmento)) continue;
@@ -918,10 +932,10 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     usadas.add(segmento);
   }
 
-  // --- 3. Bloques de emisor y cliente ---
+  // --- 4. Bloques de emisor y cliente ---
   detectarBloques(fuera, usadas, opciones.ajustes ?? null, registrar, avisos);
 
-  // --- 4. Datos sueltos sin etiqueta ---
+  // --- 5. Datos sueltos sin etiqueta ---
   for (const linea of fuera) {
     if (usadas.has(linea)) continue;
     const texto = linea.texto.trim();
@@ -946,7 +960,7 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     registrar(campoDesde(linea.items, clave, confianza, motivo, ''), linea);
   }
 
-  // --- 5. Comprobaciones finales ---
+  // --- 6. Comprobaciones finales ---
   if (!yaAsignadas.has('doc_numero')) {
     avisos.push({ nivel: 'aviso', texto: 'No se ha localizado el número de factura. Asígnalo antes de guardar o saldrá en blanco.' });
   }
@@ -1198,6 +1212,200 @@ function detectarBloques(
 
   if (emisor) asignarBloque(emisor, 'empresa', registrar, esDelEmisor(emisor) ? 0.9 : 0.6, usadas);
   if (cliente) asignarBloque(cliente, 'cliente', registrar, 0.75, usadas);
+}
+
+/**
+ * LAS CASILLAS DE RECUENTO DEL PIE
+ *
+ * Los impresos de reparto llevan al pie casillas sueltas con un total:
+ * «CAJAS 9,00», «UNIDADES 196,00», a veces «BULTOS» o «KILOS». No son un dato
+ * más de la factura: son la SUMA de una columna de las líneas, y por eso se
+ * calculan solas (ver `recuentos` en `datos.ts`).
+ *
+ * Cuál columna se averigua comparando el rótulo con las cabeceras de la
+ * tabla: «CAJAS» al pie con la columna «CAJ.» de arriba. Es lo que hace que
+ * funcione en cualquier negocio sin saber nada de cajas —con «PALÉS», «HORAS»
+ * o «METROS» hace exactamente lo mismo—, porque no supone nada sobre lo que
+ * se factura: sólo suma la columna que el propio impreso dice.
+ */
+const RECUENTOS: { re: RegExp; clave: string }[] = [
+  { re: /^(n\.? ?)?(unidades|uds|udes|total unidades)\.?$/, clave: 'total_unidades' },
+  { re: /^(n\.? ?)?(lineas|total lineas|referencias|articulos)\.?$/, clave: 'total_lineas' },
+  { re: /^(peso|peso total|kilos|kgs?)\.?$/, clave: 'total_peso' },
+  // Sin clave fija: se resuelve contra las columnas de la tabla.
+  { re: /^(n\.? ?)?(cajas|caj|bultos|palets|pales|paquetes|envases|horas|metros|litros)\.?$/, clave: '' },
+];
+
+function detectarRecuentos(
+  segmentos: SegmentoTexto[],
+  usadas: Set<SegmentoTexto>,
+  tabla: TablaDetectada | null,
+  registrar: Registrador,
+): void {
+  /** La columna de la tabla que empieza igual que el rótulo del pie. */
+  const columnaQueEncaja = (rotulo: string): string | null => {
+    if (!tabla) return null;
+    const raiz = normalizar(rotulo).replace(/[^a-z]/g, '').slice(0, 3);
+    if (raiz.length < 3) return null;
+    for (const columna of tabla.columnas) {
+      if (!columna.clave) continue;
+      const cabecera = normalizar(columna.cabecera).replace(/[^a-z]/g, '');
+      if (!cabecera.startsWith(raiz) && !raiz.startsWith(cabecera.slice(0, 3))) continue;
+      if (esColumnaPersonalizada(columna.clave)) return totalDeColumna(columna.clave);
+      if (columna.clave === 'cantidad') return 'total_unidades';
+    }
+    return null;
+  };
+
+  for (const rotulo of segmentos) {
+    if (usadas.has(rotulo)) continue;
+    const n = normalizar(rotulo.texto.replace(/[:\s]+$/, ''));
+    const regla = RECUENTOS.find(r => r.re.test(n));
+    if (!regla) continue;
+
+    const clave = regla.clave || columnaQueEncaja(rotulo.texto);
+    if (!clave) continue;
+
+    // El total va debajo del rótulo (casilla estrecha) o a su derecha.
+    const cifra = segmentos.find(otro =>
+      !usadas.has(otro) && otro !== rotulo && /\d/.test(otro.texto) &&
+      ((otro.y > rotulo.y && otro.y - abajo(rotulo) <= Math.max(3, rotulo.alto * 1.6) && solapeHorizontal(rotulo, otro) > 0.2) ||
+       (Math.abs(otro.y - rotulo.y) <= rotulo.alto * 0.6 && otro.x >= derecha(rotulo) - 0.5 && otro.x - derecha(rotulo) <= 30)),
+    );
+    if (!cifra || pareceEtiqueta(cifra.texto)) continue;
+
+    if (registrar(
+      campoDesde(cifra.items, clave, 0.75, `Recuento del pie, bajo «${rotulo.texto.trim()}»`, rotulo.texto),
+      cifra,
+    )) {
+      usadas.add(rotulo);
+    }
+  }
+}
+
+/**
+ * LA REJILLA DE DESGLOSE DE IMPUESTOS
+ *
+ * Casi todo impreso de factura lleva al pie un cuadro con un renglón por tipo
+ * impositivo:
+ *
+ *     IMPUESTO   BASE IMP.   %      CUOTA
+ *     I.G.I.C.      15,00    0,0     0,00
+ *     I.G.I.C.     109,03    3,0     3,27
+ *
+ * Sin reconocerlo, esas cifras eran datos sueltos que nadie sabía rellenar:
+ * se borraban del calco y el cuadro salía vacío en todas las facturas, con el
+ * desglose de impuestos —que es obligatorio— sin imprimir.
+ *
+ * Se reconoce por sus cabeceras y se reparte por renglones, que es como está
+ * pintado en el papel: el primer tipo de la factura al primer renglón, el
+ * segundo al segundo, y los que sobren en blanco. Los cálculos salen solos de
+ * la factura (ver `casillasDeImpuestos` en `datos.ts`).
+ */
+const CABECERAS_DE_REJILLA: { re: RegExp; campo: 'nombre' | 'base' | 'pct' | 'cuota' }[] = [
+  { re: /^(impuesto|impuestos|concepto|tipo impositivo)$/, campo: 'nombre' },
+  { re: /^(base|base imp|base imponible|b\. imponible)$/, campo: 'base' },
+  { re: /^(%|tipo|porcentaje|% ?iva|% ?igic)$/, campo: 'pct' },
+  { re: /^(cuota|importe|iva|igic)$/, campo: 'cuota' },
+];
+
+function detectarRejillaDeImpuestos(
+  filas: LineaTexto[],
+  usadas: Set<SegmentoTexto>,
+  registrar: Registrador,
+): void {
+  // La cabecera es la fila que lleva dos o más de esos títulos.
+  let cabecera: { segmento: SegmentoTexto; campo: 'nombre' | 'base' | 'pct' | 'cuota' }[] = [];
+  let filaCabecera: LineaTexto | null = null;
+  for (const fila of filas) {
+    const encontradas = fila.segmentos
+      .map(segmento => {
+        const n = normalizar(segmento.texto);
+        const regla = CABECERAS_DE_REJILLA.find(c => c.re.test(n));
+        return regla ? { segmento, campo: regla.campo } : null;
+      })
+      .filter((c): c is { segmento: SegmentoTexto; campo: 'nombre' | 'base' | 'pct' | 'cuota' } => c !== null);
+    // Una sola coincidencia no basta: «IMPORTE» a secas es la cabecera de la
+    // tabla de líneas, no la de la rejilla.
+    if (encontradas.length >= 2) {
+      cabecera = encontradas;
+      filaCabecera = fila;
+      break;
+    }
+  }
+  if (!filaCabecera || cabecera.length < 2) return;
+
+  // El cuadro ocupa lo que ocupan sus cabeceras. Lo que caiga fuera de ese
+  // ancho no es suyo: a la derecha de la rejilla suele haber otras casillas
+  // —«CAJAS», «UNIDADES»— y meterlas dentro descolocaba el desglose.
+  //
+  // El margen de holgura es de medio centímetro: una cifra alineada a la
+  // derecha puede sobresalir un poco de su cabecera («0,00» bajo «CUOTA»),
+  // pero la casilla de al lado empieza mucho más lejos.
+  const HOLGURA = 5;
+  const bordeIzquierdo = Math.min(...cabecera.map(c => c.segmento.x)) - HOLGURA;
+  const bordeDerecho = Math.max(...cabecera.map(c => derecha(c.segmento))) + HOLGURA;
+
+  /**
+   * La columna del cuadro a la que pertenece un trozo de texto: la más
+   * cercana en horizontal, de las de dentro.
+   *
+   * No vale exigir que se solapen. Una cabecera estrecha como «%» mide menos
+   * que las cifras de su columna y, con los números alineados a la derecha,
+   * puede no llegar a tocarlas; pero sigue estando a décimas de milímetro,
+   * mientras que las demás columnas quedan a más de un centímetro.
+   */
+  const columnaDe = (segmento: SegmentoTexto) => {
+    if (segmento.x < bordeIzquierdo || derecha(segmento) > bordeDerecho) return null;
+    let mejor: typeof cabecera[number] | null = null;
+    let mejorDistancia = Infinity;
+    for (const columna of cabecera) {
+      const separacion = Math.max(
+        0,
+        Math.max(columna.segmento.x, segmento.x) - Math.min(derecha(columna.segmento), derecha(segmento)),
+      );
+      if (separacion < mejorDistancia) { mejorDistancia = separacion; mejor = columna; }
+    }
+    return mejor;
+  };
+
+  // Los renglones: lo que hay debajo hasta el primer hueco grande. Sólo
+  // cuentan las filas que caen dentro de alguna columna del cuadro. A la
+  // derecha de la rejilla suele haber otras casillas —«CAJAS», «UNIDADES»—
+  // en sus propias filas, y contarlas como renglones descolocaba el desglose:
+  // el segundo tipo impositivo acababa impreso en el tercer renglón.
+  const altoLinea = filaCabecera.alto || 3.5;
+  const renglones: { fila: LineaTexto; celdas: { segmento: SegmentoTexto; campo: string }[] }[] = [];
+  let ultimoFinal = abajo(filaCabecera);
+  for (const fila of filas) {
+    if (fila.y <= filaCabecera.y + 0.5) continue;
+    if (fila.y - ultimoFinal > altoLinea * 2) break;
+    ultimoFinal = abajo(fila);
+    const celdas = fila.segmentos
+      .filter(s => !usadas.has(s))
+      .map(segmento => ({ segmento, columna: columnaDe(segmento) }))
+      .filter((c): c is { segmento: SegmentoTexto; columna: NonNullable<ReturnType<typeof columnaDe>> } => c.columna !== null)
+      .map(c => ({ segmento: c.segmento, campo: c.columna.campo, cabecera: c.columna.segmento.texto }));
+    if (celdas.length === 0) continue;
+    renglones.push({ fila, celdas });
+    if (renglones.length >= RENGLONES_IMPUESTO) break;
+  }
+
+  renglones.forEach(({ celdas }, indice) => {
+    const n = indice + 1;
+    for (const celda of celdas) {
+      registrar(
+        campoDesde(
+          celda.segmento.items,
+          `impuesto_${n}_${celda.campo}`,
+          0.8,
+          `Renglón ${n} del cuadro de impuestos`,
+          '',
+        ),
+        celda.segmento,
+      );
+    }
+  });
 }
 
 /**

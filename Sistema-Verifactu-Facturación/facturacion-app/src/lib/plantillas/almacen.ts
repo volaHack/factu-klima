@@ -13,7 +13,7 @@ import {
   put, putMany, remove as removeFromDb,
 } from '../offlineDb';
 import { getCurrentUserId } from '../storage';
-import { clavesValidas, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
+import { clavesValidas, esColumnaPersonalizada, esTotalDeColumna, TABLA_LINEAS } from './contrato';
 import type { PlantillaDocumento, TipoDocumentoPlantilla } from './tipos';
 
 const TIENDA = 'document_templates';
@@ -103,8 +103,12 @@ export function validarPlantilla(plantilla: PlantillaDocumento): void {
     // rellenan con datos, así que no tienen por qué existir en el contrato.
     if (esquema.readOnly && !esquema.content?.startsWith('{')) continue;
     if (nombre === TABLA_LINEAS) continue;
-    const claveBase = nombre.replace(/_\d+$/, '');
-    if (!validas.has(claveBase) && !esColumnaPersonalizada(claveBase)) desconocidos.push(nombre);
+    // Primero el nombre entero y luego sin el sufijo de repetición: hay
+    // claves que acaban en número por sí mismas (`total_col_1`, el recuento
+    // de la primera columna personalizada), y quitárselo antes de mirar las
+    // daba por inventada una clave que existe.
+    const conocida = (n: string) => validas.has(n) || esColumnaPersonalizada(n) || esTotalDeColumna(n);
+    if (!conocida(nombre) && !conocida(nombre.replace(/_\d+$/, ''))) desconocidos.push(nombre);
   }
 
   if (desconocidos.length > 0) {

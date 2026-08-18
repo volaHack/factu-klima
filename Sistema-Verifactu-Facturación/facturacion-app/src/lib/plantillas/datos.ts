@@ -14,7 +14,7 @@
 import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
 import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
-import { CAMPOS } from './contrato';
+import { CAMPOS, RENGLONES_IMPUESTO, totalDeColumna } from './contrato';
 
 /** Documento imprimible: factura, albarán, presupuesto, pedido o rectificativa. */
 export type DocumentoImprimible =
@@ -144,6 +144,76 @@ function porcentaje(valor: number): string {
 
 function juntar(partes: (string | undefined)[], separador = ' '): string {
   return partes.map(p => (p ?? '').trim()).filter(Boolean).join(separador);
+}
+
+/**
+ * Lee un número escrito como se escriben en España: «1.234,56».
+ * Devuelve null si no hay ninguna cifra, para no sumar texto como si fuera 0.
+ */
+function comoNumero(valor: string | undefined): number | null {
+  if (!valor) return null;
+  const limpio = valor.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+  if (!/\d/.test(limpio)) return null;
+  const n = Number(limpio);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Un número de recuento: sin decimales si es entero, con dos si no. */
+function comoRecuento(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ',');
+}
+
+/**
+ * Las casillas de recuento del pie: número de líneas, unidades, peso y el
+ * total de cada columna personalizada de la plantilla.
+ *
+ * `total_col_N` es lo que hace que la casilla «CAJAS» de un impreso de
+ * reparto salga sola. La columna «CAJ.» no corresponde a ningún concepto
+ * nuestro y se guarda como `custom_col_1`; su recuento al pie es la suma de
+ * esa columna. Vale igual para bultos, palés, kilos u horas: no supone nada
+ * sobre lo que se factura, así que sirve para cualquier negocio.
+ */
+function recuentos(lineas: { quantity: number; customCols?: Record<string, string> }[]): Record<string, string> {
+  const salida: Record<string, string> = {
+    total_lineas: String(lineas.length),
+    total_unidades: comoRecuento(lineas.reduce((suma, l) => suma + (l.quantity || 0), 0)),
+    total_peso: '',
+  };
+
+  const sumas = new Map<string, number>();
+  for (const linea of lineas) {
+    for (const [columna, valor] of Object.entries(linea.customCols ?? {})) {
+      const clave = totalDeColumna(columna);
+      const n = comoNumero(valor);
+      if (!clave || n === null) continue;
+      sumas.set(clave, (sumas.get(clave) ?? 0) + n);
+    }
+  }
+  for (const [clave, suma] of sumas) salida[clave] = comoRecuento(suma);
+  return salida;
+}
+
+/**
+ * La rejilla «IMPUESTO / BASE IMP. / % / CUOTA» del pie, casilla a casilla.
+ *
+ * Los impresos la traen con un número fijo de renglones pintados, así que
+ * cada casilla es un campo con su sitio y no una tabla que crece. El primer
+ * tipo impositivo va al primer renglón, el segundo al segundo, y los
+ * renglones que sobran se quedan en blanco —como en el papel.
+ */
+function casillasDeImpuestos(
+  tramos: { rate: number; base: number; amount: number }[],
+  impuesto: string,
+): Record<string, string> {
+  const salida: Record<string, string> = {};
+  for (let n = 1; n <= RENGLONES_IMPUESTO; n++) {
+    const tramo = tramos[n - 1];
+    salida[`impuesto_${n}_nombre`] = tramo ? impuesto : '';
+    salida[`impuesto_${n}_base`] = tramo ? formatCurrency(tramo.base) : '';
+    salida[`impuesto_${n}_pct`] = tramo ? porcentaje(tramo.rate) : '';
+    salida[`impuesto_${n}_cuota`] = tramo ? formatCurrency(tramo.amount) : '';
+  }
+  return salida;
 }
 
 function poblacion(cp?: string, ciudad?: string, provincia?: string): string {
@@ -295,6 +365,10 @@ export function construirDatos(
     total_general: formatCurrency(doc.total),
     total_impuesto_nombre: impuesto,
     total_desglose: desgloseEnTexto,
+
+    // Recuentos y desglose casilla a casilla, calculados de las líneas.
+    ...recuentos(doc.lineItems),
+    ...casillasDeImpuestos(doc.taxBreakdown, impuesto),
 
     // Veri*Factu
     verifactu_huella: factura?.verifactu?.chainedHash || '',
