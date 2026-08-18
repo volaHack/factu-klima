@@ -242,7 +242,8 @@ describe('tapar el cuadro de desglose sin romperlo', () => {
       { x: 13, y: 218, ancho: 12, alto: 3.2 },
       { x: 90, y: 218, ancho: 10, alto: 3.2 },
     ],
-    contorno: false,
+    contorno: { marco: false, renglones: false, columnas: false, grosor: 0.2 },
+    cabecera: false,
     tamano: 9, negrita: false, cursiva: false, serif: false, color: '#000000',
   });
 

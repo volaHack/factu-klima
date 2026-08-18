@@ -892,39 +892,81 @@ export function materializarRejillas(
       );
     }
 
-    // --- El contorno, si la rejilla lo pinta ella.
+    // --- Los títulos de columna, si el cuadro los pone él.
     //
-    // Sobre un PDF subido va apagado: el recuadro ya está en el calco y
-    // volver a dibujarlo lo dejaría a doble raya. Encendido hace falta para
-    // las facturas hechas desde cero, donde debajo no hay más que papel.
-    if (rejilla.contorno) {
-      const fondo = rejilla.yPrimerRenglon + cabidas * altoRenglon;
-      const grosor = 0.2;
-      const raya = (x: number, y: number, ancho: number, alto: number, n: string) => ({
-        name: `${PREFIJO_REJILLA}${rejilla.id}_${n}`,
-        type: 'line',
-        content: '',
-        position: { x: redondear(x), y: redondear(y) },
-        width: redondear(ancho),
-        height: redondear(alto),
-        color: rejilla.color,
-        readOnly: true,
-      } as unknown as Schema);
+    // Sobre un impreso que ya los trae pintados va apagado. Sobre papel en
+    // blanco hace falta: si no, el cuadro sale con las cifras y sin decir
+    // cuál es la base y cuál la cuota.
+    const altoCabecera = rejilla.cabecera ? altoRenglon : 0;
+    const yPrimerDato = rejilla.yPrimerRenglon + altoCabecera;
 
+    if (rejilla.cabecera) {
+      for (const columna of rejilla.columnas) {
+        if (!columna.cabecera) continue;
+        estaticos.push(casillaDeRejilla(
+          `${PREFIJO_REJILLA}${rejilla.id}_cab_${columna.clave ?? Math.round(columna.x)}`,
+          columna.cabecera, columna, rejilla, rejilla.yPrimerRenglon, altoRenglon, tamano, true,
+        ));
+      }
+    }
+
+    // --- Las rayas, cada una por su lado.
+    //
+    // No vale un sí/no. Los impresos vienen de todas las maneras: uno trae el
+    // marco pintado pero no separa los renglones, otro tiene rayadas las
+    // columnas y el marco abierto por abajo, y sobre papel en blanco no hay
+    // nada. Con un único interruptor, encenderlo dobla las rayas que ya están
+    // y apagarlo deja sin las que faltan.
+    const { marco, renglones: rayarRenglones, columnas: rayarColumnas, grosor } = rejilla.contorno;
+    if (marco || rayarRenglones || rayarColumnas) {
+      const arriba = rejilla.yPrimerRenglon;
+      const fondo = yPrimerDato + cabidas * altoRenglon;
       const izquierda = rejilla.columnas[0]?.x ?? rejilla.x;
       const ultima = rejilla.columnas[rejilla.columnas.length - 1];
       const derecha = ultima ? ultima.x + ultima.ancho : rejilla.x + rejilla.ancho;
       const ancho = derecha - izquierda;
+      const alto = fondo - arriba;
 
-      // Una raya por cada separación de renglón, la de la cabecera incluida.
-      for (let i = 0; i <= cabidas; i++) {
-        estaticos.push(raya(izquierda, rejilla.yPrimerRenglon + i * altoRenglon, ancho, grosor, `h${i}`));
+      const raya = (x: number, y: number, anchoRaya: number, altoRaya: number, n: string) => {
+        estaticos.push({
+          name: `${PREFIJO_REJILLA}${rejilla.id}_${n}`,
+          type: 'line',
+          content: '',
+          position: { x: redondear(x), y: redondear(y) },
+          width: redondear(anchoRaya),
+          height: redondear(altoRaya),
+          color: rejilla.color,
+          readOnly: true,
+        } as unknown as Schema);
+      };
+
+      if (marco) {
+        raya(izquierda, arriba, ancho, grosor, 'marco-arriba');
+        raya(izquierda, fondo, ancho, grosor, 'marco-abajo');
+        raya(izquierda, arriba, grosor, alto, 'marco-izq');
+        raya(derecha, arriba, grosor, alto, 'marco-der');
       }
-      // Y una vertical a cada lado de cada columna.
-      for (let i = 0; i < rejilla.columnas.length; i++) {
-        estaticos.push(raya(rejilla.columnas[i].x, rejilla.yPrimerRenglon, grosor, fondo - rejilla.yPrimerRenglon, `v${i}`));
+
+      // La raya bajo los títulos va siempre que haya títulos y algo que
+      // rayar: es la que separa la cabecera de las cifras, y sin ella no se
+      // lee dónde acaba una cosa y empieza la otra.
+      if (altoCabecera > 0 && (marco || rayarRenglones)) {
+        raya(izquierda, yPrimerDato, ancho, grosor, 'bajo-cabecera');
       }
-      estaticos.push(raya(derecha, rejilla.yPrimerRenglon, grosor, fondo - rejilla.yPrimerRenglon, 'vfin'));
+
+      if (rayarRenglones) {
+        // Sólo las de dentro: las de los extremos las pone el marco, y
+        // repetirlas engorda la raya al imprimir.
+        for (let i = 1; i < cabidas; i++) {
+          raya(izquierda, yPrimerDato + i * altoRenglon, ancho, grosor, `r${i}`);
+        }
+      }
+
+      if (rayarColumnas) {
+        for (let i = 1; i < rejilla.columnas.length; i++) {
+          raya(rejilla.columnas[i].x, arriba, grosor, alto, `c${i}`);
+        }
+      }
     }
 
     for (let i = 0; i < cabidas; i++) {
@@ -934,30 +976,52 @@ export function materializarRejillas(
         if (!columna.clave) continue;
         const valor = filas[i][columna.clave] ?? '';
         if (!valor) continue;
-        estaticos.push({
-          name: `${PREFIJO_REJILLA}${rejilla.id}_${i}_${columna.clave}`,
-          type: 'text',
-          content: valor,
-          position: {
-            x: redondear(columna.x),
-            y: redondear(rejilla.yPrimerRenglon + i * altoRenglon),
-          },
-          width: redondear(columna.ancho),
-          height: redondear(altoRenglon),
-          fontName: nombreDeFuente(rejilla),
-          fontSize: redondear(tamano),
-          fontColor: rejilla.color,
-          backgroundColor: '',
-          alignment: columna.alineacion,
-          verticalAlignment: 'middle',
-          lineHeight: 1,
-          characterSpacing: 0,
-          readOnly: true,
-        } as unknown as Schema);
+        estaticos.push(casillaDeRejilla(
+          `${PREFIJO_REJILLA}${rejilla.id}_${i}_${columna.clave}`,
+          valor, columna, rejilla, yPrimerDato + i * altoRenglon, altoRenglon, tamano, false,
+        ));
       }
     }
   }
 
   base.staticSchema = estaticos;
   return avisos;
+}
+
+/**
+ * Una casilla del cuadro de desglose: un título de columna o una cifra.
+ *
+ * Son la misma cosa con distinto peso —el título en negrita y centrado, la
+ * cifra con la alineación de su columna—, así que se montan aquí y no en dos
+ * sitios que se vayan separando con el tiempo.
+ */
+function casillaDeRejilla(
+  nombre: string,
+  valor: string,
+  columna: RejillaDetectada['columnas'][number],
+  rejilla: RejillaDetectada,
+  y: number,
+  alto: number,
+  tamano: number,
+  esTitulo: boolean,
+): Schema {
+  return {
+    name: nombre,
+    type: 'text',
+    content: valor,
+    position: { x: redondear(columna.x), y: redondear(y) },
+    width: redondear(columna.ancho),
+    height: redondear(alto),
+    fontName: nombreDeFuente({ ...rejilla, negrita: esTitulo || rejilla.negrita }),
+    fontSize: redondear(tamano),
+    fontColor: rejilla.color,
+    backgroundColor: '',
+    // Los títulos van centrados aunque su columna sea de cifras: es como los
+    // titula cualquier impreso.
+    alignment: esTitulo ? 'center' : columna.alineacion,
+    verticalAlignment: 'middle',
+    lineHeight: 1,
+    characterSpacing: 0,
+    readOnly: true,
+  } as unknown as Schema;
 }

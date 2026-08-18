@@ -83,7 +83,13 @@ describe('lo que trae puesto una factura nueva', () => {
   it('el cuadro de desglose se pinta su propio marco', () => {
     // Sobre papel en blanco no hay ningún recuadro impreso debajo: si la
     // rejilla no se lo dibuja, las cifras salen flotando sin cuadro.
-    expect(facturaDesdeCero('generico').rejillas[0].contorno).toBe(true);
+    const rejilla = facturaDesdeCero('generico').rejillas[0];
+    expect(rejilla.contorno.marco).toBe(true);
+    expect(rejilla.contorno.renglones).toBe(true);
+    expect(rejilla.contorno.columnas).toBe(true);
+    // Y con sus títulos: sin ellos el cuadro sale con las cifras y sin decir
+    // cuál es la base y cuál la cuota.
+    expect(rejilla.cabecera).toBe(true);
   });
 
   it('no arrastra nada que haya que borrar', () => {

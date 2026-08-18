@@ -1609,9 +1609,10 @@ function detectarRejillaDeImpuestos(
     altoRenglon: redondearMm(altoRenglon),
     columnas,
     celdasMuestra,
-    // El recuadro ya viene pintado en el calco: dibujarlo otra vez lo dejaría
-    // a doble raya.
-    contorno: false,
+    // El recuadro y sus títulos ya vienen pintados en el calco: dibujarlos
+    // otra vez los dejaría a doble raya.
+    contorno: { marco: false, renglones: false, columnas: false, grosor: 0.2 },
+    cabecera: false,
     tamano: muestra.tamano,
     negrita: muestra.negrita,
     cursiva: muestra.cursiva,

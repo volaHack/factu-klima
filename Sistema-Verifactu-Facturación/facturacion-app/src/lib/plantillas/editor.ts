@@ -421,7 +421,8 @@ export function rejillaNueva(
     // Sobre el papel no había nada escrito, así que no hay nada que tapar; y
     // como tampoco hay recuadro impreso debajo, se pinta el suyo.
     celdasMuestra: [],
-    contorno: true,
+    contorno: { marco: true, renglones: true, columnas: true, grosor: 0.2 },
+    cabecera: true,
     tamano: 9,
     negrita: false,
     cursiva: false,

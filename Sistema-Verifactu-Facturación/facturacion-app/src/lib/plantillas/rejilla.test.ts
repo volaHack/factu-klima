@@ -31,7 +31,7 @@ const REJILLA: RejillaDetectada = {
     // Sin asignar a propósito: unas retenciones que no son dato nuestro.
     { clave: null, cabecera: 'RETENCIONES', x: 102, ancho: 10, alineacion: 'right' },
   ],
-  celdasMuestra: [], contorno: false,
+  celdasMuestra: [], contorno: { marco: false, renglones: false, columnas: false, grosor: 0.2 }, cabecera: false,
   tamano: 9, negrita: false, cursiva: false, serif: false, color: '#000000',
 };
 
@@ -158,7 +158,8 @@ describe('una rejilla dibujada a mano', () => {
 });
 
 describe('el contorno que se pinta la rejilla', () => {
-  const conContorno = { ...REJILLA, contorno: true };
+  const TODO = { marco: true, renglones: true, columnas: true, grosor: 0.2 };
+  const conContorno = { ...REJILLA, contorno: TODO };
   const rayas = (p: Template) => {
     const base = p.basePdf as { staticSchema: Schema[] };
     return base.staticSchema.filter(s => s.type === 'line');
@@ -240,5 +241,77 @@ describe('hacer sitio a la tabla', () => {
 
   it('dice que no cuando ya no queda hueco', () => {
     expect(hacerSitio(20, tabla, [campo('pie', 288)], [], 297)).toBeNull();
+  });
+});
+
+describe('cada raya del cuadro se enciende por su lado', () => {
+  const con = (contorno: Partial<typeof REJILLA.contorno>, cabecera = false) =>
+    ({ ...REJILLA, cabecera, contorno: { marco: false, renglones: false, columnas: false, grosor: 0.2, ...contorno } });
+  const pintar = (rejilla: RejillaDetectada, n = 2) => {
+    const p = plantillaCon(rejilla);
+    materializarRejillas(p, { impuestos: Array.from({ length: n }, (_, i) => tramo(String(i), String(i))) });
+    return p;
+  };
+  const rayas = (p: Template) =>
+    (p.basePdf as { staticSchema: Schema[] }).staticSchema.filter(s => s.type === 'line');
+
+  it('sólo el marco son cuatro rayas y ni una más', () => {
+    // Un impreso que trae el cuadro dividido por dentro pero abierto por
+    // fuera: encender todo le doblaría las rayas interiores.
+    expect(rayas(pintar(con({ marco: true })))).toHaveLength(4);
+  });
+
+  it('sólo los renglones no pinta el marco', () => {
+    // Con dos renglones hay UNA raya entre ellos. Las de los extremos son del
+    // marco, y repetirlas engorda el trazo al imprimir.
+    expect(rayas(pintar(con({ renglones: true })))).toHaveLength(1);
+  });
+
+  it('sólo las columnas pinta las de dentro', () => {
+    // Cinco columnas dejan cuatro separaciones interiores; los lados son del
+    // marco.
+    expect(rayas(pintar(con({ columnas: true })))).toHaveLength(REJILLA.columnas.length - 1);
+  });
+
+  it('todo apagado no pinta nada', () => {
+    // Es el caso de un PDF subido: el recuadro ya está en el calco.
+    expect(rayas(pintar(con({})))).toHaveLength(0);
+  });
+
+  it('el grosor es el que se le diga', () => {
+    const p = pintar(con({ marco: true, grosor: 0.5 }));
+    const horizontal = rayas(p).find(r => (r.width as number) > (r.height as number))!;
+    expect(horizontal.height).toBe(0.5);
+  });
+});
+
+describe('la cabecera del cuadro', () => {
+  const conCabecera = { ...REJILLA, cabecera: true };
+  const casillasDe = (rejilla: RejillaDetectada) => {
+    const p = plantillaCon(rejilla);
+    materializarRejillas(p, { impuestos: [tramo('21,0', '100,00')] });
+    return casillas(p);
+  };
+
+  it('imprime el nombre de cada columna asignada', () => {
+    // Sobre papel en blanco no hay títulos pintados: sin esto el cuadro sale
+    // con las cifras y sin decir cuál es la base y cuál la cuota.
+    const titulos = casillasDe(conCabecera)
+      .filter(c => String(c.name).includes('_cab_'))
+      .map(c => c.content);
+    expect(titulos).toContain('BASE IMP.');
+    expect(titulos).toContain('CUOTA');
+  });
+
+  it('apagada no imprime ninguno', () => {
+    // Sobre un impreso que ya los trae, imprimirlos los pondría por duplicado.
+    expect(casillasDe(REJILLA).some(c => String(c.name).includes('_cab_'))).toBe(false);
+  });
+
+  it('empuja las cifras un renglón hacia abajo', () => {
+    // Si no, el primer tipo impositivo se imprimiría encima de los títulos.
+    const conY = casillasDe(conCabecera).find(c => String(c.name).includes('_0_base'))!.position.y;
+    const sinY = casillasDe(REJILLA).find(c => String(c.name).includes('_0_base'))!.position.y;
+    expect(conY).toBe(sinY + REJILLA.altoRenglon);
   });
 });

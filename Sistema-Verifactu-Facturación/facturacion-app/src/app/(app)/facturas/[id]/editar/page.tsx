@@ -2,22 +2,22 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Send, ArrowLeft, Lock } from 'lucide-react';
+import { Save, Send, ArrowLeft, Lock } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
   getInvoiceById, getClients, getProducts, saveInvoice, issueInvoice, isSealed, getOnboardingStatus,
-  applyAbonoToInvoice
+  applyAbonoToInvoice, getCompanySettings
 } from '@/lib/storage';
 import {
-  Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
+  Client, CompanySettings, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, TaxRate, UnitOfMeasure
 } from '@/lib/types';
 import { formatCurrency, calculateInvoiceTotals, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
-import TaxRateSlider from '@/components/ui/TaxRateSlider';
+import LineasDocumento from '@/components/documentos/LineasDocumento';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
@@ -47,6 +47,9 @@ export default function EditInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  // De aquí sale si se factura con IVA o con IGIC. Antes esta página llevaba
+  // «IVA» escrito a fuego en la cabecera de las líneas.
+  const [ajustes, setAjustes] = useState<CompanySettings | null>(null);
 
   const [clientId, setClientId] = useState('');
   const [clienteOcasional, setClienteOcasional] = useState(false);
@@ -85,12 +88,14 @@ export default function EditInvoicePage() {
         inv.datosExtras,
       ));
       setDatosExtras(inv.datosExtras ?? {});
-      const [clients, products] = await Promise.all([
+      const [clients, products, settings] = await Promise.all([
         getClients().then(c => c.filter(cl => cl.active)),
-        getProducts().then(p => p.filter(pr => pr.active))
+        getProducts().then(p => p.filter(pr => pr.active)),
+        getCompanySettings()
       ]);
       setClients(clients);
       setProducts(products);
+      setAjustes(settings);
       try {
         const plantilla = await getPlantillaActiva('factura');
         if (plantilla?.plantilla) {
@@ -104,50 +109,6 @@ export default function EditInvoicePage() {
     })();
   }, [params.id, router]);
 
-  const handleProductSelect = (lineIndex: number, productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    setLineItems(prev => {
-      const next = [...prev];
-      next[lineIndex] = { ...next[lineIndex], productId: product.id, productName: product.name, productRef: product.ref, unitPrice: product.unitPrice, unit: product.unit, taxRate: product.defaultTaxRate };
-      return recalcLines(next);
-    });
-  };
-
-  const handleLineChange = (lineIndex: number, field: string, value: number | string) => {
-    setLineItems(prev => {
-      const next = [...prev];
-      (next[lineIndex] as unknown as Record<string, unknown>)[field] = value;
-      return recalcLines(next);
-    });
-  };
-
-  const handleCustomColChange = (lineIndex: number, clave: string, valor: string) => {
-    setLineItems(prev => {
-      const next = [...prev];
-      next[lineIndex] = {
-        ...next[lineIndex],
-        customCols: { ...(next[lineIndex].customCols ?? {}), [clave]: valor },
-      };
-      return next;
-    });
-  };
-
-  const recalcLines = (lines: InvoiceLineItem[]): InvoiceLineItem[] => {
-    return lines.map(line => {
-      const gross = line.quantity * line.unitPrice;
-      const discount = gross * (line.discountPercent / 100);
-      const subtotal = Number((gross - discount).toFixed(2));
-      const taxAmount = Number((subtotal * (line.taxRate / 100)).toFixed(2));
-      return { ...line, subtotal, taxAmount, total: Number((subtotal + taxAmount).toFixed(2)) };
-    });
-  };
-
-  const addLine = () => setLineItems(prev => [...prev, createEmptyLine()]);
-  const removeLine = (index: number) => {
-    if (lineItems.length <= 1) return;
-    setLineItems(prev => prev.filter((_, i) => i !== index));
-  };
   const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
 
   const handleSave = async (status: InvoiceStatus) => {
@@ -336,47 +297,21 @@ export default function EditInvoicePage() {
           style={{ marginBottom: 'var(--space-6)' }}
         />
 
-        {/* Lines */}
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Productos facturados</h3>
-          <div className="line-items">
-            <div className="line-items-header">
-              <span>Producto</span><span>Cant.</span><span>Precio</span><span>IVA</span><span>Dto.%</span><span style={{ textAlign: 'right' }}>Subtotal</span><span></span>
-            </div>
-            {lineItems.map((line, i) => (
-              <div className="line-item-row" key={line.id}>
-                <select value={line.productId} onChange={e => handleProductSelect(i, e.target.value)}>
-                  <option value="">Seleccionar</option>
-                  {products.map(p => <option key={p.id} value={p.id}>[{p.ref}] {p.name}</option>)}
-                </select>
-                <input type="number" min={0} step={0.01} value={line.quantity} onChange={e => handleLineChange(i, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
-                <input type="number" min={0} step={0.01} value={line.unitPrice} onChange={e => handleLineChange(i, 'unitPrice', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
-                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(i, 'taxRate', v)} />
-                <input type="number" min={0} max={100} step={0.5} value={line.discountPercent} onChange={e => handleLineChange(i, 'discountPercent', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
-                <div className="line-item-subtotal">{formatCurrency(line.subtotal)}</div>
-                <button className="line-item-delete" onClick={() => removeLine(i)} disabled={lineItems.length <= 1}><Trash2 size={14} /></button>
-                {columnasCustom.length > 0 && (
-                  <div className="line-item-custom">
-                    {columnasCustom.map(col => (
-                      <div className="form-group" key={col.clave} style={{ flex: '1 1 160px', margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: 'var(--text-xs)' }}>{col.cabecera}</label>
-                        <input
-                          className="form-input"
-                          value={line.customCols?.[col.clave] ?? ''}
-                          onChange={e => handleCustomColChange(i, col.clave, e.target.value)}
-                          placeholder={col.cabecera}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            <div className="line-items-add">
-              <button className="btn btn-ghost btn-sm" onClick={addLine}><Plus size={14} /> Añadir producto</button>
-            </div>
-          </div>
-        </div>
+        {/* Por el componente compartido y no por una copia propia: es lo que
+            trae los tres descuentos en cascada y la etiqueta IVA o IGIC según
+            el régimen de la empresa. Esta página llevaba «IVA» escrito a
+            fuego, así que a un canario le mentía la cabecera. */}
+        {ajustes && (
+          <LineasDocumento
+            lineItems={lineItems}
+            onChange={setLineItems}
+            products={products}
+            settings={ajustes}
+            columnasCustom={columnasCustom}
+            titulo="Productos facturados"
+          />
+        )}
+
 
         {/* Totales y pago */}
         <div className="card" style={{ marginBottom: 'var(--space-6)' }}>

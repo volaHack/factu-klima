@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Send, ArrowLeft } from 'lucide-react';
+import { Save, Send, ArrowLeft } from 'lucide-react';
+import LineasDocumento from '@/components/documentos/LineasDocumento';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
@@ -23,7 +24,6 @@ import { useToast } from '@/hooks/useToast';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
-import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
@@ -73,6 +73,9 @@ export default function NuevaFacturaPage() {
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
   const [columnasCustom, setColumnasCustom] = useState<{ clave: string; cabecera: string }[]>([]);
+  // Los ajustes de la empresa hacen falta en el editor de líneas: de ahí sale
+  // si se factura con IVA o con IGIC y qué tipos se ofrecen.
+  const [ajustes, setAjustes] = useState<CompanySettings | null>(null);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -84,6 +87,7 @@ export default function NuevaFacturaPage() {
       ]);
       setClients(c.filter(cl => cl.active));
       setProducts(p.filter(pr => pr.active));
+      setAjustes(settings);
       setPaymentMethod(settings.defaultPaymentMethod);
       setDueDate(addDays(getToday(), settings.defaultPaymentDays));
       setLineItems([createEmptyLine(settings)]);
@@ -110,62 +114,6 @@ export default function NuevaFacturaPage() {
       setPaymentMethod(client.defaultPaymentMethod);
       setDueDate(addDays(issueDate, client.paymentDays));
     }
-  };
-
-  // When product selected on a line
-  const handleProductSelect = (lineIndex: number, productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-
-    setLineItems(prev => {
-      const next = [...prev];
-      next[lineIndex] = {
-        ...next[lineIndex],
-        productId: product.id,
-        productName: product.name,
-        productRef: product.ref,
-        unitPrice: product.unitPrice,
-        unit: product.unit,
-        taxRate: product.defaultTaxRate,
-      };
-      return recalcLines(next);
-    });
-  };
-
-  const handleLineChange = (lineIndex: number, field: string, value: number | string) => {
-    setLineItems(prev => {
-      const next = [...prev];
-      (next[lineIndex] as unknown as Record<string, unknown>)[field] = value;
-      return recalcLines(next);
-    });
-  };
-
-  const handleCustomColChange = (lineIndex: number, clave: string, valor: string) => {
-    setLineItems(prev => {
-      const next = [...prev];
-      next[lineIndex] = {
-        ...next[lineIndex],
-        customCols: { ...(next[lineIndex].customCols ?? {}), [clave]: valor },
-      };
-      return next;
-    });
-  };
-
-  const recalcLines = (lines: InvoiceLineItem[]): InvoiceLineItem[] => {
-    return lines.map(line => {
-      const gross = line.quantity * line.unitPrice;
-      const discount = gross * (line.discountPercent / 100);
-      const subtotal = Number((gross - discount).toFixed(2));
-      const taxAmount = Number((subtotal * (line.taxRate / 100)).toFixed(2));
-      return { ...line, subtotal, taxAmount, total: Number((subtotal + taxAmount).toFixed(2)) };
-    });
-  };
-
-  const addLine = () => setLineItems(prev => [...prev, createEmptyLine()]);
-
-  const removeLine = (index: number) => {
-    if (lineItems.length <= 1) return;
-    setLineItems(prev => prev.filter((_, i) => i !== index));
   };
 
   // Totals
@@ -409,90 +357,22 @@ export default function NuevaFacturaPage() {
           onChange={(clave, valor) => setDatosExtras(prev => ({ ...prev, [clave]: valor }))}
         />
 
-        {/* Line Items */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Productos facturados</h3>
-
-          <div className="line-items">
-            <div className="line-items-header">
-              <span>Producto</span>
-              <span>Cantidad</span>
-              <span>Precio ud.</span>
-              <span>IVA</span>
-              <span>Dto. %</span>
-              <span style={{ textAlign: 'right' }}>Subtotal</span>
-              <span></span>
-            </div>
-            {lineItems.map((line, index) => (
-              <div className="line-item-row" key={line.id}>
-                <select
-                  value={line.productId}
-                  onChange={e => handleProductSelect(index, e.target.value)}
-                  style={{ minWidth: 0 }}
-                >
-                  <option value="">Seleccionar producto</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      [{p.ref}] {p.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={line.quantity}
-                  onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={line.unitPrice}
-                  onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={line.discountPercent}
-                  onChange={e => handleLineChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <div className="line-item-subtotal">
-                  {formatCurrency(line.subtotal)}
-                </div>
-                <button className="line-item-delete" onClick={() => removeLine(index)} disabled={lineItems.length <= 1}>
-                  <Trash2 size={14} />
-                </button>
-                {columnasCustom.length > 0 && (
-                  <div className="line-item-custom">
-                    {columnasCustom.map(col => (
-                      <div className="form-group" key={col.clave} style={{ flex: '1 1 160px', margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: 'var(--text-xs)' }}>{col.cabecera}</label>
-                        <input
-                          className="form-input"
-                          value={line.customCols?.[col.clave] ?? ''}
-                          onChange={e => handleCustomColChange(index, col.clave, e.target.value)}
-                          placeholder={col.cabecera}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            <div className="line-items-add">
-              <button className="btn btn-ghost btn-sm" onClick={addLine}>
-                <Plus size={14} /> Añadir producto
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Las líneas van por el componente compartido y no por una copia
+            propia: es lo que trae los tres descuentos en cascada, la etiqueta
+            IVA o IGIC según el régimen de la empresa y las columnas que pida
+            la plantilla. Manteniendo dos editores parecidos, lo que se
+            arreglaba en uno seguía roto en el otro. */}
+        {ajustes && (
+          <LineasDocumento
+            lineItems={lineItems}
+            onChange={setLineItems}
+            products={products}
+            settings={ajustes}
+            tarifaId={selectedClient?.tarifaId}
+            columnasCustom={columnasCustom}
+            titulo="Productos facturados"
+          />
+        )}
 
         {/* Totales y pago */}
         <div className="card">

@@ -2421,19 +2421,58 @@ function PanelRejilla({ rejilla, onCambiar, onEliminar }: {
       </div>
 
       <div className="plantilla-panel-fila">
-        <label className="form-label" htmlFor="rejilla-contorno">Dibujar el recuadro</label>
+        <label className="form-label" htmlFor="rejilla-cabecera">Poner los títulos</label>
         <input
-          id="rejilla-contorno"
+          id="rejilla-cabecera"
           type="checkbox"
-          checked={rejilla.contorno}
-          onChange={(e) => onCambiar({ ...rejilla, contorno: e.target.checked })}
+          checked={rejilla.cabecera}
+          onChange={(e) => onCambiar({ ...rejilla, cabecera: e.target.checked })}
         />
       </div>
       <p className="plantilla-panel-pista">
-        {rejilla.contorno
-          ? 'El cuadro se dibuja con su marco y sus rayas, y crece con los renglones que traiga la factura.'
-          : 'Se aprovecha el recuadro que ya trae impreso tu factura. Enciéndelo si al imprimir el cuadro sale sin marco.'}
+        Imprime el nombre de cada columna encima de las cifras. Déjalo apagado si tu impreso ya
+        los trae pintados, o los verás por duplicado.
       </p>
+
+      <h4 className="plantilla-panel-subtitulo">Rayas del cuadro</h4>
+      <p className="plantilla-panel-pista">
+        Cada una por su lado, porque los impresos vienen de todas las maneras: unos traen el
+        marco pintado y no separan los renglones, otros rayan las columnas y dejan el marco
+        abierto. Enciende sólo lo que le falte al tuyo.
+      </p>
+      {([
+        ['marco', 'Marco exterior'],
+        ['renglones', 'Rayas entre renglones'],
+        ['columnas', 'Rayas entre columnas'],
+      ] as const).map(([clave, etiqueta]) => (
+        <div className="plantilla-panel-fila" key={clave}>
+          <label className="form-label" htmlFor={`rejilla-${clave}`}>{etiqueta}</label>
+          <input
+            id={`rejilla-${clave}`}
+            type="checkbox"
+            checked={rejilla.contorno[clave]}
+            onChange={(e) => onCambiar({
+              ...rejilla,
+              contorno: { ...rejilla.contorno, [clave]: e.target.checked },
+            })}
+          />
+        </div>
+      ))}
+      <div className="plantilla-panel-campo">
+        <label htmlFor="rejilla-grosor">Grosor de las rayas (mm)</label>
+        <input
+          id="rejilla-grosor"
+          type="number"
+          step="0.05"
+          min="0.05"
+          max="1"
+          value={rejilla.contorno.grosor}
+          onChange={(e) => onCambiar({
+            ...rejilla,
+            contorno: { ...rejilla.contorno, grosor: Math.max(0.05, Number(e.target.value) || 0.2) },
+          })}
+        />
+      </div>
 
       <h4 className="plantilla-panel-subtitulo">Qué lleva cada columna</h4>
       {rejilla.columnas.map((columna, i) => (

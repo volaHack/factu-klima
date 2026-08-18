@@ -187,6 +187,18 @@ export interface TablaDetectada {
 // REJILLAS
 // ============================================================
 
+/** Qué rayas pinta una rejilla, cada una por su lado. */
+export interface ContornoRejilla {
+  /** El marco de fuera. */
+  marco: boolean;
+  /** Las horizontales que separan un renglón del siguiente. */
+  renglones: boolean;
+  /** Las verticales que separan una columna de la siguiente. */
+  columnas: boolean;
+  /** Grosor de todas ellas, en milímetros. */
+  grosor: number;
+}
+
 /** Una columna de una rejilla: dónde cae y qué dato imprime. */
 export interface ColumnaRejilla {
   /** Clave de `COLUMNAS_IMPUESTOS`, o null mientras nadie haya dicho cuál es. */
@@ -251,13 +263,26 @@ export interface RejillaDetectada {
    */
   celdasMuestra: Zona[];
   /**
-   * Si la rejilla pinta su propio marco y sus rayas.
+   * Qué se dibuja del cuadro, cada cosa por su lado.
    *
-   * Apagado cuando sale de un PDF: el recuadro ya está en el calco y volver a
-   * dibujarlo encima lo dejaría a doble raya. Encendido en las que se dibujan
-   * a mano, porque bajo ellas no hay más que papel en blanco.
+   * No vale un sí/no. Los impresos vienen de todas las maneras: uno trae el
+   * marco pintado pero no separa los renglones, otro tiene rayadas las
+   * columnas y el marco abierto por abajo, y sobre papel en blanco no hay
+   * nada de nada. Con un solo interruptor, encenderlo dobla las rayas que ya
+   * están y apagarlo deja sin las que faltan.
+   *
+   * Todo apagado cuando la rejilla sale de un PDF —el recuadro ya está en el
+   * calco— y todo encendido en las que se dibujan a mano.
    */
-  contorno: boolean;
+  contorno: ContornoRejilla;
+  /**
+   * Si el cuadro imprime sus propios títulos de columna.
+   *
+   * Apagado sobre un impreso que ya los trae pintados; encendido sobre papel
+   * en blanco, donde si no el cuadro sale con las cifras y sin decir qué es
+   * cada una.
+   */
+  cabecera: boolean;
   /** Estilo del texto de los renglones, copiado del que traía la muestra. */
   tamano: number;
   negrita: boolean;
