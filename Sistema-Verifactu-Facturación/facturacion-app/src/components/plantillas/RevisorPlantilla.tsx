@@ -110,6 +110,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const campos = analisis.campos;
   const zonas = analisis.zonasExtra;
   const tabla = analisis.tabla;
+  const rejillas = analisis.rejillas;
 
   /**
    * El nombre de un campo tal y como se le enseña al usuario.
@@ -183,7 +184,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const reconocerConIa = useCallback(async () => {
     setEstadoIa({ cargando: true, aviso: null });
     try {
-      const peticion = describirParaIa({ pagina, campos, tabla, avisos: [], zonasExtra: zonas, familia: 'sans' });
+      const peticion = describirParaIa({ pagina, campos, tabla, rejillas, avisos: [], zonasExtra: zonas, familia: 'sans' });
       if (peticion.cajas.length === 0) {
         setEstadoIa({ cargando: false, aviso: 'No queda ningún recuadro sin identificar.' });
         return;
@@ -214,7 +215,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     } catch {
       setEstadoIa({ cargando: false, aviso: 'No se ha podido usar la IA. La plantilla sigue funcionando sin ella.' });
     }
-  }, [pagina, campos, tabla, zonas, marcar, onCambiar]);
+  }, [pagina, campos, tabla, rejillas, zonas, marcar, onCambiar]);
 
   const deshacer = useCallback(() => {
     if (historial.pasado.length === 0) return;

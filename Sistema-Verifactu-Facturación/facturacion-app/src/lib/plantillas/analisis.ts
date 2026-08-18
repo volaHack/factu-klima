@@ -70,7 +70,7 @@ export async function analizarPdf(
 
 /** Lo que hay que guardar junto a la plantilla para poder reeditarla. */
 export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
-  const { pagina, campos, tabla, zonasExtra, avisos, familia } = sesion.analisis;
+  const { pagina, campos, tabla, rejillas, zonasExtra, avisos, familia } = sesion.analisis;
   return {
     version: 1,
     pagina: {
@@ -82,6 +82,7 @@ export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
     },
     campos,
     tabla,
+    rejillas,
     zonasExtra,
     avisos,
     familia,
@@ -120,6 +121,7 @@ export async function abrirPlantillaGuardada(
       pagina,
       campos: origen.campos,
       tabla: origen.tabla,
+      rejillas: origen.rejillas ?? [],
       avisos: origen.avisos ?? [],
       zonasExtra: origen.zonasExtra ?? [],
       familia: origen.familia ?? 'sans',
@@ -166,6 +168,22 @@ export function zonasABorrar(analisis: AnalisisPdf): Zona[] {
       alto: analisis.tabla.altoTotal + analisis.tabla.altoFila * 0.6,
     });
 
+  }
+
+  // La banda de renglones de cada rejilla, entera.
+  //
+  // Sus casillas ya no son campos sueltos, así que nadie las borraría: se
+  // quedarían impresos los tipos impositivos de la factura de muestra debajo
+  // de los de la factura de verdad. Se tapa desde el primer renglón hasta el
+  // fondo del recuadro, que es justo donde la rejilla vuelve a escribir; la
+  // cabecera y el marco se dejan intactos porque son del impreso.
+  for (const rejilla of analisis.rejillas) {
+    zonas.push({
+      x: rejilla.x,
+      y: rejilla.yPrimerRenglon,
+      ancho: rejilla.ancho,
+      alto: Math.max(0, rejilla.y + rejilla.alto - rejilla.yPrimerRenglon),
+    });
   }
 
   zonas.push(...analisis.zonasExtra.map(z => ({ x: z.x, y: z.y, ancho: z.ancho, alto: z.alto })));

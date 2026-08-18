@@ -55,6 +55,7 @@ import type {
   AnalisisPdf,
   CampoDetectado,
   DiagnosticoPlantilla,
+  RejillaDetectada,
   TablaDetectada,
 } from './tipos';
 
@@ -509,7 +510,12 @@ export function compilarPlantilla(
     },
     // En la página, sólo la tabla. Todo lo demás está anclado.
     schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaHueco)]],
-  };
+    // Las rejillas viajan con la plantilla y se expanden al imprimir, cuando
+    // ya se sabe cuántos tipos impositivos trae la factura. El `Template` de
+    // pdfme es `.passthrough()`, así que esto sobrevive al guardado y a la
+    // carga sin que haya que migrar la tabla ni inventar otra columna.
+    __rejillas: analisis.rejillas,
+  } as Template;
 
   return {
     plantilla,
@@ -801,4 +807,122 @@ export function normalizarPlantilla(plantilla: Template): Template {
   }
 
   return copia;
+}
+
+// ============================================================
+// REJILLAS
+// ============================================================
+
+/** Delante del nombre de toda casilla de rejilla, para reconocerlas. */
+const PREFIJO_REJILLA = '__rej_';
+
+/**
+ * Por debajo de esto la letra ya no se lee, así que se deja de encoger y se
+ * avisa. Más vale un desglose apretado que uno ilegible.
+ */
+const TAMANO_MINIMO_PT = 5;
+
+/** Las rejillas guardadas dentro de una plantilla. */
+export function rejillasDePlantilla(plantilla: Template): RejillaDetectada[] {
+  const guardadas = (plantilla as unknown as { __rejillas?: unknown }).__rejillas;
+  return Array.isArray(guardadas) ? guardadas as RejillaDetectada[] : [];
+}
+
+/**
+ * EXPANDIR UNA REJILLA A CASILLAS ANCLADAS
+ *
+ * El desglose del pie tiene tantos renglones como tipos impositivos traiga la
+ * factura, cosa que no se sabe al montar la plantilla pero sí al imprimir. Se
+ * expande aquí, ya con la factura delante.
+ *
+ * Por qué a mano y no con una tabla de pdfme: en pdfme sólo crece lo que vive
+ * en `schemas`, y ahí todo lo que va detrás de una tabla que crece se
+ * desplaza hacia abajo; además hay una sola banda de contenido por hoja, así
+ * que dos tablas no pueden tener dos huecos independientes. Metida en el
+ * flujo, esta rejilla se despegaría de su recuadro impreso en cuanto la
+ * factura trajera unas cuantas líneas. Anclada, no se mueve nunca.
+ *
+ * Si los renglones no caben, se aprieta: el desglose por tipos es obligatorio
+ * en una factura, así que salir apretado es mejor que salir incompleto.
+ *
+ * Muta la plantilla, que a estas alturas ya es una copia.
+ */
+export function materializarRejillas(
+  plantilla: Template,
+  filasPorFuente: { impuestos: Record<string, string>[] },
+): string[] {
+  const base = plantilla.basePdf as { staticSchema?: Schema[] } | undefined;
+  const rejillas = rejillasDePlantilla(plantilla);
+  if (!base || typeof base !== 'object' || !('staticSchema' in base) || rejillas.length === 0) {
+    return [];
+  }
+
+  // Fuera lo que dejara una impresión anterior: la misma plantilla se usa
+  // para muchas facturas y cada una trae sus renglones.
+  const estaticos = (base.staticSchema ?? []).filter(
+    s => !String((s as { name?: string }).name ?? '').startsWith(PREFIJO_REJILLA),
+  );
+  const avisos: string[] = [];
+
+  for (const rejilla of rejillas) {
+    const filas = filasPorFuente[rejilla.fuente] ?? [];
+    if (filas.length === 0) continue;
+
+    // El hueco es lo que va del primer renglón al fondo del recuadro pintado.
+    const hueco = (rejilla.y + rejilla.alto) - rejilla.yPrimerRenglon;
+    const cabenAlNatural = Math.max(1, Math.floor(hueco / rejilla.altoRenglon));
+
+    const altoRenglon = filas.length <= cabenAlNatural
+      ? rejilla.altoRenglon
+      : hueco / filas.length;
+    const escala = altoRenglon / rejilla.altoRenglon;
+    const tamano = escala < 1
+      ? Math.max(TAMANO_MINIMO_PT, rejilla.tamano * escala)
+      : rejilla.tamano;
+
+    // Con la letra en su mínimo puede que aun así no quepan. Se imprimen los
+    // que entren y se dice, que es lo único honesto: quien emite la factura
+    // tiene que saber que ese recuadro se le ha quedado corto.
+    const altoMinimo = TAMANO_MINIMO_PT * 0.3528 * 1.15;
+    const maximo = Math.max(1, Math.floor(hueco / Math.max(altoRenglon, altoMinimo)));
+    const cabidas = Math.min(filas.length, maximo);
+    if (cabidas < filas.length) {
+      avisos.push(
+        `El cuadro de desglose sólo tiene sitio para ${cabidas} de los ${filas.length} tipos impositivos de este documento.`,
+      );
+    }
+
+    for (let i = 0; i < cabidas; i++) {
+      for (const columna of rejilla.columnas) {
+        // Una columna sin asignar —las retenciones, un dato del negocio que
+        // no es nuestro— se queda en blanco a propósito.
+        if (!columna.clave) continue;
+        const valor = filas[i][columna.clave] ?? '';
+        if (!valor) continue;
+        estaticos.push({
+          name: `${PREFIJO_REJILLA}${rejilla.id}_${i}_${columna.clave}`,
+          type: 'text',
+          content: valor,
+          position: {
+            x: redondear(columna.x),
+            y: redondear(rejilla.yPrimerRenglon + i * altoRenglon),
+          },
+          width: redondear(columna.ancho),
+          height: redondear(altoRenglon),
+          fontName: nombreDeFuente(rejilla),
+          fontSize: redondear(tamano),
+          fontColor: rejilla.color,
+          backgroundColor: '',
+          alignment: columna.alineacion,
+          verticalAlignment: 'middle',
+          lineHeight: 1,
+          characterSpacing: 0,
+          readOnly: true,
+        } as unknown as Schema);
+      }
+    }
+  }
+
+  base.staticSchema = estaticos;
+  return avisos;
 }

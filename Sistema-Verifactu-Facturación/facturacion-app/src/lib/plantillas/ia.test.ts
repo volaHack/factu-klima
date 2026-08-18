@@ -151,7 +151,7 @@ describe('qué se le manda al modelo', () => {
         campo({ id: 'a', valorOriginal: '4300000092', x: 71, y: 66, ancho: 18, alto: 3.2 }),
         campo({ id: 'b', clave: 'doc_fecha', valorOriginal: '12/08/2026', x: 47, y: 66, ancho: 16, alto: 3.2 }),
       ],
-      tabla: null, avisos: [], zonasExtra: [], familia: 'sans',
+      tabla: null, rejillas: [], avisos: [], zonasExtra: [], familia: 'sans',
     };
   }
 

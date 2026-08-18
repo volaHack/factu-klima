@@ -108,6 +108,7 @@ function analisisConTabla(altoTabla: number): AnalisisPdf {
         tamanoCabecera: 9, tamanoCuerpo: 9, relleno: [1, 1, 1, 1], filaAlterna: '',
       },
     },
+    rejillas: [],
     avisos: [],
     zonasExtra: [],
     familia: 'sans',
@@ -186,7 +187,7 @@ describe('cuánto blanco se come alrededor de un campo', () => {
       negrita: false, cursiva: false, serif: false,
       interlineado: 1.15, confianza: 0.9, motivo: '',
     } as unknown as CampoDetectado;
-    return { pagina, campos: [campo], tabla: null, avisos: [], zonasExtra: [], familia: 'sans' };
+    return { pagina, campos: [campo], tabla: null, rejillas: [], avisos: [], zonasExtra: [], familia: 'sans' };
   }
 
   const sobresale = (tamano: number) => {

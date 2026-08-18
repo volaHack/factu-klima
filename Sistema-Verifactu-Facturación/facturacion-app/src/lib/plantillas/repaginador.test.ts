@@ -150,6 +150,7 @@ describe('plantilla con la tabla pegada al pie de página', () => {
       campos: [],
       tabla,
       avisos: [],
+      rejillas: [],
       zonasExtra: [],
       familia: 'sans',
     };

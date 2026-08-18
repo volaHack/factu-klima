@@ -183,6 +183,69 @@ export interface TablaDetectada {
   filasOriginales: number;
 }
 
+// ============================================================
+// REJILLAS
+// ============================================================
+
+/** Una columna de una rejilla: dónde cae y qué dato imprime. */
+export interface ColumnaRejilla {
+  /** Clave de `COLUMNAS_IMPUESTOS`, o null mientras nadie haya dicho cuál es. */
+  clave: string | null;
+  /** Cómo la titula el impreso. Es lo que el usuario reconoce en el editor. */
+  cabecera: string;
+  /** Milímetros desde el borde izquierdo de la hoja. */
+  x: number;
+  ancho: number;
+  alineacion: 'left' | 'center' | 'right';
+}
+
+/**
+ * UN RECUADRO QUE SE RELLENA POR RENGLONES
+ *
+ * El cuadro de desglose que casi toda factura lleva al pie —«IMPUESTO / BASE
+ * IMP. / % / CUOTA», o «BASE / IVA / RETENCIONES / TOTAL»— no es un puñado de
+ * casillas sueltas: es una tabla, y cuántos renglones lleva depende de la
+ * factura, no del impreso.
+ *
+ * Antes eran cuatro campos anclados por renglón, con el cuatro clavado en el
+ * código. Una factura con cinco tipos no cabía, y un impreso con las columnas
+ * puestas de otra manera no se reconocía.
+ *
+ * No puede ser una tabla de pdfme. En pdfme sólo crece lo que vive en
+ * `schemas`, y ahí todo lo que va detrás de una tabla que crece se desplaza
+ * hacia abajo (`processDynamicPage`: cada elemento arranca en `baseY +
+ * totalYOffset`); además sólo hay una banda de contenido por hoja, así que no
+ * hay manera de darle a dos tablas dos huecos independientes. Metida en el
+ * flujo, esta rejilla se despegaría de su recuadro impreso en cuanto la
+ * factura trajera unas cuantas líneas.
+ *
+ * Tampoco hace falta: los renglones se saben ANTES de generar, porque salen
+ * del desglose de la propia factura. Así que la expandimos nosotros a
+ * casillas ancladas, y crece hacia abajo dentro de su recuadro sin que nada
+ * la empuje.
+ */
+export interface RejillaDetectada {
+  id: string;
+  /** Qué desglose imprime. Hoy sólo el de impuestos. */
+  fuente: 'impuestos';
+  /** El recuadro entero, tal y como está pintado en el papel. */
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+  /** Dónde cae el primer renglón, ya por debajo de la cabecera impresa. */
+  yPrimerRenglon: number;
+  /** Lo que mide un renglón en el impreso de muestra. */
+  altoRenglon: number;
+  columnas: ColumnaRejilla[];
+  /** Estilo del texto de los renglones, copiado del que traía la muestra. */
+  tamano: number;
+  negrita: boolean;
+  cursiva: boolean;
+  serif: boolean;
+  color: string;
+}
+
 export interface AvisoAnalisis {
   nivel: 'info' | 'aviso' | 'error';
   texto: string;
@@ -209,6 +272,8 @@ export interface AnalisisPdf {
   pagina: PaginaExtraida;
   campos: CampoDetectado[];
   tabla: TablaDetectada | null;
+  /** Recuadros que se rellenan por renglones (el desglose de impuestos). */
+  rejillas: RejillaDetectada[];
   avisos: AvisoAnalisis[];
   /** Zonas que el usuario ha decidido tapar además de las automáticas. */
   zonasExtra: ZonaBorrado[];
@@ -249,6 +314,8 @@ export interface OrigenPlantilla {
   pagina: Omit<PaginaExtraida, 'lineas'>;
   campos: CampoDetectado[];
   tabla: TablaDetectada | null;
+  /** Ausente en las plantillas guardadas antes de que existieran. */
+  rejillas?: RejillaDetectada[];
   zonasExtra: ZonaBorrado[];
   avisos: AvisoAnalisis[];
   familia: 'sans' | 'serif';

@@ -429,3 +429,114 @@ describe('generación del PDF', () => {
     expect(texto).toContain('Caja de tomate rama primera categoría');
   }, 60_000);
 });
+
+describe('el cuadro de desglose, de punta a punta', () => {
+  /**
+   * Un impreso con cuadro de desglose al pie, con DOS renglones de muestra.
+   * Lo que se comprueba es que una factura con otro número de tipos —uno, o
+   * cuatro— siga cayendo dentro de ese mismo recuadro.
+   */
+  function paginaConCuadro(): PaginaExtraida {
+    const items: ItemTexto[] = [
+      texto('MI EMPRESA S.L.', 15, 18, 13, true),
+      texto('FACTURA', 150, 18, 16, true),
+      texto('Nº factura:', 140, 28),
+      texto('AAA-0000-0000', 168, 28),
+      texto('FACTURAR A:', 15, 52, 9, true),
+      texto('CLIENTE DE MUESTRA S.A.', 15, 58, 10, true),
+
+      texto('Ref.', 15, 90, 9, true),
+      texto('Descripción', 32, 90, 9, true),
+      texto('Cant.', 118, 90, 9, true),
+      texto('Precio', 135, 90, 9, true),
+      texto('Importe', 170, 90, 9, true),
+      texto('REF-001', 15, 98),
+      texto('Artículo de muestra 1', 32, 98),
+      texto('1 ud', 118, 98),
+      texto('1,00 €', 135, 98),
+      texto('1,00 €', 170, 98),
+
+      // El cuadro del pie, con dos renglones impresos en la muestra.
+      texto('IMPUESTO', 15, 212, 9, true),
+      texto('BASE IMP.', 50, 212, 9, true),
+      texto('%', 75, 212, 9, true),
+      texto('CUOTA', 90, 212, 9, true),
+      texto('I.V.A.', 15, 218), texto('100,00', 50, 218), texto('21,0', 75, 218), texto('21,00', 90, 218),
+      texto('I.V.A.', 15, 223), texto('50,00', 50, 223), texto('10,0', 75, 223), texto('5,00', 90, 223),
+
+      texto('TOTAL', 140, 240, 11, true),
+      texto('176,00 €', 170, 240, 11, true),
+    ];
+    return {
+      ancho: 210, alto: 297, items, lineas: agruparEnLineas(items), totalPaginas: 1,
+      bitmap: { dataUrl: FONDO, anchoPx: 1654, altoPx: 2339, pxPorMm: 7.87 },
+    };
+  }
+
+  function compilarConCuadro() {
+    const analisis = detectar(paginaConCuadro(), { ajustes: AJUSTES });
+    return { analisis, ...compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: 'muestra.pdf' }) };
+  }
+
+  it('reconoce el cuadro y lo guarda dentro de la plantilla', () => {
+    const { analisis, plantilla } = compilarConCuadro();
+    expect(analisis.rejillas).toHaveLength(1);
+    // Viaja con la plantilla para poder expandirlo al imprimir.
+    expect((plantilla as unknown as { __rejillas: unknown[] }).__rejillas).toHaveLength(1);
+  });
+
+  it('imprime el desglose de la factura, no el de la muestra', async () => {
+    const { plantilla } = compilarConCuadro();
+    const factura = facturaConLineas(3);
+    const datos = construirDatos({ tipo: 'factura', documento: factura }, AJUSTES);
+    const { texto: contenido } = await leerPdf(await generarPdf(plantilla, datos));
+
+    // La base imponible del único tipo de la factura sale en el cuadro.
+    // Se busca sólo la cifra: el símbolo de moneda va con espacio duro y al
+    // extraer el texto del PDF no vuelve igual que como se escribió.
+    expect(contenido).toContain(soloCifra(datos.impuestos[0].base));
+    // ...y las cifras que traía la muestra, no.
+    expect(contenido).not.toContain('100,00');
+    expect(contenido).not.toContain('21,00');
+  }, 60_000);
+
+  it('los renglones caen dentro del recuadro, traiga los tipos que traiga', async () => {
+    // Lo que de verdad se vigila: en pdfme, lo que va detrás de una tabla que
+    // crece se desplaza hacia abajo. Si el desglose viviera en el flujo de la
+    // página, una factura con muchas líneas lo empujaría fuera de su cuadro.
+    const { analisis, plantilla } = compilarConCuadro();
+    const rejilla = analisis.rejillas[0];
+    const datos = construirDatos({ tipo: 'factura', documento: facturaConLineas(40) }, AJUSTES);
+    const bytes = await generarPdf(plantilla, datos);
+
+    const alturas = await alturasDeTexto(bytes, soloCifra(datos.impuestos[0].base));
+    expect(alturas.length).toBeGreaterThan(0);
+    for (const y of alturas) {
+      expect(y).toBeGreaterThanOrEqual(rejilla.yPrimerRenglon - 1);
+      expect(y).toBeLessThanOrEqual(rejilla.y + rejilla.alto + 1);
+    }
+  }, 60_000);
+});
+
+/** «60,00 €» → «60,00». Ver el porqué en la prueba que lo usa. */
+const soloCifra = (importe: string) => importe.replace(/[^\d.,]/g, '');
+
+/** Alturas en mm a las que aparece un texto dentro del PDF generado. */
+async function alturasDeTexto(bytes: Uint8Array, buscado: string): Promise<number[]> {
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const documento = await pdfjs.getDocument({
+    data: new Uint8Array(bytes), useSystemFonts: false, isEvalSupported: false,
+  }).promise;
+  const alturas: number[] = [];
+  for (let n = 1; n <= documento.numPages; n++) {
+    const pagina = await documento.getPage(n);
+    const vista = pagina.getViewport({ scale: 1 });
+    for (const item of (await pagina.getTextContent()).items) {
+      if (typeof item.str !== 'string' || !item.str.includes(buscado)) continue;
+      const t = pdfjs.Util.transform(vista.transform, item.transform);
+      alturas.push((t[5] / 72) * 25.4);
+    }
+  }
+  return alturas;
+}

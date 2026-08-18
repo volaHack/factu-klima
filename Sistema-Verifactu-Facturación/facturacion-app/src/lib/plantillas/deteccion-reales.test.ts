@@ -372,25 +372,32 @@ describe('el cuadro de impuestos y las casillas de recuento del pie', () => {
     ];
   }
 
-  it('reparte la rejilla por renglones, uno por tipo impositivo', () => {
-    // Sin esto las cifras eran datos sueltos que nadie sabía rellenar: se
-    // borraban del calco y el cuadro salía vacío en todas las facturas, con
-    // el desglose de impuestos —que es obligatorio— sin imprimir.
-    const c = claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }));
-    expect(c.impuesto_1_base).toBe('15,00');
-    expect(c.impuesto_1_pct).toBe('0,0');
-    expect(c.impuesto_1_cuota).toBe('0,00');
-    expect(c.impuesto_2_base).toBe('109,03');
-    expect(c.impuesto_3_cuota).toBe('1,05');
+  it('reconoce el cuadro del pie como una rejilla, no como casillas sueltas', () => {
+    // Cuántos renglones lleva el desglose lo dice la factura, no el impreso.
+    // Como casillas ancladas —cuatro, clavadas en el código— una factura con
+    // cinco tipos no cabía y el desglose, que es obligatorio, salía corto.
+    const rejilla = detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }).rejillas[0];
+    expect(rejilla).toBeDefined();
+    expect(rejilla.columnas.map(c => c.clave)).toEqual(['nombre', 'base', 'tipo', 'cuota']);
   });
 
-  it('no cuenta como renglón lo que está fuera de las columnas del cuadro', () => {
+  it('saca el alto de renglón de la distancia entre los de la muestra', () => {
+    // Es lo que hace que los renglones nuevos caigan sobre las rayas que el
+    // impreso ya trae pintadas, en vez de a ojo.
+    const rejilla = detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }).rejillas[0];
+    // El primer renglón cae por debajo de la cabecera y por encima del
+    // segundo; el alto, en la distancia que los separa.
+    expect(rejilla.yPrimerRenglon).toBeGreaterThan(212.3);
+    expect(rejilla.yPrimerRenglon).toBeLessThan(223.7);
+    expect(rejilla.altoRenglon).toBeCloseTo(5, 0);
+  });
+
+  it('no mete en el cuadro lo que cae fuera de sus columnas', () => {
     // «CAJAS» y «UNIDADES» van a la derecha de la rejilla, en sus propias
     // filas. Contarlas descolocaba el desglose: el segundo tipo impositivo
     // acababa impreso en el tercer renglón.
-    const c = claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }));
-    expect(c.impuesto_2_base).toBe('109,03');
-    expect(c.impuesto_4_base).toBeUndefined();
+    const rejilla = detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES }).rejillas[0];
+    expect(rejilla.x + rejilla.ancho).toBeLessThan(108);
   });
 
   it('ata la casilla «CAJAS» a la suma de la columna «CAJ.»', () => {
@@ -404,5 +411,78 @@ describe('el cuadro de impuestos y las casillas de recuento del pie', () => {
 
   it('reconoce «UNIDADES» como el total de la columna de cantidad', () => {
     expect(claves(detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES })).total_unidades).toBe('196,00');
+  });
+});
+
+describe('un cuadro de desglose con la cabecera en dos alturas', () => {
+  /**
+   * El pie del modelo de factura de la AEAT, que agrupa columnas:
+   *
+   *      BASE          IVA          RETENCIONES      TOTAL
+   *                 %     CUOTA      %     CUOTA
+   *    500,00 €    10%   50,00 €                   550,00 €
+   *
+   * Con este impreso no bastaba con leer una fila de títulos: «%» y «CUOTA»
+   * salen dos veces y no significan lo mismo la una que la otra. Sin la
+   * segunda altura, el cuadro no se reconocía, sus cifras quedaban sueltas
+   * por la hoja y el total salía sin identificar.
+   */
+  function pieAgrupado() {
+    return [
+      // La tabla de líneas por encima: sin ella, el propio pie es lo único
+      // con pinta de tabla en la hoja y se lo lleva la detección de la tabla.
+      ...tablaCon(
+        [['CÓDIGO SIG', 24], ['CANTIDAD', 60], ['CONCEPTO', 90], ['PRECIO', 140], ['IMPORTE €', 170]],
+        [
+          [['REF-001', 24], ['12', 60], ['Caja de tomate', 90], ['14,90', 140], ['178,80', 170]],
+          [['REF-002', 24], ['8', 60], ['Saco de patata', 90], ['9,50', 140], ['76,00', 170]],
+        ],
+      ),
+      texto('BASE', 43, 218.3, 9, NEGRITA),
+      texto('IVA', 103, 218.3, 9, NEGRITA),
+      texto('RETENCIONES', 135, 218.3, 9, NEGRITA),
+      texto('TOTAL', 175, 218.3, 9, NEGRITA),
+      texto('%', 90, 226.5, 9, NEGRITA),
+      texto('CUOTA', 110, 226.5, 9, NEGRITA),
+      texto('%', 138, 226.5, 9, NEGRITA),
+      texto('CUOTA', 150, 226.5, 9, NEGRITA),
+      texto('500,00 €', 41, 234.7),
+      texto('10%', 88, 234.7),
+      texto('50,00 €', 111, 234.7),
+      texto('550,00 €', 174, 234.7),
+    ];
+  }
+
+  const rejillaDe = () => detectar(pagina(pieAgrupado()), { ajustes: AJUSTES }).rejillas[0];
+
+  it('cuelga cada subtítulo de la casilla que lo cobija, no de la palabra', () => {
+    // «%» y «CUOTA» no caen debajo de la PALABRA «IVA», sino dentro de su
+    // CASILLA, que es mucho más ancha y está centrada. Mirando si se solapan
+    // los textos no se emparejaba ninguno.
+    expect(rejillaDe().columnas.map(c => c.cabecera)).toEqual([
+      'BASE', 'IVA %', 'IVA CUOTA', 'RETENCIONES %', 'RETENCIONES CUOTA', 'TOTAL',
+    ]);
+  });
+
+  it('sabe que el «%» del IVA es un tipo y el del grupo de al lado no', () => {
+    expect(rejillaDe().columnas.map(c => c.clave)).toEqual([
+      'base', 'tipo', 'cuota', null, null, 'total',
+    ]);
+  });
+
+  it('deja las retenciones sin asignar en vez de inventarles un dato', () => {
+    // Un IRPF retenido no es parte del desglose de impuestos repercutidos y
+    // no hay dato nuestro que poner ahí. Queda a la vista en el editor para
+    // que lo asigne quien conozca su factura.
+    const retenciones = rejillaDe().columnas.filter(c => c.cabecera.startsWith('RETENCIONES'));
+    expect(retenciones).toHaveLength(2);
+    expect(retenciones.every(c => c.clave === null)).toBe(true);
+  });
+
+  it('no confunde la segunda altura de la cabecera con un renglón de datos', () => {
+    // La fila «% CUOTA % CUOTA» no lleva ni una cifra: es cabecera. Tomarla
+    // por el primer renglón habría metido el desglose una fila más abajo.
+    const rejilla = rejillaDe();
+    expect(rejilla.yPrimerRenglon).toBeGreaterThan(230);
   });
 });

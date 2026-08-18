@@ -12,7 +12,7 @@ import type { Template } from '@pdfme/common';
 import { TABLA_LINEAS } from './contrato';
 import type { DatosDocumento } from './datos';
 import { cargarFuentes } from './fuentes';
-import { columnasDePlantilla, normalizarPlantilla } from './plantilla';
+import { columnasDePlantilla, materializarRejillas, normalizarPlantilla } from './plantilla';
 
 export class ErrorGeneracion extends Error {}
 
@@ -142,6 +142,11 @@ export async function generarPdf(
   };
 
   const entrada = construirEntrada(plantilla, datos);
+  // El desglose del pie se expande AQUÍ y no al montar la plantilla, porque
+  // cuántos renglones lleva lo dice la factura que se está imprimiendo, no el
+  // impreso: la misma plantilla saca hoy una factura de un tipo impositivo y
+  // mañana otra de cuatro.
+  materializarRejillas(plantilla, { impuestos: datos.impuestos });
   await incrustarImagenes(plantilla, entrada);
 
   try {

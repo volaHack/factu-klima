@@ -1,0 +1,122 @@
+/**
+ * EL DESGLOSE DEL PIE, QUE CRECE CON LA FACTURA
+ *
+ * Cuántos renglones lleva el cuadro de impuestos lo dice la factura, no el
+ * impreso. Antes eran cuatro casillas ancladas con el cuatro clavado en el
+ * código; ahora es una rejilla que se expande al imprimir.
+ *
+ * Lo que se fija aquí es que crezca sin despegarse de su recuadro: en pdfme,
+ * todo lo que va detrás de una tabla que crece se desplaza hacia abajo, así
+ * que si esto viviera en el flujo de la página se saldría del cuadro impreso
+ * en cuanto la factura trajera unas cuantas líneas.
+ */
+
+import { describe, expect, it } from 'vitest';
+import type { Schema, Template } from '@pdfme/common';
+import { materializarRejillas } from './plantilla';
+import type { RejillaDetectada } from './tipos';
+
+const REJILLA: RejillaDetectada = {
+  id: 'r1',
+  fuente: 'impuestos',
+  x: 11, y: 212, ancho: 91, alto: 34,
+  yPrimerRenglon: 218,
+  altoRenglon: 5,
+  columnas: [
+    { clave: 'nombre', cabecera: 'IMPUESTO', x: 11, ancho: 28, alineacion: 'left' },
+    { clave: 'base', cabecera: 'BASE IMP.', x: 39, ancho: 28, alineacion: 'right' },
+    { clave: 'tipo', cabecera: '%', x: 68, ancho: 13, alineacion: 'right' },
+    { clave: 'cuota', cabecera: 'CUOTA', x: 81, ancho: 21, alineacion: 'right' },
+    // Sin asignar a propósito: unas retenciones que no son dato nuestro.
+    { clave: null, cabecera: 'RETENCIONES', x: 102, ancho: 10, alineacion: 'right' },
+  ],
+  tamano: 9, negrita: false, cursiva: false, serif: false, color: '#000000',
+};
+
+function plantillaCon(rejilla: RejillaDetectada): Template {
+  return {
+    basePdf: { width: 210, height: 297, padding: [0, 0, 0, 0], staticSchema: [] },
+    schemas: [[]],
+    __rejillas: [rejilla],
+  } as unknown as Template;
+}
+
+const tramo = (pct: string, base: string) => ({
+  tipo: pct, nombre: 'I.G.I.C.', base, cuota: '1,00', total: '2,00',
+});
+
+function casillas(plantilla: Template): (Schema & { position: { x: number; y: number } })[] {
+  const base = plantilla.basePdf as { staticSchema: Schema[] };
+  return base.staticSchema.filter(s => String(s.name).startsWith('__rej_')) as never;
+}
+
+describe('el desglose del pie se expande al imprimir', () => {
+  it('saca un renglón por tipo impositivo, no cuatro siempre', () => {
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('3,0', '109,03'), tramo('7,0', '14,93')] });
+    // Cuatro columnas asignadas por renglón, y dos renglones.
+    expect(casillas(plantilla)).toHaveLength(8);
+  });
+
+  it('los pone sobre las rayas que el impreso ya trae pintadas', () => {
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1'), tramo('7,0', '2'), tramo('15,0', '3')] });
+    const alturas = [...new Set(casillas(plantilla).map(c => c.position.y))].sort((a, b) => a - b);
+    expect(alturas).toEqual([218, 223, 228]);
+  });
+
+  it('deja en blanco la columna que nadie ha asignado', () => {
+    // Las retenciones no son parte del desglose de impuestos repercutidos.
+    // Inventarles un valor sería peor que dejarlas vacías.
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('3,0', '109,03')] });
+    expect(casillas(plantilla).some(c => String(c.name).includes('RETENCIONES'))).toBe(false);
+  });
+
+  it('no se sale del recuadro: aprieta los renglones para que quepan', () => {
+    // El desglose por tipos es obligatorio en una factura. Si no cabe, más
+    // vale apretado que incompleto, y desde luego mejor que desbordado por
+    // debajo del cuadro impreso.
+    const plantilla = plantillaCon(REJILLA);
+    const muchos = Array.from({ length: 12 }, (_, i) => tramo(String(i), String(i)));
+    materializarRejillas(plantilla, { impuestos: muchos });
+
+    const dentro = casillas(plantilla);
+    const fondo = REJILLA.y + REJILLA.alto;
+    for (const casilla of dentro) {
+      expect(casilla.position.y + (casilla.height as number)).toBeLessThanOrEqual(fondo + 0.5);
+    }
+  });
+
+  it('al apretar, encoge también la letra', () => {
+    const holgado = plantillaCon(REJILLA);
+    materializarRejillas(holgado, { impuestos: [tramo('3,0', '1')] });
+    const apretado = plantillaCon(REJILLA);
+    materializarRejillas(apretado, {
+      impuestos: Array.from({ length: 12 }, (_, i) => tramo(String(i), String(i))),
+    });
+
+    const cuerpo = (p: Template) => (casillas(p)[0] as unknown as { fontSize: number }).fontSize;
+    expect(cuerpo(holgado)).toBe(9);
+    expect(cuerpo(apretado)).toBeLessThan(9);
+  });
+
+  it('avisa cuando ni apretando caben todos', () => {
+    // Que el desglose salga corto es un problema del que quien emite la
+    // factura tiene que enterarse, no algo que se traga en silencio.
+    const plantilla = plantillaCon(REJILLA);
+    const avisos = materializarRejillas(plantilla, {
+      impuestos: Array.from({ length: 40 }, (_, i) => tramo(String(i), String(i))),
+    });
+    expect(avisos.join(' ')).toMatch(/sólo tiene sitio para/);
+  });
+
+  it('no arrastra los renglones de la factura anterior', () => {
+    // La misma plantilla imprime muchas facturas seguidas. Si no se limpiara,
+    // la segunda saldría con los tipos de la primera debajo.
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1'), tramo('7,0', '2'), tramo('15,0', '3')] });
+    materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1')] });
+    expect(casillas(plantilla)).toHaveLength(4);
+  });
+});
