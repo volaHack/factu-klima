@@ -8,6 +8,7 @@ import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, s
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
+import SelectorSector from '@/components/ajustes/SelectorSector';
 import { useToast } from '@/hooks/useToast';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
@@ -264,22 +265,10 @@ export default function AjustesPage() {
         {/* Sector Selector */}
         <div style={{ marginBottom: 'var(--space-6)' }}>
           <label className="form-label" style={{ marginBottom: 'var(--space-3)', display: 'block' }}>Sector de actividad</label>
-          <div className="choice-grid" role="radiogroup" aria-label="Sector de actividad">
-            {BUSINESS_SECTORS.map(sec => (
-              <button
-                key={sec.value}
-                type="button"
-                role="radio"
-                aria-checked={settings.sector === sec.value}
-                className={`choice-card ${settings.sector === sec.value ? 'active' : ''}`}
-                onClick={() => updateField('sector', sec.value)}
-              >
-                <span className="choice-card-icon"><CategoryIcon name={sec.icon} size={22} /></span>
-                <span className="choice-card-title">{sec.label}</span>
-                <span className="choice-card-text">{sec.description}</span>
-              </button>
-            ))}
-          </div>
+          <SelectorSector
+            valor={settings.sector}
+            onElegir={sector => updateField('sector', sector)}
+          />
         </div>
 
         {/* Color Theme Selector */}

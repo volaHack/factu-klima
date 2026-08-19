@@ -12,6 +12,8 @@ import {
   Truck, ClipboardList, Tag, ScrollText, Box,
   Utensils, ShoppingCart, Star, Zap, Shield, Gem, Flame,
   Pill, Leaf, Shirt, Laptop, Car, Key, Timer,
+  // Los oficios que venden trabajo: salud, despachos, obra y servicios.
+  Activity, BookOpen, Brain, Briefcase, Building2, Calculator, Camera, ClipboardCheck, Code, Compass, Droplets, FileCheck, Film, Flower2, Gavel, GraduationCap, HeartPulse, Home, Languages, Megaphone, Palette, PartyPopper, PawPrint, Ruler, Salad, Scale, Scissors, Server, Smile, Sofa, Sparkles, Stethoscope, User, Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -65,6 +67,42 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'Car': Car,
   'Key': Key,
   'Timer': Timer,
+
+  // --- Oficios de servicios ---
+  'Activity': Activity,
+  'BookOpen': BookOpen,
+  'Brain': Brain,
+  'Briefcase': Briefcase,
+  'Building2': Building2,
+  'Calculator': Calculator,
+  'Camera': Camera,
+  'ClipboardCheck': ClipboardCheck,
+  'Code': Code,
+  'Compass': Compass,
+  'Droplets': Droplets,
+  'FileCheck': FileCheck,
+  'Film': Film,
+  'Flower2': Flower2,
+  'Gavel': Gavel,
+  'GraduationCap': GraduationCap,
+  'HeartPulse': HeartPulse,
+  'Home': Home,
+  'Languages': Languages,
+  'Megaphone': Megaphone,
+  'Palette': Palette,
+  'PartyPopper': PartyPopper,
+  'PawPrint': PawPrint,
+  'Ruler': Ruler,
+  'Salad': Salad,
+  'Scale': Scale,
+  'Scissors': Scissors,
+  'Server': Server,
+  'Smile': Smile,
+  'Sofa': Sofa,
+  'Sparkles': Sparkles,
+  'Stethoscope': Stethoscope,
+  'User': User,
+  'Users': Users,
 };
 
 interface CategoryIconProps {

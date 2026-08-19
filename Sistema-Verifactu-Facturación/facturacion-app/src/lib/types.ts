@@ -74,7 +74,53 @@ export enum UnitOfMeasure {
   PACK = 'pack',
 }
 
-export type BusinessSector = 'alimentacion' | 'supermercado' | 'mayorista' | 'bebidas' | 'servicios_industriales';
+/**
+ * A qué se dedica quien factura.
+ *
+ * Manda qué categorías de producto salen de fábrica y qué conceptos se
+ * sugieren en las líneas, así que un fontanero no tiene que borrar «Frutas
+ * frescas» para escribir «Mano de obra».
+ *
+ * Los cinco primeros venden género; los demás venden trabajo, y sus
+ * «categorías» son conceptos de factura —una sesión, una minuta, una partida
+ * de obra— en vez de familias de artículos.
+ */
+export type BusinessSector =
+  | 'alimentacion' | 'supermercado' | 'mayorista' | 'bebidas' | 'servicios_industriales'
+  | 'psicologia'
+  | 'medicina'
+  | 'dental'
+  | 'fisioterapia'
+  | 'nutricion'
+  | 'veterinaria'
+  | 'abogacia'
+  | 'procuraduria'
+  | 'asesoria'
+  | 'peritaje'
+  | 'traduccion'
+  | 'arquitectura'
+  | 'interiorismo'
+  | 'ingenieria'
+  | 'informatica'
+  | 'diseno'
+  | 'fotografia'
+  | 'marketing'
+  | 'formacion'
+  | 'clases'
+  | 'freelance'
+  | 'electricidad'
+  | 'fontaneria'
+  | 'reformas'
+  | 'taller'
+  | 'limpieza'
+  | 'transporte'
+  | 'peluqueria'
+  | 'estetica'
+  | 'eventos'
+  | 'inmobiliaria';
+
+/** Familia a la que pertenece un sector, para agrupar el selector. */
+export type GrupoSector = 'comercio' | 'salud' | 'profesional' | 'tecnico' | 'oficio' | 'publico';
 
 // Modo de uso del TPV: afecta al grid de productos (denso IA), la venta por
 // peso (PLU) y las mesas con cuentas abiertas.

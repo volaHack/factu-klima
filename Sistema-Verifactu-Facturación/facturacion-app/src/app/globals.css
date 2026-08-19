@@ -8379,3 +8379,55 @@ a.stats-item:focus-visible {
 
 .doc-automatico strong { color: var(--text-primary); }
 .doc-automatico svg { flex-shrink: 0; color: var(--accent-500); }
+
+/* --- Selector de sector de actividad ---
+   Con treinta y seis sectores, una rejilla plana es una pared: van
+   agrupados por familia y con un buscador encima. */
+
+.selector-sector { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.selector-sector-buscar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-input);
+}
+
+.selector-sector-buscar svg { flex-shrink: 0; color: var(--text-muted); }
+
+.selector-sector-buscar input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 10px 0;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+}
+
+.selector-sector-buscar input:focus { outline: none; }
+.selector-sector-buscar:focus-within { border-color: var(--border-color-focus); }
+
+.selector-sector-grupo { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.selector-sector-titulo {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.selector-sector-vacio {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}

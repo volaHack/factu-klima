@@ -9,6 +9,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CompanySettings, BusinessSector, AccentTheme } from '@/lib/types';
 import { saveCompanySettings, saveUserProfile } from '@/lib/storage';
 import { BUSINESS_SECTORS, ACCENT_THEMES, PAYMENT_METHODS } from '@/lib/constants';
+import SelectorSector from '@/components/ajustes/SelectorSector';
 
 interface OnboardingModalProps {
   settings: CompanySettings;
@@ -146,19 +147,10 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
 
                 <div className="form-group">
                   <label className="form-label">Sector de negocio</label>
-                  <div className="onboarding-sector-grid">
-                    {BUSINESS_SECTORS.map(s => (
-                      <button
-                        key={s.value}
-                        type="button"
-                        className={`onboarding-sector-card ${settings.sector === s.value ? 'active' : ''}`}
-                        onClick={() => updateField('sector', s.value)}
-                      >
-                        <span className="onboarding-sector-icon"><CategoryIcon name={s.icon} size={22} /></span>
-                        <span className="onboarding-sector-label">{s.label}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <SelectorSector
+                    valor={settings.sector}
+                    onElegir={sector => updateField('sector', sector)}
+                  />
                 </div>
 
                 <div className="form-group">
