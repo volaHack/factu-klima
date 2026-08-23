@@ -294,6 +294,37 @@ export interface OrdenTrabajo {
   updatedAt: string;
 }
 
+/**
+ * UN LOTE DE PRODUCTO
+ *
+ * Trazabilidad alimentaria: qué lote se vendió a quién y con qué caducidad.
+ * No es opcional en distribución de alimentación —es obligación legal, para
+ * poder responder a una alerta sanitaria retirando exactamente lo que hay
+ * que retirar y a quién avisar, sin tener que revisar factura por factura.
+ *
+ * Las existencias del lote se descuentan al expedir el albarán que lo
+ * vende, igual que el stock del producto: es el mismo momento en que la
+ * mercancía sale de verdad por la puerta.
+ */
+export interface Lote {
+  id: string;
+  productId: string;
+  productRef: string;
+  productName: string;
+  /** El código del lote, casi siempre el que trae el proveedor. */
+  codigo: string;
+  fechaEntrada: string;
+  fechaCaducidad?: string;
+  cantidadEntrada: number;
+  /** Lo que queda sin vender. Baja al expedir un albarán que use este lote. */
+  cantidadDisponible: number;
+  proveedorId?: string;
+  proveedorNombre?: string;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;
@@ -317,6 +348,10 @@ export interface InvoiceLineItem {
    * Vacío o 1 en quien no trabaja así, que es la mayoría.
    */
   unitsPerPackage?: number;
+  /** De qué lote sale esta línea, si el producto se controla por lotes. */
+  loteId?: string;
+  /** El código del lote, guardado también aquí para no depender de que el lote siga existiendo. */
+  loteCodigo?: string;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -703,6 +738,10 @@ export interface AlbaranLineItem {
   discountPercent3?: number;
   /** Unidades sueltas por bulto. En un albarán es lo que se cuenta al descargar. */
   unitsPerPackage?: number;
+  /** De qué lote sale esta línea, si el producto se controla por lotes. */
+  loteId?: string;
+  /** El código del lote, guardado también aquí para no depender de que el lote siga existiendo. */
+  loteCodigo?: string;
   subtotal: number;
   taxAmount: number;
   total: number;

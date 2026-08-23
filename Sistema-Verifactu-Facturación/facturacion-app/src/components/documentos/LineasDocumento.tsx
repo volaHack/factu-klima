@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Percent, ChevronDown, ChevronUp } from 'lucide-react';
-import { InvoiceLineItem, CompanySettings, Product } from '@/lib/types';
+import { InvoiceLineItem, CompanySettings, Product, Lote } from '@/lib/types';
 import { unidadesTotales } from '@/lib/documentos';
 import { formatCurrency } from '@/lib/utils';
 import { recalcularLinea, lineaVacia, getPrecioProductoParaCliente } from '@/lib/documentos';
+import { lotesDisponibles } from '@/lib/lotes';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 export interface ColumnaPersonalizada {
@@ -22,6 +23,12 @@ interface LineasDocumentoProps {
   defaultDiscounts?: [number, number, number];
   columnasCustom?: ColumnaPersonalizada[];
   titulo?: string;
+  /**
+   * Los lotes de los productos que se controlan por lotes. Ausente o vacío =
+   * ninguna línea enseña selector de lote, que es lo que corresponde a quien
+   * no tiene el módulo encendido.
+   */
+  lotes?: Lote[];
 }
 
 export default function LineasDocumento({
@@ -33,6 +40,7 @@ export default function LineasDocumento({
   defaultDiscounts,
   columnasCustom = [],
   titulo = 'Productos y conceptos',
+  lotes = [],
 }: LineasDocumentoProps) {
   const [showExtraDiscounts, setShowExtraDiscounts] = useState(false);
 
@@ -56,6 +64,11 @@ export default function LineasDocumento({
         // Las unidades por bulto vienen de la ficha del producto: se ponen
         // una vez y no hay que teclearlas en cada factura.
         unitsPerPackage: product.unitsPerPackage,
+        // El lote de la línea anterior era del producto anterior: cambiar de
+        // producto sin limpiarlo dejaría una venta de leche marcada con el
+        // lote del yogur.
+        loteId: undefined,
+        loteCodigo: undefined,
         discountPercent: d1,
         discountPercent2: d2,
         discountPercent3: d3,
@@ -183,6 +196,30 @@ export default function LineasDocumento({
                     onChange={e => handleLineChange(index, 'unitsPerPackage', parseFloat(e.target.value) || 0)}
                   />
                 </label>
+
+                {/* Sólo si el producto de esta línea tiene lotes con
+                    existencias: para el resto de líneas —y para quien no
+                    tiene el módulo encendido— no aparece nada. */}
+                {lotesDisponibles(lotes, line.productId).length > 0 && (
+                  <label className="lineas-doc-campo lineas-doc-campo--ancho">
+                    <span>Lote</span>
+                    <select
+                      value={line.loteId ?? ''}
+                      onChange={e => {
+                        const lote = lotes.find(l => l.id === e.target.value);
+                        handleLineChange(index, 'loteId', lote?.id);
+                        handleLineChange(index, 'loteCodigo', lote?.codigo);
+                      }}
+                    >
+                      <option value="">— Elegir lote —</option>
+                      {lotesDisponibles(lotes, line.productId).map(l => (
+                        <option key={l.id} value={l.id}>
+                          {l.codigo} {l.fechaCaducidad ? `· cad. ${l.fechaCaducidad}` : ''} ({l.cantidadDisponible} disp.)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
                 <label className="lineas-doc-campo">
                   <span>Precio ud.</span>

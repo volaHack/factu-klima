@@ -5,6 +5,7 @@
 // ============================================================
 
 import { createClient } from '@/lib/supabase/client';
+import { consumirLote } from './lotes';
 import {
   movimientosDeProducto, reproducirCostes,
   type AjusteParaCostes, type DocumentoParaCostes,
@@ -20,7 +21,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -452,6 +453,8 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     discount_percent_2: li.discountPercent2 ?? 0,
     discount_percent_3: li.discountPercent3 ?? 0,
     units_per_package: li.unitsPerPackage ?? null,
+    lote_id: li.loteId ?? null,
+    lote_codigo: li.loteCodigo ?? null,
     cost_price: li.costPrice ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
@@ -989,6 +992,18 @@ export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
   for (const li of doc.lineItems) {
     if (!li.productId || li.quantity <= 0) continue;
     await adjustStock(li.productId, -Math.abs(li.quantity), doc.almacenId);
+
+    // El lote se descuenta en el MISMO momento que el stock del producto: es
+    // cuando la mercancía sale de verdad por la puerta. Descontarlo antes
+    // —al crear el albarán, todavía sin expedir— dejaría el lote gastado por
+    // una venta que a lo mejor ni siquiera llega a salir.
+    if (li.loteId) {
+      const lote = await getLoteById(li.loteId);
+      if (lote) {
+        const { cantidadDisponible } = consumirLote(lote, Math.abs(li.quantity));
+        await saveLote({ ...lote, cantidadDisponible });
+      }
+    }
   }
   return updated;
 }
@@ -2943,6 +2958,8 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     discountPercent2: Number(li.discount_percent_2 ?? li.discountPercent2 ?? 0),
     discountPercent3: Number(li.discount_percent_3 ?? li.discountPercent3 ?? 0),
     unitsPerPackage: li.units_per_package != null ? Number(li.units_per_package) : undefined,
+    loteId: li.lote_id || undefined,
+    loteCodigo: li.lote_codigo || undefined,
     costPrice: Number(li.cost_price ?? li.costPrice ?? 0),
     subtotal: Number(li.subtotal ?? 0),
     taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
@@ -4422,5 +4439,99 @@ function mapOrdenTrabajoFromDb(o: any): OrdenTrabajo {
     notas: o.notas || undefined,
     createdAt: o.created_at || o.createdAt || new Date().toISOString(),
     updatedAt: o.updated_at || o.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// LOTES Y TRAZABILIDAD
+// ============================================================
+
+export async function getLotes(): Promise<Lote[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('lotes');
+    if (cached.length > 0) return cached.map(mapLoteFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('lotes').select('*').order('fecha_caducidad', { ascending: true, nullsFirst: false });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('lotes');
+    await putMany('lotes', data);
+  }
+  return data.map(mapLoteFromDb);
+}
+
+export async function getLoteById(id: string): Promise<Lote | null> {
+  const lotes = await getLotes();
+  return lotes.find(l => l.id === id) ?? null;
+}
+
+export async function saveLote(lote: Lote): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: lote.id,
+    user_id: userId,
+    product_id: lote.productId,
+    product_ref: lote.productRef || null,
+    product_name: lote.productName || null,
+    codigo: lote.codigo,
+    fecha_entrada: lote.fechaEntrada,
+    fecha_caducidad: lote.fechaCaducidad || null,
+    cantidad_entrada: lote.cantidadEntrada,
+    cantidad_disponible: lote.cantidadDisponible,
+    proveedor_id: lote.proveedorId || null,
+    proveedor_nombre: lote.proveedorNombre || null,
+    notas: lote.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('lotes', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('lotes').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'lotes', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'lotes', row);
+  }
+}
+
+export async function deleteLote(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('lotes', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('lotes').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'lotes', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'lotes', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapLoteFromDb(l: any): Lote {
+  return {
+    id: l.id,
+    productId: l.product_id,
+    productRef: l.product_ref || '',
+    productName: l.product_name || '',
+    codigo: l.codigo || '',
+    fechaEntrada: l.fecha_entrada,
+    fechaCaducidad: l.fecha_caducidad || undefined,
+    cantidadEntrada: Number(l.cantidad_entrada ?? 0),
+    cantidadDisponible: Number(l.cantidad_disponible ?? 0),
+    proveedorId: l.proveedor_id || undefined,
+    proveedorNombre: l.proveedor_nombre || undefined,
+    notas: l.notas || undefined,
+    createdAt: l.created_at || l.createdAt || new Date().toISOString(),
+    updatedAt: l.updated_at || l.updatedAt || new Date().toISOString(),
   };
 }

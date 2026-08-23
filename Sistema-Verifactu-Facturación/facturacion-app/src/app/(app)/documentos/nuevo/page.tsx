@@ -7,12 +7,12 @@ import { ArrowLeft, Save, Send, Plus, Wand2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
-  getAlmacenes, getVendedores, getObras,
+  getAlmacenes, getVendedores, getObras, getLotes,
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
-  Almacen, Vendedor, Obra,
+  Almacen, Vendedor, Obra, Lote,
 } from '@/lib/types';
 import { tieneModulo } from '@/lib/modulos';
 import {
@@ -56,6 +56,8 @@ function NuevoDocumentoContent() {
   const [obraId, setObraId] = useState(obraIdParam ?? '');
   const [obras, setObras] = useState<Obra[]>([]);
   const [modoObras, setModoObras] = useState(false);
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [modoLotes, setModoLotes] = useState(false);
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   const [issueDate, setIssueDate] = useState(getToday());
@@ -77,13 +79,14 @@ function NuevoDocumentoContent() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores, loadedObras] = await Promise.all([
+        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores, loadedObras, loadedLotes] = await Promise.all([
           getCompanySettings(),
           getProducts(),
           sentidoParam === 'compra' ? getProveedores() : getClients(),
           getAlmacenes(),
           getVendedores(),
           getObras(),
+          getLotes(),
         ]);
         setSettings(loadedSettings);
         setProducts(loadedProducts);
@@ -92,6 +95,8 @@ function NuevoDocumentoContent() {
         setVendedores(loadedVendedores);
         setObras(loadedObras);
         setModoObras(tieneModulo(loadedSettings?.modulos, 'obras'));
+        setLotes(loadedLotes);
+        setModoLotes(tieneModulo(loadedSettings?.modulos, 'lotes'));
 
         const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
         if (principalAlm) {
@@ -496,6 +501,7 @@ function NuevoDocumentoContent() {
         tarifaId={tarifaId}
         defaultDiscounts={selectedClient?.defaultDiscounts}
         titulo={`Conceptos y líneas de ${etiquetaTipo(tipo).toLowerCase()}`}
+        lotes={modoLotes ? lotes : []}
       />
 
       {/* Totales */}

@@ -34,7 +34,8 @@ export type FichaId =
   | 'gastos_mes'
   | 'comisiones_mes'
   | 'obras_abiertas'
-  | 'ordenes_atrasadas';
+  | 'ordenes_atrasadas'
+  | 'lotes_caducando';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -101,6 +102,8 @@ export const FICHAS: Ficha[] = [
     explica: 'Los proyectos en marcha, con lo que llevan facturado, gastado y de margen hasta ahora.' },
   { id: 'ordenes_atrasadas', nombre: 'Órdenes atrasadas', tamano: 'mediana', requiere: 'ordenes_trabajo',
     explica: 'Avisos que llevan más de una semana abiertos sin cerrarse.' },
+  { id: 'lotes_caducando', nombre: 'Lotes por caducar', tamano: 'mediana', requiere: 'lotes',
+    explica: 'Lo que caduca en los próximos siete días y todavía queda en el almacén.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',

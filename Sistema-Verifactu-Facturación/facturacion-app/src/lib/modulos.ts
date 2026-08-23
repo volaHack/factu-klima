@@ -89,7 +89,7 @@ export const MODULOS: Modulo[] = [
   // --- Almacén ---
   { id: 'almacenes', nombre: 'Varios almacenes', grupo: 'almacen', disponible: true,
     descripcion: 'Existencias separadas por local, furgoneta u obra, con traspasos entre ellos.' },
-  { id: 'lotes', nombre: 'Lotes y trazabilidad', grupo: 'almacen', disponible: false,
+  { id: 'lotes', nombre: 'Lotes y trazabilidad', grupo: 'almacen', disponible: true,
     descripcion: 'Qué lote se vendió a quién y con qué caducidad. Obligatorio por ley en alimentación: sin esto no se puede responder a una alerta sanitaria.' },
   { id: 'numeros_serie', nombre: 'Números de serie', grupo: 'almacen', disponible: false,
     descripcion: 'Seguir una unidad concreta desde que entra hasta la garantía. Para aparatos, maquinaria y electrónica.' },
