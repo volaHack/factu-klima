@@ -3,36 +3,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Trash2, Save, Truck, ArrowLeft } from 'lucide-react';
+import { Save, Truck, ArrowLeft } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import LineasDocumento from '@/components/documentos/LineasDocumento';
 import {
   getClients, getProducts, getCompanySettings, saveAlbaran, expedirAlbaran,
-  saveCompanySettings
+  saveCompanySettings, getLotes,
 } from '@/lib/storage';
 import {
-  Client, Product, Albaran, AlbaranLineItem, UnitOfMeasure, CompanySettings
+  Client, Product, Albaran, AlbaranLineItem, CompanySettings, Lote,
 } from '@/lib/types';
 import { generateId, generateInvoiceNumber, sequenceFromNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
-import { getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
+import { getTaxLabel } from '@/lib/constants';
+import { lineaVacia } from '@/lib/documentos';
+import { tieneModulo } from '@/lib/modulos';
 import { useToast } from '@/hooks/useToast';
-import TaxRateSlider from '@/components/ui/TaxRateSlider';
-
-function createEmptyLine(settings?: CompanySettings | null): AlbaranLineItem {
-  return {
-    id: generateId(),
-    productId: '',
-    productName: '',
-    productRef: '',
-    quantity: 1,
-    unitPrice: 0,
-    unit: UnitOfMeasure.KG,
-    taxRate: getDefaultTaxRate(settings),
-    discountPercent: 0,
-    subtotal: 0,
-    taxAmount: 0,
-    total: 0,
-  };
-}
 
 export default function NuevoAlbaranPage() {
   const router = useRouter();
@@ -46,61 +31,24 @@ export default function NuevoAlbaranPage() {
   const [clientId, setClientId] = useState('');
   const [issueDate, setIssueDate] = useState(getToday());
   const [notes, setNotes] = useState('');
-  const [lineItems, setLineItems] = useState<AlbaranLineItem[]>([createEmptyLine()]);
+  const [lineItems, setLineItems] = useState<AlbaranLineItem[]>([]);
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [modoLotes, setModoLotes] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [c, p, settings] = await Promise.all([getClients(), getProducts(), getCompanySettings()]);
+      const [c, p, settings, loadedLotes] = await Promise.all([
+        getClients(), getProducts(), getCompanySettings(), getLotes(),
+      ]);
       setClients(c.filter(cl => cl.active));
       setProducts(p.filter(pr => pr.active));
       setSettings(settings);
-      setLineItems([createEmptyLine(settings)]);
+      setLotes(loadedLotes);
+      setModoLotes(tieneModulo(settings.modulos, 'lotes'));
+      setLineItems([lineaVacia(settings)]);
       setMounted(true);
     })();
   }, []);
-
-  const handleProductSelect = (lineIndex: number, productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    setLineItems(prev => {
-      const next = [...prev];
-      next[lineIndex] = {
-        ...next[lineIndex],
-        productId: product.id,
-        productName: product.name,
-        productRef: product.ref,
-        unitPrice: product.unitPrice,
-        unit: product.unit,
-        taxRate: product.defaultTaxRate,
-      };
-      return recalcLines(next);
-    });
-  };
-
-  const handleLineChange = (lineIndex: number, field: string, value: number | string) => {
-    setLineItems(prev => {
-      const next = [...prev];
-      (next[lineIndex] as unknown as Record<string, unknown>)[field] = value;
-      return recalcLines(next);
-    });
-  };
-
-  const recalcLines = (lines: AlbaranLineItem[]): AlbaranLineItem[] => {
-    return lines.map(line => {
-      const gross = line.quantity * line.unitPrice;
-      const discount = gross * (line.discountPercent / 100);
-      const subtotal = Number((gross - discount).toFixed(2));
-      const taxAmount = Number((subtotal * (line.taxRate / 100)).toFixed(2));
-      return { ...line, subtotal, taxAmount, total: Number((subtotal + taxAmount).toFixed(2)) };
-    });
-  };
-
-  const addLine = () => setLineItems(prev => [...prev, createEmptyLine()]);
-
-  const removeLine = (index: number) => {
-    if (lineItems.length <= 1) return;
-    setLineItems(prev => prev.filter((_, i) => i !== index));
-  };
 
   const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
   const selectedClient = clients.find(c => c.id === clientId);
@@ -237,74 +185,24 @@ export default function NuevoAlbaranPage() {
           )}
         </div>
 
+        {/* Mismo editor que usa una factura nueva: es lo que trae los tres
+            descuentos en cascada, el selector de lote y las unidades por
+            bulto. Este albarán se puede convertir luego en factura, y una
+            copia aparte del editor sólo se queda corta cuando eso pasa. */}
+        {settings && (
+          <LineasDocumento
+            lineItems={lineItems}
+            onChange={setLineItems}
+            products={products}
+            settings={settings}
+            tarifaId={selectedClient?.tarifaId}
+            lotes={modoLotes ? lotes : []}
+            titulo="Líneas del albarán"
+          />
+        )}
+
         <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Líneas del albarán</h3>
-
-          <div className="line-items">
-            <div className="line-items-header">
-              <span>Producto</span>
-              <span>Cantidad</span>
-              <span>Precio ud.</span>
-              <span>{getTaxLabel(settings)}</span>
-              <span>Dto. %</span>
-              <span style={{ textAlign: 'right' }}>Subtotal</span>
-              <span></span>
-            </div>
-            {lineItems.map((line, index) => (
-              <div className="line-item-row" key={line.id}>
-                <select
-                  value={line.productId}
-                  onChange={e => handleProductSelect(index, e.target.value)}
-                  style={{ minWidth: 0 }}
-                >
-                  <option value="">Seleccionar producto</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      [{p.ref}] {p.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={line.quantity}
-                  onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={line.unitPrice}
-                  onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={line.discountPercent}
-                  onChange={e => handleLineChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
-                  style={{ textAlign: 'right' }}
-                />
-                <div className="line-item-subtotal">
-                  {formatCurrency(line.subtotal)}
-                </div>
-                <button className="line-item-delete" onClick={() => removeLine(index)} disabled={lineItems.length <= 1}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-            <div className="line-items-add">
-              <button className="btn btn-ghost btn-sm" onClick={addLine}>
-                <Plus size={14} /> Añadir línea
-              </button>
-            </div>
-          </div>
-
+          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Totales</h3>
           <div className="invoice-totals">
             <div className="invoice-totals-table">
               <div className="invoice-totals-row">
