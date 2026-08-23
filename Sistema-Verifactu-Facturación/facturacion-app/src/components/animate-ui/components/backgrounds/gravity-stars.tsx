@@ -154,3 +154,10 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
     />
   );
 };
+
+export const GravityStarsBackgroundDemo = () => {
+  return (
+    <GravityStarsBackground className="absolute inset-0 flex items-center justify-center rounded-xl" />
+  );
+};
+
