@@ -7,6 +7,7 @@ import { unidadesTotales } from '@/lib/documentos';
 import { formatCurrency } from '@/lib/utils';
 import { recalcularLinea, lineaVacia, getPrecioProductoParaCliente } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
+import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 
 export interface ColumnaPersonalizada {
@@ -22,6 +23,7 @@ interface LineasDocumentoProps {
   tarifaId?: string;
   defaultDiscounts?: [number, number, number];
   columnasCustom?: ColumnaPersonalizada[];
+  /** Sin esto, el título lo pone el oficio de la empresa (ver `vocabularioDe`). */
   titulo?: string;
   /**
    * Los lotes de los productos que se controlan por lotes. Ausente o vacío =
@@ -39,10 +41,13 @@ export default function LineasDocumento({
   tarifaId,
   defaultDiscounts,
   columnasCustom = [],
-  titulo = 'Productos y conceptos',
+  titulo,
   lotes = [],
 }: LineasDocumentoProps) {
   const [showExtraDiscounts, setShowExtraDiscounts] = useState(false);
+  // Las palabras de este oficio. Un distribuidor cuenta bultos y unidades;
+  // un psicólogo, sesiones. Ver src/lib/vocabulario.ts.
+  const voz = vocabularioDe(settings.sector);
 
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -126,7 +131,7 @@ export default function LineasDocumento({
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-        <h3 className="card-title" style={{ margin: 0 }}>{titulo}</h3>
+        <h3 className="card-title" style={{ margin: 0 }}>{titulo ?? voz.titulo}</h3>
         <button
           type="button"
           className="btn btn-ghost btn-xs"
@@ -179,7 +184,7 @@ export default function LineasDocumento({
 
               <div className="lineas-doc-campos">
                 <label className="lineas-doc-campo">
-                  <span>Cantidad</span>
+                  <span>{voz.cantidad}</span>
                   <input
                     type="number" min={0} step={0.01} value={line.quantity}
                     onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
@@ -187,15 +192,22 @@ export default function LineasDocumento({
                 </label>
 
                 {/* Unidades por bulto. Se hereda del producto y sólo se toca
-                    cuando esta entrega viene en otro formato. */}
-                <label className="lineas-doc-campo">
-                  <span>U/C</span>
-                  <input
-                    type="number" min={0} step={1} placeholder="—"
-                    value={line.unitsPerPackage || ''}
-                    onChange={e => handleLineChange(index, 'unitsPerPackage', parseFloat(e.target.value) || 0)}
-                  />
-                </label>
+                    cuando esta entrega viene en otro formato.
+
+                    Sólo en los oficios que agrupan mercancía: preguntarle
+                    «¿cuántas unidades por caja?» a quien factura sesiones de
+                    fisioterapia no es que sobre, es que le hace dudar de si
+                    tiene que rellenarlo. */}
+                {voz.usaBultos && (
+                  <label className="lineas-doc-campo">
+                    <span title={`${voz.contenido[1]} por ${voz.bulto[0]}`}>{voz.bultoCorto}</span>
+                    <input
+                      type="number" min={0} step={1} placeholder="—"
+                      value={line.unitsPerPackage || ''}
+                      onChange={e => handleLineChange(index, 'unitsPerPackage', parseFloat(e.target.value) || 0)}
+                    />
+                  </label>
+                )}
 
                 {/* Sólo si el producto de esta línea tiene lotes con
                     existencias: para el resto de líneas —y para quien no
@@ -277,9 +289,9 @@ export default function LineasDocumento({
 
               {/* Lo que de verdad se descarga del camión, dicho aquí para no
                   tener que multiplicarlo de cabeza. */}
-              {uds > 0 && (
+              {voz.usaBultos && uds > 0 && (
                 <p className="lineas-doc-pie">
-                  {line.quantity} × {uds} = <strong>{line.quantity * uds}</strong> unidades
+                  {line.quantity} × {uds} = <strong>{line.quantity * uds}</strong> {voz.contenido[1]}
                 </p>
               )}
             </div>
@@ -288,13 +300,13 @@ export default function LineasDocumento({
 
         <div className="lineas-doc-suma">
           <button type="button" className="btn btn-ghost btn-sm" onClick={addLine}>
-            <Plus size={14} /> Añadir producto
+            <Plus size={14} /> Añadir {voz.linea}
           </button>
-          {totalUnidades > 0 && (
+          {voz.usaBultos && totalUnidades > 0 && (
             <span className="lineas-doc-total-uds">
-              {totalBultos} {totalBultos === 1 ? 'bulto' : 'bultos'}
+              {conPlural(totalBultos, voz.bulto)}
               {' · '}
-              <strong>{totalUnidades}</strong> unidades en total
+              <strong>{totalUnidades}</strong> {voz.contenido[1]} en total
             </span>
           )}
         </div>

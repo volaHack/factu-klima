@@ -315,7 +315,6 @@ export default function EditInvoicePage() {
             products={products}
             settings={ajustes}
             columnasCustom={columnasCustom}
-            titulo="Productos facturados"
           />
         )}
 

@@ -376,7 +376,6 @@ export default function NuevaFacturaPage() {
             settings={ajustes}
             tarifaId={selectedClient?.tarifaId}
             columnasCustom={columnasCustom}
-            titulo="Productos facturados"
           />
         )}
 

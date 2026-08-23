@@ -15,6 +15,8 @@ import {
 import { Albaran, CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ALBARAN_STATUSES, getTaxLabel } from '@/lib/constants';
+import { unidadesTotales } from '@/lib/documentos';
+import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
 
 export default function AlbaranDetailPage() {
@@ -135,6 +137,16 @@ export default function AlbaranDetailPage() {
     );
   }
 
+  // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
+  // unidades sólo aparece si el oficio agrupa en bultos Y esta entrega
+  // concreta los usa: un albarán de una sola pieza no necesita explicar
+  // que trae una unidad.
+  const voz = vocabularioDe(companySettings?.sector);
+  const muestraUnidades = voz.usaBultos
+    && albaran.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0);
+  const totalBultos = albaran.lineItems.reduce((s, l) => s + l.quantity, 0);
+  const totalUnidades = unidadesTotales(albaran.lineItems);
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -234,6 +246,7 @@ export default function AlbaranDetailPage() {
                   <th>Ref.</th>
                   <th>Descripción</th>
                   <th style={{ textAlign: 'right' }}>Cant.</th>
+                  {muestraUnidades && <th style={{ textAlign: 'right' }}>{voz.contenido[1]}</th>}
                   <th style={{ textAlign: 'right' }}>Precio</th>
                   <th style={{ textAlign: 'right' }}>{getTaxLabel(companySettings)}</th>
                   <th style={{ textAlign: 'right' }}>Dto.</th>
@@ -246,6 +259,13 @@ export default function AlbaranDetailPage() {
                     <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
                     <td style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
                     <td style={{ textAlign: 'right' }}>{line.quantity} {line.unit}</td>
+                    {muestraUnidades && (
+                      <td style={{ textAlign: 'right' }}>
+                        {line.unitsPerPackage && line.unitsPerPackage > 0
+                          ? <><strong>{line.quantity * line.unitsPerPackage}</strong> <span style={{ color: '#64748b', fontSize: '11px' }}>({line.unitsPerPackage}/{line.unit})</span></>
+                          : <span style={{ color: '#64748b' }}>—</span>}
+                      </td>
+                    )}
                     <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
                     <td style={{ textAlign: 'right' }}>{line.discountPercent > 0 ? `${line.discountPercent}%` : '-'}</td>
@@ -254,6 +274,18 @@ export default function AlbaranDetailPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Lo que de verdad se descarga del camión. Es el número contra
+                el que se cuenta la entrega al firmar el albarán, y hasta
+                ahora se metía en el formulario pero no salía por ninguna
+                parte en el documento. */}
+            {muestraUnidades && (
+              <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
+                Total entregado: <strong>{conPlural(totalBultos, voz.bulto)}</strong>
+                {' · '}
+                <strong>{totalUnidades}</strong> {voz.contenido[1]}
+              </p>
+            )}
 
             <div className="invoice-preview-totals">
               <table>

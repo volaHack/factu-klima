@@ -158,11 +158,36 @@ describe('cada oficio trae lo suyo', () => {
   it('ningún oficio se pasa del ancho de la hoja', () => {
     // Con cuatro columnas propias, la de concepto se queda sin sitio y la
     // tabla se sale por la derecha.
+    //
+    // El concepto se busca por su clave y no por su posición: los oficios de
+    // distribución abren la fila con la referencia del artículo, así que ya
+    // no siempre es la primera columna.
     for (const oficio of OFICIOS) {
       const tabla = facturaDesdeCero(oficio.id).tabla!;
       const ancho = tabla.columnas.reduce((suma, c) => suma + c.ancho, 0);
+      const concepto = tabla.columnas.find(c => c.clave === 'descripcion');
       expect(ancho, `${oficio.nombre} se sale`).toBeLessThanOrEqual(tabla.ancho + 0.5);
-      expect(tabla.columnas[0].ancho, `${oficio.nombre} sin sitio para el concepto`).toBeGreaterThan(30);
+      expect(concepto, `${oficio.nombre} sin columna de concepto`).toBeDefined();
+      expect(concepto!.ancho, `${oficio.nombre} sin sitio para el concepto`).toBeGreaterThan(30);
+    }
+  });
+
+  it('un distribuidor imprime las unidades por caja, no sólo los bultos', () => {
+    // El dato se metía en el formulario desde hacía tiempo, pero ningún
+    // oficio de plantilla lo sacaba impreso: los treinta que había eran
+    // todos de servicios.
+    const tabla = facturaDesdeCero('distribucion').tabla!;
+    const claves = tabla.columnas.map(c => c.clave);
+    expect(claves).toContain('uds_caja');
+    expect(claves).toContain('uds_linea');
+    expect(claves).toContain('ref');
+  });
+
+  it('quien vende servicios no arrastra columnas de caja', () => {
+    for (const id of ['psicologo', 'abogado', 'fontanero', 'generico']) {
+      const claves = facturaDesdeCero(id).tabla!.columnas.map(c => c.clave);
+      expect(claves, id).not.toContain('uds_caja');
+      expect(claves, id).not.toContain('uds_linea');
     }
   });
 
@@ -427,6 +452,18 @@ describe('las unidades por bulto en la factura impresa', () => {
     const datos = construirDatos({ tipo: 'factura', documento: conCajas() }, AJUSTES);
     const texto = await textoDelPdf(await generarPdf(plantilla, datos));
     expect(texto).toContain('288');
+  }, 60_000);
+
+  it('el oficio de distribución lo imprime sin tocar nada a mano', async () => {
+    // La prueba de arriba mete la columna a mano porque el oficio genérico
+    // no la trae. Ésta comprueba lo que ve de verdad un distribuidor: elige
+    // su oficio, y las cajas y las unidades salen impresas solas.
+    const analisis = facturaDesdeCero('distribucion', AJUSTES);
+    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    const datos = construirDatos({ tipo: 'factura', documento: conCajas() }, AJUSTES);
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    expect(texto).toContain('288');  // unidades de la línea
+    expect(texto).toContain('24');   // unidades por caja
   }, 60_000);
 });
 

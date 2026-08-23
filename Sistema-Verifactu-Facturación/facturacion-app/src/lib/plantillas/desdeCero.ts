@@ -51,8 +51,20 @@ export interface Oficio {
   /**
    * Columnas propias del oficio, además de concepto, cantidad, precio e
    * importe. La matrícula de un taller o los metros de una reforma.
+   *
+   * Son de texto libre: el usuario las rellena a mano en cada línea.
    */
   columnas?: string[];
+  /**
+   * Columnas que el programa ya sabe rellenar solo, por su clave del
+   * contrato: la referencia del artículo, las unidades por caja, las
+   * unidades que salen de multiplicarlas.
+   *
+   * Sin esto, un distribuidor sólo podía pedir esas columnas como texto
+   * libre y teclearlas él en cada línea, cuando el dato ya estaba en la
+   * ficha del producto.
+   */
+  columnasFijas?: { clave: string; cabecera: string }[];
   /**
    * Rótulos que este oficio necesita al pie y los demás no: el número de
    * colegiado de un sanitario, la retención de un abogado, el aviso de
@@ -70,6 +82,27 @@ export interface Oficio {
  */
 export const OFICIOS: Oficio[] = [
   { id: 'generico', nombre: 'Genérico', concepto: 'Concepto', unidad: 'Cantidad' },
+
+  // --- Comercio y distribución ---
+  //
+  // Faltaban. Los treinta oficios de esta lista eran todos de servicios, así
+  // que las cinco actividades de comercio que admite el programa —que son
+  // con las que nació— sólo podían empezar por «Genérico»: una factura sin
+  // referencia de artículo y, sobre todo, sin las unidades por caja. El
+  // dato se metía en el formulario y no salía impreso en ninguna parte,
+  // que es justo lo que hay que comprobar al descargar el camión.
+  { id: 'distribucion', nombre: 'Distribución y mayorista', concepto: 'Artículo', unidad: 'Cajas',
+    columnasFijas: [
+      { clave: 'ref', cabecera: 'Ref.' },
+      { clave: 'uds_caja', cabecera: 'U/C' },
+      { clave: 'uds_linea', cabecera: 'Udes.' },
+    ],
+    pie: ['Nº de pedido:', 'Total de bultos:', 'Total de unidades:'] },
+  { id: 'comercio', nombre: 'Comercio y tienda', concepto: 'Artículo', unidad: 'Cantidad',
+    columnasFijas: [{ clave: 'ref', cabecera: 'Ref.' }] },
+  { id: 'industrial', nombre: 'Suministros industriales y recambios', concepto: 'Artículo', unidad: 'Cantidad',
+    columnasFijas: [{ clave: 'ref', cabecera: 'Ref.' }],
+    pie: ['Nº de pedido:', 'Nº de albarán:'] },
 
   // --- Sanitarios ---
   // El IVA lo llevan a 0: la asistencia sanitaria a personas físicas está
@@ -236,15 +269,22 @@ function tablaDelOficio(oficio: Oficio): TablaDetectada {
   // Concepto manda: es lo que el cliente lee. Las columnas del oficio van
   // entre el concepto y los importes, que son los que cierran a la derecha.
   const propias = oficio.columnas ?? [];
+  const fijas = oficio.columnasFijas ?? [];
   const anchoUtil = ANCHO - MARGEN * 2;
 
   // Los importes necesitan sitio fijo —«1.234,56 €» no cabe en menos— y lo
   // que sobre se lo queda el concepto, que es el que puede estirarse.
   const anchoPropia = 20;
+  // Las del contrato llevan cifras cortas («24», «288», «REF-001»), así que
+  // se apañan con menos sitio que una columna de texto libre.
+  const anchoFija = 16;
   const anchoCantidad = 18;
   const anchoPrecio = 22;
   const anchoImporte = 24;
-  const anchoConcepto = anchoUtil - propias.length * anchoPropia - anchoCantidad - anchoPrecio - anchoImporte;
+  const anchoConcepto = anchoUtil
+    - propias.length * anchoPropia
+    - fijas.length * anchoFija
+    - anchoCantidad - anchoPrecio - anchoImporte;
 
   const columnas: ColumnaDetectada[] = [];
   let x = MARGEN;
@@ -257,8 +297,14 @@ function tablaDelOficio(oficio: Oficio): TablaDetectada {
     x += ancho;
   };
 
+  // La referencia abre la fila —es por lo que se busca el artículo—; el
+  // resto de columnas del contrato van detrás del concepto, junto a las
+  // cifras con las que se leen.
+  const [refs, resto] = [fijas.filter(c => c.clave === 'ref'), fijas.filter(c => c.clave !== 'ref')];
+  refs.forEach(c => meter(c.clave, c.cabecera, anchoFija, false));
   meter('descripcion', oficio.concepto, anchoConcepto, false);
   propias.forEach((nombre, i) => meter(`custom_col_${i + 1}`, nombre, anchoPropia, false));
+  resto.forEach(c => meter(c.clave, c.cabecera, anchoFija, true));
   meter('cantidad', oficio.unidad, anchoCantidad, true);
   meter('precio', 'Precio', anchoPrecio, true);
   meter('importe', 'Importe', anchoImporte, true);

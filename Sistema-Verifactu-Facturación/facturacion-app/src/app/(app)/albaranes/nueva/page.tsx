@@ -197,7 +197,6 @@ export default function NuevoAlbaranPage() {
             settings={settings}
             tarifaId={selectedClient?.tarifaId}
             lotes={modoLotes ? lotes : []}
-            titulo="Líneas del albarán"
           />
         )}
 

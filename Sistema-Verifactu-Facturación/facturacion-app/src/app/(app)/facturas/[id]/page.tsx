@@ -19,7 +19,8 @@ import {
 import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalItem } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { descuentoEfectivo } from '@/lib/documentos';
+import { descuentoEfectivo, unidadesTotales } from '@/lib/documentos';
+import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -220,6 +221,13 @@ export default function InvoiceDetailPage() {
   // estaba sellada cuando no lo estaba.
   const chainedHash = invoice.verifactu?.chainedHash ?? null;
   const sealed = isSealed(invoice);
+
+  // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
+  // unidades sólo sale si el oficio agrupa en bultos Y esta factura los
+  // usa: la minuta de un abogado no lleva columna de unidades por caja.
+  const voz = vocabularioDe(companySettings?.sector);
+  const muestraUnidades = voz.usaBultos
+    && invoice.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0);
   const rechazo = invoice
     ? rejections.find(r => r.table === 'invoices' && r.id === invoice.id)
     : undefined;
@@ -363,6 +371,7 @@ export default function InvoiceDetailPage() {
                   <th>Ref.</th>
                   <th>Descripción</th>
                   <th style={{ textAlign: 'right' }}>Cant.</th>
+                  {muestraUnidades && <th style={{ textAlign: 'right' }}>{voz.contenido[1]}</th>}
                   <th style={{ textAlign: 'right' }}>Precio</th>
                   <th style={{ textAlign: 'right' }}>IVA</th>
                   <th style={{ textAlign: 'right' }}>Dto.</th>
@@ -375,6 +384,13 @@ export default function InvoiceDetailPage() {
                     <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
                     <td style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
                     <td style={{ textAlign: 'right' }}>{line.quantity} {line.unit}</td>
+                    {muestraUnidades && (
+                      <td style={{ textAlign: 'right' }}>
+                        {line.unitsPerPackage && line.unitsPerPackage > 0
+                          ? <><strong>{line.quantity * line.unitsPerPackage}</strong> <span style={{ color: '#64748b', fontSize: '11px' }}>({line.unitsPerPackage}/{line.unit})</span></>
+                          : <span style={{ color: '#64748b' }}>—</span>}
+                      </td>
+                    )}
                     <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
                     <td style={{ textAlign: 'right' }} title={
@@ -389,6 +405,16 @@ export default function InvoiceDetailPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Lo que se factura por bultos y lo que suman por dentro. Se
+                metía en el formulario pero no salía en el documento. */}
+            {muestraUnidades && (
+              <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
+                {conPlural(invoice.lineItems.reduce((s, l) => s + l.quantity, 0), voz.bulto)}
+                {' · '}
+                <strong>{unidadesTotales(invoice.lineItems)}</strong> {voz.contenido[1]} en total
+              </p>
+            )}
 
             {/* Totals */}
             <div className="invoice-preview-totals">
