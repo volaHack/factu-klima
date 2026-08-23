@@ -129,7 +129,7 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Caja rápida con tickets, arqueo y cobro en efectivo o tarjeta.' },
 
   // --- Fiscal ---
-  { id: 'retenciones', nombre: 'Retención de IRPF', grupo: 'fiscal', disponible: false,
+  { id: 'retenciones', nombre: 'Retención de IRPF', grupo: 'fiscal', disponible: true,
     descripcion: 'La retención en factura de profesionales y de obra, con su resumen para el modelo 111.' },
   { id: 'sii', nombre: 'SII (envío inmediato)', grupo: 'fiscal', disponible: false,
     descripcion: 'Envío de los libros de IVA a la Agencia Tributaria en cuatro días. Obligatorio por encima de seis millones de facturación.' },

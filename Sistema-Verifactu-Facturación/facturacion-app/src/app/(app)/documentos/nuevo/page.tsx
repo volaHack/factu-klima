@@ -16,8 +16,9 @@ import {
 } from '@/lib/types';
 import { tieneModulo } from '@/lib/modulos';
 import {
-  generateId, getToday, addDays, calculateInvoiceTotals,
+  generateId, getToday, addDays, calculateInvoiceTotals, formatCurrency,
 } from '@/lib/utils';
+import { importeRetencion, totalAPagar } from '@/lib/retenciones';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import {
   lineaVacia, numeroDeDocumento, etiquetaTipo, actualizarContadorSerie, serieParaCliente,
@@ -58,6 +59,8 @@ function NuevoDocumentoContent() {
   const [modoObras, setModoObras] = useState(false);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [modoLotes, setModoLotes] = useState(false);
+  const [retencionPct, setRetencionPct] = useState<number | undefined>(undefined);
+  const [modoRetenciones, setModoRetenciones] = useState(false);
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   const [issueDate, setIssueDate] = useState(getToday());
@@ -97,6 +100,7 @@ function NuevoDocumentoContent() {
         setModoObras(tieneModulo(loadedSettings?.modulos, 'obras'));
         setLotes(loadedLotes);
         setModoLotes(tieneModulo(loadedSettings?.modulos, 'lotes'));
+        setModoRetenciones(tieneModulo(loadedSettings?.modulos, 'retenciones'));
 
         const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
         if (principalAlm) {
@@ -224,6 +228,7 @@ function NuevoDocumentoContent() {
         tarifaId: tarifaId || undefined,
         almacenId: almacenId || undefined,
         obraId: obraId || undefined,
+        retencionPct: retencionPct || undefined,
         vendedorId: vendedorId || undefined,
         globalDiscountPercent1: globalDiscounts[0] || 0,
         globalDiscountPercent2: globalDiscounts[1] || 0,
@@ -515,7 +520,29 @@ function NuevoDocumentoContent() {
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
-        />
+        >
+          {modoRetenciones && (tipo === 'factura' || tipo === 'rectificativa') && (
+            <div className="doc-retencion">
+              <label className="doc-retencion-campo">
+                <span>Retención IRPF %</span>
+                <input
+                  type="number" min={0} max={100} step={0.5}
+                  value={retencionPct ?? ''}
+                  onChange={e => setRetencionPct(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                  placeholder="—"
+                />
+              </label>
+              {!!retencionPct && (
+                <div className="doc-retencion-resumen">
+                  <span>Retención ({retencionPct}% de la base)</span>
+                  <strong>−{formatCurrency(importeRetencion(totals.subtotal, retencionPct))}</strong>
+                  <span>Total a {sentido === 'compra' ? 'pagar' : 'cobrar'}</span>
+                  <strong>{formatCurrency(totalAPagar(totals.total, totals.subtotal, retencionPct))}</strong>
+                </div>
+              )}
+            </div>
+          )}
+        </TotalesDocumento>
       </div>
     </div>
   );

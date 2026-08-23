@@ -549,6 +549,19 @@ export interface Invoice {
    * no dice a cuál de los tres corresponde.
    */
   obraId?: string;
+  /**
+   * El porcentaje de retención de IRPF, en factura de profesionales y de
+   * obra (15% habitual, 7% el primer año de alta como autónomo).
+   *
+   * NO CAMBIA `total`. El total de la factura sigue siendo base + IVA, que
+   * es lo que Hacienda espera ver en la cara de la factura y lo que el
+   * disparador de sellado recalcula por su cuenta desde las líneas —tocar
+   * `total` aquí rompería esa comprobación en el mismo instante en que la
+   * factura se sella. La retención es un descuento en el COBRO, no en la
+   * factura: se resta al final, aparte, y sólo para saber lo que de verdad
+   * va a entrar o a salir.
+   */
+  retencionPct?: number;
   /** Importe total acumulado ya cobrado/pagado */
   paidAmount?: number;
   /** IDs de los registros de cobro/pago vinculados */

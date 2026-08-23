@@ -8630,3 +8630,42 @@ a.stats-item:focus-visible {
 
 .panel-editor-sobrantes { display: flex; flex-direction: column; gap: var(--space-2); }
 .panel-editor-nota { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* --- Retención de IRPF, en el pie de totales --- */
+
+.doc-retencion {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-color);
+}
+
+.doc-retencion-campo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.doc-retencion-campo input {
+  width: 90px;
+  text-align: right;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.doc-retencion-resumen {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.doc-retencion-resumen span { color: var(--text-muted); }
+.doc-retencion-resumen strong { text-align: right; font-variant-numeric: tabular-nums; }
