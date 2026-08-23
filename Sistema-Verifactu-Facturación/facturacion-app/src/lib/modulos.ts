@@ -113,7 +113,7 @@ export const MODULOS: Modulo[] = [
   // --- Trabajo por proyecto ---
   { id: 'obras', nombre: 'Obras y expedientes', grupo: 'proyecto', disponible: true,
     descripcion: 'Agrupar todo lo de un proyecto —horas, materiales, gastos— y saber lo que deja cada uno por separado.' },
-  { id: 'ordenes_trabajo', nombre: 'Órdenes de trabajo', grupo: 'proyecto', disponible: false,
+  { id: 'ordenes_trabajo', nombre: 'Órdenes de trabajo', grupo: 'proyecto', disponible: true,
     descripcion: 'El parte de un servicio: qué se hizo, quién, cuántas horas y qué materiales se gastaron.' },
 
   // --- Dinero ---

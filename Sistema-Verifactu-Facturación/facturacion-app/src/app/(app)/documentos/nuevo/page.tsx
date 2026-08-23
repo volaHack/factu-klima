@@ -7,13 +7,14 @@ import { ArrowLeft, Save, Send, Plus, Wand2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
-  getAlmacenes, getVendedores,
+  getAlmacenes, getVendedores, getObras,
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
-  Almacen, Vendedor,
+  Almacen, Vendedor, Obra,
 } from '@/lib/types';
+import { tieneModulo } from '@/lib/modulos';
 import {
   generateId, getToday, addDays, calculateInvoiceTotals,
 } from '@/lib/utils';
@@ -30,6 +31,11 @@ function NuevoDocumentoContent() {
   const searchParams = useSearchParams();
   const tipoParam = (searchParams.get('tipo') as TipoDocumento) || 'presupuesto';
   const sentidoParam = (searchParams.get('sentido') as SentidoDocumento) || 'venta';
+  // Para llegar aquí ya con el cliente puesto desde otra pantalla —una orden
+  // de trabajo que se factura, por ejemplo— en vez de obligar a buscarlo de
+  // nuevo.
+  const clientIdParam = searchParams.get('clientId');
+  const obraIdParam = searchParams.get('obraId');
 
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,6 +53,9 @@ function NuevoDocumentoContent() {
   const [clientAddress, setClientAddress] = useState('');
   const [tarifaId, setTarifaId] = useState('');
   const [almacenId, setAlmacenId] = useState('');
+  const [obraId, setObraId] = useState(obraIdParam ?? '');
+  const [obras, setObras] = useState<Obra[]>([]);
+  const [modoObras, setModoObras] = useState(false);
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   const [issueDate, setIssueDate] = useState(getToday());
@@ -68,22 +77,41 @@ function NuevoDocumentoContent() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores] = await Promise.all([
+        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores, loadedObras] = await Promise.all([
           getCompanySettings(),
           getProducts(),
           sentidoParam === 'compra' ? getProveedores() : getClients(),
           getAlmacenes(),
           getVendedores(),
+          getObras(),
         ]);
         setSettings(loadedSettings);
         setProducts(loadedProducts);
         setClients(loadedClients);
         setAlmacenes(loadedAlmacenes);
         setVendedores(loadedVendedores);
+        setObras(loadedObras);
+        setModoObras(tieneModulo(loadedSettings?.modulos, 'obras'));
 
         const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
         if (principalAlm) {
           setAlmacenId(principalAlm.id);
+        }
+
+        // Se llega aquí ya con cliente elegido desde otra pantalla —una orden
+        // de trabajo que se factura, por ejemplo—. Se resuelve contra la
+        // lista recién cargada, no contra el estado `clients`, que en este
+        // mismo instante todavía está vacío.
+        if (clientIdParam) {
+          const cliente = loadedClients.find(c => c.id === clientIdParam);
+          if (cliente) {
+            setClientId(cliente.id);
+            setClientName(cliente.tradeName || cliente.businessName);
+            setClientNif(cliente.nif);
+            setClientAddress(cliente.address || '');
+            setTarifaId(cliente.tarifaId || '');
+            if (cliente.defaultPaymentMethod) setPaymentMethod(cliente.defaultPaymentMethod);
+          }
         }
 
         if (loadedSettings) {
@@ -190,6 +218,7 @@ function NuevoDocumentoContent() {
         clientAddress,
         tarifaId: tarifaId || undefined,
         almacenId: almacenId || undefined,
+        obraId: obraId || undefined,
         vendedorId: vendedorId || undefined,
         globalDiscountPercent1: globalDiscounts[0] || 0,
         globalDiscountPercent2: globalDiscounts[1] || 0,
@@ -423,6 +452,22 @@ function NuevoDocumentoContent() {
                     <option key={a.id} value={a.id}>
                       {a.nombre} {a.principal ? '(Principal)' : ''}
                     </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {modoObras && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Obra / Expediente</label>
+                <select
+                  className="form-select"
+                  value={obraId}
+                  onChange={e => setObraId(e.target.value)}
+                >
+                  <option value="">— Sin obra —</option>
+                  {obras.filter(o => o.estado === 'abierta' || o.id === obraId).map(o => (
+                    <option key={o.id} value={o.id}>{o.numero} · {o.nombre}</option>
                   ))}
                 </select>
               </div>

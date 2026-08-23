@@ -262,6 +262,38 @@ export interface Obra {
   updatedAt: string;
 }
 
+/**
+ * EL PARTE DE UN SERVICIO
+ *
+ * Qué se hizo, quién, cuántas horas y qué materiales se gastaron. Para quien
+ * no vende género sino intervenciones: un fontanero, un electricista, un
+ * taller, una empresa de limpieza. Se abre al llegar el aviso, se cierra al
+ * terminar, y de ahí sale la factura —o no, si es garantía.
+ */
+export type EstadoOrdenTrabajo = 'abierta' | 'en_curso' | 'cerrada';
+
+export interface OrdenTrabajo {
+  id: string;
+  numero: string;
+  clienteId?: string;
+  clienteNombre?: string;
+  descripcion: string;
+  estado: EstadoOrdenTrabajo;
+  fecha: string;
+  /** Quién la atiende. Apunta a Vendedor, que aquí hace de técnico de campo, no de comercial. */
+  tecnicoId?: string;
+  horas?: number;
+  /** Qué se ha gastado en materiales, en texto libre: una lista de partes es una obra, no una orden suelta. */
+  materiales?: string;
+  /** Si es parte de un proyecto más grande. */
+  obraId?: string;
+  /** La factura en la que acabó, si se facturó. */
+  invoiceId?: string;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;

@@ -20,7 +20,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -4328,6 +4328,97 @@ function mapObraFromDb(o: any): Obra {
     fechaApertura: o.fecha_apertura,
     fechaCierre: o.fecha_cierre || undefined,
     presupuesto: o.presupuesto != null ? Number(o.presupuesto) : undefined,
+    notas: o.notas || undefined,
+    createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+    updatedAt: o.updated_at || o.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// ÓRDENES DE TRABAJO
+// ============================================================
+
+export async function getOrdenesTrabajo(): Promise<OrdenTrabajo[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('ordenes_trabajo');
+    if (cached.length > 0) return cached.map(mapOrdenTrabajoFromDb).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('ordenes_trabajo').select('*').order('fecha', { ascending: false });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('ordenes_trabajo');
+    await putMany('ordenes_trabajo', data);
+  }
+  return data.map(mapOrdenTrabajoFromDb);
+}
+
+export async function saveOrdenTrabajo(orden: OrdenTrabajo): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: orden.id,
+    user_id: userId,
+    numero: orden.numero,
+    cliente_id: orden.clienteId || null,
+    cliente_nombre: orden.clienteNombre || null,
+    descripcion: orden.descripcion,
+    estado: orden.estado,
+    fecha: orden.fecha,
+    tecnico_id: orden.tecnicoId || null,
+    horas: orden.horas ?? null,
+    materiales: orden.materiales || null,
+    obra_id: orden.obraId || null,
+    invoice_id: orden.invoiceId || null,
+    notas: orden.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('ordenes_trabajo', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('ordenes_trabajo').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'ordenes_trabajo', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'ordenes_trabajo', row);
+  }
+}
+
+export async function deleteOrdenTrabajo(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('ordenes_trabajo', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('ordenes_trabajo').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'ordenes_trabajo', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'ordenes_trabajo', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapOrdenTrabajoFromDb(o: any): OrdenTrabajo {
+  return {
+    id: o.id,
+    numero: o.numero || '',
+    clienteId: o.cliente_id || undefined,
+    clienteNombre: o.cliente_nombre || undefined,
+    descripcion: o.descripcion || '',
+    estado: ['abierta', 'en_curso', 'cerrada'].includes(o.estado) ? o.estado : 'abierta',
+    fecha: o.fecha,
+    tecnicoId: o.tecnico_id || undefined,
+    horas: o.horas != null ? Number(o.horas) : undefined,
+    materiales: o.materiales || undefined,
+    obraId: o.obra_id || undefined,
+    invoiceId: o.invoice_id || undefined,
     notas: o.notas || undefined,
     createdAt: o.created_at || o.createdAt || new Date().toISOString(),
     updatedAt: o.updated_at || o.updatedAt || new Date().toISOString(),

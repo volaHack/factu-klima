@@ -33,7 +33,8 @@ export type FichaId =
   | 'estado_verifactu'
   | 'gastos_mes'
   | 'comisiones_mes'
-  | 'obras_abiertas';
+  | 'obras_abiertas'
+  | 'ordenes_atrasadas';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -98,6 +99,8 @@ export const FICHAS: Ficha[] = [
     explica: 'Lo que se llevan los comerciales este mes, sumado entre todos.' },
   { id: 'obras_abiertas', nombre: 'Obras abiertas', tamano: 'mediana', requiere: 'obras',
     explica: 'Los proyectos en marcha, con lo que llevan facturado, gastado y de margen hasta ahora.' },
+  { id: 'ordenes_atrasadas', nombre: 'Órdenes atrasadas', tamano: 'mediana', requiere: 'ordenes_trabajo',
+    explica: 'Avisos que llevan más de una semana abiertos sin cerrarse.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',
