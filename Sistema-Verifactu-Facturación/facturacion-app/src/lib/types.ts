@@ -211,6 +211,8 @@ export interface Gasto {
   paymentMethod: PaymentMethod;
   /** A qué vehículo se le imputa, si es un gasto de flota. */
   vehiculoId?: string;
+  /** A qué obra o expediente se le imputa este gasto. */
+  obraId?: string;
   notas?: string;
   createdAt: string;
   updatedAt: string;
@@ -229,6 +231,33 @@ export interface Vehiculo {
   matricula: string;
   nombre?: string;
   activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * UNA OBRA O EXPEDIENTE
+ *
+ * Lo que agrupa el trabajo de un proyecto entero: un abogado la llama
+ * expediente, un arquitecto obra, un fontanero simplemente «el trabajo de
+ * casa de fulano». Es la misma idea con otro nombre: un cajón donde caen las
+ * facturas, los albaranes y los gastos de ESE proyecto, para saber al final
+ * si ha dejado dinero o lo ha costado.
+ */
+export type EstadoObra = 'abierta' | 'cerrada';
+
+export interface Obra {
+  id: string;
+  numero: string;
+  nombre: string;
+  clienteId?: string;
+  clienteNombre?: string;
+  estado: EstadoObra;
+  fechaApertura: string;
+  fechaCierre?: string;
+  /** Lo presupuestado, si se pactó de antemano. Sólo referencia: no limita nada. */
+  presupuesto?: number;
+  notas?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -351,6 +380,14 @@ export interface Invoice {
   tarifaId?: string;
   /** Almacén origen (en ventas) o almacén destino (en compras) */
   almacenId?: string;
+  /**
+   * A qué obra o expediente pertenece este documento.
+   *
+   * Agrupar por obra es cómo se sabe si un proyecto ha dejado dinero o lo ha
+   * costado: sin esto, la factura de un cliente con tres proyectos abiertos
+   * no dice a cuál de los tres corresponde.
+   */
+  obraId?: string;
   /** Importe total acumulado ya cobrado/pagado */
   paidAmount?: number;
   /** IDs de los registros de cobro/pago vinculados */

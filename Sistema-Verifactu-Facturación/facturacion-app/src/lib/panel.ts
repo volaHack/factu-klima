@@ -32,7 +32,8 @@ export type FichaId =
   | 'evolucion_ventas' | 'reparto_impuestos'
   | 'estado_verifactu'
   | 'gastos_mes'
-  | 'comisiones_mes';
+  | 'comisiones_mes'
+  | 'obras_abiertas';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -95,6 +96,8 @@ export const FICHAS: Ficha[] = [
     explica: 'Lo que se ha pagado este mes en alquiler, suministros y demás, sin contar la mercancía.' },
   { id: 'comisiones_mes', nombre: 'Comisiones del mes', tamano: 'pequena', requiere: 'comisiones',
     explica: 'Lo que se llevan los comerciales este mes, sumado entre todos.' },
+  { id: 'obras_abiertas', nombre: 'Obras abiertas', tamano: 'mediana', requiere: 'obras',
+    explica: 'Los proyectos en marcha, con lo que llevan facturado, gastado y de margen hasta ahora.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',

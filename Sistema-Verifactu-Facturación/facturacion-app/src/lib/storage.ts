@@ -20,7 +20,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo,
+  Gasto, GastoCategoria, Vehiculo, Obra,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -430,6 +430,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     vendedor_id: inv.vendedorId ?? null,
     tarifa_id: inv.tarifaId ?? null,
     almacen_id: inv.almacenId ?? null,
+    obra_id: inv.obraId ?? null,
     paid_amount: inv.paidAmount ?? 0,
     payment_record_ids: inv.paymentRecordIds ?? [],
     global_discount_percent_1: inv.globalDiscountPercent1 ?? 0,
@@ -2896,6 +2897,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     vendedorId: inv.vendedor_id ?? undefined,
     tarifaId: inv.tarifa_id || undefined,
     almacenId: inv.almacen_id || undefined,
+    obraId: inv.obra_id || undefined,
     paidAmount: Number(inv.paid_amount || 0),
     paymentRecordIds: Array.isArray(inv.payment_record_ids) ? inv.payment_record_ids : [],
     globalDiscountPercent1: Number(inv.global_discount_percent_1 || 0),
@@ -4194,6 +4196,7 @@ export async function saveGasto(gasto: Gasto): Promise<void> {
     total: gasto.total,
     payment_method: gasto.paymentMethod,
     vehiculo_id: gasto.vehiculoId || null,
+    obra_id: gasto.obraId || null,
     notas: gasto.notas || null,
     updated_at: new Date().toISOString(),
   };
@@ -4239,8 +4242,94 @@ function mapGastoFromDb(g: any): Gasto {
     total: Number(g.total ?? 0),
     paymentMethod: g.payment_method || PaymentMethod.TRANSFERENCIA,
     vehiculoId: g.vehiculo_id || undefined,
+    obraId: g.obra_id || undefined,
     notas: g.notas || undefined,
     createdAt: g.created_at || g.createdAt || new Date().toISOString(),
     updatedAt: g.updated_at || g.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// OBRAS Y EXPEDIENTES
+// ============================================================
+
+export async function getObras(): Promise<Obra[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('obras');
+    if (cached.length > 0) return cached.map(mapObraFromDb).sort((a, b) => b.fechaApertura.localeCompare(a.fechaApertura));
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('obras').select('*').order('fecha_apertura', { ascending: false });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('obras');
+    await putMany('obras', data);
+  }
+  return data.map(mapObraFromDb);
+}
+
+export async function saveObra(obra: Obra): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: obra.id,
+    user_id: userId,
+    numero: obra.numero,
+    nombre: obra.nombre,
+    cliente_id: obra.clienteId || null,
+    cliente_nombre: obra.clienteNombre || null,
+    estado: obra.estado,
+    fecha_apertura: obra.fechaApertura,
+    fecha_cierre: obra.fechaCierre || null,
+    presupuesto: obra.presupuesto ?? null,
+    notas: obra.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('obras', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('obras').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'obras', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'obras', row);
+  }
+}
+
+export async function deleteObra(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('obras', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('obras').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'obras', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'obras', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapObraFromDb(o: any): Obra {
+  return {
+    id: o.id,
+    numero: o.numero || '',
+    nombre: o.nombre || '',
+    clienteId: o.cliente_id || undefined,
+    clienteNombre: o.cliente_nombre || undefined,
+    estado: o.estado === 'cerrada' ? 'cerrada' : 'abierta',
+    fechaApertura: o.fecha_apertura,
+    fechaCierre: o.fecha_cierre || undefined,
+    presupuesto: o.presupuesto != null ? Number(o.presupuesto) : undefined,
+    notas: o.notas || undefined,
+    createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+    updatedAt: o.updated_at || o.updatedAt || new Date().toISOString(),
   };
 }

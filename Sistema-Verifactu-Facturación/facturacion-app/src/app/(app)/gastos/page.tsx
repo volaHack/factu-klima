@@ -8,11 +8,11 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import {
   getGastos, saveGasto, deleteGasto, getVehiculos, saveVehiculo, deleteVehiculo,
-  getProveedores, getCompanySettings,
+  getProveedores, getCompanySettings, getObras,
 } from '@/lib/storage';
 import { calcularGasto, totalGastos, costeDeVehiculos, gastoVacio, CATEGORIAS_GASTO } from '@/lib/gastos';
 import { tieneModulo } from '@/lib/modulos';
-import { Gasto, GastoCategoria, Vehiculo, Client, PaymentMethod } from '@/lib/types';
+import { Gasto, GastoCategoria, Vehiculo, Client, Obra, PaymentMethod } from '@/lib/types';
 import { generateId, formatCurrency, formatDate, getToday } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
@@ -26,7 +26,9 @@ export default function GastosPage() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [proveedores, setProveedores] = useState<Client[]>([]);
+  const [obras, setObras] = useState<Obra[]>([]);
   const [modoVehiculos, setModoVehiculos] = useState(false);
+  const [modoObras, setModoObras] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<GastoCategoria | ''>('');
@@ -49,26 +51,30 @@ export default function GastosPage() {
   // componente que ya no está en pantalla si la petición tarda y la persona
   // se ha ido a otra página mientras tanto.
   const leer = () => Promise.all([
-    getGastos(), getVehiculos(), getProveedores(), getCompanySettings(),
+    getGastos(), getVehiculos(), getProveedores(), getObras(), getCompanySettings(),
   ]);
 
   const cargar = async () => {
-    const [g, v, p, settings] = await leer();
+    const [g, v, p, o, settings] = await leer();
     setGastos(g);
     setVehiculos(v);
     setProveedores(p);
+    setObras(o);
     setModoVehiculos(tieneModulo(settings?.modulos, 'vehiculos'));
+    setModoObras(tieneModulo(settings?.modulos, 'obras'));
   };
 
   useEffect(() => {
     let vivo = true;
     void (async () => {
-      const [g, v, p, settings] = await leer();
+      const [g, v, p, o, settings] = await leer();
       if (!vivo) return;
       setGastos(g);
       setVehiculos(v);
       setProveedores(p);
+      setObras(o);
       setModoVehiculos(tieneModulo(settings?.modulos, 'vehiculos'));
+      setModoObras(tieneModulo(settings?.modulos, 'obras'));
       setMounted(true);
     })();
     return () => { vivo = false; };
@@ -436,6 +442,20 @@ export default function GastosPage() {
                     </div>
                   )}
                 </div>
+
+                {modoObras && (
+                  <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                    <label className="form-label">Obra o expediente</label>
+                    <select
+                      className="form-select"
+                      value={gastoForm.obraId ?? ''}
+                      onChange={e => setGastoForm({ ...gastoForm, obraId: e.target.value || undefined })}
+                    >
+                      <option value="">— Sin obra —</option>
+                      {obras.filter(o => o.estado === 'abierta').map(o => <option key={o.id} value={o.id}>{o.numero} · {o.nombre}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                   <div className="form-group">
