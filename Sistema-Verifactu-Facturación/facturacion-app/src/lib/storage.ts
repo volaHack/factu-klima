@@ -21,7 +21,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -810,6 +810,7 @@ export async function saveClient(client: Client): Promise<void> {
     vendedor_id: client.vendedorId || null,
     tarifa_id: client.tarifaId || null,
     default_discounts: client.defaultDiscounts || [0, 0, 0],
+    grupo_id: client.grupoId || null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2989,6 +2990,7 @@ function mapClientFromDb(c: any): Client {
     updatedAt: c.updated_at,
     isWalkIn: c.is_walk_in ?? false,
     esProveedor: c.es_proveedor ?? false,
+    grupoId: c.grupo_id || undefined,
     vendedorId: c.vendedor_id || undefined,
     tarifaId: c.tarifa_id || undefined,
     defaultDiscounts: Array.isArray(c.default_discounts)
@@ -4610,5 +4612,76 @@ function mapRappelFromDb(r: any): RappelConfig {
     activo: r.activo ?? true,
     createdAt: r.created_at || r.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || r.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// GRUPOS Y CADENAS DE CLIENTES
+// ============================================================
+
+export async function getGruposClientes(): Promise<GrupoCliente[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('grupos_clientes');
+    if (cached.length > 0) return cached.map(mapGrupoClienteFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('grupos_clientes').select('*').order('nombre', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('grupos_clientes');
+    await putMany('grupos_clientes', data);
+  }
+  return data.map(mapGrupoClienteFromDb);
+}
+
+export async function saveGrupoCliente(grupo: GrupoCliente): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: grupo.id,
+    user_id: userId,
+    nombre: grupo.nombre,
+    notas: grupo.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('grupos_clientes', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('grupos_clientes').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'grupos_clientes', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'grupos_clientes', row);
+  }
+}
+
+export async function deleteGrupoCliente(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('grupos_clientes', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('grupos_clientes').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'grupos_clientes', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'grupos_clientes', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapGrupoClienteFromDb(g: any): GrupoCliente {
+  return {
+    id: g.id,
+    nombre: g.nombre || '',
+    notas: g.notas || undefined,
+    createdAt: g.created_at || g.createdAt || new Date().toISOString(),
+    updatedAt: g.updated_at || g.updatedAt || new Date().toISOString(),
   };
 }

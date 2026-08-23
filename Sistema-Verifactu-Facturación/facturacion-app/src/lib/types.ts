@@ -352,6 +352,22 @@ export interface RappelConfig {
   updatedAt: string;
 }
 
+/**
+ * UN GRUPO O CADENA DE CLIENTES
+ *
+ * Varios clientes que en realidad son la misma central de compras o la
+ * misma cadena: sucursales que facturan por separado pero cuyo volumen
+ * conjunto es lo que de verdad importa para negociar condiciones o para
+ * ver quién pesa más en la cartera.
+ */
+export interface GrupoCliente {
+  id: string;
+  nombre: string;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;
@@ -553,6 +569,8 @@ export interface Client {
   tarifaId?: string;
   /** Hasta 3 descuentos en cascada por defecto en línea para este cliente [D1%, D2%, D3%] */
   defaultDiscounts?: [number, number, number];
+  /** A qué cadena o central de compras pertenece, si es parte de una. */
+  grupoId?: string;
 }
 
 export interface Vendedor {

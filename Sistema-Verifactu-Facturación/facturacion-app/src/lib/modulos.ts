@@ -107,7 +107,7 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Descuentos que se ganan al llegar a un volumen y se liquidan al cerrar el periodo, no en cada factura.' },
   { id: 'rutas', nombre: 'Rutas de reparto', grupo: 'comercial', requiere: ['albaranes'], disponible: false,
     descripcion: 'Agrupar clientes por ruta y día, y sacar el reparto de la jornada en una hoja.' },
-  { id: 'grupos_clientes', nombre: 'Grupos y cadenas', grupo: 'comercial', disponible: false,
+  { id: 'grupos_clientes', nombre: 'Grupos y cadenas', grupo: 'comercial', disponible: true,
     descripcion: 'Clientes que pertenecen a una cadena o central de compras, para facturar y analizar en conjunto.' },
 
   // --- Trabajo por proyecto ---
