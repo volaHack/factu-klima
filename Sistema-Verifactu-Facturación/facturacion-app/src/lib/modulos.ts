@@ -91,7 +91,7 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Existencias separadas por local, furgoneta u obra, con traspasos entre ellos.' },
   { id: 'lotes', nombre: 'Lotes y trazabilidad', grupo: 'almacen', disponible: true,
     descripcion: 'Qué lote se vendió a quién y con qué caducidad. Obligatorio por ley en alimentación: sin esto no se puede responder a una alerta sanitaria.' },
-  { id: 'numeros_serie', nombre: 'Números de serie', grupo: 'almacen', disponible: false,
+  { id: 'numeros_serie', nombre: 'Números de serie', grupo: 'almacen', disponible: true,
     descripcion: 'Seguir una unidad concreta desde que entra hasta la garantía. Para aparatos, maquinaria y electrónica.' },
   { id: 'produccion', nombre: 'Fabricación', grupo: 'almacen', disponible: false,
     descripcion: 'Escandallos: qué componentes consume cada artículo fabricado y cuánto cuesta producirlo.' },

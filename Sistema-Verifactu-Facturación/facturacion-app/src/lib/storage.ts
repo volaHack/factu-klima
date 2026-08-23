@@ -6,6 +6,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { consumirLote } from './lotes';
+import { venderNumero } from './numerosSerie';
 import {
   movimientosDeProducto, reproducirCostes,
   type AjusteParaCostes, type DocumentoParaCostes,
@@ -21,7 +22,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -455,6 +456,8 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     units_per_package: li.unitsPerPackage ?? null,
     lote_id: li.loteId ?? null,
     lote_codigo: li.loteCodigo ?? null,
+    numero_serie_id: li.numeroSerieId ?? null,
+    numero_serie: li.numeroSerie ?? null,
     cost_price: li.costPrice ?? 0,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
@@ -1004,6 +1007,20 @@ export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
       if (lote) {
         const { cantidadDisponible } = consumirLote(lote, Math.abs(li.quantity));
         await saveLote({ ...lote, cantidadDisponible });
+      }
+    }
+
+    // Igual con el número de serie: pasa a «vendido» en el mismo instante en
+    // que la unidad sale de verdad, no al crear el albarán.
+    if (li.numeroSerieId) {
+      const numero = await getNumeroSerieById(li.numeroSerieId);
+      if (numero) {
+        await saveNumeroSerie(venderNumero(numero, {
+          fechaVenta: doc.issueDate,
+          clienteId: doc.clientId,
+          clienteNombre: doc.clientName,
+          invoiceId: doc.id,
+        }));
       }
     }
   }
@@ -2962,6 +2979,8 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     unitsPerPackage: li.units_per_package != null ? Number(li.units_per_package) : undefined,
     loteId: li.lote_id || undefined,
     loteCodigo: li.lote_codigo || undefined,
+    numeroSerieId: li.numero_serie_id || undefined,
+    numeroSerie: li.numero_serie || undefined,
     costPrice: Number(li.cost_price ?? li.costPrice ?? 0),
     subtotal: Number(li.subtotal ?? 0),
     taxAmount: Number(li.tax_amount ?? li.taxAmount ?? 0),
@@ -4758,5 +4777,105 @@ function mapRutaFromDb(r: any): RutaReparto {
     notas: r.notas || undefined,
     createdAt: r.created_at || r.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || r.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// NÚMEROS DE SERIE
+// ============================================================
+
+export async function getNumerosSerie(): Promise<NumeroSerie[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('numeros_serie');
+    if (cached.length > 0) return cached.map(mapNumeroSerieFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('numeros_serie').select('*').order('numero_serie', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('numeros_serie');
+    await putMany('numeros_serie', data);
+  }
+  return data.map(mapNumeroSerieFromDb);
+}
+
+export async function getNumeroSerieById(id: string): Promise<NumeroSerie | null> {
+  const numeros = await getNumerosSerie();
+  return numeros.find(n => n.id === id) ?? null;
+}
+
+export async function saveNumeroSerie(numero: NumeroSerie): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: numero.id,
+    user_id: userId,
+    product_id: numero.productId,
+    product_ref: numero.productRef || null,
+    product_name: numero.productName || null,
+    numero_serie: numero.numeroSerie,
+    estado: numero.estado,
+    fecha_entrada: numero.fechaEntrada,
+    proveedor_id: numero.proveedorId || null,
+    proveedor_nombre: numero.proveedorNombre || null,
+    fecha_venta: numero.fechaVenta || null,
+    cliente_id: numero.clienteId || null,
+    cliente_nombre: numero.clienteNombre || null,
+    invoice_id: numero.invoiceId || null,
+    garantia_meses: numero.garantiaMeses ?? null,
+    notas: numero.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('numeros_serie', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('numeros_serie').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'numeros_serie', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'numeros_serie', row);
+  }
+}
+
+export async function deleteNumeroSerie(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('numeros_serie', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('numeros_serie').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'numeros_serie', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'numeros_serie', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapNumeroSerieFromDb(n: any): NumeroSerie {
+  return {
+    id: n.id,
+    productId: n.product_id,
+    productRef: n.product_ref || '',
+    productName: n.product_name || '',
+    numeroSerie: n.numero_serie || '',
+    estado: ['en_stock', 'vendido', 'baja'].includes(n.estado) ? n.estado : 'en_stock',
+    fechaEntrada: n.fecha_entrada,
+    proveedorId: n.proveedor_id || undefined,
+    proveedorNombre: n.proveedor_nombre || undefined,
+    fechaVenta: n.fecha_venta || undefined,
+    clienteId: n.cliente_id || undefined,
+    clienteNombre: n.cliente_nombre || undefined,
+    invoiceId: n.invoice_id || undefined,
+    garantiaMeses: n.garantia_meses != null ? Number(n.garantia_meses) : undefined,
+    notas: n.notas || undefined,
+    createdAt: n.created_at || n.createdAt || new Date().toISOString(),
+    updatedAt: n.updated_at || n.updatedAt || new Date().toISOString(),
   };
 }

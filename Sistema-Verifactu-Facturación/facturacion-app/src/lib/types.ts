@@ -384,6 +384,38 @@ export interface RutaReparto {
   updatedAt: string;
 }
 
+/**
+ * UNA UNIDAD CON NÚMERO DE SERIE
+ *
+ * Un lote controla una partida entera; un número de serie controla UNA
+ * unidad concreta, de principio a fin: de qué proveedor entró, a qué
+ * cliente se vendió y cuándo, y hasta cuándo cubre la garantía. Para
+ * aparatos, maquinaria, electrónica —lo que se repara o se sustituye pieza
+ * a pieza, no a granel.
+ */
+export type EstadoNumeroSerie = 'en_stock' | 'vendido' | 'baja';
+
+export interface NumeroSerie {
+  id: string;
+  productId: string;
+  productRef: string;
+  productName: string;
+  numeroSerie: string;
+  estado: EstadoNumeroSerie;
+  fechaEntrada: string;
+  proveedorId?: string;
+  proveedorNombre?: string;
+  fechaVenta?: string;
+  clienteId?: string;
+  clienteNombre?: string;
+  invoiceId?: string;
+  /** Meses de garantía desde la venta. Sin fecha de venta, no cuenta nada todavía. */
+  garantiaMeses?: number;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;
@@ -411,6 +443,9 @@ export interface InvoiceLineItem {
   loteId?: string;
   /** El código del lote, guardado también aquí para no depender de que el lote siga existiendo. */
   loteCodigo?: string;
+  /** Qué unidad concreta con número de serie sale en esta línea. */
+  numeroSerieId?: string;
+  numeroSerie?: string;
   subtotal: number;
   taxAmount: number;
   total: number;
