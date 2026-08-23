@@ -15,6 +15,7 @@ import { PLANS, type PlanId } from '@/lib/plans';
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import TipModal from '@/components/ui/TipModal';
+import { GravityStarsBackground } from '@/components/animate-ui/components/backgrounds/gravity-stars';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -217,45 +218,52 @@ export default function PricingContent() {
           style={{
             maxWidth: 760,
             margin: 'var(--space-5) auto var(--space-2)',
-            padding: '16px 20px',
-            background: 'linear-gradient(135deg, rgba(201, 64, 122, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%)',
-            border: '1px solid rgba(201, 64, 122, 0.35)',
+            padding: '24px',
+            background: 'linear-gradient(135deg, rgba(28, 12, 28, 0.8) 0%, rgba(10, 4, 12, 0.92) 100%)',
+            border: '1px solid rgba(201, 64, 122, 0.45)',
             borderRadius: 'var(--radius-xl)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 12,
             textAlign: 'left',
-            boxShadow: '0 10px 25px -5px rgba(201, 64, 122, 0.15)',
+            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 30px rgba(201, 64, 122, 0.2)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          {/* Fondo animado de estrellas de gravedad */}
+          <GravityStarsBackground className="absolute inset-0 z-0" starCount={80} />
+
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ background: '#e11d48', color: '#fff', padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <Flame size={12} fill="#fff" /> Oferta Limitada (1 Mes)
               </span>
-              <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+              <strong style={{ fontSize: '0.95rem', color: '#ffffff' }}>
                 50% Dto. Primer Mes o 3 Meses Gratis Anual
               </strong>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)' }}>
               <Clock size={13} />
               <span>Oferta de lanzamiento activa</span>
             </div>
           </div>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+          
+          <p style={{ position: 'relative', zIndex: 1, margin: 0, fontSize: '0.86rem', color: 'rgba(255, 255, 255, 0.8)', lineHeight: 1.45 }}>
             Usa el cupón oficial de lanzamiento en la pasarela Stripe para activar el precio promocional en cualquiera de los planes.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Código cupón:</span>
-            <code style={{ background: 'var(--bg-secondary)', padding: '3px 10px', borderRadius: 'var(--radius-md)', border: '1px dashed var(--color-primary)', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>
+          
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}>Código cupón:</span>
+            <code style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '4px 12px', borderRadius: 'var(--radius-md)', border: '1px dashed #c9407a', fontWeight: 800, color: '#ff69b4', fontSize: '0.92rem', letterSpacing: '0.05em' }}>
               LANZAMIENTO50
             </code>
             <button
               onClick={copyCoupon}
               className="btn btn-ghost btn-xs"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#ffffff' }}
             >
-              {couponCopied ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
+              {couponCopied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
               <span>{couponCopied ? '¡Copiado!' : 'Copiar cupón'}</span>
             </button>
           </div>
