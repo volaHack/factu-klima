@@ -111,13 +111,22 @@ export const OFICIOS: Oficio[] = [
   { id: 'psicologo', nombre: 'Psicología y psicoterapia', concepto: 'Sesión', unidad: 'Sesiones',
     columnas: ['Modalidad'], pie: ['Nº de colegiado:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
   { id: 'medico', nombre: 'Medicina y clínicas', concepto: 'Acto médico', unidad: 'Cantidad',
-    columnas: ['Especialidad'], pie: ['Nº de colegiado:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
+    columnas: ['Especialidad'],
+    pie: ['Nº de colegiado:', 'Centro médico:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
+  // El artículo nombra expresamente a los odontólogos, así que el aviso de
+  // exención le corresponde igual que al médico o al fisioterapeuta. Le
+  // faltaba: un dentista imprimía sus facturas sin él.
   { id: 'dentista', nombre: 'Odontología', concepto: 'Tratamiento', unidad: 'Cantidad',
-    columnas: ['Pieza'], pie: ['Nº de colegiado:'] },
+    columnas: ['Pieza'], pie: ['Nº de colegiado:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
   { id: 'fisio', nombre: 'Fisioterapia', concepto: 'Sesión', unidad: 'Sesiones',
-    pie: ['Nº de colegiado:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
+    columnas: ['Terapia'], pie: ['Nº de colegiado:', 'Servicio exento de IVA (art. 20.Uno.3º LIVA)'] },
+  // Sin aviso de exención a propósito: la consulta de un dietista-nutricionista
+  // titulado sí está exenta, pero un asesor nutricional sin esa titulación no
+  // lo está, y los dos eligen este sector. Imprimir la exención por defecto
+  // sería ponerle a la mitad una factura mal hecha; quien la tenga, la añade
+  // en el editor en un minuto.
   { id: 'nutricion', nombre: 'Nutrición y dietética', concepto: 'Consulta', unidad: 'Cantidad',
-    pie: ['Nº de colegiado:'] },
+    columnas: ['Plan'], pie: ['Nº de colegiado:'] },
   { id: 'veterinario', nombre: 'Veterinaria', concepto: 'Servicio', unidad: 'Cantidad',
     columnas: ['Nº historia'] },
 
@@ -131,15 +140,23 @@ export const OFICIOS: Oficio[] = [
   { id: 'asesoria', nombre: 'Asesoría y gestoría', concepto: 'Servicio', unidad: 'Cantidad',
     pie: ['Periodo facturado:', 'Retención IRPF:'] },
   { id: 'perito', nombre: 'Peritaje', concepto: 'Actuación pericial', unidad: 'Horas',
-    columnas: ['Expediente'], pie: ['Nº de expediente:', 'Retención IRPF:'] },
+    columnas: ['Expediente'],
+    pie: ['Nº de expediente:', 'Desplazamiento:', 'Retención IRPF:'] },
+  { id: 'traductor', nombre: 'Traducción e interpretación', concepto: 'Traducción', unidad: 'Palabras',
+    columnas: ['Idiomas'], pie: ['Plazo de entrega:', 'Urgencia:'] },
 
   // --- Técnicos ---
-  { id: 'arquitecto', nombre: 'Arquitectura e interiorismo', concepto: 'Fase', unidad: 'Cantidad',
+  { id: 'arquitecto', nombre: 'Arquitectura', concepto: 'Fase', unidad: 'Cantidad',
     columnas: ['m²'], pie: ['Nº de proyecto:', 'Ref. catastral:', 'Retención IRPF:'] },
+  // Separado de arquitectura: comparten fases y m², pero lo que se discute y
+  // se cobra aparte en interiorismo son las visitas, no la referencia
+  // catastral.
+  { id: 'interiorismo', nombre: 'Interiorismo y decoración', concepto: 'Fase', unidad: 'Cantidad',
+    columnas: ['m²', 'Visitas'], pie: ['Nº de proyecto:', 'Retención IRPF:'] },
   { id: 'ingeniero', nombre: 'Ingeniería y consultoría técnica', concepto: 'Trabajo', unidad: 'Horas',
     pie: ['Nº de proyecto:', 'Retención IRPF:'] },
   { id: 'informatico', nombre: 'Informática y desarrollo', concepto: 'Trabajo', unidad: 'Horas',
-    pie: ['Nº de proyecto:', 'Periodo de mantenimiento:'] },
+    pie: ['Nº de proyecto:', 'Hosting y dominios:', 'Periodo de mantenimiento:', 'SLA:'] },
 
   // --- Creativos ---
   { id: 'disenador', nombre: 'Diseño y creatividad', concepto: 'Trabajo', unidad: 'Cantidad',
@@ -150,10 +167,13 @@ export const OFICIOS: Oficio[] = [
     pie: ['Periodo del servicio:', 'Presupuesto publicitario:'] },
   { id: 'formador', nombre: 'Formación y coaching', concepto: 'Formación', unidad: 'Horas',
     columnas: ['Asistentes'], pie: ['Modalidad:', 'Periodo:'] },
-  { id: 'traductor', nombre: 'Traducción', concepto: 'Traducción', unidad: 'Palabras',
-    columnas: ['Idiomas'], pie: ['Plazo de entrega:'] },
   { id: 'profesor', nombre: 'Clases particulares', concepto: 'Clase', unidad: 'Horas',
-    columnas: ['Asignatura'], pie: ['Periodo:'] },
+    columnas: ['Asignatura'], pie: ['Periodo:', 'Bono:'] },
+  // «Fotografía de eventos» caía en el genérico porque no tenía oficio: una
+  // boda facturada con la factura de nadie, sin horas de cobertura ni fecha
+  // del evento, que es lo primero que se mira en esa factura.
+  { id: 'eventos', nombre: 'Fotografía de eventos', concepto: 'Servicio', unidad: 'Horas',
+    columnas: ['Cobertura'], pie: ['Fecha del evento:', 'Lugar:', 'Álbum y edición:'] },
 
   // --- Oficios ---
   // Con columna de horas y casilla de desplazamiento: es lo que se discute
@@ -164,20 +184,25 @@ export const OFICIOS: Oficio[] = [
     columnas: ['Horas'], pie: ['Desplazamiento:', 'Urgencia:'] },
   { id: 'reformas', nombre: 'Albañilería y reformas', concepto: 'Partida', unidad: 'Cantidad',
     columnas: ['m²'], pie: ['Nº de obra:', 'Anticipo:', 'Retención de garantía:'] },
+  // Con las dos columnas, que es como se lee la factura de un taller: las
+  // horas de mano de obra por un lado y la referencia del recambio por
+  // otro. Con sólo la referencia, la mano de obra iba suelta en la
+  // descripción y no había forma de ver cuánto se cobró de trabajo.
   { id: 'taller', nombre: 'Taller mecánico', concepto: 'Concepto', unidad: 'Cantidad',
-    columnas: ['Referencia'], pie: ['Matrícula:', 'Marca y modelo:', 'Kilometraje:', 'Nº de bastidor:'] },
+    columnas: ['Horas', 'Referencia'],
+    pie: ['Matrícula:', 'Marca y modelo:', 'Kilometraje:', 'Nº de bastidor:'] },
   { id: 'transporte', nombre: 'Transporte', concepto: 'Servicio', unidad: 'Cantidad',
-    columnas: ['Km'], pie: ['Origen:', 'Destino:', 'Matrícula:', 'Nº de envío:'] },
+    columnas: ['Km', 'Peso'], pie: ['Origen:', 'Destino:', 'Matrícula:', 'Nº de envío:'] },
   { id: 'limpieza', nombre: 'Limpieza', concepto: 'Servicio', unidad: 'Horas',
     columnas: ['m²'], pie: ['Periodo:', 'Frecuencia:'] },
   { id: 'peluqueria', nombre: 'Peluquería y barbería', concepto: 'Servicio', unidad: 'Cantidad',
-    pie: ['Profesional:'] },
+    pie: ['Profesional:', 'Bono:'] },
   { id: 'estetica', nombre: 'Estética', concepto: 'Tratamiento', unidad: 'Sesiones',
     pie: ['Profesional:', 'Bono:'] },
   { id: 'inmobiliaria', nombre: 'Inmobiliaria', concepto: 'Concepto', unidad: 'Cantidad',
     pie: ['Inmueble:', 'Nº de inmueble:', '% de comisión:'] },
   { id: 'freelance', nombre: 'Autónomo y freelance', concepto: 'Servicio', unidad: 'Horas',
-    pie: ['Periodo facturado:', 'Retención IRPF:'] },
+    pie: ['Periodo facturado:', 'Gastos y desplazamientos:', 'Retención IRPF:'] },
 ];
 
 export const oficioPorId = (id: string): Oficio =>
@@ -192,9 +217,9 @@ export const oficioPorId = (id: string): Oficio =>
  * con el primero— acababa con una factura de distribuidor, con su columna
  * de cajas, pidiéndole el formato de cada sesión de terapia.
  *
- * `eventos` no tiene oficio propio y cae en el genérico a propósito: es
- * mejor una factura española normal y corriente que colarle la de otro
- * gremio parecido.
+ * Los 36 están cubiertos, sin ninguno cayendo en el genérico por descuido:
+ * el genérico es el último recurso para quien no ha elegido sector todavía,
+ * no un cajón para los que se nos olvidaron.
  */
 const OFICIO_POR_SECTOR: Record<BusinessSector, string> = {
   supermercado: 'comercio',
@@ -217,7 +242,7 @@ const OFICIO_POR_SECTOR: Record<BusinessSector, string> = {
   traduccion: 'traductor',
 
   arquitectura: 'arquitecto',
-  interiorismo: 'arquitecto',
+  interiorismo: 'interiorismo',
   ingenieria: 'ingeniero',
   informatica: 'informatico',
   diseno: 'disenador',
@@ -236,7 +261,7 @@ const OFICIO_POR_SECTOR: Record<BusinessSector, string> = {
 
   peluqueria: 'peluqueria',
   estetica: 'estetica',
-  eventos: 'generico',
+  eventos: 'eventos',
   inmobiliaria: 'inmobiliaria',
 };
 

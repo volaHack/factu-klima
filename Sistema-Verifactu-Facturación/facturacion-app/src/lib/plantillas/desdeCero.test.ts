@@ -560,3 +560,108 @@ describe('la plantilla que es de otro gremio', () => {
     }
   });
 });
+
+describe('cada sector con lo que su factura necesita', () => {
+  /** Los rótulos del pie y las cabeceras de columna de un oficio, en un texto. */
+  const contenidoDe = (sector: string) => {
+    const oficio = oficioParaSector(sector as never);
+    const analisis = facturaDesdeCero(oficio.id, AJUSTES);
+    return {
+      oficio,
+      rotulos: analisis.campos.map(c => c.texto ?? '').join(' | '),
+      columnas: analisis.tabla!.columnas.map(c => c.cabecera),
+    };
+  };
+
+  it('ningún sector se queda con la factura del genérico', () => {
+    // El genérico es para quien todavía no ha elegido sector, no un cajón
+    // para los que se nos olvidaron. «Fotografía de eventos» caía ahí.
+    for (const sector of BUSINESS_SECTORS) {
+      expect(oficioParaSector(sector.value).id, sector.value).not.toBe('generico');
+    }
+  });
+
+  it('el pie no se mete dentro de la tabla', () => {
+    // Los rótulos del oficio se apilan desde y=88 de 4,5 mm en 4,5 mm y la
+    // tabla empieza en 108: a partir del quinto se escriben encima de la
+    // cabecera de las líneas. Con `taller`, `transporte` e `informatico`
+    // ya en cuatro, esto es un borde real y no una hipótesis.
+    for (const oficio of OFICIOS) {
+      const tabla = facturaDesdeCero(oficio.id).tabla!;
+      const finDelPie = 88 + (oficio.pie?.length ?? 0) * 4.5;
+      expect(finDelPie, `${oficio.nombre} pisa la tabla`).toBeLessThanOrEqual(tabla.y);
+    }
+  });
+
+  it('los sanitarios que la ley exime lo dicen en la factura', () => {
+    // Art. 20.Uno.3º LIVA nombra a médicos, odontólogos y demás sanitarios.
+    // Al dentista le faltaba: imprimía sus facturas sin el aviso.
+    for (const sector of ['medicina', 'dental', 'psicologia', 'fisioterapia']) {
+      expect(contenidoDe(sector).rotulos, sector).toContain('exento de IVA');
+    }
+  });
+
+  it('el veterinario NO dice que esté exento, porque no lo está', () => {
+    // La asistencia a animales tributa al 21%. Un aviso de exención aquí
+    // sería una factura mal hecha, no un detalle de más.
+    expect(contenidoDe('veterinaria').rotulos).not.toContain('exento de IVA');
+  });
+
+  it('quien practica retención de IRPF trae su casilla', () => {
+    for (const sector of ['abogacia', 'asesoria', 'peritaje', 'arquitectura', 'ingenieria', 'freelance']) {
+      expect(contenidoDe(sector).rotulos, sector).toContain('Retención IRPF:');
+    }
+  });
+
+  it('el taller separa la mano de obra del recambio', () => {
+    // Con sólo la referencia, las horas de trabajo iban sueltas dentro de la
+    // descripción y no había manera de ver cuánto se cobró de mano de obra.
+    const { columnas } = contenidoDe('taller');
+    expect(columnas).toContain('Horas');
+    expect(columnas).toContain('Referencia');
+  });
+
+  it.each([
+    ['psicologia', 'Sesiones'],
+    ['fisioterapia', 'Sesiones'],
+    ['peritaje', 'Horas'],
+    ['ingenieria', 'Horas'],
+    ['informatica', 'Horas'],
+    ['limpieza', 'Horas'],
+    ['clases', 'Horas'],
+    ['traduccion', 'Palabras'],
+    ['alimentacion', 'Cajas'],
+    ['mayorista', 'Cajas'],
+  ])('%s mide en «%s»', (sector, unidad) => {
+    expect(contenidoDe(sector).oficio.unidad).toBe(unidad);
+  });
+
+  it.each([
+    ['taller', 'Matrícula:'],
+    ['transporte', 'Origen:'],
+    ['inmobiliaria', 'Inmueble:'],
+    ['reformas', 'Nº de obra:'],
+    ['fontaneria', 'Urgencia:'],
+    ['electricidad', 'Nº de instalación:'],
+    ['procuraduria', 'Juzgado:'],
+    ['medicina', 'Centro médico:'],
+    ['eventos', 'Fecha del evento:'],
+    ['traduccion', 'Urgencia:'],
+    ['peluqueria', 'Bono:'],
+    ['clases', 'Bono:'],
+  ])('%s pregunta por «%s»', (sector, rotulo) => {
+    expect(contenidoDe(sector).rotulos).toContain(rotulo);
+  });
+
+  it('ninguna factura de servicios trae columna de cajas', () => {
+    // El fallo que se vio en pantalla, comprobado desde el sector y no
+    // desde el oficio: lo que elige el usuario es el sector.
+    const conBultos = ['supermercado', 'alimentacion', 'mayorista', 'bebidas', 'servicios_industriales', 'transporte'];
+    for (const sector of BUSINESS_SECTORS.filter(s => !conBultos.includes(s.value))) {
+      const { columnas } = contenidoDe(sector.value);
+      for (const prohibida of ['U/C', 'Udes.', 'CAJ.', 'Cajas', 'Bultos']) {
+        expect(columnas, `${sector.value} trae «${prohibida}»`).not.toContain(prohibida);
+      }
+    }
+  });
+});
