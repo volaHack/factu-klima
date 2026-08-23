@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Heart, Coffee, Pizza, Rocket, Star, Check, Loader2, X, ShieldCheck, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Heart, Coffee, Pizza, Rocket, Star, Loader2, X, ShieldCheck, Sparkles } from 'lucide-react';
 
 interface TipModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ const PRESET_AMOUNTS = [
 ];
 
 export default function TipModal({ isOpen, onClose }: TipModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number>(5);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [isCustom, setIsCustom] = useState<boolean>(false);
@@ -24,19 +26,29 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       setError(null);
       // Prevenir scroll en el fondo mientras el modal está abierto
       document.body.style.overflow = 'hidden';
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const currentAmount = isCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
 
@@ -72,17 +84,23 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
     }
   };
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
-        backgroundColor: 'rgba(10, 10, 15, 0.75)',
+        boxSizing: 'border-box',
+        backgroundColor: 'rgba(5, 5, 8, 0.78)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
         animation: 'fadeIn 0.2s ease-out',
@@ -92,17 +110,19 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
       <div
         style={{
           width: '100%',
-          maxWidth: '480px',
-          maxHeight: 'calc(100vh - 32px)',
+          maxWidth: '460px',
+          maxHeight: 'min(92vh, 620px)',
+          margin: 'auto',
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: 'var(--bg-secondary, #1a161f)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(201, 64, 122, 0.2)',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 50px rgba(201, 64, 122, 0.22)',
           overflow: 'hidden',
           animation: 'modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           position: 'relative',
+          boxSizing: 'border-box',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -126,8 +146,8 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(0, 0, 0, 0.25)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(0, 0, 0, 0.28)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
@@ -148,7 +168,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               gap: '6px',
               padding: '4px 12px',
               borderRadius: '20px',
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.22)',
               backdropFilter: 'blur(4px)',
               fontSize: '11px',
               fontWeight: 800,
@@ -184,7 +204,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
           </p>
         </div>
 
-        {/* Cuerpo con scroll interior si la pantalla es muy pequeña */}
+        {/* Cuerpo con scroll interior */}
         <div
           style={{
             padding: '20px 24px 24px',
@@ -192,6 +212,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
             display: 'flex',
             flexDirection: 'column',
             gap: '16px',
+            boxSizing: 'border-box',
           }}
         >
           {/* Selector de cantidad */}
@@ -236,15 +257,15 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
                       padding: '10px 14px',
                       borderRadius: '14px',
                       backgroundColor: isSelected
-                        ? 'var(--accent-50, rgba(201, 64, 122, 0.14))'
-                        : 'var(--bg-tertiary, rgba(255, 255, 255, 0.04))',
+                        ? 'var(--accent-50, rgba(201, 64, 122, 0.16))'
+                        : 'var(--bg-tertiary, rgba(255, 255, 255, 0.05))',
                       border: isSelected
                         ? '2px solid var(--color-primary, #b02a5c)'
-                        : '1px solid rgba(255, 255, 255, 0.08)',
+                        : '1px solid rgba(255, 255, 255, 0.1)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.15s ease',
-                      boxShadow: isSelected ? '0 0 16px rgba(201, 64, 122, 0.25)' : 'none',
+                      boxShadow: isSelected ? '0 0 16px rgba(201, 64, 122, 0.28)' : 'none',
                     }}
                   >
                     <span style={{ fontSize: '1.4rem' }}>{preset.emoji}</span>
@@ -435,4 +456,6 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
