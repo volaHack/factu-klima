@@ -67,8 +67,7 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
         Math.max(y, window.innerHeight - y)
       );
 
-      // @ts-expect-error View Transitions API type support
-      const transition = document.startViewTransition(() => {
+      const transition = (document as unknown as { startViewTransition: (cb: () => void) => { ready: Promise<void> } }).startViewTransition(() => {
         guardarTema(nuevoTema);
       });
 
