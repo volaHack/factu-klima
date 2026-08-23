@@ -35,7 +35,8 @@ export type FichaId =
   | 'comisiones_mes'
   | 'obras_abiertas'
   | 'ordenes_atrasadas'
-  | 'lotes_caducando';
+  | 'lotes_caducando'
+  | 'rappels_periodo';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -104,6 +105,8 @@ export const FICHAS: Ficha[] = [
     explica: 'Avisos que llevan más de una semana abiertos sin cerrarse.' },
   { id: 'lotes_caducando', nombre: 'Lotes por caducar', tamano: 'mediana', requiere: 'lotes',
     explica: 'Lo que caduca en los próximos siete días y todavía queda en el almacén.' },
+  { id: 'rappels_periodo', nombre: 'Rappels del periodo', tamano: 'pequena', requiere: 'rappels',
+    explica: 'Lo que se debe en rappels por lo facturado hasta ahora, sumado entre todas las reglas.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',

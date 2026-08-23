@@ -325,6 +325,33 @@ export interface Lote {
   updatedAt: string;
 }
 
+/**
+ * UN RAPPEL POR VOLUMEN
+ *
+ * No es un descuento de cada factura: es el premio por comprar mucho a lo
+ * largo de un periodo, y se liquida al cerrarlo —con un abono, normalmente—,
+ * no línea a línea. Por tramos: a partir de tanto factura, tanto por
+ * ciento; a partir de más, más.
+ */
+export interface TramoRappel {
+  /** A partir de qué importe facturado se aplica este tramo. */
+  desde: number;
+  porcentaje: number;
+}
+
+export interface RappelConfig {
+  id: string;
+  nombre: string;
+  /** Vacío = se aplica a cualquier cliente que llegue al tramo. */
+  clienteId?: string;
+  clienteNombre?: string;
+  /** De menor a mayor umbral. */
+  tramos: TramoRappel[];
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;

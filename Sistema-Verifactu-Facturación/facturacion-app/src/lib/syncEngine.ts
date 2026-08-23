@@ -135,6 +135,7 @@ const TABLE_MAP: Record<SyncTable, string> = {
   obras: 'obras',
   ordenes_trabajo: 'ordenes_trabajo',
   lotes: 'lotes',
+  rappels: 'rappels',
 };
 
 /**

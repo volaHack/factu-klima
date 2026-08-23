@@ -21,7 +21,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -4533,5 +4533,82 @@ function mapLoteFromDb(l: any): Lote {
     notas: l.notas || undefined,
     createdAt: l.created_at || l.createdAt || new Date().toISOString(),
     updatedAt: l.updated_at || l.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// RAPPELS POR VOLUMEN
+// ============================================================
+
+export async function getRappels(): Promise<RappelConfig[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('rappels');
+    if (cached.length > 0) return cached.map(mapRappelFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('rappels').select('*').order('nombre', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('rappels');
+    await putMany('rappels', data);
+  }
+  return data.map(mapRappelFromDb);
+}
+
+export async function saveRappel(rappel: RappelConfig): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: rappel.id,
+    user_id: userId,
+    nombre: rappel.nombre,
+    cliente_id: rappel.clienteId || null,
+    cliente_nombre: rappel.clienteNombre || null,
+    tramos: rappel.tramos,
+    activo: rappel.activo,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('rappels', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('rappels').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'rappels', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'rappels', row);
+  }
+}
+
+export async function deleteRappel(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('rappels', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('rappels').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'rappels', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'rappels', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapRappelFromDb(r: any): RappelConfig {
+  return {
+    id: r.id,
+    nombre: r.nombre || '',
+    clienteId: r.cliente_id || undefined,
+    clienteNombre: r.cliente_nombre || undefined,
+    tramos: Array.isArray(r.tramos) ? r.tramos : [],
+    activo: r.activo ?? true,
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+    updatedAt: r.updated_at || r.updatedAt || new Date().toISOString(),
   };
 }

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
-  WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes,
+  WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -69,6 +69,7 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
   { href: '/obras', label: 'Obras y expedientes', icon: Briefcase, modulo: 'obras' },
   { href: '/ordenes-trabajo', label: 'Órdenes de trabajo', icon: Wrench, modulo: 'ordenes_trabajo' },
   { href: '/lotes', label: 'Lotes y trazabilidad', icon: Boxes, modulo: 'lotes' },
+  { href: '/rappels', label: 'Rappels por volumen', icon: Percent, modulo: 'rappels' },
 ];
 
 const controlItems = [

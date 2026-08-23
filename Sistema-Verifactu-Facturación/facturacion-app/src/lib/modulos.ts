@@ -103,7 +103,7 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Cada comercial con su serie de numeración, su almacén y sus clientes.' },
   { id: 'comisiones', nombre: 'Comisiones', grupo: 'comercial', requiere: ['vendedores'], disponible: true,
     descripcion: 'Lo que se lleva cada comercial, sobre lo facturado o sobre lo cobrado, y por artículo o por cliente.' },
-  { id: 'rappels', nombre: 'Rappels por volumen', grupo: 'comercial', disponible: false,
+  { id: 'rappels', nombre: 'Rappels por volumen', grupo: 'comercial', disponible: true,
     descripcion: 'Descuentos que se ganan al llegar a un volumen y se liquidan al cerrar el periodo, no en cada factura.' },
   { id: 'rutas', nombre: 'Rutas de reparto', grupo: 'comercial', requiere: ['albaranes'], disponible: false,
     descripcion: 'Agrupar clientes por ruta y día, y sacar el reparto de la jornada en una hoja.' },
