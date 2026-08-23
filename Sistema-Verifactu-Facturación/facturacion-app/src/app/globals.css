@@ -397,6 +397,19 @@ body.theme-plum {
 .tema-boton svg { transition: transform 0.3s ease; }
 .tema-boton:hover svg { transform: rotate(18deg); }
 
+/* --- View Transition: Esquina Inferior Izquierda a Superior Derecha --- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 999999;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tema-boton, .tema-boton svg { transition: none; }
   .tema-boton:hover svg { transform: none; }
