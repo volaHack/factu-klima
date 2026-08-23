@@ -33,6 +33,8 @@ export default function FacturasPage() {
   const [sortField, setSortField] = useState<SortField>('issueDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -314,6 +316,42 @@ export default function FacturasPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    let deleted = 0;
+    const failures: string[] = [];
+
+    for (const id of selectedIds) {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv) continue;
+      // No borrar facturas selladas con VeriFactu: son intocables.
+      if (isSealed(inv)) {
+        failures.push(`${inv.number} (sellada)`);
+        continue;
+      }
+      try {
+        await removeInvoice(id);
+        deleted += 1;
+      } catch {
+        failures.push(inv.number);
+      }
+    }
+
+    await reload();
+    setSelectedIds(new Set());
+    setBulkDeleteConfirm(false);
+    setBulkDeleting(false);
+
+    if (failures.length > 0) {
+      toastError(
+        `${deleted} eliminadas, ${failures.length} no eliminadas`,
+        `No se pudieron eliminar: ${failures.join(', ')}`
+      );
+    } else {
+      success('Facturas eliminadas', `${deleted} factura${deleted !== 1 ? 's' : ''} eliminada${deleted !== 1 ? 's' : ''}`);
+    }
+  };
+
   // Declarado como función normal, no como componente: definir un
   // componente dentro del render lo recrea en cada pasada y le hace
   // perder el estado.
@@ -504,8 +542,36 @@ export default function FacturasPage() {
           <button className="btn btn-sm btn-secondary">
             <Download size={14} /> Exportar
           </button>
+          {!bulkDeleteConfirm ? (
+            <button
+              className="btn btn-sm btn-danger-outline"
+              onClick={() => setBulkDeleteConfirm(true)}
+            >
+              <Trash2 size={14} /> Eliminar seleccionadas
+            </button>
+          ) : (
+            <>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-danger)', fontWeight: 600 }}>
+                ¿Confirmar borrado de {selectedIds.size}?
+              </span>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setBulkDeleteConfirm(false)}
+                disabled={bulkDeleting}
+              >
+                Cancelar
+              </button>
+            </>
+          )}
           <span className="bulk-bar-spacer" />
-          <button className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())}>
+          <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedIds(new Set()); setBulkDeleteConfirm(false); }}>
             Deseleccionar
           </button>
         </div>

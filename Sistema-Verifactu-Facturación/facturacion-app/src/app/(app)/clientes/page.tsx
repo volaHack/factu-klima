@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
@@ -25,6 +25,8 @@ export default function ClientesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortField, setSortField] = useState<'name' | 'nif' | 'city' | 'email' | 'invoiceCount' | 'total'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const { success, error: toastError } = useToast();
 
   // Form state
@@ -77,6 +79,19 @@ export default function ClientesPage() {
     setTimeout(() => setRefreshing(false), 400);
   };
 
+  // Stats pre-calculados para poder ordenar por ellos
+  const clientStats = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>();
+    for (const client of clients) {
+      const clientInvs = invoices.filter(i => i.clientId === client.id && i.status !== 'anulada');
+      map.set(client.id, {
+        count: clientInvs.length,
+        total: clientInvs.reduce((sum, i) => sum + i.total, 0),
+      });
+    }
+    return map;
+  }, [clients, invoices]);
+
   const filtered = useMemo(() => {
     let list = [...clients];
     if (tipoContactoFilter === 'clientes') list = list.filter(c => !c.esProveedor);
@@ -93,20 +108,48 @@ export default function ClientesPage() {
       );
     }
 
-    // Orden alfabético por razón social / nombre comercial
     list.sort((a, b) => {
-      const nameA = (a.tradeName || a.businessName || '').toLowerCase();
-      const nameB = (b.tradeName || b.businessName || '').toLowerCase();
-      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+      const statsA = clientStats.get(a.id) ?? { count: 0, total: 0 };
+      const statsB = clientStats.get(b.id) ?? { count: 0, total: 0 };
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = (a.tradeName || a.businessName || '').localeCompare(b.tradeName || b.businessName || '', 'es', { sensitivity: 'base' }); break;
+        case 'nif':
+          cmp = a.nif.localeCompare(b.nif); break;
+        case 'city':
+          cmp = a.city.localeCompare(b.city, 'es', { sensitivity: 'base' }); break;
+        case 'email':
+          cmp = a.email.localeCompare(b.email); break;
+        case 'invoiceCount':
+          cmp = statsA.count - statsB.count; break;
+        case 'total':
+          cmp = statsA.total - statsB.total; break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
     });
 
     return list;
-  }, [clients, search, tipoContactoFilter]);
+  }, [clients, search, tipoContactoFilter, clientStats, sortField, sortDir]);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortIcon = (field: typeof sortField) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc'
+      ? <ChevronUp size={13} className="sort-icon" />
+      : <ChevronDown size={13} className="sort-icon" />;
+  };
 
   const getClientStats = (clientId: string) => {
-    const clientInvs = invoices.filter(i => i.clientId === clientId && i.status !== 'anulada');
-    const total = clientInvs.reduce((sum, i) => sum + i.total, 0);
-    return { count: clientInvs.length, total };
+    return clientStats.get(clientId) ?? { count: 0, total: 0 };
   };
 
   // Recharts Analytics Data
@@ -349,17 +392,29 @@ export default function ClientesPage() {
       </div>
 
       <div className="table-container">
-        <table className="table">
+        <table className="table table--sortable">
           <thead>
             <tr>
-              <th>NIF/CIF</th>
-              <th>Nombre comercial</th>
+              <th className={sortField === 'nif' ? 'sorted' : ''} onClick={() => handleSort('nif')} style={{ cursor: 'pointer' }}>
+                NIF/CIF {sortIcon('nif')}
+              </th>
+              <th className={sortField === 'name' ? 'sorted' : ''} onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                Nombre comercial {sortIcon('name')}
+              </th>
               <th>Tipo</th>
               <th>Tarifa / Dtos.</th>
-              <th>Ciudad</th>
-              <th>Contacto</th>
-              <th>Facturas</th>
-              <th style={{ textAlign: 'right' }}>Total facturado</th>
+              <th className={sortField === 'city' ? 'sorted' : ''} onClick={() => handleSort('city')} style={{ cursor: 'pointer' }}>
+                Ciudad {sortIcon('city')}
+              </th>
+              <th className={sortField === 'email' ? 'sorted' : ''} onClick={() => handleSort('email')} style={{ cursor: 'pointer' }}>
+                Contacto {sortIcon('email')}
+              </th>
+              <th className={sortField === 'invoiceCount' ? 'sorted' : ''} onClick={() => handleSort('invoiceCount')} style={{ cursor: 'pointer' }}>
+                Facturas {sortIcon('invoiceCount')}
+              </th>
+              <th className={sortField === 'total' ? 'sorted' : ''} onClick={() => handleSort('total')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+                Total facturado {sortIcon('total')}
+              </th>
               <th>Estado</th>
               <th style={{ width: 120 }}></th>
             </tr>

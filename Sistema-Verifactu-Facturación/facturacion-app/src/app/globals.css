@@ -415,6 +415,75 @@ body.theme-plum {
   .tema-boton:hover svg { transform: none; }
 }
 
+/* ----------------------------------------------------------------
+   Páginas públicas siempre en modo claro
+   (.public-layout-force-light lo añade src/app/(public)/layout.tsx)
+
+   Anulamos todos los tokens que :root[data-theme="dark"] sobreescribía
+   para que /, /precios, /instalar y /login nunca adopten el modo oscuro
+   aunque el usuario lo tenga activo en el resto de la app.
+   ---------------------------------------------------------------- */
+.public-layout-force-light {
+  color-scheme: light;
+
+  --bg-primary: #f2e7e0;
+  --bg-secondary: #fbf6f2;
+  --bg-tertiary: #f6ece5;
+  --bg-card: #fbf6f2;
+  --bg-card-hover: #f4e6dd;
+  --bg-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --bg-overlay: rgba(23, 15, 18, 0.45);
+  --bg-header: rgba(251, 246, 242, 0.82);
+
+  --accent-50: #fdeef2;
+  --accent-100: #fbd7e3;
+  --accent-200: #f0a8c4;
+  --accent-300: #8f1f4f;
+  --accent-400: #b8306a;
+  --accent-500: #b02a5c;
+  --accent-600: #9c2856;
+  --accent-700: #7a1f44;
+  --accent-800: #5c1735;
+  --accent-glow: rgba(176, 42, 92, 0.16);
+  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+
+  --wine-500: #4c1a28;
+  --wine-600: #3a1420;
+
+  --text-primary: #1a1216;
+  --text-secondary: #4a3a40;
+  --text-tertiary: #6b5a60;
+  --text-muted: #6f5d63;
+  --text-inverse: #fbf6f2;
+
+  --color-success: #1e7a45;
+  --color-success-bg: rgba(30, 122, 69, 0.14);
+  --color-warning: #92660a;
+  --color-warning-bg: rgba(217, 158, 26, 0.16);
+  --color-danger: #b8261f;
+  --color-danger-bg: rgba(220, 38, 38, 0.13);
+  --color-info: #1d4ed8;
+  --color-info-bg: rgba(59, 130, 246, 0.14);
+  --color-neutral: #57484d;
+  --color-neutral-bg: rgba(87, 72, 77, 0.12);
+
+  --verifactu-gold: #734705;
+  --verifactu-bg: rgba(217, 158, 26, 0.18);
+
+  --border-color: rgba(26, 18, 22, 0.12);
+  --border-color-hover: rgba(26, 18, 22, 0.22);
+  --border-color-focus: var(--accent-500);
+  --border-subtle: rgba(26, 18, 22, 0.07);
+  --border-strong: rgba(26, 18, 22, 0.30);
+
+  --shadow-sm: 0 1px 2px rgba(76, 26, 40, 0.10);
+  --shadow-md: 0 4px 16px rgba(76, 26, 40, 0.12);
+  --shadow-lg: 0 12px 32px -4px rgba(76, 26, 40, 0.16);
+  --shadow-xl: 0 24px 48px -12px rgba(76, 26, 40, 0.22);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+}
+
 /* --- Reset & Base --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

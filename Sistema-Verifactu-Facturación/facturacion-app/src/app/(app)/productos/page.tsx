@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Sparkles, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -42,6 +42,8 @@ export default function ProductosPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [sortField, setSortField] = useState<'ref' | 'supplierRef' | 'name' | 'category' | 'unitPrice' | 'costePmp' | 'stockQuantity' | 'defaultTaxRate' | 'active'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Product modal
   const [showModal, setShowModal] = useState(false);
@@ -146,11 +148,58 @@ export default function ProductosPage() {
     }
     if (categoryFilter) result = result.filter(p => p.category === categoryFilter);
 
-    // Orden alfabético por nombre del producto
-    result.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'ref':
+          cmp = a.ref.localeCompare(b.ref);
+          break;
+        case 'supplierRef':
+          cmp = (a.supplierRef || '').localeCompare(b.supplierRef || '');
+          break;
+        case 'name':
+          cmp = (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' });
+          break;
+        case 'category':
+          cmp = (a.category || '').localeCompare(b.category || '', 'es', { sensitivity: 'base' });
+          break;
+        case 'unitPrice':
+          cmp = a.unitPrice - b.unitPrice;
+          break;
+        case 'costePmp':
+          cmp = (a.costePmp ?? 0) - (b.costePmp ?? 0);
+          break;
+        case 'stockQuantity':
+          cmp = (a.stockQuantity ?? 0) - (b.stockQuantity ?? 0);
+          break;
+        case 'defaultTaxRate':
+          cmp = Number(a.defaultTaxRate) - Number(b.defaultTaxRate);
+          break;
+        case 'active':
+          cmp = (a.active ? 1 : 0) - (b.active ? 1 : 0);
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
     return result;
-  }, [products, search, categoryFilter]);
+  }, [products, search, categoryFilter, sortField, sortDir]);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortIcon = (field: typeof sortField) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc'
+      ? <ChevronUp size={13} className="sort-icon" />
+      : <ChevronDown size={13} className="sort-icon" />;
+  };
 
   // Product CRUD
   const openCreateProduct = () => {
@@ -469,20 +518,38 @@ export default function ProductosPage() {
 
           {/* Table */}
           <div className="table-container">
-            <table className="table">
+            <table className="table table--sortable">
               <thead>
                 <tr>
-                  <th>Ref.</th>
-                  <th>Ref. Proveedor</th>
-                  <th>Producto</th>
-                  <th>Categoría</th>
-                  <th style={{ textAlign: 'right' }}>Precio Ud.</th>
-                  <th style={{ textAlign: 'right' }}>PMP (Coste)</th>
-                  <th>Stock Actual</th>
+                  <th className={sortField === 'ref' ? 'sorted' : ''} onClick={() => handleSort('ref')} style={{ cursor: 'pointer' }}>
+                    Ref. {sortIcon('ref')}
+                  </th>
+                  <th className={sortField === 'supplierRef' ? 'sorted' : ''} onClick={() => handleSort('supplierRef')} style={{ cursor: 'pointer' }}>
+                    Ref. Proveedor {sortIcon('supplierRef')}
+                  </th>
+                  <th className={sortField === 'name' ? 'sorted' : ''} onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                    Producto {sortIcon('name')}
+                  </th>
+                  <th className={sortField === 'category' ? 'sorted' : ''} onClick={() => handleSort('category')} style={{ cursor: 'pointer' }}>
+                    Categoría {sortIcon('category')}
+                  </th>
+                  <th className={sortField === 'unitPrice' ? 'sorted' : ''} onClick={() => handleSort('unitPrice')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+                    Precio Ud. {sortIcon('unitPrice')}
+                  </th>
+                  <th className={sortField === 'costePmp' ? 'sorted' : ''} onClick={() => handleSort('costePmp')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+                    PMP (Coste) {sortIcon('costePmp')}
+                  </th>
+                  <th className={sortField === 'stockQuantity' ? 'sorted' : ''} onClick={() => handleSort('stockQuantity')} style={{ cursor: 'pointer' }}>
+                    Stock Actual {sortIcon('stockQuantity')}
+                  </th>
                   <th>Pdt. Recibir</th>
                   <th>Pdt. Entregar</th>
-                  <th>IVA/IGIC</th>
-                  <th>Estado</th>
+                  <th className={sortField === 'defaultTaxRate' ? 'sorted' : ''} onClick={() => handleSort('defaultTaxRate')} style={{ cursor: 'pointer' }}>
+                    IVA/IGIC {sortIcon('defaultTaxRate')}
+                  </th>
+                  <th className={sortField === 'active' ? 'sorted' : ''} onClick={() => handleSort('active')} style={{ cursor: 'pointer' }}>
+                    Estado {sortIcon('active')}
+                  </th>
                   <th style={{ width: 100 }}></th>
                 </tr>
               </thead>
