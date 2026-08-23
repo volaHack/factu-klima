@@ -198,10 +198,19 @@ export default function PricingContent() {
           móvil. Ver src/components/public/SiteNav.tsx. */}
       <SiteNav />
 
-      {/* Hero Section con Fondo Estelar de Gravedad Completo */}
-      <section className="pricing-hero-container">
-        <GravityStarsBackground className="absolute inset-0 z-0" starCount={140} />
-
+      {/* Hero Section con Fondo Estelar de Gravedad Interactivo */}
+      <GravityStarsBackground
+        className="pricing-hero-container"
+        starsCount={85}
+        starsSize={2.2}
+        starsOpacity={0.8}
+        glowIntensity={15}
+        movementSpeed={0.3}
+        mouseInfluence={130}
+        mouseGravity="attract"
+        gravityStrength={80}
+        starsInteraction={false}
+      >
         <header className="pricing-hero">
           <div className="pricing-hero-badge">
             <Sparkles size={14} />
@@ -299,7 +308,7 @@ export default function PricingContent() {
             </button>
           </div>
         </header>
-      </section>
+      </GravityStarsBackground>
 
       {/* Pricing Cards */}
       <section className="pricing-cards">
