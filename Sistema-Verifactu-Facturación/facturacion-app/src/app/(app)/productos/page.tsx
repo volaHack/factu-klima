@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Sparkles, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -39,7 +39,7 @@ export default function ProductosPage() {
   
   // Tabs: 'products' | 'categories'
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');
-  
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
 
@@ -112,9 +112,24 @@ export default function ProductosPage() {
       await loadData();
       setMounted(true);
     })();
+
+    const handleAutoRefresh = () => {
+      loadData();
+    };
+
+    window.addEventListener('klima-products-updated', handleAutoRefresh);
+    window.addEventListener('klima-invoices-updated', handleAutoRefresh);
+    return () => {
+      window.removeEventListener('klima-products-updated', handleAutoRefresh);
+      window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
+    };
   }, []);
 
-  const reloadProducts = async () => setProducts(await getProducts());
+  const reloadProducts = async () => {
+    setRefreshing(true);
+    await loadData();
+    setTimeout(() => setRefreshing(false), 400);
+  };
   const reloadCategories = async () => setCategories(await getCompanyCategories());
 
   // Filtered Products
@@ -130,6 +145,10 @@ export default function ProductosPage() {
       );
     }
     if (categoryFilter) result = result.filter(p => p.category === categoryFilter);
+
+    // Orden alfabético por nombre del producto
+    result.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+
     return result;
   }, [products, search, categoryFilter]);
 
@@ -327,6 +346,15 @@ export default function ProductosPage() {
           )}
         </div>
         <div className="page-header-actions">
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={reloadProducts}
+            disabled={refreshing}
+            title="Refrescar catálogo en tiempo real"
+            aria-label="Refrescar catálogo"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </button>
           <button className="btn btn-secondary" onClick={openCreateCategory}>
             <Tag size={16} /> Nueva categoría
           </button>

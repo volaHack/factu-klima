@@ -9,10 +9,12 @@ import {
   FileText, Users, BarChart3, Plug,
   ArrowRight, Sparkles, Star,
   Clock, Headphones, Download, Globe, Loader2, Store,
+  Flame, Gift, Heart, Copy, Tag,
 } from 'lucide-react';
 import { PLANS, type PlanId } from '@/lib/plans';
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
+import TipModal from '@/components/ui/TipModal';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -139,7 +141,16 @@ export default function PricingContent() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [apiError, setApiError] = useState('');
+  const [couponApplied, setCouponApplied] = useState(true);
+  const [couponCopied, setCouponCopied] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
   const wasCancelled = searchParams.get('cancelled') === 'true';
+
+  const copyCoupon = () => {
+    navigator.clipboard.writeText('LANZAMIENTO50');
+    setCouponCopied(true);
+    setTimeout(() => setCouponCopied(false), 2500);
+  };
 
   // Ahorro real en euros por año al pagar anual (priceAnnual ya es el
   // total del año, no una cuota mensual — ver src/lib/plans.ts).
@@ -200,6 +211,55 @@ export default function PricingContent() {
           Elige el plan que encaje con tu negocio. Cumplimiento normativo español,
           sellado criptográfico y cobros online incluidos en todos los planes.
         </p>
+
+        {/* Promo Banner por Tiempo Limitado (1 Mes de Oferta) */}
+        <div
+          style={{
+            maxWidth: 760,
+            margin: 'var(--space-5) auto var(--space-2)',
+            padding: '16px 20px',
+            background: 'linear-gradient(135deg, rgba(201, 64, 122, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%)',
+            border: '1px solid rgba(201, 64, 122, 0.35)',
+            borderRadius: 'var(--radius-xl)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            textAlign: 'left',
+            boxShadow: '0 10px 25px -5px rgba(201, 64, 122, 0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ background: '#e11d48', color: '#fff', padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Flame size={12} fill="#fff" /> Oferta Limitada (1 Mes)
+              </span>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                50% Dto. Primer Mes o 3 Meses Gratis Anual
+              </strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              <Clock size={13} />
+              <span>Oferta de lanzamiento activa</span>
+            </div>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            Usa el cupón oficial de lanzamiento en la pasarela Stripe para activar el precio promocional en cualquiera de los planes.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Código cupón:</span>
+            <code style={{ background: 'var(--bg-secondary)', padding: '3px 10px', borderRadius: 'var(--radius-md)', border: '1px dashed var(--color-primary)', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>
+              LANZAMIENTO50
+            </code>
+            <button
+              onClick={copyCoupon}
+              className="btn btn-ghost btn-xs"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px' }}
+            >
+              {couponCopied ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
+              <span>{couponCopied ? '¡Copiado!' : 'Copiar cupón'}</span>
+            </button>
+          </div>
+        </div>
 
         {wasCancelled && (
           <div className="pricing-alert pricing-alert--info" role="status">
@@ -325,6 +385,55 @@ export default function PricingContent() {
               <p>{h.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Support & Tip Stripe Section */}
+      <section
+        style={{
+          maxWidth: 900,
+          margin: 'var(--space-10) auto 0',
+          padding: 'var(--space-6) var(--space-8)',
+          background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-2xl)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 'var(--space-6)',
+          boxShadow: 'var(--shadow-md)',
+        }}
+      >
+        <div style={{ flex: '1 1 400px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#e11d48', fontSize: '0.8rem', fontWeight: 700, marginBottom: 8 }}>
+            <Heart size={14} fill="#e11d48" /> APOYO AL SOFTWARE INDEPENDIENTE
+          </div>
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 8px' }}>
+            ¿Quieres apoyar el desarrollo o invitar un café? ☕
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            FactuKlima se desarrolla como software de código limpio y transparente. Si te es de gran utilidad y quieres dejar una propina o aportación voluntaria mediante Stripe, ¡te lo agradecemos enormemente!
+          </p>
+        </div>
+        <div>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowTipModal(true)}
+            style={{
+              padding: '12px 24px',
+              fontSize: '0.95rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              borderRadius: 'var(--radius-full)',
+              background: 'linear-gradient(135deg, #c9407a 0%, #7c1a3e 100%)',
+              boxShadow: '0 4px 15px rgba(201, 64, 122, 0.35)',
+            }}
+          >
+            <Heart size={16} fill="#ffffff" /> Dejar una Propina / Tip con Stripe
+          </button>
         </div>
       </section>
 
@@ -506,6 +615,8 @@ export default function PricingContent() {
       <p className="pricing-iva-note">
         Todos los precios indicados son sin IVA. El IVA se añade según la legislación vigente.
       </p>
+
+      <TipModal isOpen={showTipModal} onClose={() => setShowTipModal(false)} />
 
       <SiteFooter />
     </div>

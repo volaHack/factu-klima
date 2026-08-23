@@ -79,6 +79,13 @@ function withSettingsCacheLock<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+export function notifyDataUpdate(type: 'invoices' | 'clients' | 'products' | 'settings' | 'albaranes' | 'all') {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(`klima-${type}-updated`));
+    window.dispatchEvent(new CustomEvent('klima-data-updated', { detail: { type } }));
+  }
+}
+
 // ============================================================
 // INVOICES
 // ============================================================
@@ -532,6 +539,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     }
   }
 
+  notifyDataUpdate('invoices');
   return current;
 }
 
@@ -593,6 +601,7 @@ export async function cancelInvoice(id: string, reason: string): Promise<void> {
 
   if (error) throw new Error(translateDbError(error));
   await refreshInvoicesFromSupabase();
+  notifyDataUpdate('invoices');
 }
 
 /**
@@ -617,6 +626,8 @@ export async function deleteInvoice(id: string): Promise<void> {
   if (await isOfflineDbAvailable()) {
     await removeFromDb('invoices', id);
   }
+
+  notifyDataUpdate('invoices');
 }
 
 // ============================================================
@@ -846,6 +857,8 @@ export async function saveClient(client: Client): Promise<void> {
   } else {
     await enqueueSyncAction('upsert', 'clients', row);
   }
+
+  notifyDataUpdate('clients');
 }
 
 export async function deleteClient(id: string): Promise<void> {
@@ -863,6 +876,8 @@ export async function deleteClient(id: string): Promise<void> {
   } else {
     await enqueueSyncAction('delete', 'clients', { id });
   }
+
+  notifyDataUpdate('clients');
 }
 
 // ============================================================
@@ -1470,6 +1485,8 @@ export async function saveProduct(product: Product): Promise<void> {
   } else {
     await enqueueSyncAction('upsert', 'products', row);
   }
+
+  notifyDataUpdate('products');
 }
 
 export async function deleteProduct(id: string): Promise<void> {
@@ -1487,6 +1504,8 @@ export async function deleteProduct(id: string): Promise<void> {
   } else {
     await enqueueSyncAction('delete', 'products', { id });
   }
+
+  notifyDataUpdate('products');
 }
 
 // ============================================================
@@ -2021,6 +2040,8 @@ export async function anularAlbaran(id: string): Promise<Albaran> {
     updatedAt: new Date().toISOString(),
   };
   await saveAlbaran(updated);
+
+  notifyDataUpdate('albaranes');
   return updated;
 }
 /**

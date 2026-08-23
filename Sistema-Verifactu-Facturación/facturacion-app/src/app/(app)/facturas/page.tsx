@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, FileText, SearchX,
   Eye, Edit, Copy, Trash2, MoreHorizontal, CheckCircle, Download, Store, BarChart3,
-  AlertTriangle,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -38,6 +38,7 @@ export default function FacturasPage() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { success, error: toastError } = useToast();
   const { rejections } = useOnlineStatus();
 
@@ -98,6 +99,14 @@ export default function FacturasPage() {
   useEffect(() => {
     const load = async () => { setInvoices(await getInvoices()); setMounted(true); };
     load();
+
+    const handleAutoRefresh = () => {
+      load();
+    };
+    window.addEventListener('klima-invoices-updated', handleAutoRefresh);
+    return () => {
+      window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
+    };
   }, []);
 
   // El menú de fila se quedaba abierto hasta volver a pulsar su propio
@@ -124,7 +133,11 @@ export default function FacturasPage() {
     };
   }, [actionMenuId]);
 
-  const reload = async () => setInvoices(await getInvoices());
+  const reload = async () => {
+    setRefreshing(true);
+    setInvoices(await getInvoices());
+    setTimeout(() => setRefreshing(false), 400);
+  };
 
   // Filter + Sort
   const filtered = useMemo(() => {
@@ -346,6 +359,15 @@ export default function FacturasPage() {
           )}
         </div>
         <div className="page-header-actions">
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={reload}
+            disabled={refreshing}
+            title="Refrescar facturas en tiempo real"
+            aria-label="Refrescar lista"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </button>
           {invoices.length > 0 && (
             <button className={`btn ${showAnalytics ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowAnalytics(v => !v)}>
               <BarChart3 size={16} /> {showAnalytics ? 'Ocultar analítica' : 'Analítica Recharts'}

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Search, Bell, ShieldCheck, Crown, Zap, Lock } from 'lucide-react';
+import { Menu, Search, Bell, ShieldCheck, Crown, Zap, Lock, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import TipModal from '@/components/ui/TipModal';
 import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
 import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
@@ -36,6 +37,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
   const [planName, setPlanName] = useState('Plan Pro');
   const [planId, setPlanId] = useState('pro');
   const [isSubActive, setIsSubActive] = useState(true);
+  const [showTipModal, setShowTipModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -173,9 +175,33 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           )}
         </div>
 
+        {/* Botón de Propina / Apoyo Stripe */}
+        <button
+          className="btn btn-ghost"
+          onClick={() => setShowTipModal(true)}
+          title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: 'var(--text-2xs)',
+            fontWeight: 700,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            cursor: 'pointer',
+          }}
+        >
+          <Heart size={13} style={{ color: '#e11d48', fill: '#e11d48' }} />
+          <span>Tip ☕</span>
+        </button>
+
         <BotonTema />
         <AccountMenu />
       </div>
+
+      <TipModal isOpen={showTipModal} onClose={() => setShowTipModal(false)} />
     </header>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
@@ -24,6 +24,7 @@ export default function ClientesPage() {
   const [tipoContactoFilter, setTipoContactoFilter] = useState<'todos' | 'clientes' | 'proveedores'>('todos');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { success, error: toastError } = useToast();
 
   // Form state
@@ -50,9 +51,21 @@ export default function ClientesPage() {
       setSettings(settData);
       setMounted(true);
     })();
+
+    const handleAutoRefresh = () => {
+      reload();
+    };
+
+    window.addEventListener('klima-clients-updated', handleAutoRefresh);
+    window.addEventListener('klima-invoices-updated', handleAutoRefresh);
+    return () => {
+      window.removeEventListener('klima-clients-updated', handleAutoRefresh);
+      window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
+    };
   }, []);
 
   const reload = async () => {
+    setRefreshing(true);
     const [clientsData, allInvoices, vendData] = await Promise.all([
       getClients(),
       getInvoices(),
@@ -61,22 +74,33 @@ export default function ClientesPage() {
     setClients(clientsData);
     setInvoices(allInvoices);
     setVendedores(vendData);
+    setTimeout(() => setRefreshing(false), 400);
   };
 
   const filtered = useMemo(() => {
-    let list = clients;
+    let list = [...clients];
     if (tipoContactoFilter === 'clientes') list = list.filter(c => !c.esProveedor);
     if (tipoContactoFilter === 'proveedores') list = list.filter(c => c.esProveedor);
 
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(c =>
-      c.businessName.toLowerCase().includes(q) ||
-      c.tradeName.toLowerCase().includes(q) ||
-      c.nif.toLowerCase().includes(q) ||
-      c.city.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q)
-    );
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(c =>
+        c.businessName.toLowerCase().includes(q) ||
+        c.tradeName.toLowerCase().includes(q) ||
+        c.nif.toLowerCase().includes(q) ||
+        c.city.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q)
+      );
+    }
+
+    // Orden alfabético por razón social / nombre comercial
+    list.sort((a, b) => {
+      const nameA = (a.tradeName || a.businessName || '').toLowerCase();
+      const nameB = (b.tradeName || b.businessName || '').toLowerCase();
+      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+    });
+
+    return list;
   }, [clients, search, tipoContactoFilter]);
 
   const getClientStats = (clientId: string) => {
@@ -234,6 +258,15 @@ export default function ClientesPage() {
           )}
         </div>
         <div className="page-header-actions">
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={reload}
+            disabled={refreshing}
+            title="Refrescar clientes en tiempo real"
+            aria-label="Refrescar lista"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          </button>
           <button className="btn btn-primary" onClick={openCreateModal}>
             <Plus size={16} /> Nuevo cliente
           </button>
