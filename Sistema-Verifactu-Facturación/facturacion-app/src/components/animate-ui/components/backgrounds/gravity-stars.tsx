@@ -285,31 +285,48 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden ${className}`}
+      className={className}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         ...style,
       }}
       {...props}
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 pointer-events-none"
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
           width: '100%',
           height: '100%',
+          pointerEvents: 'none',
+          zIndex: 0,
           display: 'block',
         }}
       />
-      {children}
+      <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+        {children}
+      </div>
     </div>
   );
 };
 
 export const GravityStarsBackgroundDemo = () => {
   return (
-    <GravityStarsBackground className="absolute inset-0 flex items-center justify-center rounded-xl" />
+    <GravityStarsBackground
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '12px',
+      }}
+    />
   );
 };
