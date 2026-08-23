@@ -558,10 +558,21 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   paidDate?: string;
-  
+
   // Status
   status: InvoiceStatus;
-  
+  /**
+   * Por qué se anuló, y cuándo.
+   *
+   * Una factura emitida no se borra nunca: se anula dejando constancia del
+   * motivo. Ese motivo ya se guardaba en la base de datos desde el
+   * principio, pero no se leía en ninguna parte, así que quien anulaba una
+   * factura no podía volver a ver más tarde por qué lo hizo — que es
+   * justo lo que pregunta una inspección.
+   */
+  cancelReason?: string;
+  cancelledAt?: string;
+
   // Line items
   lineItems: InvoiceLineItem[];
   

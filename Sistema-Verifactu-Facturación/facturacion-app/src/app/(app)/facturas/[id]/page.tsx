@@ -5,15 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Edit, Copy, Ban, CheckCircle, Printer,
-  Calendar, Building2, CreditCard, FileText, ShieldCheck, Check,
+  Calendar, Building2, CreditCard, ShieldCheck, Check,
   Send, Link2, MessageSquare, Clock, CheckCircle2, XCircle, AlertTriangle,
-  Fingerprint, FileWarning, Loader2,
+  Fingerprint, FileWarning, Loader2, Trash2,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf, { BotonVistaPreviaPdf, AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
+import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 import {
   getInvoiceById, saveInvoice, getCompanySettings, createOrderApproval,
-  getApprovalByInvoiceId, getApprovalItems, issueInvoice, cancelInvoice, isSealed, getOnboardingStatus,
+  getApprovalByInvoiceId, getApprovalItems, issueInvoice, isSealed, getOnboardingStatus,
 } from '@/lib/storage';
 import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalItem } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo } from '@/lib/utils';
@@ -37,6 +38,7 @@ export default function InvoiceDetailPage() {
   const [approvalItems, setApprovalItems] = useState<OrderApprovalItem[]>([]);
   const [sendingApproval, setSendingApproval] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -111,28 +113,22 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!invoice) return;
-
-    // La normativa exige dejar constancia del motivo: no basta con borrar.
-    const reason = prompt(
-      `Anular la factura ${invoice.number}.\n\n` +
-      'La factura NO se elimina: queda registrada como anulada junto al motivo.\n' +
-      'Indica el motivo de la anulación:'
-    );
-    if (reason === null) return;
-    if (!reason.trim()) {
-      toastError('Motivo obligatorio', 'La anulación debe quedar justificada en el registro.');
+  /**
+   * Qué pasa al terminar en el modal de eliminar/anular.
+   *
+   * Un borrador desaparece de verdad, así que no hay ficha a la que
+   * volver: se vuelve al listado. Una factura emitida sigue existiendo
+   * anulada, así que se recarga para verla en su nuevo estado, con el
+   * motivo ya visible.
+   */
+  const trasEliminarOAnular = async (mensaje: string) => {
+    if (!invoice || !isSealed(invoice)) {
+      success('Borrador eliminado', mensaje);
+      router.push('/facturas');
       return;
     }
-
-    try {
-      await cancelInvoice(invoice.id, reason);
-      setInvoice({ ...invoice, status: InvoiceStatus.ANULADA, updatedAt: new Date().toISOString() });
-      success('Factura anulada', `${invoice.number} · motivo registrado`);
-    } catch (err) {
-      toastError('No se pudo anular', err instanceof Error ? err.message : 'Error desconocido');
-    }
+    success('Factura anulada', mensaje);
+    setInvoice(await getInvoiceById(invoice.id) || null);
   };
 
   const handleDuplicate = async () => {
@@ -193,34 +189,6 @@ export default function InvoiceDetailPage() {
     const link = getApprovalLink();
     const text = `Hola, te envío el pedido ${invoice!.number} para tu revisión antes de la entrega.\n\nPulsa aquí para revisar y confirmar:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const [loadingStripe, setLoadingStripe] = useState(false);
-
-  const handleStripeCheckout = async () => {
-    if (!invoice) return;
-    setLoadingStripe(true);
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // El importe y el dominio de retorno los decide el servidor a
-        // partir de la factura: si viajaran desde aquí, se podrían
-        // manipular para pagar de menos o desviar el cobro.
-        body: JSON.stringify({ invoiceId: invoice.id }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        toastError('Error en Stripe', data.error || 'No se pudo crear la sesión de cobro');
-      } else if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch {
-      toastError('Error de red', 'No se pudo conectar con el servidor de pagos');
-    } finally {
-      setLoadingStripe(false);
-    }
   };
 
   if (!mounted) {
@@ -306,18 +274,19 @@ export default function InvoiceDetailPage() {
             </button>
           )}
           {(invoice.status === InvoiceStatus.PENDIENTE || invoice.status === InvoiceStatus.EMITIDA || invoice.status === InvoiceStatus.VENCIDA) && (
-            <>
-              <button className="btn btn-secondary" onClick={handleStripeCheckout} disabled={loadingStripe}>
-                {loadingStripe ? <Loader2 size={16} className="spin" /> : <CreditCard size={16} />} {loadingStripe ? 'Cargando Stripe...' : 'Pagar con Stripe'}
-              </button>
-              <button className="btn btn-primary" onClick={handleMarkPaid}>
-                <CheckCircle size={16} /> Marcar como pagada
-              </button>
-            </>
+            <button className="btn btn-primary" onClick={handleMarkPaid}>
+              <CheckCircle size={16} /> Marcar como pagada
+            </button>
           )}
+          {/* Un solo botón para las dos cosas, porque para quien lo pulsa es
+              la misma intención: quitar de en medio una factura que no
+              debería estar. Lo que cambia es lo que la ley permite hacer con
+              ella, y eso lo resuelve el modal — un borrador se borra de
+              verdad; una emitida se anula dejando el motivo, porque romper
+              la cadena sellada es justo lo que Veri*Factu impide. */}
           {invoice.status !== InvoiceStatus.ANULADA && invoice.status !== InvoiceStatus.PAGADA && (
-            <button className="btn btn-danger" onClick={handleCancel}>
-              <Ban size={16} /> Anular
+            <button className="btn btn-danger" onClick={() => setBorrando(true)}>
+              {sealed ? <><Ban size={16} /> Anular</> : <><Trash2 size={16} /> Eliminar borrador</>}
             </button>
           )}
           <BotonVistaPreviaPdf tipo="factura" documento={invoice} />
@@ -327,6 +296,28 @@ export default function InvoiceDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Por qué se anuló. El motivo se venía guardando desde siempre pero
+          no se leía en ninguna parte: quien anulaba una factura no podía
+          volver a ver más tarde por qué lo hizo, que es justo lo que
+          pregunta una inspección. */}
+      {invoice.status === InvoiceStatus.ANULADA && (
+        <div className="status-panel status-panel--danger" style={{ marginBottom: 'var(--space-5)' }}>
+          <span className="status-panel-icon"><Ban size={18} /></span>
+          <div className="status-panel-body">
+            <div className="status-panel-title">
+              Factura anulada
+              {invoice.cancelledAt && ` el ${formatDate(invoice.cancelledAt)}`}
+            </div>
+            <p className="status-panel-text">
+              {invoice.cancelReason
+                ? `Motivo: ${invoice.cancelReason}`
+                : 'No se guardó el motivo de la anulación.'}
+              {' '}Sigue contando en los libros y conserva su huella sellada: anular no es borrar.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="detail-layout">
         {/* Main Content - Print Ready Preview */}
@@ -699,6 +690,15 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      {borrando && (
+        <DeleteInvoiceModal
+          invoice={invoice}
+          onClose={() => setBorrando(false)}
+          onSuccess={trasEliminarOAnular}
+          onError={texto => toastError('No se ha podido completar', texto)}
+        />
+      )}
     </div>
   );
 }

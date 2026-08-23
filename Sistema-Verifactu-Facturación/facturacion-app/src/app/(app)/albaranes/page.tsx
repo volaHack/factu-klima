@@ -160,7 +160,7 @@ export default function AlbaranesPage() {
       return;
     }
     try {
-      await anularAlbaran(id);
+      await anularAlbaran(id, reason);
       await reload();
       success('Albarán anulado', `${a.number} · motivo registrado`);
     } catch (err) {

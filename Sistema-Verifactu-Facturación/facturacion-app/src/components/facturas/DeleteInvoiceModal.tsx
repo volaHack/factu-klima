@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Trash2, ShieldCheck, X, FileText, FileDiff } from 'lucide-react';
+import { AlertTriangle, Trash2, ShieldCheck, X, FileDiff } from 'lucide-react';
 import { Invoice } from '@/lib/types';
-import { isSealed, deleteInvoice, saveInvoice } from '@/lib/storage';
+import { isSealed, deleteInvoice, cancelInvoice } from '@/lib/storage';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { InvoiceStatus } from '@/lib/types';
 
 interface DeleteInvoiceModalProps {
   invoice: Invoice;
@@ -51,13 +50,18 @@ export default function DeleteInvoiceModal({
 
     setSubmitting(true);
     try {
-      // Marcar factura como ANULADA conforme a Verifactu
-      await saveInvoice({
-        ...invoice,
-        status: InvoiceStatus.ANULADA,
-        notes: `${invoice.notes ? invoice.notes + ' | ' : ''}ANULADA: ${reason.trim()} (${new Date().toLocaleDateString('es-ES')})`,
-        updatedAt: new Date().toISOString(),
-      });
+      // `cancelInvoice` y no `saveInvoice`: sólo toca el estado y el motivo.
+      //
+      // Reenviar la factura entera para anularla tenía dos problemas. El
+      // motivo acababa pegado al final de las observaciones en vez de en su
+      // propia columna (`cancel_reason`), que es de donde lo lee cualquier
+      // consulta seria. Y sobre todo, arrastraba los importes tal y como
+      // los tenía esta pantalla en memoria: al sellar, la base de datos
+      // recalcula los totales desde las líneas, así que si diferían aunque
+      // fuera en un céntimo el disparador antifraude rechazaba la
+      // anulación con un error de manipulación — cuando lo único que
+      // quería hacer el usuario era anular.
+      await cancelInvoice(invoice.id, reason);
       onSuccess(`Factura ${invoice.number} anulada con registro de auditoría.`);
       onClose();
     } catch (err) {
@@ -125,7 +129,9 @@ export default function DeleteInvoiceModal({
               }}>
                 <AlertTriangle size={20} style={{ color: 'var(--color-warning)', flexShrink: 0 }} />
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
-                  <strong>Normativa Verifactu (Ley 11/2021):</strong> Las facturas emitidas no pueden eliminarse directamente para garantizar la inalterabilidad de los libros IVA. Debe emitirse el comprobante de anulación.
+                  <strong>Normativa Veri*Factu (RD 1007/2023):</strong> una factura emitida no se borra nunca —
+                  romper la cadena sellada es justo lo que la norma impide—. Se queda en los libros marcada como
+                  anulada, con el motivo que escribas aquí guardado junto a ella.
                 </div>
               </div>
 
@@ -161,7 +167,7 @@ export default function DeleteInvoiceModal({
                   onClick={handleCancelSealed}
                   disabled={submitting || !reason.trim()}
                 >
-                  <FileDiff size={16} /> Anular y Generar Comprobante
+                  <FileDiff size={16} /> Anular con este motivo
                 </button>
               </div>
             </div>

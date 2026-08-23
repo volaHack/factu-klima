@@ -70,7 +70,7 @@ export default function AlbaranDetailPage() {
     }
     setWorking(true);
     try {
-      const updated = await anularAlbaran(albaran.id);
+      const updated = await anularAlbaran(albaran.id, reason);
       setAlbaran(updated);
       success('Albarán anulado', `${albaran.number} · motivo registrado`);
     } catch (err) {

@@ -2028,15 +2028,34 @@ export async function expedirAlbaran(id: string): Promise<Albaran> {
   return updated;
 }
 
-export async function anularAlbaran(id: string): Promise<Albaran> {
+/**
+ * Anula un albarán dejando constancia del motivo.
+ *
+ * El motivo no se guardaba: las dos pantallas que anulan un albarán lo
+ * pedían como obligatorio, lo validaban… y luego llamaban aquí sin él,
+ * porque esta función ni siquiera lo aceptaba. El aviso de después decía
+ * «motivo registrado» y no había tal registro en ninguna parte.
+ *
+ * Va a `notes` y no a una columna propia como en las facturas
+ * (`cancel_reason`): un albarán no entra en la cadena sellada de
+ * Veri*Factu, así que no necesita columna aparte, y `notes` ya se
+ * guarda y ya se enseña en la ficha.
+ */
+export async function anularAlbaran(id: string, motivo?: string): Promise<Albaran> {
   const albaran = await getAlbaranById(id);
   if (!albaran) throw new Error('Albarán no encontrado.');
   if (albaran.status === 'facturado') {
     throw new Error(`El albarán ${albaran.number} ya está facturado. No se puede anular.`);
   }
+
+  const anotacion = motivo?.trim()
+    ? `ANULADO (${new Date().toLocaleDateString('es-ES')}): ${motivo.trim()}`
+    : '';
+
   const updated: Albaran = {
     ...albaran,
     status: 'anulado',
+    notes: [albaran.notes?.trim(), anotacion].filter(Boolean).join('\n'),
     updatedAt: new Date().toISOString(),
   };
   await saveAlbaran(updated);
@@ -2954,6 +2973,8 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     dueDate: inv.due_date,
     paidDate: inv.paid_date || undefined,
     status: inv.status,
+    cancelReason: inv.cancel_reason || undefined,
+    cancelledAt: inv.cancelled_at || undefined,
     tipo: (inv.tipo as TipoDocumento) ?? 'factura',
     sentido: (inv.sentido as SentidoDocumento) ?? 'venta',
     documentoOrigenId: inv.documento_origen_id ?? undefined,
