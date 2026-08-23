@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { getCompanySettings, seedInitialData, isOnboardingCompleted } from '@/lib/storage';
 import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
+import { ManagementBar } from '@/components/animate-ui/components/community/management-bar';
 import { isPublicRoute } from '@/lib/publicRoutes';
 
 /**
@@ -133,6 +134,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       <MobileNav />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <ManagementBar />
       {showOnboarding && settingsForOnboarding && (
         <OnboardingModal
           settings={settingsForOnboarding}
