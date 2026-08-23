@@ -64,7 +64,14 @@ describe('el desglose del pie se expande al imprimir', () => {
     const plantilla = plantillaCon(REJILLA);
     materializarRejillas(plantilla, { impuestos: [tramo('3,0', '1'), tramo('7,0', '2'), tramo('15,0', '3')] });
     const alturas = [...new Set(casillas(plantilla).map(c => c.position.y))].sort((a, b) => a - b);
-    expect(alturas).toEqual([218, 223, 228]);
+    // Un renglón por raya (altoRenglon = 5), no pegado a ella: la caja del
+    // campo arranca un poco por debajo (aireV) para que el texto, centrado
+    // en vertical dentro de una caja igual de más baja, no toque ni la raya
+    // de arriba ni la de abajo. El centro no se mueve —arranca aireV más
+    // abajo y mide 2×aireV menos—, así que sigue leyéndose sobre la raya
+    // que el impreso ya trae pintada; sólo cambia el borde invisible de la
+    // caja, que no se ve.
+    expect(alturas).toEqual([218.7, 223.7, 228.7]);
   });
 
   it('deja en blanco la columna que nadie ha asignado', () => {
@@ -458,6 +465,30 @@ describe('las casillas no van pegadas a las rayas', () => {
     };
     for (const casilla of pintar(angosta)) {
       expect(casilla.width as number).toBeGreaterThan(0.9);
+    }
+  });
+});
+
+describe('las casillas tampoco van pegadas a las rayas de arriba y abajo', () => {
+  it('la caja se encoge por igual arriba y abajo, sin mover el centro', () => {
+    // Lo que de verdad importa: el texto sigue centrado en el mismo sitio
+    // —la raya que el impreso trae pintada—, aunque la caja invisible del
+    // campo sea un poco más baja para no tocarla.
+    const plantilla = plantillaCon(REJILLA);
+    materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00')] });
+    const casilla = casillas(plantilla).find(c => String(c.name).includes('_0_nombre'))!;
+    const alto = casilla.height as number;
+    const centro = (casilla.position.y as number) + alto / 2;
+    // Centro del renglón sin aire: yPrimerRenglon + altoRenglon/2.
+    expect(centro).toBeCloseTo(REJILLA.yPrimerRenglon + REJILLA.altoRenglon / 2, 5);
+  });
+
+  it('el aire no se come el renglón entero en letra grande', () => {
+    const enorme = { ...REJILLA, tamano: 40, altoRenglon: 3 };
+    const plantilla = plantillaCon(enorme);
+    materializarRejillas(plantilla, { impuestos: [tramo('21,0', '100,00')] });
+    for (const casilla of casillas(plantilla)) {
+      expect(casilla.height as number).toBeGreaterThan(0);
     }
   });
 });

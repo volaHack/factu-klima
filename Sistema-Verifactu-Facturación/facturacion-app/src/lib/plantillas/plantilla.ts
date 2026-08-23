@@ -1030,13 +1030,23 @@ function casillaDeRejilla(
   // comería el sitio del dato.
   const aire = Math.min(tamano * PT_A_MM * 0.34, columna.ancho / 3);
 
+  // El mismo respiro, pero contra las rayas de arriba y abajo.
+  //
+  // El texto iba centrado en vertical dentro de un cuadro con la altura
+  // exacta del renglón, así que tocaba la raya de arriba y la de abajo sin
+  // ningún margen: se veía pegado por los dos lados aunque por los lados
+  // izquierdo y derecho ya respirase. Menos proporción que el horizontal
+  // —un renglón es bajo, y un margen tan generoso como el de los lados se
+  // comería la mitad de la altura disponible.
+  const aireV = Math.min(tamano * PT_A_MM * 0.22, alto / 4);
+
   return {
     name: nombre,
     type: 'text',
     content: valor,
-    position: { x: redondear(columna.x + aire), y: redondear(y) },
+    position: { x: redondear(columna.x + aire), y: redondear(y + aireV) },
     width: redondear(Math.max(1, columna.ancho - aire * 2)),
-    height: redondear(alto),
+    height: redondear(Math.max(1, alto - aireV * 2)),
     fontName: nombreDeFuente({ ...rejilla, negrita: esTitulo || rejilla.negrita }),
     fontSize: redondear(tamano),
     fontColor: rejilla.color,

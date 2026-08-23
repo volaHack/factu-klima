@@ -563,7 +563,7 @@ export default function TesoreriaPage() {
                       </td>
                       <td><span className="badge badge-neutral">{c.paymentMethod}</span></td>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {c.desglose.map((d, i) => (
                             <span key={i} style={{ fontSize: '0.825rem' }}>
                               • Factura {d.invoiceNumber}: <strong>{formatCurrency(d.importeAplicado)}</strong>
@@ -622,7 +622,7 @@ export default function TesoreriaPage() {
                       </td>
                       <td><span className="badge badge-neutral">{c.paymentMethod}</span></td>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {c.desglose.map((d, i) => (
                             <span key={i} style={{ fontSize: '0.825rem' }}>
                               • Factura {d.invoiceNumber}: <strong>{formatCurrency(d.importeAplicado)}</strong>
