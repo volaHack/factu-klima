@@ -30,7 +30,7 @@
  * todas, porque lo manda la ley y no el oficio.
  */
 
-import type { CompanySettings } from '../types';
+import type { BusinessSector, CompanySettings } from '../types';
 import { campoPorClave } from './contrato';
 import { campoNuevo, rejillaNueva } from './editor';
 import type {
@@ -182,6 +182,68 @@ export const OFICIOS: Oficio[] = [
 
 export const oficioPorId = (id: string): Oficio =>
   OFICIOS.find(o => o.id === id) ?? OFICIOS[0];
+
+/**
+ * Qué oficio de plantilla le toca al sector que tiene puesto la empresa.
+ *
+ * Sin esto, la lista de «¿A qué te dedicas?» eran treinta y tres botones
+ * en fila y daba igual a qué se dedicara quien miraba: un psicólogo tenía
+ * que encontrar el suyo entre todos, y si se equivocaba —o si se quedaba
+ * con el primero— acababa con una factura de distribuidor, con su columna
+ * de cajas, pidiéndole el formato de cada sesión de terapia.
+ *
+ * `eventos` no tiene oficio propio y cae en el genérico a propósito: es
+ * mejor una factura española normal y corriente que colarle la de otro
+ * gremio parecido.
+ */
+const OFICIO_POR_SECTOR: Record<BusinessSector, string> = {
+  supermercado: 'comercio',
+  alimentacion: 'distribucion',
+  mayorista: 'distribucion',
+  bebidas: 'distribucion',
+  servicios_industriales: 'industrial',
+
+  psicologia: 'psicologo',
+  medicina: 'medico',
+  dental: 'dentista',
+  fisioterapia: 'fisio',
+  nutricion: 'nutricion',
+  veterinaria: 'veterinario',
+
+  abogacia: 'abogado',
+  procuraduria: 'procurador',
+  asesoria: 'asesoria',
+  peritaje: 'perito',
+  traduccion: 'traductor',
+
+  arquitectura: 'arquitecto',
+  interiorismo: 'arquitecto',
+  ingenieria: 'ingeniero',
+  informatica: 'informatico',
+  diseno: 'disenador',
+  fotografia: 'fotografo',
+  marketing: 'marketing',
+  formacion: 'formador',
+  clases: 'profesor',
+  freelance: 'freelance',
+
+  electricidad: 'electricista',
+  fontaneria: 'fontanero',
+  reformas: 'reformas',
+  taller: 'taller',
+  limpieza: 'limpieza',
+  transporte: 'transporte',
+
+  peluqueria: 'peluqueria',
+  estetica: 'estetica',
+  eventos: 'generico',
+  inmobiliaria: 'inmobiliaria',
+};
+
+/** El oficio que le corresponde a este sector, o el genérico si no hay sector. */
+export function oficioParaSector(sector: BusinessSector | undefined): Oficio {
+  return oficioPorId(sector ? OFICIO_POR_SECTOR[sector] ?? 'generico' : 'generico');
+}
 
 // ============================================================
 // LA HOJA

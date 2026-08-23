@@ -13,10 +13,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { construirDatos, facturaDeMuestra } from './datos';
-import { facturaDesdeCero, OFICIOS, oficioPorId } from './desdeCero';
+import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector } from './desdeCero';
 import { generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
 import type { CompanySettings } from '../types';
+import { BUSINESS_SECTORS } from '../constants';
 
 const AJUSTES = {
   businessName: 'Mi Empresa S.L.',
@@ -479,5 +480,46 @@ describe('el aviso de QR que falta', () => {
     analisis.campos = analisis.campos.filter(c => c.clave !== 'verifactu_qr');
     const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
     expect(diagnostico.avisos.some(a => a.nivel === 'aviso' && a.texto.includes('QR de Veri*Factu'))).toBe(true);
+  });
+});
+
+describe('el oficio que le toca a cada sector', () => {
+  it('un psicólogo no acaba con la factura de un distribuidor', () => {
+    const oficio = oficioParaSector('psicologia');
+    expect(oficio.id).toBe('psicologo');
+    expect(oficio.unidad).toBe('Sesiones');
+    expect(oficio.columnasFijas ?? []).toHaveLength(0);
+  });
+
+  it('un distribuidor sí la lleva, con sus cajas', () => {
+    const oficio = oficioParaSector('alimentacion');
+    expect(oficio.id).toBe('distribucion');
+    expect((oficio.columnasFijas ?? []).map(c => c.clave)).toContain('uds_caja');
+  });
+
+  it('los 36 sectores tienen oficio, y existe', () => {
+    // Sin esto, añadir un sector nuevo a constants.ts y olvidarse del mapa
+    // le deja la factura del genérico sin que nadie se entere.
+    const ids = new Set(OFICIOS.map(o => o.id));
+    for (const sector of BUSINESS_SECTORS) {
+      const oficio = oficioParaSector(sector.value);
+      expect(ids.has(oficio.id), `${sector.value} → ${oficio.id}`).toBe(true);
+    }
+  });
+
+  it('sin sector cae en el genérico en vez de reventar', () => {
+    expect(oficioParaSector(undefined).id).toBe('generico');
+  });
+
+  it('quien vende trabajo no hereda columnas de mercancía', () => {
+    // El fallo que se vio en pantalla: un formulario de psicología pidiendo
+    // el formato de la caja. Ninguna actividad de servicios debe traer
+    // columnas de bulto en su plantilla de salida.
+    const servicios = BUSINESS_SECTORS.filter(s => s.grupo !== 'comercio' && s.value !== 'transporte');
+    for (const sector of servicios) {
+      const claves = (oficioParaSector(sector.value).columnasFijas ?? []).map(c => c.clave);
+      expect(claves, sector.value).not.toContain('uds_caja');
+      expect(claves, sector.value).not.toContain('uds_linea');
+    }
   });
 });

@@ -29,9 +29,9 @@ import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
 import { generarQrVerifactu } from '@/lib/verifactu/qr';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
-import { facturaDesdeCero, OFICIOS, oficioPorId } from '@/lib/plantillas/desdeCero';
+import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector } from '@/lib/plantillas/desdeCero';
 import type { PlantillaDocumento, TipoDocumentoPlantilla } from '@/lib/plantillas/tipos';
-import type { CompanySettings, Invoice } from '@/lib/types';
+import type { BusinessSector, CompanySettings, Invoice } from '@/lib/types';
 
 export default function PlantillasPage() {
   const { success, error: avisarError, info } = useToast();
@@ -502,7 +502,7 @@ export default function PlantillasPage() {
       </div>
 
       {eligiendoOficio && (
-        <ElegirOficio onElegir={empezarDesdeCero} onCerrar={() => setEligiendoOficio(false)} />
+        <ElegirOficio sector={ajustes?.sector} onElegir={empezarDesdeCero} onCerrar={() => setEligiendoOficio(false)} />
       )}
 
       {vistaPrevia && (
@@ -524,10 +524,21 @@ export default function PlantillasPage() {
  * Nada de lo que ponga queda cerrado: todo se cambia después en el editor, y
  * quien no se vea en la lista tiene «Genérico».
  */
-function ElegirOficio({ onElegir, onCerrar }: {
+function ElegirOficio({ sector, onElegir, onCerrar }: {
+  sector?: BusinessSector;
   onElegir: (oficioId: string) => void | Promise<void>;
   onCerrar: () => void;
 }) {
+  // El oficio que le toca al sector de la empresa, primero y marcado.
+  //
+  // Antes eran treinta y tres botones en fila y daba igual a qué se
+  // dedicara quien miraba. Con la lista así, un psicólogo podía acabar
+  // eligiendo la factura de un distribuidor —o quedarse con el primero de
+  // la lista— y terminaba con una columna de cajas pidiéndole el formato
+  // de cada sesión de terapia.
+  const suyo = oficioParaSector(sector);
+  const ordenados = [suyo, ...OFICIOS.filter(o => o.id !== suyo.id)];
+
   return (
     <div className="modal-overlay" onClick={onCerrar}>
       <div className="modal plantilla-modal-oficios" onClick={(e) => e.stopPropagation()}>
@@ -541,19 +552,30 @@ function ElegirOficio({ onElegir, onCerrar }: {
             gusto y la guardas.
           </p>
           <div className="plantilla-oficios">
-            {OFICIOS.map(oficio => (
-              <button
-                key={oficio.id}
-                type="button"
-                className="plantilla-oficio"
-                onClick={() => { void onElegir(oficio.id); }}
-              >
-                <strong>{oficio.nombre}</strong>
-                <span>
-                  {[oficio.concepto, oficio.unidad, ...(oficio.columnas ?? [])].join(' · ')}
-                </span>
-              </button>
-            ))}
+            {ordenados.map(oficio => {
+              const esElSuyo = sector !== undefined && oficio.id === suyo.id;
+              return (
+                <button
+                  key={oficio.id}
+                  type="button"
+                  className={`plantilla-oficio ${esElSuyo ? 'plantilla-oficio--tuyo' : ''}`}
+                  onClick={() => { void onElegir(oficio.id); }}
+                >
+                  <strong>
+                    {oficio.nombre}
+                    {esElSuyo && <em className="plantilla-oficio-tuyo">El de tu sector</em>}
+                  </strong>
+                  <span>
+                    {[
+                      oficio.concepto,
+                      oficio.unidad,
+                      ...(oficio.columnasFijas ?? []).map(c => c.cabecera),
+                      ...(oficio.columnas ?? []),
+                    ].join(' · ')}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
