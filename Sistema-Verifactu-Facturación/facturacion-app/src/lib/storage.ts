@@ -21,7 +21,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -811,6 +811,7 @@ export async function saveClient(client: Client): Promise<void> {
     tarifa_id: client.tarifaId || null,
     default_discounts: client.defaultDiscounts || [0, 0, 0],
     grupo_id: client.grupoId || null,
+    ruta_id: client.rutaId || null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2991,6 +2992,7 @@ function mapClientFromDb(c: any): Client {
     isWalkIn: c.is_walk_in ?? false,
     esProveedor: c.es_proveedor ?? false,
     grupoId: c.grupo_id || undefined,
+    rutaId: c.ruta_id || undefined,
     vendedorId: c.vendedor_id || undefined,
     tarifaId: c.tarifa_id || undefined,
     defaultDiscounts: Array.isArray(c.default_discounts)
@@ -4683,5 +4685,78 @@ function mapGrupoClienteFromDb(g: any): GrupoCliente {
     notas: g.notas || undefined,
     createdAt: g.created_at || g.createdAt || new Date().toISOString(),
     updatedAt: g.updated_at || g.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// RUTAS DE REPARTO
+// ============================================================
+
+export async function getRutasReparto(): Promise<RutaReparto[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('rutas_reparto');
+    if (cached.length > 0) return cached.map(mapRutaFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('rutas_reparto').select('*').order('nombre', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('rutas_reparto');
+    await putMany('rutas_reparto', data);
+  }
+  return data.map(mapRutaFromDb);
+}
+
+export async function saveRutaReparto(ruta: RutaReparto): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: ruta.id,
+    user_id: userId,
+    nombre: ruta.nombre,
+    dia_semana: ruta.diaSemana ?? null,
+    notas: ruta.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('rutas_reparto', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('rutas_reparto').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'rutas_reparto', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'rutas_reparto', row);
+  }
+}
+
+export async function deleteRutaReparto(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('rutas_reparto', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('rutas_reparto').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'rutas_reparto', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'rutas_reparto', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapRutaFromDb(r: any): RutaReparto {
+  return {
+    id: r.id,
+    nombre: r.nombre || '',
+    diaSemana: r.dia_semana != null ? Number(r.dia_semana) : undefined,
+    notas: r.notas || undefined,
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+    updatedAt: r.updated_at || r.updatedAt || new Date().toISOString(),
   };
 }

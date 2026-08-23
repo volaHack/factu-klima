@@ -368,6 +368,22 @@ export interface GrupoCliente {
   updatedAt: string;
 }
 
+/**
+ * UNA RUTA DE REPARTO
+ *
+ * Agrupa clientes por zona o por día, para sacar de un tirón la hoja de la
+ * jornada: qué hay que llevar y a quién, en el orden en que toca pasar.
+ */
+export interface RutaReparto {
+  id: string;
+  nombre: string;
+  /** 0 = domingo … 6 = sábado. El día habitual, si lo tiene. */
+  diaSemana?: number;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;
@@ -571,6 +587,8 @@ export interface Client {
   defaultDiscounts?: [number, number, number];
   /** A qué cadena o central de compras pertenece, si es parte de una. */
   grupoId?: string;
+  /** A qué ruta de reparto pertenece. */
+  rutaId?: string;
 }
 
 export interface Vendedor {

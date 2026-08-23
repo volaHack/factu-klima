@@ -5,7 +5,7 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
@@ -15,7 +15,7 @@ export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings'
   'devoluciones' | 'devolucion_line_items' |
   'abonos' | 'abono_aplicaciones' | 'document_templates' | 'vendedores' |
   'almacenes' | 'traspasos' | 'traspaso_line_items' | 'regularizaciones_stock' |
-  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes';
+  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes' | 'rutas_reparto';
 
 export interface SyncQueueItem {
   id: string;
@@ -152,6 +152,11 @@ function openDB(): Promise<IDBDatabase> {
       // Store nueva (v13) — grupos y cadenas de clientes
       if (!db.objectStoreNames.contains('grupos_clientes')) {
         db.createObjectStore('grupos_clientes', { keyPath: 'id' });
+      }
+
+      // Store nueva (v14) — rutas de reparto
+      if (!db.objectStoreNames.contains('rutas_reparto')) {
+        db.createObjectStore('rutas_reparto', { keyPath: 'id' });
       }
     };
 
