@@ -5,7 +5,7 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
@@ -15,7 +15,7 @@ export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings'
   'devoluciones' | 'devolucion_line_items' |
   'abonos' | 'abono_aplicaciones' | 'document_templates' | 'vendedores' |
   'almacenes' | 'traspasos' | 'traspaso_line_items' | 'regularizaciones_stock' |
-  'cobros_pagos';
+  'cobros_pagos' | 'gastos' | 'vehiculos';
 
 export interface SyncQueueItem {
   id: string;
@@ -120,6 +120,13 @@ function openDB(): Promise<IDBDatabase> {
       // Store nueva (v7) — cobros y pagos (tesorería)
       if (!db.objectStoreNames.contains('cobros_pagos')) {
         db.createObjectStore('cobros_pagos', { keyPath: 'id' });
+      }
+
+      // Stores nuevas (v8) — gastos y vehículos
+      for (const storeName of ['gastos', 'vehiculos']) {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'id' });
+        }
       }
     };
 

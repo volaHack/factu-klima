@@ -30,7 +30,8 @@ export type FichaId =
   | 'albaranes_sin_facturar' | 'presupuestos_abiertos' | 'pedidos_pendientes'
   | 'compras_pendientes'
   | 'evolucion_ventas' | 'reparto_impuestos'
-  | 'estado_verifactu';
+  | 'estado_verifactu'
+  | 'gastos_mes';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -88,6 +89,9 @@ export const FICHAS: Ficha[] = [
     explica: 'Los artículos que más salen, por importe o por unidades.' },
   { id: 'reparto_impuestos', nombre: 'Desglose de impuestos', tamano: 'mediana',
     explica: 'Bases y cuotas por tipo, para el trimestre.' },
+
+  { id: 'gastos_mes', nombre: 'Gastos del mes', tamano: 'pequena', requiere: 'gastos',
+    explica: 'Lo que se ha pagado este mes en alquiler, suministros y demás, sin contar la mercancía.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',

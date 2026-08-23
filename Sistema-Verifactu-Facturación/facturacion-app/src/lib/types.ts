@@ -186,6 +186,53 @@ export interface RegularizacionStock {
   createdAt: string;
 }
 
+/**
+ * En qué se va el dinero que no es mercancía.
+ *
+ * Alquiler, suministros, dietas, seguros: entra en el resultado del negocio
+ * y en el IVA soportado del trimestre, pero no es una compra de género y no
+ * pasa por el almacén.
+ */
+export type GastoCategoria =
+  | 'alquiler' | 'suministros' | 'personal' | 'vehiculo' | 'material'
+  | 'servicios' | 'impuestos' | 'seguros' | 'otros';
+
+export interface Gasto {
+  id: string;
+  fecha: string;
+  concepto: string;
+  categoria: GastoCategoria;
+  proveedorId?: string;
+  proveedorNombre?: string;
+  baseImponible: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  paymentMethod: PaymentMethod;
+  /** A qué vehículo se le imputa, si es un gasto de flota. */
+  vehiculoId?: string;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Un vehículo de la empresa, para saber lo que cuesta cada furgoneta.
+ *
+ * No lleva más que lo imprescindible para identificarlo: el coste de verdad
+ * —combustible, mantenimiento, seguro— vive en los gastos que se le imputan,
+ * no aquí. Duplicarlo en dos sitios es la manera segura de que se
+ * desincronicen.
+ */
+export interface Vehiculo {
+  id: string;
+  matricula: string;
+  nombre?: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;

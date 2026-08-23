@@ -20,6 +20,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
+  Gasto, GastoCategoria, Vehiculo,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -4078,4 +4079,164 @@ export async function regularizarCostes(
   }
 
   return salida.sort((a, b) => b.margen - a.margen);
+}
+
+// ============================================================
+// GASTOS Y VEHÍCULOS
+// ============================================================
+
+export async function getVehiculos(): Promise<Vehiculo[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('vehiculos');
+    if (cached.length > 0) return cached.map(mapVehiculoFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('vehiculos').select('*').order('matricula', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('vehiculos');
+    await putMany('vehiculos', data);
+  }
+  return data.map(mapVehiculoFromDb);
+}
+
+export async function saveVehiculo(vehiculo: Vehiculo): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: vehiculo.id,
+    user_id: userId,
+    matricula: vehiculo.matricula,
+    nombre: vehiculo.nombre || null,
+    activo: vehiculo.activo,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('vehiculos', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('vehiculos').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'vehiculos', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'vehiculos', row);
+  }
+}
+
+export async function deleteVehiculo(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('vehiculos', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('vehiculos').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'vehiculos', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'vehiculos', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapVehiculoFromDb(v: any): Vehiculo {
+  return {
+    id: v.id,
+    matricula: v.matricula || '',
+    nombre: v.nombre || undefined,
+    activo: v.activo ?? true,
+    createdAt: v.created_at || v.createdAt || new Date().toISOString(),
+    updatedAt: v.updated_at || v.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function getGastos(): Promise<Gasto[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('gastos');
+    if (cached.length > 0) return cached.map(mapGastoFromDb).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('gastos').select('*').order('fecha', { ascending: false });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('gastos');
+    await putMany('gastos', data);
+  }
+  return data.map(mapGastoFromDb);
+}
+
+export async function saveGasto(gasto: Gasto): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: gasto.id,
+    user_id: userId,
+    fecha: gasto.fecha,
+    concepto: gasto.concepto,
+    categoria: gasto.categoria,
+    proveedor_id: gasto.proveedorId || null,
+    proveedor_nombre: gasto.proveedorNombre || null,
+    base_imponible: gasto.baseImponible,
+    tax_rate: gasto.taxRate,
+    tax_amount: gasto.taxAmount,
+    total: gasto.total,
+    payment_method: gasto.paymentMethod,
+    vehiculo_id: gasto.vehiculoId || null,
+    notas: gasto.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('gastos', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('gastos').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'gastos', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'gastos', row);
+  }
+}
+
+export async function deleteGasto(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('gastos', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('gastos').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'gastos', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'gastos', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapGastoFromDb(g: any): Gasto {
+  return {
+    id: g.id,
+    fecha: g.fecha,
+    concepto: g.concepto || '',
+    categoria: g.categoria || 'otros',
+    proveedorId: g.proveedor_id || undefined,
+    proveedorNombre: g.proveedor_nombre || undefined,
+    baseImponible: Number(g.base_imponible ?? 0),
+    taxRate: Number(g.tax_rate ?? 21),
+    taxAmount: Number(g.tax_amount ?? 0),
+    total: Number(g.total ?? 0),
+    paymentMethod: g.payment_method || PaymentMethod.TRANSFERENCIA,
+    vehiculoId: g.vehiculo_id || undefined,
+    notas: g.notas || undefined,
+    createdAt: g.created_at || g.createdAt || new Date().toISOString(),
+    updatedAt: g.updated_at || g.updatedAt || new Date().toISOString(),
+  };
 }

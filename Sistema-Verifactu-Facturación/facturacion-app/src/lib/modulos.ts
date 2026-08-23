@@ -119,9 +119,9 @@ export const MODULOS: Modulo[] = [
   // --- Dinero ---
   { id: 'cartera', nombre: 'Cartera de efectos', grupo: 'dinero', disponible: true,
     descripcion: 'Vencimientos por cobrar y por pagar, con lo pendiente a una fecha y las remesas al banco.' },
-  { id: 'gastos', nombre: 'Gastos', grupo: 'dinero', disponible: false,
+  { id: 'gastos', nombre: 'Gastos', grupo: 'dinero', disponible: true,
     descripcion: 'Lo que se paga y no es mercancía: alquiler, suministros, dietas. Entra en el resultado y en el IVA soportado.' },
-  { id: 'vehiculos', nombre: 'Vehículos', grupo: 'dinero', requiere: ['gastos'], disponible: false,
+  { id: 'vehiculos', nombre: 'Vehículos', grupo: 'dinero', requiere: ['gastos'], disponible: true,
     descripcion: 'Combustible, mantenimiento y seguro por vehículo, para saber lo que cuesta cada furgoneta.' },
 
   // --- TPV ---
