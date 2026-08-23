@@ -147,21 +147,7 @@ export default function NotificationsPopover({ onClose }: NotificationsPopoverPr
   return (
     <div
       ref={popoverRef}
-      className="animate-fade-in"
-      style={{
-        position: 'absolute',
-        top: '100%',
-        right: 0,
-        marginTop: 8,
-        width: 380,
-        maxWidth: '92vw',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-color)',
-        borderRadius: 'var(--radius-xl)',
-        boxShadow: 'var(--shadow-xl)',
-        zIndex: 1100,
-        overflow: 'hidden',
-      }}
+      className="notifications-popover animate-fade-in"
     >
       {/* Header */}
       <div style={{
