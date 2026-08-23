@@ -19,8 +19,9 @@ import {
 } from '@/lib/types';
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import {
-  etiquetaTipo, documentoConvertido, rectificar, actualizarContadorSerie,
+  etiquetaTipo, documentoConvertido, rectificar, actualizarContadorSerie, unidadesTotales,
 } from '@/lib/documentos';
+import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
 
 export default function DocumentoDetallePage() {
@@ -73,6 +74,14 @@ export default function DocumentoDetallePage() {
   const sentido = documento.sentido ?? 'venta';
   const esCompra = sentido === 'compra';
   const statusInfo = getStatusInfo(documento.status);
+
+  // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
+  // unidades sólo sale si el oficio agrupa en bultos Y este documento
+  // concreto los usa: un presupuesto de una sola pieza no necesita
+  // explicar que trae una unidad.
+  const voz = vocabularioDe(settings.sector);
+  const muestraUnidades = voz.usaBultos
+    && documento.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0);
 
   // Acciones de conversión
   const handleConvertir = async (nuevoTipo: TipoDocumento) => {
@@ -335,7 +344,7 @@ export default function DocumentoDetallePage() {
       {/* Tabla de Líneas */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--space-4)' }}>
         <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 className="card-title" style={{ margin: 0 }}>Líneas de {etiquetaTipo(tipo).toLowerCase()}</h3>
+          <h3 className="card-title" style={{ margin: 0 }}>{voz.titulo}</h3>
         </div>
         <div className="table-responsive">
           <table className="table">
@@ -344,6 +353,7 @@ export default function DocumentoDetallePage() {
                 <th>Ref.</th>
                 <th>Descripción</th>
                 <th style={{ textAlign: 'right' }}>Cantidad</th>
+                {muestraUnidades && <th style={{ textAlign: 'right' }}>{voz.contenido[1]}</th>}
                 <th style={{ textAlign: 'right' }}>Precio Unit.</th>
                 <th style={{ textAlign: 'right' }}>Dto. %</th>
                 <th style={{ textAlign: 'right' }}>{settings.igicEnabled ? 'IGIC' : 'IVA'}</th>
@@ -356,6 +366,13 @@ export default function DocumentoDetallePage() {
                   <td style={{ color: 'var(--color-text-muted)' }}>{li.productRef || '—'}</td>
                   <td style={{ fontWeight: 500 }}>{li.productName}</td>
                   <td style={{ textAlign: 'right' }}>{li.quantity} {li.unit || ''}</td>
+                  {muestraUnidades && (
+                    <td style={{ textAlign: 'right' }}>
+                      {li.unitsPerPackage && li.unitsPerPackage > 0
+                        ? <><strong>{li.quantity * li.unitsPerPackage}</strong> <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>({li.unitsPerPackage}/{li.unit})</span></>
+                        : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                    </td>
+                  )}
                   <td style={{ textAlign: 'right' }}>{formatCurrency(li.unitPrice)}</td>
                   <td style={{ textAlign: 'right' }}>{li.discountPercent ? `${li.discountPercent}%` : '—'}</td>
                   <td style={{ textAlign: 'right' }}>{li.taxRate}%</td>
@@ -365,6 +382,13 @@ export default function DocumentoDetallePage() {
             </tbody>
           </table>
         </div>
+        {muestraUnidades && (
+          <p style={{ padding: '0 var(--space-4) var(--space-4)', margin: 0, fontSize: '12px', color: 'var(--color-text-muted)', textAlign: 'right' }}>
+            Total: {conPlural(documento.lineItems.reduce((s, l) => s + l.quantity, 0), voz.bulto)}
+            {' · '}
+            <strong>{unidadesTotales(documento.lineItems)}</strong> {voz.contenido[1]}
+          </p>
+        )}
       </div>
 
       {/* Totales */}

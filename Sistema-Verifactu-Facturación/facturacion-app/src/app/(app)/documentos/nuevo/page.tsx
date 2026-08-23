@@ -505,7 +505,6 @@ function NuevoDocumentoContent() {
         settings={settings}
         tarifaId={tarifaId}
         defaultDiscounts={selectedClient?.defaultDiscounts}
-        titulo={`Conceptos y líneas de ${etiquetaTipo(tipo).toLowerCase()}`}
         lotes={modoLotes ? lotes : []}
       />
 
