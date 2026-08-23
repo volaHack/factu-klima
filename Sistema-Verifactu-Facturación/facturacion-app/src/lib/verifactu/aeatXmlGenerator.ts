@@ -1,9 +1,20 @@
 /**
  * Generador de payloads SOAP XML cumpliendo con el Reglamento Veri*factu*
  * (Real Decreto 1007/2023 / Orden HAC/1177/2024 de la AEAT).
+ *
+ * CAMBIOS RESPECTO A LA VERSIÓN ANTERIOR
+ * ──────────────────────────────────────
+ * 1. TipoFactura se resuelve dinámicamente (F1/F2/R1-R5), ya no es F1 fijo.
+ * 2. ClaveRegimenIvaEspecial: campo obligatorio según la Orden HAC.
+ * 3. Operaciones intracomunitarias: usa IDOtro + CodigoPais cuando el
+ *    destinatario tiene VAT Number en vez de NIF español.
+ * 4. Desglose de IVA usa el taxBreakdown agregado (correcto fiscalmente),
+ *    no las líneas sueltas que duplicaban tipos si dos líneas tienen el
+ *    mismo tipo impositivo.
  */
 
 import { Invoice, CompanySettings } from '@/lib/types';
+import { resolverTipoFacturaFiscal, resolverClaveRegimenIva } from '@/lib/constants';
 
 export function generateVerifactuSoapXml(
   invoice: Invoice,
@@ -11,8 +22,38 @@ export function generateVerifactuSoapXml(
   environment: 'test' | 'production' = 'test'
 ): string {
   const isTest = environment === 'test';
-  const issueDateFormatted = invoice.issueDate ? invoice.issueDate.split('-').reverse().join('-') : new Date().toLocaleDateString('es-ES');
-  const hash = invoice.verifactu?.chainedHash || 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855';
+  const issueDateFormatted = invoice.issueDate
+    ? invoice.issueDate.split('-').reverse().join('-')
+    : new Date().toLocaleDateString('es-ES');
+  const hash = invoice.verifactu?.chainedHash
+    || 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855';
+
+  // --- Resolución automática de campos fiscales ---
+  const tipoFactura = resolverTipoFacturaFiscal(invoice);
+  const claveRegimen = resolverClaveRegimenIva(invoice, companySettings);
+
+  // --- Destinatario: NIF español o IDOtro para intracomunitarias ---
+  const destinatarioXml = buildDestinatarioXml(invoice);
+
+  // --- Desglose de IVA (usa el breakdown agregado, no las líneas) ---
+  const desgloseXml = invoice.taxBreakdown.map(tb => `
+          <ver:DetalleIVA>
+            <ver:TipoImpositivo>${tb.rate.toFixed(2)}</ver:TipoImpositivo>
+            <ver:BaseImponible>${tb.base.toFixed(2)}</ver:BaseImponible>
+            <ver:CuotaRepercutida>${tb.amount.toFixed(2)}</ver:CuotaRepercutida>
+          </ver:DetalleIVA>`).join('');
+
+  // --- Factura rectificativa: referencia a la factura original ---
+  const rectificativaXml = tipoFactura.startsWith('R') && invoice.documentoOrigenId
+    ? `
+        <ver:FacturasRectificadas>
+          <ver:IDFacturaRectificada>
+            <ver:NumSerieFacturaEmisor>${escapeXml(invoice.documentoOrigenNumber || '')}</ver:NumSerieFacturaEmisor>
+            <ver:FechaExpedicionFacturaEmisor>${issueDateFormatted}</ver:FechaExpedicionFacturaEmisor>
+          </ver:IDFacturaRectificada>
+        </ver:FacturasRectificadas>
+        <ver:TipoRectificativa>I</ver:TipoRectificativa>`
+    : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope 
@@ -36,20 +77,11 @@ export function generateVerifactuSoapXml(
           <ver:FechaExpedicionFacturaEmisor>${issueDateFormatted}</ver:FechaExpedicionFacturaEmisor>
         </ver:IDFactura>
         <ver:NombreRazonEmisor>${escapeXml(companySettings.businessName)}</ver:NombreRazonEmisor>
-        <ver:TipoFactura>F1</ver:TipoFactura>
-        <ver:Destinatarios>
-          <ver:IDDestinatario>
-            <ver:NombreRazon>${escapeXml(invoice.clientName)}</ver:NombreRazon>
-            <ver:NIF>${escapeXml(invoice.clientNif || '00000000T')}</ver:NIF>
-          </ver:IDDestinatario>
+        <ver:TipoFactura>${tipoFactura}</ver:TipoFactura>${rectificativaXml}
+        <ver:ClaveRegimenIvaEspecial>${claveRegimen}</ver:ClaveRegimenIvaEspecial>
+        <ver:Destinatarios>${destinatarioXml}
         </ver:Destinatarios>
-        <ver:Desglose>
-          ${invoice.lineItems.map(l => `
-          <ver:DetalleIVA>
-            <ver:TipoImpositivo>${l.taxRate}</ver:TipoImpositivo>
-            <ver:BaseImponible>${l.subtotal.toFixed(2)}</ver:BaseImponible>
-            <ver:CuotaRepercutida>${l.taxAmount.toFixed(2)}</ver:CuotaRepercutida>
-          </ver:DetalleIVA>`).join('')}
+        <ver:Desglose>${desgloseXml}
         </ver:Desglose>
         <ver:ImporteTotal>${invoice.total.toFixed(2)}</ver:ImporteTotal>
         <ver:HuellaHexSHA256>${hash}</ver:HuellaHexSHA256>
@@ -63,6 +95,40 @@ export function generateVerifactuSoapXml(
     </ver:RegFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
+}
+
+/**
+ * Construye el bloque XML del destinatario.
+ *
+ * Para operaciones nacionales: usa <NIF>.
+ * Para intracomunitarias (cliente con VAT Number): usa <IDOtro> con
+ * el código de país y el tipo de identificación 02 (NIF-IVA).
+ */
+function buildDestinatarioXml(invoice: Invoice): string {
+  const name = escapeXml(invoice.clientName);
+
+  if (invoice.esIntracomunitaria && invoice.clientVatNumber) {
+    const vatNumber = invoice.clientVatNumber.toUpperCase();
+    const codigoPais = vatNumber.substring(0, 2);
+    const idNumber = vatNumber.substring(2);
+
+    return `
+          <ver:IDDestinatario>
+            <ver:NombreRazon>${name}</ver:NombreRazon>
+            <ver:IDOtro>
+              <ver:CodigoPais>${escapeXml(codigoPais)}</ver:CodigoPais>
+              <ver:IDType>02</ver:IDType>
+              <ver:ID>${escapeXml(idNumber)}</ver:ID>
+            </ver:IDOtro>
+          </ver:IDDestinatario>`;
+  }
+
+  // Nacional: NIF español
+  return `
+          <ver:IDDestinatario>
+            <ver:NombreRazon>${name}</ver:NombreRazon>
+            <ver:NIF>${escapeXml(invoice.clientNif || '00000000T')}</ver:NIF>
+          </ver:IDDestinatario>`;
 }
 
 function escapeXml(unsafe: string): string {

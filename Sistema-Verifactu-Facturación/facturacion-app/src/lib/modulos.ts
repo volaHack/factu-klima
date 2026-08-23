@@ -131,9 +131,9 @@ export const MODULOS: Modulo[] = [
   // --- Fiscal ---
   { id: 'retenciones', nombre: 'Retención de IRPF', grupo: 'fiscal', disponible: true,
     descripcion: 'La retención en factura de profesionales y de obra, con su resumen para el modelo 111.' },
-  { id: 'sii', nombre: 'SII (envío inmediato)', grupo: 'fiscal', disponible: false,
+  { id: 'sii', nombre: 'SII (envío inmediato)', grupo: 'fiscal', disponible: true,
     descripcion: 'Envío de los libros de IVA a la Agencia Tributaria en cuatro días. Obligatorio por encima de seis millones de facturación.' },
-  { id: 'intracomunitarias', nombre: 'Operaciones intracomunitarias', grupo: 'fiscal', disponible: false,
+  { id: 'intracomunitarias', nombre: 'Operaciones intracomunitarias', grupo: 'fiscal', disponible: true,
     descripcion: 'Ventas y compras a otros países de la Unión, con el modelo 349.' },
 ];
 

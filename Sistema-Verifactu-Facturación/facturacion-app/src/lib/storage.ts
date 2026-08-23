@@ -440,6 +440,12 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     global_discount_percent_1: inv.globalDiscountPercent1 ?? 0,
     global_discount_percent_2: inv.globalDiscountPercent2 ?? 0,
     global_discount_percent_3: inv.globalDiscountPercent3 ?? 0,
+    sii_status: inv.siiStatus || null,
+    tipo_factura_fiscal: inv.tipoFacturaFiscal || null,
+    clave_regimen_iva: inv.claveRegimenIva || null,
+    es_intracomunitaria: inv.esIntracomunitaria ?? false,
+    tipo_operacion_349: inv.tipoOperacion349 || null,
+    client_vat_number: inv.clientVatNumber || null,
   });
 
   const lineRows = current.lineItems.map((li, idx) => ({
@@ -817,6 +823,7 @@ export async function saveClient(client: Client): Promise<void> {
     default_discounts: client.defaultDiscounts || [0, 0, 0],
     grupo_id: client.grupoId || null,
     ruta_id: client.rutaId || null,
+    vat_number: client.vatNumber || null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -2963,6 +2970,12 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     updatedAt: inv.updated_at,
     posSessionId: inv.pos_session_id || undefined,
     numberTemporary: !!inv.number_temporary,
+    siiStatus: inv.sii_status || undefined,
+    tipoFacturaFiscal: inv.tipo_factura_fiscal || undefined,
+    claveRegimenIva: inv.clave_regimen_iva || undefined,
+    esIntracomunitaria: !!inv.es_intracomunitaria,
+    tipoOperacion349: inv.tipo_operacion_349 || undefined,
+    clientVatNumber: inv.client_vat_number || undefined,
   };
 }
 
@@ -3017,6 +3030,7 @@ function mapClientFromDb(c: any): Client {
     rutaId: c.ruta_id || undefined,
     vendedorId: c.vendedor_id || undefined,
     tarifaId: c.tarifa_id || undefined,
+    vatNumber: c.vat_number || undefined,
     defaultDiscounts: Array.isArray(c.default_discounts)
       ? [Number(c.default_discounts[0] ?? 0), Number(c.default_discounts[1] ?? 0), Number(c.default_discounts[2] ?? 0)]
       : undefined,

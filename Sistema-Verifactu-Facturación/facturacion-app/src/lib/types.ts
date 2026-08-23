@@ -25,6 +25,43 @@ export enum InvoiceStatus {
 export type TipoDocumento = 'presupuesto' | 'pedido' | 'albaran' | 'factura' | 'rectificativa';
 export type SentidoDocumento = 'venta' | 'compra';
 
+/**
+ * Tipo de factura para la AEAT (Verifactu / SII).
+ *
+ * F1 = factura completa, F2 = simplificada (ticket TPV), F3 = emitida en
+ * sustitución de simplificadas. R1–R5 son rectificativas.
+ * Se resuelve automáticamente según el tipo de documento y el origen.
+ */
+export type TipoFacturaFiscal =
+  | 'F1' | 'F2' | 'F3'
+  | 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
+
+/**
+ * Clave de régimen especial de IVA (campo obligatorio en Verifactu y SII).
+ *
+ * 01 = Régimen general, 02 = Exportación, 05 = Régimen especial de criterio
+ * de caja, 09 = Entregas intracomunitarias, etc. La lista completa viene
+ * de la Orden HAC/1177/2024 y la documentación técnica del SII.
+ */
+export type ClaveRegimenIva =
+  | '01'  // Régimen general
+  | '02'  // Exportación
+  | '03'  // Operaciones a las que se aplique el régimen especial de bienes usados
+  | '04'  // Régimen especial de oro de inversión
+  | '05'  // Régimen especial de agencias de viaje
+  | '06'  // Régimen especial grupo de entidades en IVA (nivel avanzado)
+  | '07'  // Régimen especial grupo de entidades en IVA e IGIC (nivel avanzado)
+  | '08'  // Régimen especial criterio de caja
+  | '09'  // Operaciones sujetas al IPSI/IGIC (Canarias, Ceuta, Melilla)
+  | '10'  // Adquisiciones intracomunitarias de bienes y prestaciones de servicios
+  | '11'  // Entregas intracomunitarias exentas
+  | '12'  // Operaciones no sujetas o con inversión del sujeto pasivo
+  | '13'  // Facturaciones de prestaciones de servicios de agencias de viaje
+  | '14'  // Cobros por cuenta de terceros (art. 5 RD 1619/2012)
+  | '15'  // Régimen especial de IVA de grupos de entidades. Art. 163 sexies.cinco LIVA
+  | '16'  // Régimen especial de ventanilla única
+  | '17'; // Recargo de equivalencia
+
 export interface SerieDocumento {
   serie: string;
   nextNumber: number;
@@ -605,6 +642,38 @@ export interface Invoice {
   globalDiscountPercent1?: number;
   globalDiscountPercent2?: number;
   globalDiscountPercent3?: number;
+
+  // --- Fiscal (Verifactu / SII / Intracomunitarias) ---
+
+  /**
+   * Tipo de factura fiscal: F1 (completa), F2 (simplificada/ticket), R1–R5
+   * (rectificativa). Se resuelve automáticamente al emitir, pero se puede
+   * forzar a mano para casos especiales.
+   */
+  tipoFacturaFiscal?: TipoFacturaFiscal;
+
+  /**
+   * Clave de régimen especial de IVA, obligatoria en el XML de Verifactu y
+   * SII. Por defecto '01' (régimen general). Se pone a '11' automáticamente
+   * si la operación es una entrega intracomunitaria exenta.
+   */
+  claveRegimenIva?: ClaveRegimenIva;
+
+  /** true si la operación es intracomunitaria (cliente con VAT de otro país UE). */
+  esIntracomunitaria?: boolean;
+
+  /**
+   * Clave de operación para el Modelo 349:
+   * E = Entregas, A = Adquisiciones, T = Triangulares,
+   * S = Prestaciones de servicios, I = Adquisiciones de servicios.
+   */
+  tipoOperacion349?: 'E' | 'A' | 'T' | 'S' | 'I';
+
+  /** Estado del envío al SII: pendiente, enviado, aceptado o rechazado. */
+  siiStatus?: 'pendiente_sii' | 'enviado_sii' | 'aceptado_sii' | 'rechazado_sii';
+
+  /** NIF-IVA del destinatario (VAT Number intracomunitario), copiado del cliente al emitir. */
+  clientVatNumber?: string;
 }
 
 // --- TPV (punto de venta) ---
@@ -672,6 +741,18 @@ export interface Client {
   grupoId?: string;
   /** A qué ruta de reparto pertenece. */
   rutaId?: string;
+
+  /**
+   * NIF-IVA intracomunitario (VAT Number).
+   *
+   * Es el identificador fiscal para operaciones entre países de la UE.
+   * Formato: código de país (2 letras) + número de identificación fiscal.
+   * Ejemplo: FR12345678901, DE123456789, PT123456789.
+   *
+   * Solo se rellena para clientes o proveedores de otros países de la UE.
+   * Si existe, la factura se clasifica automáticamente como intracomunitaria.
+   */
+  vatNumber?: string;
 }
 
 export interface Vendedor {

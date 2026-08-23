@@ -8,6 +8,7 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
+  Send, Globe,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -75,6 +76,8 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
   { href: '/numeros-serie', label: 'Números de serie', icon: Fingerprint, modulo: 'numeros_serie' },
   { href: '/retenciones', label: 'Retención de IRPF', icon: FileCheck, modulo: 'retenciones' },
   { href: '/fabricacion', label: 'Fabricación', icon: Factory, modulo: 'produccion' },
+  { href: '/sii', label: 'SII (envío inmediato)', icon: Send, modulo: 'sii' },
+  { href: '/intracomunitarias', label: 'Intracomunitarias', icon: Globe, modulo: 'intracomunitarias' },
 ];
 
 const controlItems = [

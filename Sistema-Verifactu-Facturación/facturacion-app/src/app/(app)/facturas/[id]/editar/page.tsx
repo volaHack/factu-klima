@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import {
 } from '@/lib/types';
 import { formatCurrency, calculateInvoiceTotals, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
@@ -147,8 +148,14 @@ export default function EditInvoicePage() {
       clientNif: esOcasional ? clienteManual.nif : (client?.nif ?? ''),
       clientAddress,
       issueDate, dueDate, status, lineItems: validLines,
-      ...totals, paymentMethod, notes, datosExtras: datosExtrasFinal, updatedAt: new Date().toISOString(),
+      ...totals, paymentMethod, notes, datosExtras: datosExtrasFinal,
+      esIntracomunitaria: client ? esOperacionIntracomunitaria(client, ajustes || undefined) : false,
+      clientVatNumber: client?.vatNumber,
+      updatedAt: new Date().toISOString(),
     };
+    if (updated.esIntracomunitaria) {
+      updated.tipoOperacion349 = tipoOperacion349(updated) || 'E';
+    }
 
     setSaving(true);
     try {

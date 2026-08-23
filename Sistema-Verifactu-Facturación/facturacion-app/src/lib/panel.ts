@@ -36,7 +36,9 @@ export type FichaId =
   | 'obras_abiertas'
   | 'ordenes_atrasadas'
   | 'lotes_caducando'
-  | 'rappels_periodo';
+  | 'rappels_periodo'
+  | 'sii_pendientes'
+  | 'intracomunitarias_periodo';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -111,6 +113,10 @@ export const FICHAS: Ficha[] = [
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',
     explica: 'Si la cadena de huellas está intacta y qué queda por enviar.' },
+  { id: 'sii_pendientes', nombre: 'SII — Pendientes de envío', tamano: 'mediana', requiere: 'sii',
+    explica: 'Facturas que aún no se han enviado al SII, con los días que quedan antes de que venza el plazo de cuatro días.' },
+  { id: 'intracomunitarias_periodo', nombre: 'Intracomunitarias del trimestre', tamano: 'mediana', requiere: 'intracomunitarias',
+    explica: 'Entregas, adquisiciones y servicios con la UE en el trimestre en curso, para el Modelo 349.' },
 ];
 
 /**

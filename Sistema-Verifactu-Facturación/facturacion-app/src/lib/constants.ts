@@ -862,3 +862,172 @@ export function isTpvEnabled(settings: CompanySettings | null): boolean {
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export const DEFAULT_PAGE_SIZE = 10;
 export const DEFAULT_APPROVAL_EXPIRY_HOURS = 72;
+
+// ============================================================
+// FISCAL — PAÍSES UE, TIPOS DE FACTURA Y RÉGIMEN IVA
+// ============================================================
+
+import type { TipoFacturaFiscal, ClaveRegimenIva } from './types';
+
+/**
+ * Países de la Unión Europea (a agosto 2026).
+ *
+ * Se usan para:
+ * 1. El selector de país en la ficha de cliente/proveedor.
+ * 2. Detectar automáticamente si una operación es intracomunitaria.
+ * 3. Validar el formato del NIF-IVA (VAT Number) por país.
+ *
+ * España se incluye pero NO cuenta como intracomunitaria (es doméstica).
+ * Canarias, Ceuta y Melilla tampoco son territorio IVA de la UE.
+ */
+export const PAISES_UE: { codigo: string; nombre: string; vatPrefix: string; vatRegex: RegExp }[] = [
+  { codigo: 'AT', nombre: 'Austria', vatPrefix: 'ATU', vatRegex: /^ATU\d{8}$/ },
+  { codigo: 'BE', nombre: 'Bélgica', vatPrefix: 'BE', vatRegex: /^BE[01]\d{9}$/ },
+  { codigo: 'BG', nombre: 'Bulgaria', vatPrefix: 'BG', vatRegex: /^BG\d{9,10}$/ },
+  { codigo: 'CY', nombre: 'Chipre', vatPrefix: 'CY', vatRegex: /^CY\d{8}[A-Z]$/ },
+  { codigo: 'CZ', nombre: 'Chequia', vatPrefix: 'CZ', vatRegex: /^CZ\d{8,10}$/ },
+  { codigo: 'DE', nombre: 'Alemania', vatPrefix: 'DE', vatRegex: /^DE\d{9}$/ },
+  { codigo: 'DK', nombre: 'Dinamarca', vatPrefix: 'DK', vatRegex: /^DK\d{8}$/ },
+  { codigo: 'EE', nombre: 'Estonia', vatPrefix: 'EE', vatRegex: /^EE\d{9}$/ },
+  { codigo: 'EL', nombre: 'Grecia', vatPrefix: 'EL', vatRegex: /^EL\d{9}$/ },
+  { codigo: 'ES', nombre: 'España', vatPrefix: 'ES', vatRegex: /^ES[A-Z0-9]\d{7}[A-Z0-9]$/ },
+  { codigo: 'FI', nombre: 'Finlandia', vatPrefix: 'FI', vatRegex: /^FI\d{8}$/ },
+  { codigo: 'FR', nombre: 'Francia', vatPrefix: 'FR', vatRegex: /^FR[A-Z0-9]{2}\d{9}$/ },
+  { codigo: 'HR', nombre: 'Croacia', vatPrefix: 'HR', vatRegex: /^HR\d{11}$/ },
+  { codigo: 'HU', nombre: 'Hungría', vatPrefix: 'HU', vatRegex: /^HU\d{8}$/ },
+  { codigo: 'IE', nombre: 'Irlanda', vatPrefix: 'IE', vatRegex: /^IE\d[A-Z0-9+*]\d{5}[A-Z]{1,2}$/ },
+  { codigo: 'IT', nombre: 'Italia', vatPrefix: 'IT', vatRegex: /^IT\d{11}$/ },
+  { codigo: 'LT', nombre: 'Lituania', vatPrefix: 'LT', vatRegex: /^LT(\d{9}|\d{12})$/ },
+  { codigo: 'LU', nombre: 'Luxemburgo', vatPrefix: 'LU', vatRegex: /^LU\d{8}$/ },
+  { codigo: 'LV', nombre: 'Letonia', vatPrefix: 'LV', vatRegex: /^LV\d{11}$/ },
+  { codigo: 'MT', nombre: 'Malta', vatPrefix: 'MT', vatRegex: /^MT\d{8}$/ },
+  { codigo: 'NL', nombre: 'Países Bajos', vatPrefix: 'NL', vatRegex: /^NL\d{9}B\d{2}$/ },
+  { codigo: 'PL', nombre: 'Polonia', vatPrefix: 'PL', vatRegex: /^PL\d{10}$/ },
+  { codigo: 'PT', nombre: 'Portugal', vatPrefix: 'PT', vatRegex: /^PT\d{9}$/ },
+  { codigo: 'RO', nombre: 'Rumanía', vatPrefix: 'RO', vatRegex: /^RO\d{2,10}$/ },
+  { codigo: 'SE', nombre: 'Suecia', vatPrefix: 'SE', vatRegex: /^SE\d{12}$/ },
+  { codigo: 'SI', nombre: 'Eslovenia', vatPrefix: 'SI', vatRegex: /^SI\d{8}$/ },
+  { codigo: 'SK', nombre: 'Eslovaquia', vatPrefix: 'SK', vatRegex: /^SK\d{10}$/ },
+];
+
+/**
+ * ¿Es un país UE que NO es España?
+ * Canarias (postalCode 35/38) se trata aparte en `esTerritorioNoIva`.
+ */
+export function esPaisUeNoEspana(codigoPais: string): boolean {
+  if (!codigoPais || codigoPais === 'ES') return false;
+  return PAISES_UE.some(p => p.codigo === codigoPais.toUpperCase());
+}
+
+/** Territorios españoles que no son territorio IVA de la UE. */
+export function esTerritorioNoIva(postalCode?: string): boolean {
+  if (!postalCode) return false;
+  const prefix = postalCode.substring(0, 2);
+  // 35xxx y 38xxx = Canarias, 51xxx = Ceuta, 52xxx = Melilla
+  return ['35', '38', '51', '52'].includes(prefix);
+}
+
+/** Lista de países para el selector, ordenada alfabéticamente. */
+export const PAISES_SELECTOR: { value: string; label: string }[] = [
+  { value: 'ES', label: 'España' },
+  // Separador visual en el dropdown: el resto de la UE
+  ...PAISES_UE.filter(p => p.codigo !== 'ES')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    .map(p => ({ value: p.codigo, label: p.nombre })),
+  // Países de fuera de la UE que se usan frecuentemente
+  { value: 'GB', label: 'Reino Unido' },
+  { value: 'US', label: 'Estados Unidos' },
+  { value: 'CH', label: 'Suiza' },
+  { value: 'NO', label: 'Noruega' },
+  { value: 'MA', label: 'Marruecos' },
+  { value: 'MX', label: 'México' },
+  { value: 'AR', label: 'Argentina' },
+  { value: 'CL', label: 'Chile' },
+  { value: 'CO', label: 'Colombia' },
+  { value: 'BR', label: 'Brasil' },
+  { value: 'CN', label: 'China' },
+  { value: 'JP', label: 'Japón' },
+  { value: 'XX', label: 'Otro país' },
+];
+
+// --- Etiquetas legibles de los tipos de factura fiscal ---
+
+export const ETIQUETAS_TIPO_FACTURA: Record<TipoFacturaFiscal, string> = {
+  F1: 'Factura completa (art. 6, 7.2 y 7.3 del RD 1619/2012)',
+  F2: 'Factura simplificada (art. 6.1.d y 7.1 del RD 1619/2012)',
+  F3: 'Factura emitida en sustitución de facturas simplificadas',
+  R1: 'Rectificativa por error fundado en derecho (art. 80.1, 80.2 y 80.6 LIVA)',
+  R2: 'Rectificativa por artículos 80.3',
+  R3: 'Rectificativa por artículos 80.4',
+  R4: 'Rectificativa (resto)',
+  R5: 'Rectificativa en facturas simplificadas',
+};
+
+// --- Etiquetas legibles de las claves de régimen IVA ---
+
+export const ETIQUETAS_REGIMEN_IVA: Record<ClaveRegimenIva, string> = {
+  '01': 'Régimen general',
+  '02': 'Exportación',
+  '03': 'Régimen especial de bienes usados',
+  '04': 'Régimen especial de oro de inversión',
+  '05': 'Régimen especial de agencias de viaje',
+  '06': 'Régimen especial grupo de entidades en IVA',
+  '07': 'Régimen especial grupo de entidades en IVA e IGIC',
+  '08': 'Régimen especial criterio de caja',
+  '09': 'Operaciones sujetas al IPSI/IGIC',
+  '10': 'Adquisiciones intracomunitarias',
+  '11': 'Entregas intracomunitarias exentas',
+  '12': 'Operaciones con inversión del sujeto pasivo',
+  '13': 'Facturaciones de agencias de viaje',
+  '14': 'Cobros por cuenta de terceros',
+  '15': 'Régimen especial art. 163 sexies.cinco LIVA',
+  '16': 'Régimen especial de ventanilla única',
+  '17': 'Recargo de equivalencia',
+};
+
+/**
+ * Resuelve el tipo de factura fiscal automáticamente.
+ *
+ * El usuario no tiene que saber qué es un F1 o un R1: el sistema mira el
+ * tipo de documento y el origen, y pone la clave correcta. Si la factura ya
+ * tiene una clave forzada a mano, la respeta.
+ */
+export function resolverTipoFacturaFiscal(
+  invoice: { tipo?: string; posSessionId?: string; tipoFacturaFiscal?: TipoFacturaFiscal },
+): TipoFacturaFiscal {
+  // Si ya está forzado, respetar
+  if (invoice.tipoFacturaFiscal) return invoice.tipoFacturaFiscal;
+
+  // Rectificativa
+  if (invoice.tipo === 'rectificativa') {
+    return invoice.posSessionId ? 'R5' : 'R1';
+  }
+
+  // Ticket TPV → simplificada
+  if (invoice.posSessionId) return 'F2';
+
+  // Por defecto: factura completa
+  return 'F1';
+}
+
+/**
+ * Resuelve la clave de régimen IVA automáticamente.
+ */
+export function resolverClaveRegimenIva(
+  invoice: { esIntracomunitaria?: boolean; sentido?: string; claveRegimenIva?: ClaveRegimenIva },
+  settings: { igicEnabled?: boolean },
+): ClaveRegimenIva {
+  // Si ya está forzada, respetar
+  if (invoice.claveRegimenIva) return invoice.claveRegimenIva;
+
+  // Intracomunitaria
+  if (invoice.esIntracomunitaria) {
+    return invoice.sentido === 'compra' ? '10' : '11';
+  }
+
+  // IGIC (Canarias)
+  if (settings.igicEnabled) return '09';
+
+  // Régimen general
+  return '01';
+}

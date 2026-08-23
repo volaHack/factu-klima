@@ -20,6 +20,7 @@ import {
   formatCurrency, calculateInvoiceTotals, sequenceFromNumber
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
+import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
@@ -186,10 +187,15 @@ export default function NuevaFacturaPage() {
       ...totals,
       paymentMethod,
       notes,
+      esIntracomunitaria: client ? esOperacionIntracomunitaria(client, settings) : false,
+      clientVatNumber: client?.vatNumber,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       datosExtras: datosExtrasFinal,
     };
+    if (invoice.esIntracomunitaria) {
+      invoice.tipoOperacion349 = tipoOperacion349(invoice) || 'E';
+    }
 
     setSaving(true);
     try {

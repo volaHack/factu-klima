@@ -11,7 +11,7 @@ import { resolveAccent, SERIES } from '@/components/charts/theme';
 import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
 import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
-import { PAYMENT_METHODS, PROVINCES } from '@/lib/constants';
+import { PAYMENT_METHODS, PROVINCES, PAISES_SELECTOR, esPaisUeNoEspana } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
 export default function ClientesPage() {
@@ -28,8 +28,8 @@ export default function ClientesPage() {
 
   // Form state
   const [form, setForm] = useState({
-    businessName: '', tradeName: '', nif: '', email: '', phone: '',
-    contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'España',
+    businessName: '', tradeName: '', nif: '', vatNumber: '', email: '', phone: '',
+    contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'ES',
     paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA as PaymentMethod,
     notes: '', active: true, esProveedor: false, vendedorId: '',
     tarifaId: '',
@@ -130,8 +130,8 @@ export default function ClientesPage() {
   const openCreateModal = () => {
     setEditingClient(null);
     setForm({
-      businessName: '', tradeName: '', nif: '', email: '', phone: '',
-      contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'España',
+      businessName: '', tradeName: '', nif: '', vatNumber: '', email: '', phone: '',
+      contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'ES',
       paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA,
       notes: '', active: true,
       esProveedor: tipoContactoFilter === 'proveedores',
@@ -146,9 +146,10 @@ export default function ClientesPage() {
     setEditingClient(client);
     setForm({
       businessName: client.businessName, tradeName: client.tradeName, nif: client.nif,
+      vatNumber: client.vatNumber || '',
       email: client.email, phone: client.phone, contactPerson: client.contactPerson,
       address: client.address, city: client.city, postalCode: client.postalCode,
-      province: client.province, country: client.country,
+      province: client.province, country: client.country || 'ES',
       paymentDays: client.paymentDays, defaultPaymentMethod: client.defaultPaymentMethod,
       notes: client.notes, active: client.active,
       esProveedor: client.esProveedor ?? false,
@@ -164,6 +165,7 @@ export default function ClientesPage() {
     const client: Client = {
       id: editingClient?.id || generateId(),
       ...form,
+      vatNumber: form.vatNumber ? form.vatNumber.trim().toUpperCase() : undefined,
       vendedorId: form.vendedorId || undefined,
       tarifaId: form.tarifaId || undefined,
       defaultDiscounts: form.defaultDiscounts,
@@ -455,12 +457,38 @@ export default function ClientesPage() {
                   <input className="form-input mono" value={form.postalCode} onChange={e => updateForm('postalCode', e.target.value)} placeholder="28001" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Provincia</label>
-                  <select className="form-select" value={form.province} onChange={e => updateForm('province', e.target.value)}>
-                    <option value="">Selecciona provincia</option>
-                    {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                  <label className="form-label">País</label>
+                  <select
+                    className="form-select"
+                    value={form.country}
+                    onChange={e => updateForm('country', e.target.value)}
+                  >
+                    {PAISES_SELECTOR.map(p => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
                   </select>
                 </div>
+                {form.country === 'ES' ? (
+                  <div className="form-group">
+                    <label className="form-label">Provincia</label>
+                    <select className="form-select" value={form.province} onChange={e => updateForm('province', e.target.value)}>
+                      <option value="">Selecciona provincia</option>
+                      {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label className="form-label">
+                      NIF-IVA (VAT) {esPaisUeNoEspana(form.country) && <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-xs)' }}>· UE</span>}
+                    </label>
+                    <input
+                      className="form-input mono"
+                      value={form.vatNumber}
+                      onChange={e => updateForm('vatNumber', e.target.value.toUpperCase())}
+                      placeholder={form.country === 'FR' ? 'FR12345678901' : form.country === 'DE' ? 'DE123456789' : 'Prefijo + Número'}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
