@@ -416,6 +416,41 @@ export interface NumeroSerie {
   updatedAt: string;
 }
 
+/**
+ * UN COMPONENTE DEL ESCANDALLO
+ *
+ * Cuánto de este producto hace falta para fabricar UNA unidad del producto
+ * final. La receta, dicho en existencias.
+ */
+export interface ComponenteEscandallo {
+  productId: string;
+  productRef: string;
+  productName: string;
+  cantidad: number;
+}
+
+/**
+ * UN ESCANDALLO
+ *
+ * Qué componentes consume cada artículo fabricado y cuánto cuesta
+ * producirlo. Fabricar una unidad no es venderla: descuenta los componentes
+ * del almacén y da de alta el producto terminado, con su coste real —lo que
+ * costaron los componentes, no un precio inventado.
+ */
+export interface Escandallo {
+  id: string;
+  /** El producto que se fabrica. */
+  productId: string;
+  productRef: string;
+  productName: string;
+  componentes: ComponenteEscandallo[];
+  /** Mano de obra, energía, lo que no es un componente en sí. Por unidad fabricada. */
+  costeAdicional?: number;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItem {
   id: string;
   productId: string;

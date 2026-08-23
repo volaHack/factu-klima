@@ -5,7 +5,7 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 15;
+const DB_VERSION = 16;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
@@ -15,7 +15,7 @@ export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings'
   'devoluciones' | 'devolucion_line_items' |
   'abonos' | 'abono_aplicaciones' | 'document_templates' | 'vendedores' |
   'almacenes' | 'traspasos' | 'traspaso_line_items' | 'regularizaciones_stock' |
-  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes' | 'rutas_reparto' | 'numeros_serie';
+  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes' | 'rutas_reparto' | 'numeros_serie' | 'escandallos';
 
 export interface SyncQueueItem {
   id: string;
@@ -162,6 +162,11 @@ function openDB(): Promise<IDBDatabase> {
       // Store nueva (v15) — números de serie
       if (!db.objectStoreNames.contains('numeros_serie')) {
         db.createObjectStore('numeros_serie', { keyPath: 'id' });
+      }
+
+      // Store nueva (v16) — escandallos de fabricación
+      if (!db.objectStoreNames.contains('escandallos')) {
+        db.createObjectStore('escandallos', { keyPath: 'id' });
       }
     };
 

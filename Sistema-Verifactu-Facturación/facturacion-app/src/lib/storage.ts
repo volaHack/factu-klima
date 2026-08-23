@@ -7,6 +7,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { consumirLote } from './lotes';
 import { venderNumero } from './numerosSerie';
+import { costeDeEscandallo, nuevoPmpTrasFabricar } from './fabricacion';
 import {
   movimientosDeProducto, reproducirCostes,
   type AjusteParaCostes, type DocumentoParaCostes,
@@ -22,7 +23,7 @@ import {
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
-  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie,
+  Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie, Escandallo,
 } from './types';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
@@ -4880,4 +4881,116 @@ function mapNumeroSerieFromDb(n: any): NumeroSerie {
     createdAt: n.created_at || n.createdAt || new Date().toISOString(),
     updatedAt: n.updated_at || n.updatedAt || new Date().toISOString(),
   };
+}
+
+// ============================================================
+// FABRICACIÓN: ESCANDALLOS
+// ============================================================
+
+export async function getEscandallos(): Promise<Escandallo[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('escandallos');
+    if (cached.length > 0) return cached.map(mapEscandalloFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('escandallos').select('*');
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('escandallos');
+    await putMany('escandallos', data);
+  }
+  return data.map(mapEscandalloFromDb);
+}
+
+export async function saveEscandallo(escandallo: Escandallo): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: escandallo.id,
+    user_id: userId,
+    product_id: escandallo.productId,
+    product_ref: escandallo.productRef || null,
+    product_name: escandallo.productName || null,
+    componentes: escandallo.componentes,
+    coste_adicional: escandallo.costeAdicional ?? null,
+    notas: escandallo.notas || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('escandallos', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('escandallos').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'escandallos', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'escandallos', row);
+  }
+}
+
+export async function deleteEscandallo(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('escandallos', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('escandallos').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'escandallos', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'escandallos', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapEscandalloFromDb(e: any): Escandallo {
+  return {
+    id: e.id,
+    productId: e.product_id,
+    productRef: e.product_ref || '',
+    productName: e.product_name || '',
+    componentes: Array.isArray(e.componentes) ? e.componentes : [],
+    costeAdicional: e.coste_adicional != null ? Number(e.coste_adicional) : undefined,
+    notas: e.notas || undefined,
+    createdAt: e.created_at || e.createdAt || new Date().toISOString(),
+    updatedAt: e.updated_at || e.updatedAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Fabrica `cantidad` unidades según un escandallo.
+ *
+ * Consume los componentes del almacén, da de alta el producto terminado con
+ * ese stock, y le pone el coste real —el mismo cálculo del precio medio
+ * ponderado que rige una compra, no un número inventado.
+ *
+ * NO bloquea por falta de existencias: dice la verdad de lo que falta antes
+ * (con `componentesFaltantes`, aparte) pero quien fabrica puede decidir
+ * seguir igualmente —a lo mejor el componente llega hoy por la tarde—.
+ */
+export async function fabricar(escandalloId: string, cantidad: number, almacenId?: string): Promise<void> {
+  if (cantidad <= 0) return;
+  const escandallo = (await getEscandallos()).find(e => e.id === escandalloId);
+  if (!escandallo) throw new Error('Escandallo no encontrado.');
+
+  const productos = await getProducts();
+  const coste = costeDeEscandallo(escandallo, productos);
+
+  for (const c of escandallo.componentes) {
+    await adjustStock(c.productId, -(c.cantidad * cantidad), almacenId);
+  }
+
+  const final = productos.find(p => p.id === escandallo.productId);
+  if (!final) throw new Error('El producto fabricado no existe en el catálogo.');
+
+  const pmpActual = final.costePmp && final.costePmp > 0 ? final.costePmp : (final.unitPrice || 0);
+  const nuevoPmp = nuevoPmpTrasFabricar(final.stockQuantity ?? 0, pmpActual, cantidad, coste);
+
+  await adjustStock(final.id, cantidad, almacenId);
+  await saveProduct({ ...final, costePmp: Math.round(nuevoPmp * 10000) / 10000 });
 }
