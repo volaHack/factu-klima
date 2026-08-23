@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useSyncExternalStore } from 'react';
+import React, { useSyncExternalStore, useRef } from 'react';
 import { Sun, Moon, Laptop } from 'lucide-react';
 import {
   guardarTema,
@@ -30,6 +30,8 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
   style = {},
   showLabel = false,
 }) => {
+  const isTransitioningRef = useRef(false);
+
   const temaEfectivoActual = useSyncExternalStore(
     suscribirseAlTema,
     leerTemaEfectivo,
@@ -39,61 +41,110 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
   const temaGuardadoActual = typeof window !== 'undefined' ? temaGuardado() : 'auto';
   const esOscuro = temaEfectivoActual === 'oscuro';
 
-  const executeThemeTransition = (nuevoTema: Tema) => {
-    // Si la API de View Transitions está disponible y no se prefiere reducción de movimiento
+  const executeThemeTransition = async (nuevoTema: Tema) => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
     const prefersReducedMotion =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (
+    // Coordenadas del origen de la animación (por defecto: esquina inferior izquierda)
+    let originX = 0;
+    let originY = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+    if (direction === 'top-right-to-bottom-left' && typeof window !== 'undefined') {
+      originX = window.innerWidth;
+      originY = 0;
+    } else if (direction === 'radial' && typeof window !== 'undefined') {
+      originX = window.innerWidth / 2;
+      originY = window.innerHeight / 2;
+    }
+
+    const endRadius = typeof window !== 'undefined'
+      ? Math.hypot(
+          Math.max(originX, window.innerWidth - originX),
+          Math.max(originY, window.innerHeight - originY)
+        )
+      : 1500;
+
+    const hasViewTransition =
       typeof document !== 'undefined' &&
       'startViewTransition' in document &&
-      !prefersReducedMotion
-    ) {
-      let x = 0;
-      let y = window.innerHeight; // Por defecto: Esquina abajo izquierda
+      !prefersReducedMotion;
 
-      if (direction === 'top-right-to-bottom-left') {
-        x = window.innerWidth;
-        y = 0;
-      } else if (direction === 'radial') {
-        x = window.innerWidth / 2;
-        y = window.innerHeight / 2;
-      }
+    if (hasViewTransition) {
+      try {
+        const transition = (
+          document as unknown as {
+            startViewTransition: (cb: () => void) => {
+              ready: Promise<void>;
+              finished: Promise<void>;
+            };
+          }
+        ).startViewTransition(() => {
+          guardarTema(nuevoTema);
+        });
 
-      // Distancia máxima hasta la esquina superior derecha (o más lejana)
-      const endRadius = Math.hypot(
-        Math.max(x, window.innerWidth - x),
-        Math.max(y, window.innerHeight - y)
-      );
+        await transition.ready;
 
-      const transition = (document as unknown as { startViewTransition: (cb: () => void) => { ready: Promise<void> } }).startViewTransition(() => {
-        guardarTema(nuevoTema);
-      });
-
-      transition.ready.then(() => {
-        document.documentElement.animate(
+        const anim = document.documentElement.animate(
           {
             clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${endRadius}px at ${x}px ${y}px)`,
+              `circle(0px at ${originX}px ${originY}px)`,
+              `circle(${endRadius}px at ${originX}px ${originY}px)`,
             ],
           },
           {
-            duration: 650,
-            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            duration: 480,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
             pseudoElement: '::view-transition-new(root)',
           }
         );
-      });
+
+        await anim.finished;
+      } catch {
+        guardarTema(nuevoTema);
+      } finally {
+        isTransitioningRef.current = false;
+      }
+    } else if (!prefersReducedMotion && typeof document !== 'undefined') {
+      // Fallback fluido con elemento overlay expansivo para navegadores sin View Transitions
+      try {
+        const targetColor = nuevoTema === 'oscuro' || (nuevoTema === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          ? '#191013'
+          : '#f2e7e0';
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '999999';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.backgroundColor = targetColor;
+        overlay.style.clipPath = `circle(0px at ${originX}px ${originY}px)`;
+        overlay.style.transition = 'clip-path 450ms cubic-bezier(0.22, 1, 0.36, 1)';
+        document.body.appendChild(overlay);
+
+        // Forzar reflow
+        void overlay.offsetHeight;
+
+        overlay.style.clipPath = `circle(${endRadius}px at ${originX}px ${originY}px)`;
+
+        await new Promise(resolve => setTimeout(resolve, 450));
+        guardarTema(nuevoTema);
+        overlay.remove();
+      } catch {
+        guardarTema(nuevoTema);
+      } finally {
+        isTransitioningRef.current = false;
+      }
     } else {
-      // Fallback estándar
       guardarTema(nuevoTema);
+      isTransitioningRef.current = false;
     }
   };
 
   const handleToggle = () => {
-    // Mapear modos ['light', 'dark', 'system'] -> ['claro', 'oscuro', 'auto']
     const modoActual =
       temaGuardadoActual === 'auto'
         ? 'system'
