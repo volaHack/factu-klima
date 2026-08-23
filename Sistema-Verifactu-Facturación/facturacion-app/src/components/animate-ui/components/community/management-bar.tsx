@@ -121,10 +121,10 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
             alignItems: 'center',
             gap: '8px',
             padding: isMinimized ? '6px 12px' : '6px 8px',
-            backgroundColor: 'rgba(24, 20, 29, 0.82)',
+            backgroundColor: 'var(--bg-header)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
+            border: '1px solid var(--border-color)',
             borderRadius: '9999px',
             boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 25px rgba(201, 64, 122, 0.15)',
             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -137,7 +137,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'var(--text-primary, #ffffff)',
+                color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -180,7 +180,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
               </Link>
 
               {/* Separador vertical */}
-              <div style={{ width: '1px', height: '22px', backgroundColor: 'rgba(255, 255, 255, 0.12)' }} />
+              <div style={{ width: '1px', height: '22px', backgroundColor: 'var(--border-color)' }} />
 
               {/* Botones de acción */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -204,16 +204,16 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
                         backgroundColor: item.primary
                           ? 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)'
                           : isActive
-                          ? 'rgba(255, 255, 255, 0.16)'
+                          ? 'var(--bg-card)'
                           : isHovered
-                          ? 'rgba(255, 255, 255, 0.08)'
+                          ? 'var(--bg-card-hover)'
                           : 'transparent',
                         background: item.primary ? 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)' : undefined,
-                        color: item.primary ? '#ffffff' : isActive ? 'var(--color-primary, #e11d48)' : 'var(--text-primary, #f3f4f6)',
+                        color: item.primary ? '#ffffff' : isActive ? 'var(--color-primary)' : 'var(--text-secondary)',
                         border: item.primary
-                          ? '1px solid rgba(255, 255, 255, 0.2)'
+                          ? '1px solid transparent'
                           : isActive
-                          ? '1px solid rgba(201, 64, 122, 0.4)'
+                          ? '1px solid var(--color-primary)'
                           : '1px solid transparent',
                         boxShadow: item.primary ? '0 4px 14px rgba(201, 64, 122, 0.45)' : 'none',
                         cursor: 'pointer',
@@ -243,11 +243,11 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
                             bottom: '48px',
                             left: '50%',
                             transform: 'translateX(-50%)',
-                            backgroundColor: 'rgba(15, 12, 20, 0.95)',
-                            border: '1px solid rgba(255, 255, 255, 0.14)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '8px',
                             padding: '4px 10px',
-                            color: '#ffffff',
+                            color: 'var(--text-primary)',
                             fontSize: '11px',
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
@@ -263,11 +263,11 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
                           {item.shortcut && (
                             <span
                               style={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                                backgroundColor: 'var(--bg-tertiary)',
                                 padding: '1px 5px',
                                 borderRadius: '4px',
                                 fontSize: '9px',
-                                color: 'rgba(255, 255, 255, 0.8)',
+                                color: 'var(--text-muted)',
                               }}
                             >
                               {item.shortcut}
