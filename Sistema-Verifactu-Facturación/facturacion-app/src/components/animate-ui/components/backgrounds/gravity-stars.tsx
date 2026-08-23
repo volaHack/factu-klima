@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 export interface GravityStarsBackgroundProps extends React.ComponentProps<'div'> {
   starsCount?: number;
@@ -28,15 +28,15 @@ interface Star {
 }
 
 export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
-  starsCount = 75,
-  starsSize = 2,
-  starsOpacity = 0.75,
-  glowIntensity = 15,
+  starsCount = 85,
+  starsSize = 2.5,
+  starsOpacity = 0.85,
+  glowIntensity = 18,
   glowAnimation = 'ease',
-  movementSpeed = 0.3,
-  mouseInfluence = 100,
+  movementSpeed = 0.35,
+  mouseInfluence = 150,
   mouseGravity = 'attract',
-  gravityStrength = 75,
+  gravityStrength = 80,
   starsInteraction = false,
   starsInteractionType = 'bounce',
   className = '',
@@ -46,10 +46,9 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const mouseRef = useRef<{ x: number | null; y: number | null; isDown: boolean }>({
+  const mouseRef = useRef<{ x: number | null; y: number | null }>({
     x: null,
     y: null,
-    isDown: false,
   });
 
   const starsRef = useRef<Star[]>([]);
@@ -58,11 +57,11 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
   // Inicializar o regenerar estrellas
   const initStars = useCallback(
     (width: number, height: number) => {
-      const colors = ['255, 255, 255', '245, 220, 240', '255, 180, 210', '230, 240, 255'];
+      const colors = ['255, 255, 255', '255, 180, 220', '210, 140, 240', '255, 220, 240', '190, 220, 255'];
       const stars: Star[] = [];
 
       for (let i = 0; i < starsCount; i++) {
-        const radius = Math.random() * (starsSize - 0.5) + 0.5;
+        const radius = Math.random() * (starsSize - 0.8) + 0.8;
         stars.push({
           x: Math.random() * width,
           y: Math.random() * height,
@@ -70,7 +69,7 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
           vy: (Math.random() - 0.5) * movementSpeed * 1.5,
           radius,
           baseRadius: radius,
-          opacity: Math.random() * (starsOpacity - 0.2) + 0.2,
+          opacity: Math.random() * (starsOpacity - 0.25) + 0.25,
           color: colors[Math.floor(Math.random() * colors.length)],
         });
       }
@@ -93,7 +92,7 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
 
     initStars(width, height);
 
-    // ResizeObserver para ajuste responsivo continuo
+    // ResizeObserver para ajuste responsivo
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newWidth = Math.floor(entry.contentRect.width);
@@ -106,13 +105,52 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
     });
     resizeObserver.observe(container);
 
-    // IntersectionObserver para pausar render cuando no esté a la vista
+    // IntersectionObserver para optimizar rendimiento
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       isVisibleRef.current = entry.isIntersecting;
     });
     intersectionObserver.observe(container);
 
-    // Bucle de animación de físicas
+    // Seguimiento del cursor global para que interactúe en toda la pantalla
+    const onWindowMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      mouseRef.current.x = e.clientX - rect.left;
+      mouseRef.current.y = e.clientY - rect.top;
+    };
+
+    const onWindowMouseLeave = () => {
+      mouseRef.current.x = null;
+      mouseRef.current.y = null;
+    };
+
+    const onWindowClick = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      if (clickX >= 0 && clickX <= width && clickY >= 0 && clickY <= height) {
+        const newStars: Star[] = Array.from({ length: 6 }).map(() => ({
+          x: clickX,
+          y: clickY,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          radius: Math.random() * starsSize + 1.2,
+          baseRadius: Math.random() * starsSize + 1.2,
+          opacity: Math.min(1, starsOpacity + 0.2),
+          color: '255, 190, 230',
+        }));
+        starsRef.current.push(...newStars);
+        if (starsRef.current.length > starsCount + 40) {
+          starsRef.current.splice(0, 6);
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', onWindowMouseMove, { passive: true });
+    window.addEventListener('mouseleave', onWindowMouseLeave);
+    window.addEventListener('click', onWindowClick);
+
+    // Bucle de animación
     const animate = () => {
       if (!isVisibleRef.current) {
         animationFrameId = requestAnimationFrame(animate);
@@ -124,13 +162,13 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
       const stars = starsRef.current;
       const mouse = mouseRef.current;
       const speedMultiplier = movementSpeed;
-      const gravityFactor = (gravityStrength / 100) * 0.45;
+      const gravityFactor = (gravityStrength / 100) * 0.5;
       const influenceSq = mouseInfluence * mouseInfluence;
 
       for (let i = 0; i < stars.length; i++) {
         const star = stars[i];
 
-        // 1. Interacción con ratón
+        // 1. Interacción con cursor
         if (mouse.x !== null && mouse.y !== null) {
           const dx = mouse.x - star.x;
           const dy = mouse.y - star.y;
@@ -150,37 +188,35 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
               star.vy -= dirY * force;
             }
 
-            // Aumento de brillo cerca del cursor
             if (glowAnimation !== 'instant') {
-              star.radius = star.baseRadius * (1 + force * 1.5);
+              star.radius = star.baseRadius * (1 + force * 1.8);
             }
           } else {
             star.radius = star.baseRadius;
           }
         }
 
-        // 2. Fricción y movimiento base
+        // 2. Fricción y deriva natural
         star.vx *= 0.985;
         star.vy *= 0.985;
 
-        // Mantener una velocidad mínima de deriva cósmica
         const currentSpeed = Math.sqrt(star.vx * star.vx + star.vy * star.vy);
-        if (currentSpeed < 0.1) {
-          star.vx += (Math.random() - 0.5) * 0.04;
-          star.vy += (Math.random() - 0.5) * 0.04;
+        if (currentSpeed < 0.12) {
+          star.vx += (Math.random() - 0.5) * 0.05;
+          star.vy += (Math.random() - 0.5) * 0.05;
         }
 
         star.x += star.vx * (1 + speedMultiplier);
         star.y += star.vy * (1 + speedMultiplier);
 
-        // 3. Espacio Toroidal (reaparecen por el lado opuesto)
+        // 3. Espacio Toroidal suave
         if (star.x < -10) star.x = width + 10;
         else if (star.x > width + 10) star.x = -10;
 
         if (star.y < -10) star.y = height + 10;
         else if (star.y > height + 10) star.y = -10;
 
-        // 4. Interacción entre estrellas (opcional)
+        // 4. Interacción entre estrellas
         if (starsInteraction) {
           for (let j = i + 1; j < stars.length; j++) {
             const other = stars[j];
@@ -207,9 +243,9 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
           }
         }
 
-        // 5. Dibujar estrella y su resplandor
+        // 5. Renderizado con destello cósmico
         ctx.beginPath();
-        ctx.arc(star.x, star.y, Math.max(0.2, star.radius), 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, Math.max(0.3, star.radius), 0, Math.PI * 2);
 
         if (glowIntensity > 0) {
           ctx.shadowBlur = glowIntensity;
@@ -231,6 +267,9 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
+      window.removeEventListener('mousemove', onWindowMouseMove);
+      window.removeEventListener('mouseleave', onWindowMouseLeave);
+      window.removeEventListener('click', onWindowClick);
     };
   }, [
     initStars,
@@ -242,53 +281,15 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
     glowAnimation,
     starsInteraction,
     starsInteractionType,
+    starsCount,
+    starsSize,
+    starsOpacity,
   ]);
-
-  // Manejadores de eventos de ratón sobre el contenedor
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    mouseRef.current.x = e.clientX - rect.left;
-    mouseRef.current.y = e.clientY - rect.top;
-  };
-
-  const handleMouseLeave = () => {
-    mouseRef.current.x = null;
-    mouseRef.current.y = null;
-  };
-
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    // Generar nuevas estrellas al hacer clic
-    const newStars: Star[] = Array.from({ length: 5 }).map(() => ({
-      x: clickX,
-      y: clickY,
-      vx: (Math.random() - 0.5) * 4,
-      vy: (Math.random() - 0.5) * 4,
-      radius: Math.random() * starsSize + 1,
-      baseRadius: Math.random() * starsSize + 1,
-      opacity: starsOpacity,
-      color: '255, 200, 230',
-    }));
-
-    starsRef.current.push(...newStars);
-    // Limitar total para evitar saturación
-    if (starsRef.current.length > starsCount + 30) {
-      starsRef.current.splice(0, 5);
-    }
-  };
 
   return (
     <div
       ref={containerRef}
       className={className}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -309,9 +310,11 @@ export const GravityStarsBackground: React.FC<GravityStarsBackgroundProps> = ({
           display: 'block',
         }}
       />
-      <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
-        {children}
-      </div>
+      {children && (
+        <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 };

@@ -186,31 +186,38 @@ export default function PricingContent() {
   };
 
   return (
-    <div className="pricing-page site-page">
+    <div className="pricing-page site-page" style={{ position: 'relative', minHeight: '100vh' }}>
+      {/* Fondo Estelar de Gravedad Activo en TODA la página */}
+      <GravityStarsBackground
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          width: '100vw',
+          height: '100vh',
+        }}
+        starsCount={130}
+        starsSize={2.8}
+        starsOpacity={0.88}
+        glowIntensity={22}
+        movementSpeed={0.38}
+        mouseInfluence={190}
+        mouseGravity="attract"
+        gravityStrength={90}
+      />
+
       {/* Background effects */}
       <div className="pricing-bg-glow pricing-bg-glow--1" />
       <div className="pricing-bg-glow pricing-bg-glow--2" />
       <div className="pricing-bg-glow pricing-bg-glow--3" />
       <div className="pricing-bg-grid" />
 
-      {/* La barra la comparten las tres páginas públicas: cada una tenía
-          su propia copia con enlaces distintos y ninguna tenía menú en
-          móvil. Ver src/components/public/SiteNav.tsx. */}
+      {/* Barra de navegación pública */}
       <SiteNav />
 
-      {/* Hero Section con Fondo Estelar de Gravedad Interactivo */}
-      <GravityStarsBackground
-        className="pricing-hero-container"
-        starsCount={85}
-        starsSize={2.2}
-        starsOpacity={0.8}
-        glowIntensity={15}
-        movementSpeed={0.3}
-        mouseInfluence={130}
-        mouseGravity="attract"
-        gravityStrength={80}
-        starsInteraction={false}
-      >
+      {/* Hero Section */}
+      <div className="pricing-hero-container" style={{ position: 'relative', zIndex: 1 }}>
         <header className="pricing-hero">
           <div className="pricing-hero-badge">
             <Sparkles size={14} />
@@ -308,7 +315,7 @@ export default function PricingContent() {
             </button>
           </div>
         </header>
-      </GravityStarsBackground>
+      </div>
 
       {/* Pricing Cards */}
       <section className="pricing-cards">

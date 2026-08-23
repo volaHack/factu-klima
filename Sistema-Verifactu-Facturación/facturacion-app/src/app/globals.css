@@ -4547,22 +4547,24 @@ a.stats-item:focus-visible {
 }
 .pricing-card {
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
   padding: var(--space-8);
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 .pricing-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   border-color: var(--border-color-hover);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 25px rgba(201, 64, 122, 0.15);
 }
 .pricing-card--popular {
-  border-color: var(--accent-500);
+  border: 1.5px solid rgba(201, 64, 122, 0.65);
   background: var(--bg-elevated);
   box-shadow: 0 0 40px rgba(176, 42, 92, 0.10), var(--shadow-md);
   transform: scale(1.03);
