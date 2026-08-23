@@ -12,6 +12,7 @@ import {
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
+import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -50,16 +51,19 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
   );
 }
 
-const baseNavItems = [
+// Cada entrada dice de qué módulo depende. Las que no dicen nada salen
+// siempre: facturar, cobrar y los clientes son el suelo del programa, no un
+// módulo que se pueda apagar.
+const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo?: ModuloId }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/documentos', label: 'Documentos', icon: Files },
   { href: '/tesoreria', label: 'Tesorería y Cobros', icon: WalletCards },
   { href: '/clientes', label: 'Clientes y Prov.', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
-  { href: '/almacenes', label: 'Almacenes y Stock', icon: Warehouse },
-  { href: '/albaranes', label: 'Albaranes', icon: ClipboardList },
-  { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw },
+  { href: '/almacenes', label: 'Almacenes y Stock', icon: Warehouse, modulo: 'almacenes' },
+  { href: '/albaranes', label: 'Albaranes', icon: ClipboardList, modulo: 'albaranes' },
+  { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw, modulo: 'rectificativas' },
 ];
 
 const controlItems = [
@@ -76,12 +80,16 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const [sectorIcon, setSectorIcon] = useState('Apple');
   const [sectorLabel, setSectorLabel] = useState('Distribución');
   const [tpvActive, setTpvActive] = useState(true);
+  const [modulos, setModulos] = useState<ModuloId[] | null>(null);
 
   useEffect(() => {
     const updateState = async () => {
       const settings = await getCompanySettings();
       if (settings) {
         setTpvActive(isTpvEnabled(settings));
+        // Sin configurar todavía, mandan los de fábrica de su sector: una
+        // empresa que ya existía no puede quedarse sin menús de golpe.
+        setModulos(settings.modulos ?? modulosPorDefecto(settings.sector));
         setBrandName(settings.tradeName || settings.businessName || 'Empresa');
         const sec = BUSINESS_SECTORS.find(s => s.value === settings.sector);
         if (sec) {
@@ -154,7 +162,11 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         {/* Navigation */}
         <nav className="sidebar-nav">
           <span className="sidebar-section-label">Gestión operativa</span>
-          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV (Caja)', icon: Store }] : baseNavItems).map(item => (
+          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV (Caja)', icon: Store }] : baseNavItems)
+            // Mientras no se sepan los módulos se enseña todo: esconder menús
+            // y hacerlos aparecer medio segundo después es peor que esperar.
+            .filter(item => !modulos || !('modulo' in item) || !item.modulo || modulos.includes(item.modulo))
+            .map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
 

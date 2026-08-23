@@ -8431,3 +8431,149 @@ a.stats-item:focus-visible {
   color: var(--text-secondary);
   font-size: var(--text-sm);
 }
+
+/* --- Módulos: qué partes del programa ve cada empresa --- */
+
+.modulos { display: flex; flex-direction: column; gap: var(--space-5); }
+.modulos-grupo { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.modulos-titulo {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.modulos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-2);
+}
+
+.modulos-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.modulos-item:hover { border-color: var(--border-color-hover); }
+
+.modulos-item.activo {
+  border-color: var(--accent-500);
+  background: var(--accent-50);
+}
+
+/* Lo que aún no existe se enseña, apagado: dice hacia dónde va el programa
+   sin prometer un menú que abriría una pantalla en blanco. */
+.modulos-item.proximamente { opacity: 0.62; cursor: default; }
+.modulos-item.proximamente:hover { border-color: var(--border-color); }
+
+.modulos-item input { margin-top: 3px; flex-shrink: 0; }
+.modulos-texto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.modulos-nombre {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.modulos-pronto {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modulos-desc { font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.45; }
+
+.modulos-nota {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* --- Editor del panel de inicio --- */
+
+.panel-editor { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.panel-editor-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.panel-editor-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  counter-reset: ficha;
+}
+
+.panel-editor-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tertiary);
+}
+
+.panel-editor-asa { color: var(--text-muted); flex-shrink: 0; }
+
+.panel-editor-texto { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.panel-editor-texto strong { font-size: var(--text-sm); }
+.panel-editor-texto span { font-size: var(--text-xs); color: var(--text-muted); }
+
+.panel-editor-botones { display: flex; gap: 2px; flex-shrink: 0; }
+
+.panel-editor-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.panel-editor-chip {
+  padding: 5px var(--space-3);
+  border: 1px dashed var(--border-color-hover);
+  border-radius: var(--radius-full, 999px);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.panel-editor-chip:hover {
+  border-style: solid;
+  border-color: var(--accent-500);
+  color: var(--accent-500);
+  background: var(--accent-50);
+}
+
+.panel-editor-sobrantes { display: flex; flex-direction: column; gap: var(--space-2); }
+.panel-editor-nota { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }

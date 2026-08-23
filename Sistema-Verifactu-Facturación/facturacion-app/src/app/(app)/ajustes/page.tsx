@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor, getAlmacenes } from '@/lib/storage';
@@ -9,6 +9,8 @@ import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
 import SelectorSector from '@/components/ajustes/SelectorSector';
+import SelectorModulos from '@/components/ajustes/SelectorModulos';
+import EditorPanel from '@/components/ajustes/EditorPanel';
 import { useToast } from '@/hooks/useToast';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
@@ -723,6 +725,39 @@ export default function AjustesPage() {
             {savingStripe ? <Loader2 size={16} className="spin" /> : <Save size={16} />} {savingStripe ? 'Guardando...' : 'Guardar claves Stripe'}
           </button>
         </div>
+      </div>
+
+      {/* Módulos y panel de inicio */}
+      <div className="card settings-section">
+        <div className="settings-section-header">
+          <SlidersHorizontal size={18} />
+          <h2 className="settings-section-title">Qué usa tu empresa</h2>
+        </div>
+        <p className="settings-section-subtitle">
+          Enciende sólo lo que necesitas. Lo apagado desaparece de los menús, y siempre
+          se puede volver a encender.
+        </p>
+        <SelectorModulos
+          activos={settings.modulos}
+          sector={settings.sector}
+          onCambiar={modulos => updateField('modulos', modulos)}
+        />
+      </div>
+
+      <div className="card settings-section">
+        <div className="settings-section-header">
+          <LayoutDashboard size={18} />
+          <h2 className="settings-section-title">Tu panel de inicio</h2>
+        </div>
+        <p className="settings-section-subtitle">
+          Lo primero que ves al entrar. Elige las fichas y ponlas en el orden que quieras.
+        </p>
+        <EditorPanel
+          panel={settings.panel}
+          modulos={settings.modulos}
+          sector={settings.sector}
+          onCambiar={panel => updateField('panel', panel)}
+        />
       </div>
 
       {/* Vendedores y Series Comerciales */}

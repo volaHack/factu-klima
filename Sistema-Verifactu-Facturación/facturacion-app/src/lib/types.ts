@@ -1,3 +1,5 @@
+import type { ModuloId } from './modulos';
+import type { FichaId } from './panel';
 // ============================================================
 // TIPOS DEL SISTEMA DE FACTURACIÓN (MULTI-SECTOR)
 // ============================================================
@@ -440,6 +442,16 @@ export interface CustomCategory {
 }
 
 export interface CompanySettings {
+  /**
+   * Qué partes del programa ve esta empresa.
+   *
+   * Vacío o ausente = todavía no se ha configurado, y se usan los de salida
+   * de su sector. Así una empresa que ya existía no se queda sin menús el día
+   * que esto se despliega.
+   */
+  modulos?: ModuloId[];
+  /** Las fichas del panel de inicio, en el orden en que se pintan. */
+  panel?: FichaId[];
   // Identity
   businessName: string;
   nif: string;

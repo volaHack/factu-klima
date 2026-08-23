@@ -36,7 +36,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" data-scroll-behavior="smooth">
+    // suppressHydrationWarning por el `data-theme` de abajo, y sólo por eso.
+    //
+    // El guion anti-fogonazo escribe ese atributo ANTES de que React hidrate,
+    // que es justo lo que hace falta para que no haya un destello blanco. Pero
+    // entonces React encuentra en el <html> un atributo que él no ha puesto y
+    // avisa de que el servidor y el navegador no coinciden.
+    //
+    // Es el único caso en el que la diferencia es a propósito. Va en el <html>
+    // y no se hereda a los hijos, así que no tapa desajustes de verdad más
+    // abajo.
+    <html lang="es" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* Antes de que se pinte nada: si no, la página nace clara y se
             pone oscura cuando React arranca, y de noche eso es un

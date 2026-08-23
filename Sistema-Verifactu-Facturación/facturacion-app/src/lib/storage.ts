@@ -2698,6 +2698,8 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     bank_name: settings.bankName,
     verifactu_enabled: settings.verifactuEnabled,
     logo_url: settings.logoUrl,
+    modulos: settings.modulos ?? null,
+    panel: settings.panel ?? null,
     plan_id: settings.planId || 'basico',
     subscription_plan: settings.planId || 'basico',
     subscription_status: settings.subscriptionStatus || 'inactive',
@@ -3074,6 +3076,11 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     bankName: s.bank_name || '',
     verifactuEnabled: s.verifactu_enabled ?? true,
     logoUrl: s.logo_url || '',
+    // Sin configurar todavía se quedan en undefined a propósito, no en lista
+    // vacía: «no lo ha tocado» y «lo ha apagado todo» son cosas distintas, y
+    // la primera tiene que caer en los de salida de su sector.
+    modulos: Array.isArray(s.modulos) ? s.modulos : undefined,
+    panel: Array.isArray(s.panel) ? s.panel : undefined,
     planId: s.plan_id || s.planId || 'basico',
     subscriptionStatus: s.subscription_status || s.subscriptionStatus || 'inactive',
     customCategories: Array.isArray(s.custom_categories)
