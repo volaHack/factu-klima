@@ -175,9 +175,13 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           )}
         </div>
 
-        {/* Botón de Propina / Apoyo Stripe */}
+        {/* Botón de Propina / Apoyo Stripe. Oculto en móvil por CSS
+            (.header-tip-btn): entre el buscador, la insignia de plan, la
+            campana, el tema y la cuenta ya no queda sitio para esto en un
+            móvil sin que algo se salga de la cabecera, y de todo lo que hay
+            aquí es lo único que no hace falta para usar la app. */}
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost header-tip-btn"
           onClick={() => setShowTipModal(true)}
           title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
           style={{

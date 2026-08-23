@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check, X, Zap, Crown, Rocket, ShieldCheck,
   FileText, Users, BarChart3, Plug,
-  ArrowRight, Sparkles, Star,
+  ArrowRight, Star,
   Clock, Headphones, Download, Globe, Loader2, Store,
   Flame, Gift, Heart, Copy, Tag,
 } from 'lucide-react';
@@ -219,10 +219,6 @@ export default function PricingContent() {
       {/* Hero Section */}
       <div className="pricing-hero-container" style={{ position: 'relative', zIndex: 1 }}>
         <header className="pricing-hero">
-          <div className="pricing-hero-badge">
-            <Sparkles size={14} />
-            Sin permanencia · Cancela cuando quieras
-          </div>
           <h1 className="pricing-hero-title">
             Facturación profesional,<br />
             precio <em className="accent-serif pricing-hero-accent">justo</em>

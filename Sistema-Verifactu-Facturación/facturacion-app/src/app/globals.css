@@ -2344,6 +2344,7 @@ a:hover { color: var(--accent-300); }
      desplegable ya muestra el nombre completo al abrirse, así que no
      se pierde información, solo se libera sitio en la cabecera. */
   .account-trigger-name { display: none; }
+  .header-tip-btn { display: none; }
 
   .app-content {
     padding: var(--space-4);

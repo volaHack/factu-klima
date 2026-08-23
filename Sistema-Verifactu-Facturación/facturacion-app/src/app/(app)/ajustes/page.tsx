@@ -182,6 +182,10 @@ export default function AjustesPage() {
     setSaving(true);
     try {
       await saveCompanySettings(settings);
+      // Igual que updateField: sin este aviso, el menú lateral y el resto
+      // de la app se quedan con los ajustes de antes de guardar hasta que
+      // alguien recargue la página a mano.
+      window.dispatchEvent(new CustomEvent('klima-settings-updated', { detail: settings }));
       success('Configuración guardada', 'Los cambios y personalización se han aplicado correctamente');
     } catch (err) {
       toastError('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
