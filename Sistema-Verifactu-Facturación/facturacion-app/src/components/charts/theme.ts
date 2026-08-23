@@ -81,16 +81,35 @@ export function resolveAccent(fallback = '#b02a5c'): string {
   return value || fallback;
 }
 
-/** Estilo compartido de los tooltips. */
-export const TOOLTIP_STYLE = {
-  background: '#ffffff',
-  border: '1px solid rgba(26, 18, 22, 0.14)',
-  borderRadius: '10px',
-  color: INK.primary,
-  fontSize: '12px',
-  boxShadow: '0 12px 32px -4px rgba(76, 26, 40, 0.22)',
-  padding: '8px 12px',
-} as const;
+/**
+ * Estilo compartido de los tooltips.
+ *
+ * Fondo y texto fijos en blanco/`INK.primary`, como el resto de este
+ * archivo — pero un tooltip flota por ENCIMA de la tarjeta, así que en
+ * modo oscuro salía una caja blanca deslumbrante sobre fondo casi negro
+ * en vez de fundirse con el resto de paneles flotantes (el desplegable
+ * de cuenta, el de avisos...). Esos ya usan `--bg-elevated`; el tooltip
+ * ahora resuelve el mismo token en vez de cargar su propio blanco fijo.
+ */
+export function resolveTooltipStyle(): {
+  background: string; border: string; borderRadius: string; color: string;
+  fontSize: string; boxShadow: string; padding: string;
+} {
+  const leer = (nombre: string, fallback: string) =>
+    typeof window === 'undefined'
+      ? fallback
+      : getComputedStyle(document.body).getPropertyValue(nombre).trim() || fallback;
+
+  return {
+    background: leer('--bg-elevated', '#ffffff'),
+    border: `1px solid ${leer('--border-color-hover', 'rgba(26, 18, 22, 0.14)')}`,
+    borderRadius: '10px',
+    color: leer('--text-primary', INK.primary),
+    fontSize: '12px',
+    boxShadow: '0 12px 32px -4px rgba(76, 26, 40, 0.22)',
+    padding: '8px 12px',
+  };
+}
 
 export const TOOLTIP_CURSOR = { fill: 'rgba(26, 18, 22, 0.05)' } as const;
 

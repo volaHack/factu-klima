@@ -5,7 +5,7 @@ import {
   Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Area, AreaChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
 } from 'recharts';
-import { INK, SERIES, TOOLTIP_CURSOR, TOOLTIP_STYLE, compactEuro, resolveAccent } from './theme';
+import { INK, SERIES, TOOLTIP_CURSOR, compactEuro, resolveAccent, resolveTooltipStyle } from './theme';
 import { formatCurrency } from '@/lib/utils';
 
 /**
@@ -19,6 +19,12 @@ import { formatCurrency } from '@/lib/utils';
 function useAccent(): string {
   const [accent] = useState(() => resolveAccent());
   return accent;
+}
+
+/** Estilo del tooltip, resuelto una sola vez al montar — igual que useAccent. */
+function useTooltipStyle() {
+  const [style] = useState(() => resolveTooltipStyle());
+  return style;
 }
 
 /**
@@ -50,6 +56,7 @@ const AXIS_LINE = { stroke: INK.axis } as const;
 export function RevenueColumns({ data }: { data: { name: string; total: number }[] }) {
   const accent = useAccent();
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
   const max = Math.max(...data.map(d => d.total), 0);
 
   return (
@@ -65,7 +72,7 @@ export function RevenueColumns({ data }: { data: { name: string; total: number }
           tickFormatter={compactEuro}
         />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={tooltipStyle}
           cursor={TOOLTIP_CURSOR}
           labelStyle={{ color: INK.secondary, marginBottom: 4 }}
           formatter={(value) => [formatCurrency(Number(value)), 'Facturado']}
@@ -97,6 +104,7 @@ export function RevenueColumns({ data }: { data: { name: string; total: number }
 export function TrendLines({ data }: { data: { name: string; total: number; base: number }[] }) {
   const accent = useAccent();
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -105,7 +113,7 @@ export function TrendLines({ data }: { data: { name: string; total: number; base
         <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={tooltipStyle}
           labelStyle={{ color: INK.secondary, marginBottom: 4 }}
           formatter={(value, name) => [
             formatCurrency(Number(value)),
@@ -145,6 +153,7 @@ export function RankedBars({
 }) {
   const accent = useAccent();
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
   const fill = color ?? accent;
 
   // Recharts reparte las claves de cada entrada de datos sobre los elementos
@@ -183,7 +192,7 @@ export function RankedBars({
           width={132}
         />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={tooltipStyle}
           cursor={TOOLTIP_CURSOR}
           labelStyle={{ color: INK.secondary, marginBottom: 4 }}
           formatter={(value) => [formatCurrency(Number(value)), 'Facturado']}
@@ -223,6 +232,7 @@ export function StatusDonut({ data, centerLabel, centerValue }: {
   centerValue: string;
 }) {
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
   // El color va en el propio dato: <Cell> está obsoleto y desaparece en
   // Recharts 4. Pie ya lee `fill` de cada entrada.
   const slices = data.map(d => ({ ...d, fill: d.color }));
@@ -248,7 +258,7 @@ export function StatusDonut({ data, centerLabel, centerValue }: {
             animationEasing="ease-out"
           />
           <Tooltip
-            contentStyle={TOOLTIP_STYLE}
+            contentStyle={tooltipStyle}
             formatter={(value, name) => [`${Number(value)} facturas`, String(name)]}
           />
         </PieChart>
@@ -292,6 +302,7 @@ export function AreaTrendChart({
 }) {
   const accent = useAccent();
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -310,7 +321,7 @@ export function AreaTrendChart({
         <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={tooltipStyle}
           labelStyle={{ color: INK.secondary, marginBottom: 4 }}
           formatter={(value, name) => [
             formatCurrency(Number(value)),
@@ -359,6 +370,7 @@ export function ComparisonBarChart({
 }) {
   const accent = useAccent();
   const reducedMotion = usePrefersReducedMotion();
+  const tooltipStyle = useTooltipStyle();
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -367,7 +379,7 @@ export function ComparisonBarChart({
         <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
         <Tooltip
-          contentStyle={TOOLTIP_STYLE}
+          contentStyle={tooltipStyle}
           cursor={TOOLTIP_CURSOR}
           labelStyle={{ color: INK.secondary, marginBottom: 4 }}
           formatter={(value, name) => [
