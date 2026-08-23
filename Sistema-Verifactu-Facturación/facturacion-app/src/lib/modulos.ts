@@ -101,7 +101,7 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Varios precios por artículo y el suyo para cada cliente, sin descuentos a mano en cada línea.' },
   { id: 'vendedores', nombre: 'Vendedores', grupo: 'comercial', disponible: true,
     descripcion: 'Cada comercial con su serie de numeración, su almacén y sus clientes.' },
-  { id: 'comisiones', nombre: 'Comisiones', grupo: 'comercial', requiere: ['vendedores'], disponible: false,
+  { id: 'comisiones', nombre: 'Comisiones', grupo: 'comercial', requiere: ['vendedores'], disponible: true,
     descripcion: 'Lo que se lleva cada comercial, sobre lo facturado o sobre lo cobrado, y por artículo o por cliente.' },
   { id: 'rappels', nombre: 'Rappels por volumen', grupo: 'comercial', disponible: false,
     descripcion: 'Descuentos que se ganan al llegar a un volumen y se liquidan al cerrar el periodo, no en cada factura.' },

@@ -31,7 +31,8 @@ export type FichaId =
   | 'compras_pendientes'
   | 'evolucion_ventas' | 'reparto_impuestos'
   | 'estado_verifactu'
-  | 'gastos_mes';
+  | 'gastos_mes'
+  | 'comisiones_mes';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -92,6 +93,8 @@ export const FICHAS: Ficha[] = [
 
   { id: 'gastos_mes', nombre: 'Gastos del mes', tamano: 'pequena', requiere: 'gastos',
     explica: 'Lo que se ha pagado este mes en alquiler, suministros y demás, sin contar la mercancía.' },
+  { id: 'comisiones_mes', nombre: 'Comisiones del mes', tamano: 'pequena', requiere: 'comisiones',
+    explica: 'Lo que se llevan los comerciales este mes, sumado entre todos.' },
 
   // --- Cumplimiento ---
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',

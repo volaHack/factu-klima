@@ -436,6 +436,14 @@ export interface Vendedor {
    * suyo, que es la furgoneta.
    */
   almacenId?: string;
+  /**
+   * Porcentaje que se lleva este comercial de lo que vende.
+   *
+   * Uno solo, no por artículo o por cliente: es lo que cubre a la mayoría de
+   * negocios sin complicar el alta de un vendedor, y es ampliable el día que
+   * alguien necesite algo más fino.
+   */
+  comisionPct?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -499,6 +507,14 @@ export interface CompanySettings {
   modulos?: ModuloId[];
   /** Las fichas del panel de inicio, en el orden en que se pintan. */
   panel?: FichaId[];
+  /**
+   * Sobre qué se calcula la comisión de un vendedor: lo que se ha FACTURADO
+   * (cuenta en cuanto la factura sale, cobre o no) o lo que se ha COBRADO
+   * (cuenta sólo cuando el dinero ha entrado). Cada negocio tiene su
+   * costumbre, y pagar comisión de algo que luego resulta impagado es
+   * exactamente el tipo de disgusto que esto evita si se deja en 'cobrado'.
+   */
+  comisionBase?: 'facturado' | 'cobrado';
   // Identity
   businessName: string;
   nif: string;

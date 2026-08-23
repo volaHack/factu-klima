@@ -858,6 +858,7 @@ function mapVendedorFromDb(v: any): Vendedor {
     activo: v.activo ?? true,
     series: v.series || {},
     almacenId: v.almacen_id || undefined,
+    comisionPct: v.comision_pct != null ? Number(v.comision_pct) : undefined,
     createdAt: v.created_at || new Date().toISOString(),
     updatedAt: v.updated_at || new Date().toISOString(),
   };
@@ -921,6 +922,7 @@ export async function saveVendedor(vendedor: Vendedor): Promise<void> {
     activo: vendedor.activo,
     series: vendedor.series || {},
     almacen_id: vendedor.almacenId || null,
+    comision_pct: vendedor.comisionPct ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -2701,6 +2703,7 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     logo_url: settings.logoUrl,
     modulos: settings.modulos ?? null,
     panel: settings.panel ?? null,
+    comision_base: settings.comisionBase ?? 'facturado',
     plan_id: settings.planId || 'basico',
     subscription_plan: settings.planId || 'basico',
     subscription_status: settings.subscriptionStatus || 'inactive',
@@ -3082,6 +3085,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     // la primera tiene que caer en los de salida de su sector.
     modulos: Array.isArray(s.modulos) ? s.modulos : undefined,
     panel: Array.isArray(s.panel) ? s.panel : undefined,
+    comisionBase: s.comision_base === 'cobrado' ? 'cobrado' : 'facturado',
     planId: s.plan_id || s.planId || 'basico',
     subscriptionStatus: s.subscription_status || s.subscriptionStatus || 'inactive',
     customCategories: Array.isArray(s.custom_categories)

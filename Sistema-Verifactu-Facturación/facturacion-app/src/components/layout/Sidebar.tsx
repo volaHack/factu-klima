@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, Package, BarChart3,
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
-  WalletCards, Receipt,
+  WalletCards, Receipt, TrendingUp,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -65,6 +65,7 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
   { href: '/albaranes', label: 'Albaranes', icon: ClipboardList, modulo: 'albaranes' },
   { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw, modulo: 'rectificativas' },
   { href: '/gastos', label: 'Gastos', icon: Receipt, modulo: 'gastos' },
+  { href: '/comisiones', label: 'Comisiones', icon: TrendingUp, modulo: 'comisiones' },
 ];
 
 const controlItems = [

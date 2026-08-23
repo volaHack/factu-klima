@@ -825,6 +825,7 @@ export default function AjustesPage() {
                   <th>Serie Factura</th>
                   <th>Serie Albarán</th>
                   <th>Almacén</th>
+                  <th>Comisión</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
@@ -834,6 +835,12 @@ export default function AjustesPage() {
                   <tr key={v.id}>
                     <td style={{ fontWeight: 600 }}>{v.nombre}</td>
                     <td><span className="badge badge-outline">{v.series?.factura_venta || 'Por defecto'}</span></td>
+                    {/* Faltaba esta celda: la cabecera ya traía «Serie
+                        Albarán» pero el cuerpo saltaba directo al almacén, así
+                        que cada columna de cada fila caía bajo la cabecera de
+                        al lado —el almacén bajo «Serie Albarán», el estado bajo
+                        «Almacén»— para todos los vendedores. */}
+                    <td><span className="badge badge-outline">{v.series?.albaran_venta || 'Por defecto'}</span></td>
                     {/* De qué almacén saca género. El comercial de ruta suele
                         tener el suyo, que es la furgoneta; el de oficina tira
                         del de la empresa. Se aplica solo al hacer un documento
@@ -855,6 +862,29 @@ export default function AjustesPage() {
                         <option value="">El de la empresa</option>
                         {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
                       </select>
+                    </td>
+                    {/* Lo que se lleva sobre lo que venda. Vacío = sin
+                        comisión, y ese vendedor no aparece en el informe: un
+                        0% explícito y un campo vacío significan lo mismo, así
+                        que no hace falta distinguirlos aquí. */}
+                    <td>
+                      <input
+                        type="number" min={0} max={100} step={0.5}
+                        className="form-input form-select-sm"
+                        style={{ width: 80 }}
+                        placeholder="—"
+                        value={v.comisionPct ?? ''}
+                        aria-label={`Comisión de ${v.nombre}`}
+                        onChange={async e => {
+                          const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                          try {
+                            await saveVendedor({ ...v, comisionPct: val });
+                            await recargarVendedores();
+                          } catch (err) {
+                            toastError('No se pudo cambiar la comisión', err instanceof Error ? err.message : 'Error');
+                          }
+                        }}
+                      />
                     </td>
                     <td>
                       <span className={`badge ${v.activo ? 'badge-activo' : 'badge-inactivo'}`}>
