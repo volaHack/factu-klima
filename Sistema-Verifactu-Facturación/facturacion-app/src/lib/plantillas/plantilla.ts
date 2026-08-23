@@ -521,10 +521,28 @@ export function compilarPlantilla(
     __rejillas: analisis.rejillas,
   } as Template;
 
+  // El reglamento exige que la factura lleve el QR de cotejo de la AEAT.
+  // Empezar desde cero siempre lo coloca, pero reconstruir el diseño de
+  // una factura subida no lo detecta solo —no hay manera fiable de
+  // adivinar dónde había un QR en un PDF ajeno—, así que si nadie lo ha
+  // puesto a mano se avisa aquí, con el mismo mecanismo que ya usa esta
+  // pantalla para el resto de comprobaciones, en vez de dejar que la
+  // plantilla se guarde y las facturas salgan sin él en silencio.
+  const avisos = campos.some(c => c.clave === 'verifactu_qr')
+    ? analisis.avisos
+    : [
+        ...analisis.avisos,
+        {
+          nivel: 'aviso' as const,
+          texto: 'Esta plantilla no tiene el código QR de Veri*Factu. Sin él, las facturas incumplen el reglamento. '
+            + 'Dibuja un recuadro donde quieras que aparezca y elige «QR de cotejo» en el panel de la derecha.',
+        },
+      ];
+
   return {
     plantilla,
     diagnostico: {
-      avisos: analisis.avisos,
+      avisos,
       confianza,
       archivoOrigen: opciones.archivoOrigen,
     },

@@ -5,16 +5,6 @@
 
 import { Invoice, CompanySettings } from '@/lib/types';
 
-export interface AeatSubmissionResult {
-  invoiceId: string;
-  invoiceNumber: string;
-  status: 'ACEPTADO_AEAT' | 'ACEPTADO_CON_ERRORES' | 'RECHAZADO_AEAT' | 'PENDIENTE_ENVIO';
-  csvCode?: string;
-  responseMessage: string;
-  submittedAt: string;
-  soapXml: string;
-}
-
 export function generateVerifactuSoapXml(
   invoice: Invoice,
   companySettings: CompanySettings,
@@ -82,24 +72,4 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
-export function simulateAeatSubmission(
-  invoice: Invoice,
-  companySettings: CompanySettings,
-  environment: 'test' | 'production' = 'test'
-): AeatSubmissionResult {
-  const soapXml = generateVerifactuSoapXml(invoice, companySettings, environment);
-  const now = new Date().toISOString();
-  const csvCode = `CSV-AEAT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-2026`;
-
-  return {
-    invoiceId: invoice.id,
-    invoiceNumber: invoice.number,
-    status: 'ACEPTADO_AEAT',
-    csvCode,
-    responseMessage: `Factura ${invoice.number} registrada en la AEAT correctamente. Código Seguro de Verificación: ${csvCode}`,
-    submittedAt: now,
-    soapXml,
-  };
 }

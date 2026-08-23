@@ -26,6 +26,7 @@ import {
   PlantillaInvalida,
 } from '@/lib/plantillas/almacen';
 import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
+import { generarQrVerifactu } from '@/lib/verifactu/qr';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
 import { facturaDesdeCero, OFICIOS, oficioPorId } from '@/lib/plantillas/desdeCero';
@@ -171,10 +172,19 @@ export default function PlantillasPage() {
   // ============================================================
 
   /** Datos con los que se previsualiza: la última factura real, si la hay. */
-  const datosDePrueba = () => {
+  const datosDePrueba = async () => {
     const documento = ultimaFactura ?? facturaDeMuestra();
     const configuracion = ajustes ?? ({} as CompanySettings);
-    return construirDatos({ tipo: 'factura', documento }, configuracion);
+    // El mismo QR de cotejo que lleva la factura de verdad al descargarla,
+    // para que la vista previa del editor no mienta sobre cómo va a
+    // quedar el hueco reservado para él.
+    const qrCotejo = await generarQrVerifactu({
+      nifEmisor: configuracion.nif || '',
+      numeroFactura: documento.number,
+      fechaEmision: documento.issueDate,
+      importeTotal: documento.total,
+    });
+    return construirDatos({ tipo: 'factura', documento }, configuracion, { qrCotejo });
   };
 
   const verComoQueda = async () => {
@@ -182,7 +192,7 @@ export default function PlantillasPage() {
     setGenerandoVista(true);
     try {
       const { plantilla } = compilar(sesion);
-      const blob = await generarPdfBlob(plantilla, datosDePrueba(), { titulo: 'Vista previa' });
+      const blob = await generarPdfBlob(plantilla, await datosDePrueba(), { titulo: 'Vista previa' });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
     } catch (err) {
@@ -195,7 +205,7 @@ export default function PlantillasPage() {
   const probarPlantillaGuardada = async (plantilla: PlantillaDocumento) => {
     setGenerandoVista(true);
     try {
-      const blob = await generarPdfBlob(plantilla.plantilla, datosDePrueba(), { titulo: plantilla.nombre });
+      const blob = await generarPdfBlob(plantilla.plantilla, await datosDePrueba(), { titulo: plantilla.nombre });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
     } catch (err) {

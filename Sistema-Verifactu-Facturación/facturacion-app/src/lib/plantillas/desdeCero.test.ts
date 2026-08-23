@@ -429,3 +429,18 @@ describe('las unidades por bulto en la factura impresa', () => {
     expect(texto).toContain('288');
   }, 60_000);
 });
+
+describe('el aviso de QR que falta', () => {
+  it('una factura desde cero ya trae su QR: no hay aviso que dar', () => {
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    expect(diagnostico.avisos.some(a => a.texto.includes('QR de Veri*Factu'))).toBe(false);
+  });
+
+  it('una plantilla sin el campo del QR lo avisa: sin él la factura incumple', () => {
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    analisis.campos = analisis.campos.filter(c => c.clave !== 'verifactu_qr');
+    const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    expect(diagnostico.avisos.some(a => a.nivel === 'aviso' && a.texto.includes('QR de Veri*Factu'))).toBe(true);
+  });
+});

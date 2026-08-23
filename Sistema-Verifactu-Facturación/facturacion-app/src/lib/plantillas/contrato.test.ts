@@ -135,6 +135,17 @@ describe('formato de los datos', () => {
     expect(datos.campos.verifactu_qr).toBe('');
     expect(datos.campos.verifactu_huella).toBe('');
   });
+
+  it('cuando alguien sí trae el QR ya generado, lo usa tal cual', () => {
+    // Es lo que hace el botón de descargar: genera el PNG del QR aparte y lo
+    // pasa aquí. `construirDatos` no lo fabrica, sólo lo aloja en el campo.
+    const conQr = construirDatos(
+      { tipo: 'factura', documento: FACTURA },
+      AJUSTES,
+      { qrCotejo: 'data:image/png;base64,ABC123' },
+    );
+    expect(conQr.campos.verifactu_qr).toBe('data:image/png;base64,ABC123');
+  });
 });
 
 describe('cliente ocasional (sin ficha)', () => {

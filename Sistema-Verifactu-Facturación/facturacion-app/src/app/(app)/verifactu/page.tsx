@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, AlertTriangle, ArrowLeft, CalendarClock, CheckCircle2,
-  Code2, Download, Eye, EyeOff, FileCode, Info, Loader2, Lock, Plug,
-  RefreshCw, Send, ShieldCheck, Upload, Wifi, WifiOff, FileText, Check, Zap, Building2, Clock, X,
+  ArrowLeft, CheckCircle2, Code2, Eye, EyeOff, FileCode, Loader2, Plug,
+  RefreshCw, ShieldCheck, Upload, WifiOff, X,
 } from 'lucide-react';
 import {
   uploadVerifactuCertificate, getActiveCertificate, getInvoices,
-  getCompanySettings, saveCompanySettings, revokeVerifactuCertificate,
+  getCompanySettings, revokeVerifactuCertificate, checkVerifactuConnection,
   type VerifactuCertificate,
 } from '@/lib/storage';
-import { validateP12Certificate } from '@/lib/verifactu/certificate';
-import { generateVerifactuSoapXml, simulateAeatSubmission, type AeatSubmissionResult } from '@/lib/verifactu/aeatXmlGenerator';
+import { generateVerifactuSoapXml } from '@/lib/verifactu/aeatXmlGenerator';
 import { Invoice, CompanySettings, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
@@ -38,7 +36,6 @@ export default function VerifactuPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [activeCertificate, setActiveCertificate] = useState<VerifactuCertificate | null>(null);
   const [aeatEnvironment, setAeatEnvironment] = useState<'test' | 'production'>('test');
-  const [autoSubmit, setAutoSubmit] = useState(true);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{ connected: boolean; message: string; checkedAt: string | null }>({
     connected: false,
@@ -46,11 +43,27 @@ export default function VerifactuPage() {
     checkedAt: null,
   });
 
-  // Invoices & Submissions
+  // Invoices
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [submissions, setSubmissions] = useState<Record<string, AeatSubmissionResult>>({});
-  const [submittingBatch, setSubmittingBatch] = useState(false);
   const [viewXmlInvoice, setViewXmlInvoice] = useState<Invoice | null>(null);
+
+  /**
+   * Traduce el resultado real de `checkVerifactuConnection` al estado que
+   * pinta la pantalla. Ni aquí ni en el backend se inventa una conexión: hoy
+   * esto es, como mucho, un aviso de cortesía sin TLS mutuo (ver
+   * `/api/verifactu/health`), y si la integración no está activada dice
+   * exactamente eso en vez de fingir un 200 OK.
+   */
+  const aplicarEstadoConexion = (resultado: { isConnected: boolean; statusCode: string | null; error: string | null }) => {
+    setConnectionStatus({
+      connected: resultado.isConnected,
+      message: resultado.isConnected
+        ? `AEAT ha respondido correctamente (estado ${resultado.statusCode}).`
+        : resultado.error || 'No se ha podido verificar la conexión con la AEAT.',
+      checkedAt: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    });
+    return resultado;
+  };
 
   const loadAllData = async () => {
     const [settings, cert, invs] = await Promise.all([
@@ -60,15 +73,9 @@ export default function VerifactuPage() {
     ]);
     setCompanySettings(settings);
     setActiveCertificate(cert);
-    const issued = invs.filter(i => i.status === InvoiceStatus.EMITIDA || i.status === InvoiceStatus.PAGADA);
-    setInvoices(issued);
+    setInvoices(invs.filter(i => i.status === InvoiceStatus.EMITIDA || i.status === InvoiceStatus.PAGADA));
 
-    // Initial mock submissions for issued invoices
-    const initialMap: Record<string, AeatSubmissionResult> = {};
-    issued.slice(0, 3).forEach(inv => {
-      initialMap[inv.id] = simulateAeatSubmission(inv, settings, 'test');
-    });
-    setSubmissions(initialMap);
+    if (cert) await aplicarEstadoConexion(await checkVerifactuConnection());
   };
 
   useEffect(() => {
@@ -105,43 +112,35 @@ export default function VerifactuPage() {
     try {
       const reader = new FileReader();
       reader.onload = async () => {
-        const fileContent = reader.result as string;
-        const certName = selectedFile.name;
+        try {
+          const fileContent = reader.result as string;
+          const resultado = await uploadVerifactuCertificate(fileContent, password);
 
-        // Save local certificate data
-        const now = new Date();
-        const nextYear = new Date();
-        nextYear.setFullYear(now.getFullYear() + 2);
+          if (!resultado.success) {
+            showError('Error de instalación', resultado.error || 'No se pudo instalar el certificado.');
+            return;
+          }
 
-        const newCert: VerifactuCertificate = {
-          id: `cert-${Date.now()}`,
-          subjectName: `CN=${companySettings?.businessName || 'Empresa'}, NIF=${companySettings?.nif || 'B00000000'}`,
-          issuerName: 'AC FNMT Usuarios / Real Casa de la Moneda',
-          serialNumber: `FNMT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-          notBefore: now.toISOString(),
-          notAfter: nextYear.toISOString(),
-          isValid: true,
-          isRevoked: false,
-          isAeatConnected: true,
-          lastConnectionCheck: now.toISOString(),
-          aeatStatusCode: '200_OK_AEAT',
-          uploadedAt: now.toISOString(),
-          validationStatus: 'verified',
-        };
+          // El servidor es quien decide qué se guarda de verdad (hoy, sin
+          // parsear el X.509 real — ver la advertencia en el propio
+          // endpoint): se relee el certificado activo en vez de inventarnos
+          // aquí un "CN=..., AC FNMT Usuarios" que nadie ha comprobado.
+          setActiveCertificate(await getActiveCertificate());
+          setSelectedFile(null);
+          setPassword('');
 
-        await uploadVerifactuCertificate(fileContent, password);
-        setActiveCertificate(newCert);
-        setSelectedFile(null);
-        setPassword('');
+          setConnectionStatus({
+            connected: false,
+            message: resultado.warning || 'Certificado guardado. Todavía no se ha comprobado contra la AEAT.',
+            checkedAt: null,
+          });
 
-        setConnectionStatus({
-          connected: true,
-          message: `Certificado FNMT (${certName}) autenticado y vinculado con éxito para ${companySettings?.businessName}.`,
-          checkedAt: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        });
-
-        success('Certificado instalado', 'Certificado FNMT cargado, validado y preparado para envíos a la AEAT.');
-        setUploading(false);
+          success('Certificado guardado', resultado.warning || 'Certificado cifrado y guardado correctamente.');
+        } catch (err) {
+          showError('Error de instalación', err instanceof Error ? err.message : 'No se pudo instalar el certificado.');
+        } finally {
+          setUploading(false);
+        }
       };
       reader.readAsDataURL(selectedFile);
     } catch (err) {
@@ -161,7 +160,7 @@ export default function VerifactuPage() {
         checkedAt: null,
       });
       warning('Certificado desvinculado', 'Se ha eliminado el certificado activo.');
-    } catch (err) {
+    } catch {
       showError('Error', 'No se pudo revocar el certificado.');
     }
   };
@@ -169,49 +168,16 @@ export default function VerifactuPage() {
   const handleTestConnection = async () => {
     setCheckingConnection(true);
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      const targetEndpoint = aeatEnvironment === 'test'
-        ? 'https://prewww1.aeat.es/wlpl/SSII-FACT/ws/fe/SiiFactFEV1SOAP (Entorno Sandbox PRE)'
-        : 'https://www1.aeat.es/wlpl/SSII-FACT/ws/fe/SiiFactFEV1SOAP (AEAT Producción)';
-
-      setConnectionStatus({
-        connected: true,
-        message: `Handshake TLS 1.3 y servicio Verifactu verificado correctamente en ${targetEndpoint}.`,
-        checkedAt: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      });
-      success('Conexión AEAT exitosa', 'Endpoint Verifactu de Hacienda responde con estado 200 OK.');
-    } catch {
-      showError('Error de conexión', 'No se pudo conectar con los servidores de la AEAT.');
+      const resultado = await aplicarEstadoConexion(await checkVerifactuConnection());
+      if (resultado.isConnected) {
+        success('Conexión AEAT', `AEAT ha respondido correctamente (estado ${resultado.statusCode}).`);
+      } else {
+        warning('Sin conexión verificada', resultado.error || 'No se ha podido verificar la conexión con la AEAT.');
+      }
     } finally {
       setCheckingConnection(false);
     }
   };
-
-  const handleBatchSubmit = async () => {
-    if (!companySettings) return;
-    setSubmittingBatch(true);
-    try {
-      await new Promise(r => setTimeout(r, 1500));
-      const newMap = { ...submissions };
-      let count = 0;
-      invoices.forEach(inv => {
-        if (!newMap[inv.id]) {
-          newMap[inv.id] = simulateAeatSubmission(inv, companySettings, aeatEnvironment);
-          count++;
-        }
-      });
-      setSubmissions(newMap);
-      success('Envío AEAT completado', `Se han remitido ${count || invoices.length} facturas al registro Verifactu de la AEAT.`);
-    } catch (err) {
-      showError('Error de envío', 'No se pudieron enviar las facturas.');
-    } finally {
-      setSubmittingBatch(false);
-    }
-  };
-
-  const pendingCount = useMemo(() => {
-    return invoices.filter(inv => !submissions[inv.id]).length;
-  }, [invoices, submissions]);
 
   if (!mounted || !companySettings) {
     return <PageSkeleton variant="list" label="Cargando modulo Verifactu AEAT" />;
@@ -255,7 +221,7 @@ export default function VerifactuPage() {
             </span>
             <div className="status-panel-body">
               <div className="status-panel-title">
-                {connectionStatus.connected ? 'Conexión AEAT Lista y Verificada' : 'Sin Conexión AEAT'}
+                {connectionStatus.connected ? 'Conexión AEAT Comprobada' : 'Sin Conexión AEAT'}
               </div>
               <p className="status-panel-text">{connectionStatus.message}</p>
               {connectionStatus.checkedAt && (
@@ -291,23 +257,18 @@ export default function VerifactuPage() {
             </div>
           </div>
 
-          {/* Auto-submission switch */}
-          <div className="status-panel" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', alignItems: 'center' }}>
-            <span className="status-panel-icon" style={{ background: 'rgba(176, 42, 92, 0.12)', color: 'var(--accent-500)' }}>
-              <Zap size={18} />
-            </span>
+          {/* Estado real del envío telemático */}
+          <div className="status-panel status-panel--warning" style={{ alignItems: 'center' }}>
+            <span className="status-panel-icon"><WifiOff size={18} /></span>
             <div className="status-panel-body">
-              <div className="status-panel-title">Envío Automático Inmediato (Veri*factu*)</div>
-              <p className="status-panel-text">Al emitir cualquier factura o ticket, se remite automáticamente el paquete SOAP XML firmado a Hacienda.</p>
+              <div className="status-panel-title">El envío automático a la AEAT todavía no está activo</div>
+              <p className="status-panel-text">
+                Cada factura ya genera y sella su huella SHA-256 encadenada en el momento de emitirse, y su código QR de
+                cotejo sale impreso en el PDF. Lo que falta por conectar es la transmisión telemática (SOAP firmado) al
+                registro de la AEAT: mientras tanto, puedes preparar y copiar el XML de cada factura desde la tabla de
+                abajo y enviarlo tú mismo si lo necesitas.
+              </p>
             </div>
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={autoSubmit}
-                onChange={e => setAutoSubmit(e.target.checked)}
-              />
-              <span className="toggle-slider" />
-            </label>
           </div>
         </section>
 
@@ -410,19 +371,16 @@ export default function VerifactuPage() {
         </section>
       </div>
 
-      {/* Section: Invoices & Verifactu AEAT Transmission Queue */}
+      {/* Section: facturas selladas y su XML Verifactu */}
       <section className="card">
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-header">
           <div>
-            <h2 className="card-title">Registro Telemático de Facturas AEAT (Verifactu)</h2>
+            <h2 className="card-title">Facturas Selladas (Verifactu)</h2>
             <p className="card-subtitle">
-              Estado de transmisión de facturas emitidas con huella SHA-256 encadenada ({invoices.length} facturas en registro)
+              Huella SHA-256 encadenada de cada factura emitida ({invoices.length} facturas en registro). El envío
+              telemático a la AEAT no está activo todavía: usa «Inspeccionar SOAP XML» para prepararlo y copiarlo tú mismo.
             </p>
           </div>
-          <button className="btn btn-primary" onClick={handleBatchSubmit} disabled={submittingBatch || invoices.length === 0}>
-            {submittingBatch ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-            {submittingBatch ? 'Transmitiendo a AEAT…' : `Enviar Pendientes a AEAT (${pendingCount})`}
-          </button>
         </div>
 
         <div className="table-container">
@@ -434,54 +392,39 @@ export default function VerifactuPage() {
                 <th>Cliente / Destinatario</th>
                 <th style={{ textAlign: 'right' }}>Importe Total</th>
                 <th>Huella SHA-256</th>
-                <th>Estado AEAT</th>
                 <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-muted)' }}>
-                    No hay facturas emitidas registradas para enviar.
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-muted)' }}>
+                    No hay facturas emitidas registradas todavía.
                   </td>
                 </tr>
               ) : (
-                invoices.map(inv => {
-                  const sub = submissions[inv.id];
-                  return (
-                    <tr key={inv.id}>
-                      <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.number}</td>
-                      <td>{formatDate(inv.issueDate)}</td>
-                      <td>{inv.clientName}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(inv.total)}</td>
-                      <td>
-                        <span className="mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {inv.verifactu?.chainedHash ? `${inv.verifactu.chainedHash.slice(0, 14)}…` : 'HASH-PENDING'}
-                        </span>
-                      </td>
-                      <td>
-                        {sub ? (
-                          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle2 size={12} /> ACEPTADO AEAT
-                          </span>
-                        ) : (
-                          <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <Clock size={12} /> Pendiente de Envío
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => setViewXmlInvoice(inv)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <Code2 size={14} /> Inspeccionar SOAP XML
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.number}</td>
+                    <td>{formatDate(inv.issueDate)}</td>
+                    <td>{inv.clientName}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(inv.total)}</td>
+                    <td>
+                      <span className="mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {inv.verifactu?.chainedHash ? `${inv.verifactu.chainedHash.slice(0, 14)}…` : 'HASH-PENDING'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setViewXmlInvoice(inv)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <Code2 size={14} /> Inspeccionar SOAP XML
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
