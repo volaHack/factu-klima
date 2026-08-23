@@ -32,6 +32,8 @@ export interface SesionAnalisis {
   /** La página con su lienzo, para poder recompilar cuando el usuario edite. */
   pagina: PaginaConLienzo;
   nombreArchivo: string;
+  /** Oficio con el que se montó, si la sesión salió de «empezar desde cero». */
+  oficio?: string;
 }
 
 export async function analizarPdf(
@@ -98,10 +100,10 @@ export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
  * zonas, y con una página sin lienzo reventaba con «Cannot read properties of
  * undefined (reading 'width')» en cuanto se pedía la vista previa.
  */
-export async function sesionDesdeCero(analisis: AnalisisPdf): Promise<SesionAnalisis> {
+export async function sesionDesdeCero(analisis: AnalisisPdf, oficio?: string): Promise<SesionAnalisis> {
   const { lienzo, pixeles } = await rehidratarLienzo(analisis.pagina.bitmap);
   const pagina: PaginaConLienzo = { ...analisis.pagina, lienzo, pixeles };
-  return { analisis: { ...analisis, pagina }, pagina, nombreArchivo: '' };
+  return { analisis: { ...analisis, pagina }, pagina, nombreArchivo: '', oficio };
 }
 
 export class PlantillaNoEditable extends Error {}
@@ -143,6 +145,7 @@ export async function abrirPlantillaGuardada(
     },
     pagina,
     nombreArchivo: plantilla.diagnostico?.archivoOrigen ?? '',
+    oficio: plantilla.diagnostico?.oficio,
   };
 }
 
@@ -286,5 +289,5 @@ function ajustarAlTexto(zonas: Zona[], analisis: AnalisisPdf): Zona[] {
 
 export function compilar(sesion: SesionAnalisis): ResultadoCompilacion {
   const fondo = construirCalco(sesion.pagina, zonasABorrar(sesion.analisis));
-  return compilarPlantilla(sesion.analisis, { fondo, archivoOrigen: sesion.nombreArchivo });
+  return compilarPlantilla(sesion.analisis, { fondo, archivoOrigen: sesion.nombreArchivo, oficio: sesion.oficio });
 }

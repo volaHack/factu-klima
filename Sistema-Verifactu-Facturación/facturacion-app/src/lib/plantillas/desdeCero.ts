@@ -245,6 +245,31 @@ export function oficioParaSector(sector: BusinessSector | undefined): Oficio {
   return oficioPorId(sector ? OFICIO_POR_SECTOR[sector] ?? 'generico' : 'generico');
 }
 
+/**
+ * ¿La plantilla que se está usando es de otro gremio?
+ *
+ * Devuelve el oficio con el que se montó cuando NO es el del sector de la
+ * empresa; null cuando cuadra, cuando la plantilla salió de un PDF subido
+ * (ahí el diseño lo pone el usuario y no hay nada que corregir) o cuando
+ * todavía no se sabe a qué se dedica.
+ *
+ * Esto es lo que faltaba: un despacho de abogados podía estar facturando
+ * con la plantilla de un distribuidor —columna de cajas incluida, pidiendo
+ * el formato de cada minuta— y en ninguna pantalla se decía nada.
+ */
+export function plantillaDeOtroOficio(
+  oficioDeLaPlantilla: string | undefined,
+  sector: BusinessSector | undefined,
+): Oficio | null {
+  if (!oficioDeLaPlantilla || !sector) return null;
+  const suyo = oficioParaSector(sector);
+  if (oficioDeLaPlantilla === suyo.id) return null;
+  // El genérico es una factura española normal y corriente: sirve para
+  // cualquiera y no es un error que alguien la use a propósito.
+  if (oficioDeLaPlantilla === 'generico') return null;
+  return oficioPorId(oficioDeLaPlantilla);
+}
+
 // ============================================================
 // LA HOJA
 // ============================================================

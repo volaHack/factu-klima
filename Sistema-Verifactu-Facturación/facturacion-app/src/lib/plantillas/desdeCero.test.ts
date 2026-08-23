@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { construirDatos, facturaDeMuestra } from './datos';
-import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector } from './desdeCero';
+import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector, plantillaDeOtroOficio } from './desdeCero';
 import { generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
 import type { CompanySettings } from '../types';
@@ -520,6 +520,43 @@ describe('el oficio que le toca a cada sector', () => {
       const claves = (oficioParaSector(sector.value).columnasFijas ?? []).map(c => c.clave);
       expect(claves, sector.value).not.toContain('uds_caja');
       expect(claves, sector.value).not.toContain('uds_linea');
+    }
+  });
+});
+
+describe('la plantilla que es de otro gremio', () => {
+  // El caso de la captura: sector «Abogacía y Despachos» con la plantilla de
+  // un distribuidor, y las líneas pidiendo «CAJ.» y «U/C» en cada minuta.
+  it('avisa cuando un abogado factura con la plantilla de un distribuidor', () => {
+    const ajena = plantillaDeOtroOficio('distribucion', 'abogacia');
+    expect(ajena?.id).toBe('distribucion');
+  });
+
+  it('no avisa cuando la plantilla es la de su sector', () => {
+    expect(plantillaDeOtroOficio('abogado', 'abogacia')).toBeNull();
+    expect(plantillaDeOtroOficio('psicologo', 'psicologia')).toBeNull();
+    expect(plantillaDeOtroOficio('distribucion', 'alimentacion')).toBeNull();
+  });
+
+  it('la genérica vale para cualquiera y no se marca como ajena', () => {
+    // Es una factura española normal y corriente: quien la elige a
+    // propósito no tiene por qué ver un aviso cada vez que factura.
+    expect(plantillaDeOtroOficio('generico', 'abogacia')).toBeNull();
+  });
+
+  it('sin oficio guardado o sin sector, no se inventa nada', () => {
+    // Las plantillas que salieron de un PDF subido no traen oficio: ahí el
+    // diseño lo pone el usuario y no hay nada que corregir.
+    expect(plantillaDeOtroOficio(undefined, 'abogacia')).toBeNull();
+    expect(plantillaDeOtroOficio('distribucion', undefined)).toBeNull();
+  });
+
+  it('ningún sector se avisa a sí mismo', () => {
+    // Si el mapa sector→oficio y este aviso se desincronizaran, todo el
+    // mundo vería el aviso siempre.
+    for (const sector of BUSINESS_SECTORS) {
+      const suyo = oficioParaSector(sector.value);
+      expect(plantillaDeOtroOficio(suyo.id, sector.value), sector.value).toBeNull();
     }
   });
 });

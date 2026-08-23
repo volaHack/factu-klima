@@ -29,6 +29,7 @@ import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
+import AvisoPlantillaDeOtroOficio from '@/components/facturas/AvisoPlantillaDeOtroOficio';
 import {
   clienteManualComoDatosExtras, customColsDeLineas, type ClienteManual
 } from '@/lib/plantillas/datos';
@@ -74,6 +75,8 @@ export default function NuevaFacturaPage() {
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
   const [columnasCustom, setColumnasCustom] = useState<{ clave: string; cabecera: string }[]>([]);
+  /** Con qué oficio se montó la plantilla activa, si se hizo desde cero. */
+  const [oficioDeLaPlantilla, setOficioDeLaPlantilla] = useState<string | undefined>(undefined);
   // Los ajustes de la empresa hacen falta en el editor de líneas: de ahí sale
   // si se factura con IVA o con IGIC y qué tipos se ofrecen.
   const [ajustes, setAjustes] = useState<CompanySettings | null>(null);
@@ -97,6 +100,7 @@ export default function NuevaFacturaPage() {
         if (plantilla?.plantilla) {
           setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
           setColumnasCustom(columnasPersonalizadasDePlantilla(plantilla.plantilla));
+          setOficioDeLaPlantilla(plantilla.diagnostico?.oficio);
         }
       } catch {
         // Sin plantilla activa no hay campos manuales que mostrar.
@@ -289,6 +293,10 @@ export default function NuevaFacturaPage() {
             <Send size={16} /> {saving ? 'Sellando…' : 'Emitir factura'}
           </button>
         </div>
+      </div>
+
+      <div style={{ maxWidth: '900px' }}>
+        <AvisoPlantillaDeOtroOficio oficioDeLaPlantilla={oficioDeLaPlantilla} sector={ajustes?.sector} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-6)', maxWidth: '900px' }}>

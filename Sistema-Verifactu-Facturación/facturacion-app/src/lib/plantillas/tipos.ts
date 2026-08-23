@@ -347,6 +347,16 @@ export interface DiagnosticoPlantilla {
   confianza: Record<string, number>;
   /** Nombre del PDF del que salió la plantilla. */
   archivoOrigen: string;
+  /**
+   * El oficio con el que se montó, si se hizo desde cero.
+   *
+   * Sirve para avisar cuando una empresa acaba usando la factura de otro
+   * gremio: un despacho de abogados con la plantilla de un distribuidor
+   * termina con una columna de cajas pidiéndole el formato de cada minuta,
+   * y hasta ahora nada lo decía. Ausente en las plantillas que salieron de
+   * un PDF subido y en las guardadas antes de que esto existiera.
+   */
+  oficio?: string;
 }
 
 /**

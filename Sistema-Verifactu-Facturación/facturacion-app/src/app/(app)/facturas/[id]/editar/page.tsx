@@ -21,6 +21,7 @@ import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
+import AvisoPlantillaDeOtroOficio from '@/components/facturas/AvisoPlantillaDeOtroOficio';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
 import {
@@ -65,6 +66,8 @@ export default function EditInvoicePage() {
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
   const [columnasCustom, setColumnasCustom] = useState<{ clave: string; cabecera: string }[]>([]);
+  /** Con qué oficio se montó la plantilla activa, si se hizo desde cero. */
+  const [oficioDeLaPlantilla, setOficioDeLaPlantilla] = useState<string | undefined>(undefined);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -102,6 +105,7 @@ export default function EditInvoicePage() {
         if (plantilla?.plantilla) {
           setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
           setColumnasCustom(columnasPersonalizadasDePlantilla(plantilla.plantilla));
+          setOficioDeLaPlantilla(plantilla.diagnostico?.oficio);
         }
       } catch {
         // Sin plantilla activa no hay campos manuales que mostrar.
@@ -262,6 +266,8 @@ export default function EditInvoicePage() {
       </div>
 
       <div style={{ maxWidth: 900 }}>
+        <AvisoPlantillaDeOtroOficio oficioDeLaPlantilla={oficioDeLaPlantilla} sector={ajustes?.sector} />
+
         {/* Client & Dates */}
         <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos generales</h3>

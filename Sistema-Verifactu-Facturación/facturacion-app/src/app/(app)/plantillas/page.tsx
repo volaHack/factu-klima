@@ -80,7 +80,7 @@ export default function PlantillasPage() {
       // blanco tiene que pasar por el lienzo igual que el calco de un PDF,
       // porque compilar lee sus píxeles. Sin eso, la vista previa fallaba con
       // «Cannot read properties of undefined (reading 'width')».
-      const nueva = await sesionDesdeCero(facturaDesdeCero(oficioId, ajustes));
+      const nueva = await sesionDesdeCero(facturaDesdeCero(oficioId, ajustes), oficioId);
       setEditando(null);
       setAplicaA(['factura']);
       setSesion(nueva);

@@ -85,6 +85,8 @@ export interface OpcionesCompilacion {
   /** Calco de la página con los datos de muestra ya borrados. */
   fondo: string;
   archivoOrigen: string;
+  /** Oficio con el que se montó, cuando la plantilla se hizo desde cero. */
+  oficio?: string;
 }
 
 // ============================================================
@@ -545,6 +547,7 @@ export function compilarPlantilla(
       avisos,
       confianza,
       archivoOrigen: opciones.archivoOrigen,
+      oficio: opciones.oficio,
     },
   };
 }
