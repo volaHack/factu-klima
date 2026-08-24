@@ -53,6 +53,17 @@ export interface VocabularioDocumento {
    */
   columnasOficio: readonly { clave: string; cabecera: string }[];
   /**
+   * Los datos sueltos que pide este oficio en la cabecera del documento:
+   * la matrícula de un taller, el nº de colegiado de un sanitario, el
+   * expediente de un abogado.
+   *
+   * Van con la misma clave `custom_N` y en el MISMO orden en que
+   * `facturaDesdeCero` las coloca en el papel, para que lo que se escriba
+   * en el formulario salga impreso donde toca. Los avisos legales del
+   * oficio no entran aquí: son frases que se imprimen, no huecos.
+   */
+  rotulosOficio: readonly { clave: string; etiqueta: string }[];
+  /**
    * Si en este oficio se agrupa la mercancía en bultos.
    *
    * En falso desaparecen el campo de unidades por bulto y el recuento del
@@ -74,7 +85,7 @@ export interface VocabularioDocumento {
  * concreto: dentro de «técnicos» un ingeniero factura horas y un
  * diseñador piezas.
  */
-type BaseVocabulario = Omit<VocabularioDocumento, 'cantidad' | 'columnasOficio'>;
+type BaseVocabulario = Omit<VocabularioDocumento, 'cantidad' | 'columnasOficio' | 'rotulosOficio'>;
 
 const COMERCIO: BaseVocabulario = {
   titulo: 'Productos y conceptos',
@@ -189,6 +200,16 @@ export function vocabularioDe(sector: BusinessSector | undefined): VocabularioDo
       clave: `custom_col_${i + 1}`,
       cabecera,
     })),
+    // Sólo los rótulos que piden un dato, en el mismo orden y con la misma
+    // numeración que les da `facturaDesdeCero` al montar el papel: los que
+    // acaban en dos puntos. Los avisos legales quedan fuera.
+    rotulosOficio: (oficio.pie ?? [])
+      .filter(r => r.trimEnd().endsWith(':'))
+      .slice(0, 5)
+      .map((etiqueta, i) => ({
+        clave: `custom_${i + 1}`,
+        etiqueta: etiqueta.trimEnd().replace(/:$/, ''),
+      })),
   };
 }
 

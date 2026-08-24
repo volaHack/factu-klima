@@ -665,3 +665,38 @@ describe('cada sector con lo que su factura necesita', () => {
     }
   });
 });
+
+describe('los datos del oficio salen impresos, no sólo el rótulo', () => {
+  it('la matrícula que se teclea en el formulario aparece en el PDF del taller', async () => {
+    // Antes el papel decía «Matrícula:» y detrás no había nada: el rótulo
+    // se imprimía suelto y el formulario ni preguntaba por el dato.
+    const analisis = facturaDesdeCero('taller', AJUSTES);
+    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    const datos = construirDatos(
+      { tipo: 'factura', documento: facturaDeMuestra() },
+      AJUSTES,
+      { datosExtras: { custom_1: '1234-KLM' } },
+    );
+    const texto = await textoDelPdf(await generarPdf(plantilla, datos));
+    expect(texto).toContain('Matrícula');
+    expect(texto.replace(/\s/g, '')).toContain('1234-KLM');
+  }, 60_000);
+
+  it('el aviso de exención se imprime tal cual, sin casilla al lado', () => {
+    const campos = facturaDesdeCero('fisio', AJUSTES).campos;
+    const aviso = campos.find(c => (c.texto ?? '').includes('exento de IVA'));
+    expect(aviso).toBeDefined();
+    // Ocupa el ancho entero: no se ha partido para hacerle sitio a un dato.
+    expect(aviso!.ancho).toBeGreaterThan(60);
+  });
+
+  it('ningún oficio pide más claves libres de las que existen', () => {
+    for (const oficio of OFICIOS) {
+      const claves = facturaDesdeCero(oficio.id, AJUSTES).campos
+        .map(c => c.clave).filter((c): c is string => !!c && c.startsWith('custom_'));
+      for (const clave of claves) {
+        expect(['custom_1','custom_2','custom_3','custom_4','custom_5'], oficio.nombre).toContain(clave);
+      }
+    }
+  });
+});

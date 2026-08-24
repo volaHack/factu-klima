@@ -2360,6 +2360,17 @@ a:hover { color: var(--accent-300); }
     min-height: 44px;
   }
   .mobile-nav { display: block; }
+
+  /* La barra flotante, fuera del teléfono.
+     ------------------------------------------------------------------
+     Se quedaba clavada abajo ENCIMA de la barra de navegación móvil:
+     dos barras fijas apiladas comiéndose el pie de todas las pantallas,
+     y con el botón de «Factura» repetido en las dos. En el móvil manda
+     .mobile-nav, que es la que lleva las secciones y el botón de nueva
+     factura; en escritorio sigue la flotante, que ahí no estorba a
+     nada. */
+  .management-bar-container { display: none !important; }
+
   /* El nombre completo junto al avatar es lo que empujaba el menú de
      cuenta (y con él la campana) fuera del viewport en móvil — el
      desplegable ya muestra el nombre completo al abrirse, así que no

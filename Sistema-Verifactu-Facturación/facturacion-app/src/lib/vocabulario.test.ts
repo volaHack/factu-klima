@@ -130,3 +130,48 @@ describe('el formulario y la factura impresa dicen lo mismo', () => {
     expect(vocabularioDe('ingenieria').columnasOficio).toHaveLength(0);
   });
 });
+
+describe('los datos que pide cada oficio en la cabecera', () => {
+  it('un taller pregunta por la matrícula, no por «Dato libre 2»', () => {
+    const etiquetas = vocabularioDe('taller').rotulosOficio.map(r => r.etiqueta);
+    expect(etiquetas).toContain('Matrícula');
+    expect(etiquetas).toContain('Kilometraje');
+  });
+
+  it('cada oficio pide lo suyo', () => {
+    const de = (s: string) => vocabularioDe(s as never).rotulosOficio.map(r => r.etiqueta);
+    expect(de('medicina')).toContain('Nº de colegiado');
+    expect(de('abogacia')).toContain('Nº de expediente');
+    expect(de('reformas')).toContain('Nº de obra');
+    expect(de('transporte')).toContain('Origen');
+    expect(de('inmobiliaria')).toContain('Inmueble');
+  });
+
+  it('los avisos legales no se convierten en una casilla que rellenar', () => {
+    // «Servicio exento de IVA (art. 20.Uno.3º LIVA)» es una frase que se
+    // imprime, no un hueco. Si entrara aquí, el formulario pediría al
+    // fisioterapeuta que «rellenara» su exención.
+    for (const sector of ['fisioterapia', 'psicologia', 'medicina', 'dental']) {
+      const etiquetas = vocabularioDe(sector as never).rotulosOficio.map(r => r.etiqueta);
+      expect(etiquetas.some(e => e.includes('exento')), sector).toBe(false);
+    }
+  });
+
+  it('las claves no pasan de las cinco que existen en el contrato', () => {
+    // Sólo hay custom_1..custom_5. Un custom_6 lo rechazaría el revisor
+    // al guardar la plantilla.
+    for (const sector of BUSINESS_SECTORS) {
+      for (const r of vocabularioDe(sector.value).rotulosOficio) {
+        expect(['custom_1','custom_2','custom_3','custom_4','custom_5'], sector.value).toContain(r.clave);
+      }
+    }
+  });
+
+  it('van numeradas en orden y sin saltos', () => {
+    for (const sector of BUSINESS_SECTORS) {
+      vocabularioDe(sector.value).rotulosOficio.forEach((r, i) => {
+        expect(r.clave, sector.value).toBe(`custom_${i + 1}`);
+      });
+    }
+  });
+});

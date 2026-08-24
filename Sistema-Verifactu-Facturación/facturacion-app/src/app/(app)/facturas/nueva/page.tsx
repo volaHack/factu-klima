@@ -369,6 +369,7 @@ export default function NuevaFacturaPage() {
           claves={clavesManuales}
           datosExtras={datosExtras}
           onChange={(clave, valor) => setDatosExtras(prev => ({ ...prev, [clave]: valor }))}
+          sector={ajustes?.sector}
         />
 
         {/* Las líneas van por el componente compartido y no por una copia

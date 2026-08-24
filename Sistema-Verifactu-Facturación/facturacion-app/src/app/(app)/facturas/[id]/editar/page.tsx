@@ -307,6 +307,7 @@ export default function EditInvoicePage() {
           claves={clavesManuales}
           datosExtras={datosExtras}
           onChange={(clave, valor) => setDatosExtras(prev => ({ ...prev, [clave]: valor }))}
+          sector={ajustes?.sector}
           style={{ marginBottom: 'var(--space-6)' }}
         />
 

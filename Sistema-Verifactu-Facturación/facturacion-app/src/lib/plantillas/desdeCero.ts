@@ -380,6 +380,17 @@ function rotuloConDato(
 const Y_TABLA = 108;
 const ALTO_FILA = 7;
 
+/**
+ * Cuántos rótulos del oficio pueden llevar casilla.
+ *
+ * El contrato sólo define cinco claves libres (`custom_1`…`custom_5`), y
+ * ningún oficio pasa de cuatro rótulos porque antes se le acaba el sitio
+ * contra la tabla. El tope está aquí para que, si algún día alguien añade
+ * un quinto, no se genere un `custom_6` que no existe y que el revisor
+ * rechazaría al guardar.
+ */
+const MAXIMO_MANUALES = 5;
+
 function tablaDelOficio(oficio: Oficio): TablaDetectada {
   // Concepto manda: es lo que el cliente lee. Las columnas del oficio van
   // entre el concepto y los importes, que son los que cierran a la derecha.
@@ -496,9 +507,28 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   campos.push(colocar({ clave: 'cliente_poblacion', x: MARGEN, y: 77.5, ancho: 88, tamano: 9 }));
 
   // --- Lo que el oficio necesita y los demás no ---
+  //
+  // Cada rótulo que PIDE un dato se lleva su casilla al lado. Antes se
+  // imprimía sólo el rótulo: la factura del taller decía «Matrícula:» y
+  // detrás no había nada ni manera de escribirlo, porque el formulario
+  // tampoco lo preguntaba. Al emparejarlo con una clave `custom_N`, la
+  // pantalla de la factura la pide sola —lee las claves manuales de la
+  // plantilla— y aquí sale impresa.
+  //
+  // Los avisos legales no llevan casilla: «Servicio exento de IVA
+  // (art. 20.Uno.3º LIVA)» es una frase que se imprime tal cual, no un
+  // hueco que rellenar. Se distinguen por los dos puntos del final, que
+  // es justo como están escritos.
   let yPie = 88;
+  let nManual = 0;
   for (const rotulo of oficio.pie ?? []) {
-    campos.push(colocar({ texto: rotulo, x: MARGEN, y: yPie, ancho: 88, tamano: 8 }));
+    if (rotulo.trimEnd().endsWith(':') && nManual < MAXIMO_MANUALES) {
+      nManual += 1;
+      campos.push(colocar({ texto: rotulo, x: MARGEN, y: yPie, ancho: 40, tamano: 8 }));
+      campos.push(colocar({ clave: `custom_${nManual}`, x: MARGEN + 41, y: yPie, ancho: 47, tamano: 8 }));
+    } else {
+      campos.push(colocar({ texto: rotulo, x: MARGEN, y: yPie, ancho: 88, tamano: 8 }));
+    }
     yPie += 4.5;
   }
 
