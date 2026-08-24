@@ -482,6 +482,27 @@ body.theme-plum {
   --shadow-lg: 0 12px 32px -4px rgba(76, 26, 40, 0.16);
   --shadow-xl: 0 24px 48px -12px rgba(76, 26, 40, 0.22);
   --shadow-glow: 0 0 20px var(--accent-glow);
+
+  /* Y AQUÍ ESTABA LA FUGA.
+     -------------------------------------------------------------------
+     Redefinir las variables no bastaba. El <body> está POR ENCIMA de este
+     envoltorio, así que su `background: var(--bg-primary)` y su
+     `color: var(--text-primary)` se resolvían con la paleta oscura de
+     `:root[data-theme="dark"]` y ni se enteraban de lo de aquí abajo. Con
+     el modo oscuro puesto, el landing salía con el fondo casi negro del
+     panel por detrás y el texto claro heredado del body.
+
+     Se cierra pintando el envoltorio: el mismo fondo que el body —los dos
+     resplandores y el blush— pero resuelto con las variables de esta
+     caja, tapando el del body, y el color de texto vuelto a resolver
+     aquí para cortar la herencia. */
+  background:
+    radial-gradient(1100px 560px at 14% -8%, var(--accent-glow), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.4), transparent 55%),
+    var(--bg-primary);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
 }
 
 /* --- Reset & Base --- */
