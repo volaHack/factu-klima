@@ -133,7 +133,10 @@ export const OFICIOS: Oficio[] = [
   // --- Jurídicos ---
   // Con retención de IRPF: un profesional que factura a empresa la practica,
   // y sin la casilla puesta el importe a cobrar sale mal.
-  { id: 'abogado', nombre: 'Abogacía', concepto: 'Actuación', unidad: 'Cantidad',
+  // Por horas: es como se minuta la mayor parte del trabajo de un despacho
+  // y lo que el cliente pide desglosado cuando discute la minuta. Quien
+  // cobre a tanto alzado pone 1 y el importe, que también encaja.
+  { id: 'abogado', nombre: 'Abogacía', concepto: 'Actuación', unidad: 'Horas',
     columnas: ['Expediente'], pie: ['Nº de expediente:', 'Retención IRPF:', 'Suplidos:'] },
   { id: 'procurador', nombre: 'Procura', concepto: 'Derechos y honorarios', unidad: 'Cantidad',
     columnas: ['Autos'], pie: ['Juzgado:', 'Nº de autos:', 'Suplidos:'] },

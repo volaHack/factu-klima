@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { vocabularioDe, conPlural } from './vocabulario';
 import { BUSINESS_SECTORS } from './constants';
+import { oficioParaSector } from './plantillas/desdeCero';
 
 describe('vocabularioDe', () => {
   it('un distribuidor cuenta bultos', () => {
@@ -70,5 +71,62 @@ describe('conPlural', () => {
   it('respeta las palabras del oficio', () => {
     expect(conPlural(1, vocabularioDe('psicologia').contenido)).toBe('1 sesión');
     expect(conPlural(3, vocabularioDe('psicologia').contenido)).toBe('3 sesiones');
+  });
+});
+
+describe('el formulario y la factura impresa dicen lo mismo', () => {
+  it('lo que se cuenta en cada línea sale del oficio, no de una tabla aparte', () => {
+    // El fallo que motivó unirlos: el oficio del perito declaraba «Horas» y
+    // su factura impresa lo decía, pero el formulario mostraba «Cantidad»
+    // porque leía una tabla propia por grupo de sector.
+    for (const sector of BUSINESS_SECTORS) {
+      expect(vocabularioDe(sector.value).cantidad, sector.value)
+        .toBe(oficioParaSector(sector.value).unidad);
+    }
+  });
+
+  it.each([
+    ['peritaje', 'Horas'],
+    ['abogacia', 'Horas'],
+    ['ingenieria', 'Horas'],
+    ['informatica', 'Horas'],
+    ['limpieza', 'Horas'],
+    ['clases', 'Horas'],
+    ['eventos', 'Horas'],
+    ['traduccion', 'Palabras'],
+    ['psicologia', 'Sesiones'],
+    ['fisioterapia', 'Sesiones'],
+    ['estetica', 'Sesiones'],
+    ['alimentacion', 'Cajas'],
+    ['mayorista', 'Cajas'],
+    ['supermercado', 'Cantidad'],
+  ])('en %s cada línea se cuenta en «%s»', (sector, unidad) => {
+    expect(vocabularioDe(sector as never).cantidad).toBe(unidad);
+  });
+
+  it('cada oficio trae sus casillas propias de línea', () => {
+    // Un abogado necesita el expediente y un taller las horas de mano de
+    // obra; sin esto la casilla sólo aparecía si la plantilla activa ya la
+    // llevaba, o sea nunca hasta diseñar el impreso.
+    expect(vocabularioDe('abogacia').columnasOficio.map(c => c.cabecera)).toContain('Expediente');
+    expect(vocabularioDe('taller').columnasOficio.map(c => c.cabecera)).toContain('Horas');
+    expect(vocabularioDe('dental').columnasOficio.map(c => c.cabecera)).toContain('Pieza');
+    expect(vocabularioDe('psicologia').columnasOficio.map(c => c.cabecera)).toContain('Modalidad');
+    expect(vocabularioDe('reformas').columnasOficio.map(c => c.cabecera)).toContain('m²');
+  });
+
+  it('las casillas usan la clave que la plantilla les da al imprimirlas', () => {
+    // Si aquí se numeraran distinto que en `tablaDelOficio`, lo escrito en
+    // «Expediente» saldría impreso bajo otra columna.
+    for (const sector of BUSINESS_SECTORS) {
+      vocabularioDe(sector.value).columnasOficio.forEach((col, i) => {
+        expect(col.clave, sector.value).toBe(`custom_col_${i + 1}`);
+      });
+    }
+  });
+
+  it('quien no tiene casillas propias no arrastra ninguna vacía', () => {
+    expect(vocabularioDe('asesoria').columnasOficio).toHaveLength(0);
+    expect(vocabularioDe('ingenieria').columnasOficio).toHaveLength(0);
   });
 });

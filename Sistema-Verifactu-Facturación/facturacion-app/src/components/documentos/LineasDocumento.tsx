@@ -49,6 +49,18 @@ export default function LineasDocumento({
   // un psicólogo, sesiones. Ver src/lib/vocabulario.ts.
   const voz = vocabularioDe(settings.sector);
 
+  /**
+   * Las casillas propias de cada línea.
+   *
+   * Manda la plantilla activa cuando trae columnas: son las que se
+   * imprimen, y pedir unas y sacar otras dejaría huecos en el PDF. Cuando
+   * no trae ninguna —una plantilla lisa, o ninguna todavía— se usan las
+   * del oficio, para que un abogado tenga su expediente y un taller sus
+   * horas de mano de obra desde el primer documento, sin esperar a
+   * diseñar el impreso.
+   */
+  const columnas = columnasCustom.length > 0 ? columnasCustom : voz.columnasOficio;
+
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     const updated = [...lineItems];
@@ -161,9 +173,9 @@ export default function LineasDocumento({
                   className="lineas-doc-producto"
                   value={line.productId}
                   onChange={e => handleProductSelect(index, e.target.value)}
-                  aria-label={`Producto de la línea ${index + 1}`}
+                  aria-label={`${voz.linea} de la línea ${index + 1}`}
                 >
-                  <option value="">Seleccionar producto</option>
+                  <option value="">Seleccionar {voz.linea}</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>
                       [{p.ref}] {p.name} {p.supplierRef ? `(Ref Prov: ${p.supplierRef})` : ''}
@@ -276,7 +288,7 @@ export default function LineasDocumento({
                   </>
                 )}
 
-                {columnasCustom.map(col => (
+                {columnas.map(col => (
                   <label className="lineas-doc-campo lineas-doc-campo--ancho" key={col.clave}>
                     <span>{col.cabecera}</span>
                     <input

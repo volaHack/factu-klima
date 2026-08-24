@@ -27,14 +27,31 @@
 
 import type { BusinessSector, GrupoSector } from './types';
 import { BUSINESS_SECTORS } from './constants';
+import { oficioParaSector } from './plantillas/desdeCero';
 
 export interface VocabularioDocumento {
   /** Título del bloque de líneas en el formulario. */
   titulo: string;
   /** Lo que se añade al pulsar el botón: «Añadir producto», «Añadir sesión». */
   linea: string;
-  /** Cabecera de la columna de cantidad. */
+  /**
+   * Qué se cuenta en cada línea: horas, sesiones, cajas, palabras.
+   *
+   * Sale del oficio de la plantilla y no de una tabla propia. Tenerlo dos
+   * veces es lo que provocaba que un perito viera «Cantidad» en el
+   * formulario mientras su propia factura impresa decía «Horas»: los dos
+   * sitios acertaban por separado y se contradecían.
+   */
   cantidad: string;
+  /**
+   * Las casillas que este oficio necesita en cada línea y los demás no: el
+   * expediente de un abogado, las horas de mano de obra de un taller, la
+   * pieza de un dentista.
+   *
+   * Se guardan en `customCols`, las mismas que usa la plantilla, así que
+   * salen impresas en cuanto el diseño de la factura es el del oficio.
+   */
+  columnasOficio: readonly { clave: string; cabecera: string }[];
   /**
    * Si en este oficio se agrupa la mercancía en bultos.
    *
@@ -51,69 +68,71 @@ export interface VocabularioDocumento {
   contenido: readonly [string, string];
 }
 
-const COMERCIO: VocabularioDocumento = {
+/**
+ * Lo que decide la familia del sector. `cantidad` y `columnasOficio` no
+ * están aquí porque los pone el oficio de la plantilla, que es más
+ * concreto: dentro de «técnicos» un ingeniero factura horas y un
+ * diseñador piezas.
+ */
+type BaseVocabulario = Omit<VocabularioDocumento, 'cantidad' | 'columnasOficio'>;
+
+const COMERCIO: BaseVocabulario = {
   titulo: 'Productos y conceptos',
   linea: 'producto',
-  cantidad: 'Cantidad',
   usaBultos: true,
   bultoCorto: 'U/C',
   bulto: ['bulto', 'bultos'],
   contenido: ['unidad', 'unidades'],
 };
 
-const SALUD: VocabularioDocumento = {
+const SALUD: BaseVocabulario = {
   titulo: 'Servicios prestados',
   linea: 'servicio',
-  cantidad: 'Sesiones',
   usaBultos: false,
   bultoCorto: '',
   bulto: ['sesión', 'sesiones'],
   contenido: ['sesión', 'sesiones'],
 };
 
-const PROFESIONAL: VocabularioDocumento = {
+const PROFESIONAL: BaseVocabulario = {
   titulo: 'Conceptos de la minuta',
   linea: 'concepto',
-  cantidad: 'Cantidad',
   usaBultos: false,
   bultoCorto: '',
   bulto: ['concepto', 'conceptos'],
   contenido: ['concepto', 'conceptos'],
 };
 
-const TECNICO: VocabularioDocumento = {
+const TECNICO: BaseVocabulario = {
   titulo: 'Trabajos y servicios',
   linea: 'trabajo',
-  cantidad: 'Cantidad',
   usaBultos: false,
   bultoCorto: '',
   bulto: ['trabajo', 'trabajos'],
   contenido: ['trabajo', 'trabajos'],
 };
 
-const OFICIO: VocabularioDocumento = {
+const OFICIO: BaseVocabulario = {
   // Un electricista factura mano de obra Y material en la misma hoja, así
   // que el título tiene que dar cabida a las dos cosas.
   titulo: 'Mano de obra y materiales',
   linea: 'partida',
-  cantidad: 'Cantidad',
   usaBultos: false,
   bultoCorto: '',
   bulto: ['partida', 'partidas'],
   contenido: ['partida', 'partidas'],
 };
 
-const PUBLICO: VocabularioDocumento = {
+const PUBLICO: BaseVocabulario = {
   titulo: 'Servicios y productos',
   linea: 'servicio',
-  cantidad: 'Cantidad',
   usaBultos: false,
   bultoCorto: '',
   bulto: ['servicio', 'servicios'],
   contenido: ['servicio', 'servicios'],
 };
 
-const POR_GRUPO: Record<GrupoSector, VocabularioDocumento> = {
+const POR_GRUPO: Record<GrupoSector, BaseVocabulario> = {
   comercio: COMERCIO,
   salud: SALUD,
   profesional: PROFESIONAL,
@@ -130,7 +149,7 @@ const POR_GRUPO: Record<GrupoSector, VocabularioDocumento> = {
  * descarga del camión y lo que se firma en el albarán—, así que hereda el
  * recuento del comercio aunque su grupo no lo use.
  */
-const POR_SECTOR: Partial<Record<BusinessSector, VocabularioDocumento>> = {
+const POR_SECTOR: Partial<Record<BusinessSector, BaseVocabulario>> = {
   transporte: {
     ...COMERCIO,
     titulo: 'Portes y bultos',
@@ -144,14 +163,33 @@ function grupoDe(sector: BusinessSector | undefined): GrupoSector {
 }
 
 /**
- * Las palabras que le tocan a este negocio.
+ * Las palabras y las casillas que le tocan a este negocio.
+ *
+ * La familia del sector pone el tono general —títulos, si agrupa en
+ * bultos— y el oficio de la plantilla pone lo concreto: qué se cuenta en
+ * cada línea y qué casillas hacen falta. Van juntos a propósito, porque
+ * teniéndolo cada uno por su lado un perito veía «Cantidad» en el
+ * formulario mientras su factura impresa decía «Horas».
  *
  * Sin sector configurado devuelve las del comercio, que es de donde viene
  * el programa y con lo que ya facturaba todo el mundo hasta ahora: quien
  * no haya elegido oficio no ve cambiar nada de un día para otro.
  */
 export function vocabularioDe(sector: BusinessSector | undefined): VocabularioDocumento {
-  return (sector && POR_SECTOR[sector]) ?? POR_GRUPO[grupoDe(sector)];
+  const base = (sector && POR_SECTOR[sector]) ?? POR_GRUPO[grupoDe(sector)];
+  const oficio = oficioParaSector(sector);
+
+  return {
+    ...base,
+    cantidad: oficio.unidad,
+    // Las columnas de texto libre del oficio, con la misma clave
+    // (`custom_col_N`) que les da la plantilla al montarse: lo que se
+    // escriba aquí sale impreso sin traducir nada por el camino.
+    columnasOficio: (oficio.columnas ?? []).map((cabecera, i) => ({
+      clave: `custom_col_${i + 1}`,
+      cabecera,
+    })),
+  };
 }
 
 /** «1 bulto» / «12 bultos», con la palabra que le toca a este oficio. */
