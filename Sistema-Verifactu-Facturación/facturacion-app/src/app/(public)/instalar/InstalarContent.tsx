@@ -258,13 +258,20 @@ export default function InstalarContent() {
       <Reveal className="instalar-offline">
         <div className="instalar-offline-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* La foto es cuadrada (1024×1024). Estaba declarada 1200×800:
+              el navegador reservaba un hueco 3:2, llegaba la imagen y
+              empujaba todo lo de abajo. Y las dos «variantes» eran el
+              MISMO archivo, un JPEG de 735 KB con la extensión cambiada a
+              .webp, servido tal cual al móvil en la página que existe
+              justo para instalarla en el móvil. Ahora son WebP de verdad:
+              48 KB en teléfono, 90 KB en pantalla grande. */}
           <img
-            src="/img/movil-1200.webp"
-            srcSet="/img/movil-720.webp 720w, /img/movil-1200.webp 1200w"
+            src="/img/movil-1024.webp"
+            srcSet="/img/movil-640.webp 640w, /img/movil-1024.webp 1024w"
             sizes="(max-width: 900px) 100vw, 46vw"
             alt="Unas manos sostienen un móvil sobre un mostrador rojo gastado, junto a un rollo de papel térmico y un ticket recién arrancado."
-            width={1200}
-            height={800}
+            width={1024}
+            height={1024}
             loading="lazy"
             decoding="async"
           />

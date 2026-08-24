@@ -6009,6 +6009,19 @@ a.stats-item:focus-visible {
   .site-nav-link--login { display: none; }
   .site-nav-actions { margin-left: auto; }
   .site-nav-burger { display: inline-flex; }
+
+  /* Los dos únicos botones que quedan en el teléfono, a la medida del
+     dedo. El hamburguesa medía 34 px y la llamada a la acción 37: por
+     debajo de los 44 que recomienda la guía de accesibilidad, y se
+     nota al pulsarlos en marcha con una mano. Es el mismo criterio de
+     44 px que el resto de la app ya aplica en sus botones. */
+  .site-nav-burger {
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+  .site-nav-cta { min-height: 44px; display: inline-flex; align-items: center; }
 }
 /* En el móvil se cae el nombre de la marca, no la llamada a la acción:
    es el único botón de conversión que queda a la vista. */
