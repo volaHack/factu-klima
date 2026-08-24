@@ -9,13 +9,12 @@ import {
   FileText, Users, BarChart3, Plug,
   ArrowRight, Star,
   Clock, Headphones, Download, Globe, Loader2, Store,
-  Flame, Gift, Heart, Copy, Tag,
+  Heart, Copy,
 } from 'lucide-react';
 import { PLANS, type PlanId } from '@/lib/plans';
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import TipModal from '@/components/ui/TipModal';
-import { GravityStarsBackground } from '@/components/animate-ui/components/backgrounds/gravity-stars';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -51,7 +50,7 @@ const PLAN_DISPLAY: Record<PlanId, {
       { text: 'Portal de aprobación de pedidos', included: false },
       { text: 'Terminal Punto de Venta (TPV)', included: false },
       { text: 'Informes fiscales avanzados', included: false },
-      { text: 'Integración Verifactu AEAT', included: false },
+      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
       { text: 'Soporte prioritario', included: false },
     ],
     cta: 'Empezar con Básico',
@@ -72,7 +71,7 @@ const PLAN_DISPLAY: Record<PlanId, {
       { text: 'Portal de aprobación de pedidos', included: true, highlight: true },
       { text: 'Terminal Punto de Venta (TPV)', included: true, highlight: true },
       { text: 'Informes fiscales avanzados', included: true, highlight: true },
-      { text: 'Integración Verifactu AEAT', included: false },
+      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
       { text: 'Soporte prioritario', included: false },
     ],
     cta: 'Empezar con Pro',
@@ -93,7 +92,12 @@ const PLAN_DISPLAY: Record<PlanId, {
       { text: 'Portal de aprobación de pedidos', included: true },
       { text: 'Terminal Punto de Venta (TPV)', included: true },
       { text: 'Informes fiscales avanzados', included: true },
-      { text: 'Integración Verifactu AEAT', included: true, highlight: true },
+      // No se cobra por lo que todavía no se puede hacer. El envío
+      // telemático a la AEAT no está conectado en ningún plan —lo que sí
+      // funciona, y en todos, es el sellado encadenado y el QR de cotejo
+      // impreso en la factura—, así que aquí figura como pendiente igual
+      // que en los otros dos y no como el motivo para pagar el plan caro.
+      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
       { text: 'Soporte prioritario 24/7', included: true, highlight: true },
     ],
     cta: 'Empezar Sin Límites',
@@ -104,6 +108,9 @@ const PLAN_DISPLAY: Record<PlanId, {
 };
 
 const plans = PLANS.map(plan => ({ ...plan, ...PLAN_DISPLAY[plan.id] }));
+
+/** El cupón de lanzamiento, en un sitio: se enseña y se copia el mismo. */
+const CUPON = 'LANZAMIENTO50';
 
 const highlights = [
   { icon: ShieldCheck, title: 'Sellado SHA-256', desc: 'Cada factura lleva huella criptográfica inalterable' },
@@ -130,8 +137,8 @@ const faqs = [
     a: 'No. Puedes cancelar en cualquier momento. Si eliges facturación anual, pagas por adelantado el año pero si cancelas te devolvemos la parte no usada, prorrateada por meses completos.',
   },
   {
-    q: '¿Qué incluye la integración Verifactu?',
-    a: 'La conexión directa con la AEAT para el sistema Verifactu de facturación electrónica. Envío automático de facturas, verificación de estado, y cumplimiento normativo completo con la regulación española.',
+    q: '¿Qué parte de Veri*Factu está funcionando hoy?',
+    a: 'El registro de facturación, que es la parte que te toca a ti y va en todos los planes: cada factura que emites se sella con una huella SHA-256 encadenada a la anterior, queda inalterable, y sale impresa con su código QR de cotejo. Eso es lo que exige el RD 1007/2023 del sistema informático de facturación, y está en marcha desde el primer día. Lo que todavía NO está conectado es el envío telemático de esas facturas a la AEAT: lo estamos preparando y no se cobra en ningún plan. Mientras tanto puedes generar y descargar el XML de cada factura desde la pantalla de Verifactu.',
   },
 ];
 
@@ -142,13 +149,12 @@ export default function PricingContent() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [apiError, setApiError] = useState('');
-  const [couponApplied, setCouponApplied] = useState(true);
   const [couponCopied, setCouponCopied] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const wasCancelled = searchParams.get('cancelled') === 'true';
 
   const copyCoupon = () => {
-    navigator.clipboard.writeText('LANZAMIENTO50');
+    navigator.clipboard.writeText(CUPON);
     setCouponCopied(true);
     setTimeout(() => setCouponCopied(false), 2500);
   };
@@ -187,25 +193,13 @@ export default function PricingContent() {
 
   return (
     <div className="pricing-page site-page" style={{ position: 'relative', minHeight: '100vh' }}>
-      {/* Fondo Estelar de Gravedad Activo en TODA la página */}
-      <GravityStarsBackground
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: 'none',
-          width: '100vw',
-          height: '100vh',
-        }}
-        starsCount={130}
-        starsSize={2.8}
-        starsOpacity={0.88}
-        glowIntensity={22}
-        movementSpeed={0.38}
-        mouseInfluence={190}
-        mouseGravity="attract"
-        gravityStrength={90}
-      />
+      {/* Aquí había un campo de estrellas animado que seguía al ratón, con
+          130 partículas redibujándose en cada fotograma. Fuera: un
+          simulador espacial en la página donde alguien decide si te confía
+          la facturación de su negocio no dice nada de este producto —dice
+          «esto lo ha montado una IA»— y era el único coste de rendimiento
+          serio de la única página que tiene que ir fina. Lo que queda
+          —los halos de vino y la retícula— ya es de la casa. */}
 
       {/* Background effects */}
       <div className="pricing-bg-glow pricing-bg-glow--1" />
@@ -228,59 +222,32 @@ export default function PricingContent() {
             sellado criptográfico y cobros online incluidos en todos los planes.
           </p>
 
-          {/* Promo Banner por Tiempo Limitado (1 Mes de Oferta) */}
-          <div
-            style={{
-              maxWidth: 760,
-              margin: 'var(--space-5) auto var(--space-2)',
-              padding: '22px 24px',
-              background: 'linear-gradient(135deg, rgba(30, 14, 28, 0.75) 0%, rgba(12, 5, 14, 0.85) 100%)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(201, 64, 122, 0.45)',
-              borderRadius: 'var(--radius-xl)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              textAlign: 'left',
-              boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 30px rgba(201, 64, 122, 0.2)',
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ background: '#e11d48', color: '#fff', padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Flame size={12} fill="#fff" /> Oferta Limitada (1 Mes)
-                </span>
-                <strong style={{ fontSize: '0.95rem', color: '#ffffff' }}>
-                  50% Dto. Primer Mes o 3 Meses Gratis Anual
-                </strong>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)' }}>
-                <Clock size={13} />
-                <span>Oferta de lanzamiento activa</span>
-              </div>
+          {/* La oferta de lanzamiento, en una línea.
+
+              Antes eran sesenta líneas de estilos a mano —cristal
+              esmerilado, rosa chicle #ff69b4 que no es de esta paleta, y
+              cinco elementos gritando lo mismo: una llama, un reloj, el
+              descuento en negrita, un párrafo explicándolo y el cupón—.
+              Cinco maneras de decir «date prisa» no convencen más que una:
+              convencen menos, porque quien lee eso ya sabe que le están
+              vendiendo. El descuento es real y se dice una vez. */}
+          <div className="pricing-promo">
+            <div className="pricing-promo-oferta">
+              <span className="pricing-promo-pct">−50%</span>
+              <span className="pricing-promo-texto">
+                el primer mes, o <strong>tres meses gratis</strong> en el plan anual.
+              </span>
             </div>
-            
-            <p style={{ margin: 0, fontSize: '0.86rem', color: 'rgba(255, 255, 255, 0.8)', lineHeight: 1.45 }}>
-              Usa el cupón oficial de lanzamiento en la pasarela Stripe para activar el precio promocional en cualquiera de los planes.
-            </p>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}>Código cupón:</span>
-              <code style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '4px 12px', borderRadius: 'var(--radius-md)', border: '1px dashed #c9407a', fontWeight: 800, color: '#ff69b4', fontSize: '0.92rem', letterSpacing: '0.05em' }}>
-                LANZAMIENTO50
-              </code>
-              <button
-                onClick={copyCoupon}
-                className="btn btn-ghost btn-xs"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#ffffff' }}
-              >
-                {couponCopied ? <Check size={13} style={{ color: '#10b981' }} /> : <Copy size={13} />}
-                <span>{couponCopied ? '¡Copiado!' : 'Copiar cupón'}</span>
-              </button>
-            </div>
+            <button
+              onClick={copyCoupon}
+              className="pricing-promo-cupon"
+              title="Copiar el cupón para pegarlo en la pasarela de pago"
+            >
+              <span className="pricing-promo-codigo">{CUPON}</span>
+              {couponCopied
+                ? <><Check size={13} /> Copiado</>
+                : <><Copy size={13} /> Copiar</>}
+            </button>
           </div>
 
           {wasCancelled && (
@@ -332,10 +299,12 @@ export default function PricingContent() {
                 </div>
               )}
 
+              {/* Sin el cuadradito de icono redondeado encima del nombre:
+                  un rayo, una corona y un cohete no dicen nada de tres
+                  planes que se diferencian en cuántas facturas caben, y
+                  son el sello de cualquier plantilla. Lo que distingue a
+                  un plan del siguiente es el número: que lo lleve él. */}
               <div className="pricing-card-header">
-                <div className="pricing-card-icon" style={{ background: plan.iconBg }}>
-                  <plan.icon size={22} style={{ color: plan.iconColor }} />
-                </div>
                 <h3 className="pricing-card-name">{plan.name}</h3>
                 <p className="pricing-card-subtitle">{plan.subtitle}</p>
               </div>
@@ -566,10 +535,10 @@ export default function PricingContent() {
                 <td><Check size={14} /></td>
               </tr>
               <tr>
-                <td>Integración Verifactu AEAT</td>
+                <td>Envío telemático a la AEAT <span className="pricing-table-pendiente">en preparación</span></td>
                 <td><X size={14} className="pricing-feature-x" /></td>
                 <td className="pricing-table-popular"><X size={14} className="pricing-feature-x" /></td>
-                <td><Check size={14} /></td>
+                <td><X size={14} className="pricing-feature-x" /></td>
               </tr>
               <tr>
                 <td>Soporte prioritario</td>

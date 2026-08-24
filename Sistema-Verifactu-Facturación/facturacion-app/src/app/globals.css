@@ -4555,6 +4555,84 @@ a.stats-item:focus-visible {
 .pricing-hero-accent {
   font-size: 1.05em;
 }
+
+/* --- La oferta de lanzamiento ---
+   Una línea, no un cartel. El descuento lo lleva la cifra —grande, en el
+   vino de la casa— y el cupón va a su derecha como lo que es: un dato que
+   hay que copiar, no un segundo reclamo. Sobre el fondo de la página, sin
+   cristal esmerilado ni sombras de neón. */
+.pricing-promo {
+  max-width: 560px;
+  margin: 0 auto var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  text-align: left;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-500);
+  border-radius: var(--radius-lg);
+}
+.pricing-promo-oferta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pricing-promo-pct {
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--accent-500);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pricing-promo-texto {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.pricing-promo-texto strong { color: var(--text-primary); font-weight: 600; }
+
+.pricing-promo-cupon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-color-hover);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.pricing-promo-cupon:hover {
+  border-color: var(--accent-500);
+  color: var(--text-primary);
+}
+.pricing-promo-codigo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+/* «en preparación» en la tabla comparativa: dice la verdad sin gritarla. */
+.pricing-table-pendiente {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
 .pricing-hero-subtitle {
   font-size: var(--text-lg);
   color: var(--text-secondary);
