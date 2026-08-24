@@ -20,6 +20,7 @@ import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstSt
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
 import AvisosTendencias from '@/components/dashboard/AvisosTendencias';
 import { evaluatePlanLimit } from '@/lib/planLimits';
+import { fichasVisibles, type FichaId } from '@/lib/panel';
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -196,6 +197,21 @@ export default function DashboardPage() {
 
   const sectorInfo = BUSINESS_SECTORS.find(s => s.value === settings?.sector) || BUSINESS_SECTORS[0];
 
+  /**
+   * Qué fichas ha dejado puestas esta empresa.
+   *
+   * El editor de Ajustes lleva desde el principio dejando elegir, ordenar
+   * y apagar fichas… y guardándolo sin que nadie lo leyera: el panel se
+   * pintaba siempre igual pusieras lo que pusieras. Ahora manda lo
+   * guardado, y `fichasVisibles` descarta además las que dependen de un
+   * módulo apagado, para que nadie coloque la ficha de existencias y se
+   * encuentre un cero.
+   */
+  const puestas = new Set<FichaId>(
+    fichasVisibles(settings?.panel, settings?.modulos).map(f => f.id),
+  );
+  const enPanel = (id: FichaId) => puestas.has(id);
+
   if (!mounted) {
     return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
   }
@@ -304,12 +320,15 @@ export default function DashboardPage() {
       })()}
 
       {/* Verifactu Status */}
-      <div style={{ marginBottom: 'var(--space-5)' }}>
-        <VerifactuStatus />
-      </div>
+      {enPanel('estado_verifactu') && (
+        <div style={{ marginBottom: 'var(--space-5)' }}>
+          <VerifactuStatus />
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="kpi-grid">
+        {enPanel('facturado_mes') && (
         <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
@@ -325,7 +344,9 @@ export default function DashboardPage() {
           <div className="kpi-card-value">{formatCurrency(kpis.monthTotal)}</div>
           <div className="kpi-card-label">Ventas este mes ({kpis.monthInvoices} facturas)</div>
         </div>
+        )}
 
+        {enPanel('pendiente_cobro') && (
         <div className="kpi-card" style={{ '--kpi-color': 'var(--color-warning)', '--kpi-bg': 'var(--color-warning-bg)' } as React.CSSProperties}>
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
@@ -335,7 +356,9 @@ export default function DashboardPage() {
           <div className="kpi-card-value">{formatCurrency(kpis.pendingTotal)}</div>
           <div className="kpi-card-label">{kpis.pendingCount} facturas pendientes de cobro</div>
         </div>
+        )}
 
+        {enPanel('vencido') && (
         <div className="kpi-card" style={{ '--kpi-color': 'var(--color-danger)', '--kpi-bg': 'var(--color-danger-bg)' } as React.CSSProperties}>
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
@@ -345,7 +368,10 @@ export default function DashboardPage() {
           <div className="kpi-card-value">{formatCurrency(kpis.overdueTotal)}</div>
           <div className="kpi-card-label">{kpis.overdueCount} facturas vencidas</div>
         </div>
+        )}
 
+        {/* Estos dos no son fichas del catálogo: son el recuento de la
+            cartera y del catálogo, y van siempre. */}
         <div className="kpi-card" style={{ '--kpi-color': 'var(--color-info)', '--kpi-bg': 'var(--color-info-bg)' } as React.CSSProperties}>
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
@@ -369,6 +395,7 @@ export default function DashboardPage() {
 
       {/* Charts Row */}
       <div className="charts-grid">
+        {enPanel('evolucion_ventas') && (
         <ChartCard
           title="Evolución de facturación"
           subtitle="Importe emitido en los últimos 12 meses"
@@ -385,7 +412,10 @@ export default function DashboardPage() {
         >
           <RevenueColumns data={monthlyData} />
         </ChartCard>
+        )}
 
+        {/* El reparto por estado va siempre: es el resumen de en qué punto
+            de cobro está todo, y no tiene ficha propia en el catálogo. */}
         <ChartCard
           title="Reparto por estado"
           subtitle={`${invoices.length} ${invoices.length === 1 ? 'factura' : 'facturas'} en total`}
@@ -415,6 +445,7 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="charts-grid" style={{ marginTop: 'var(--space-4)' }}>
         {/* Recent Invoices */}
+        {enPanel('ultimas_facturas') && (
         <div className="chart-card">
           <div className="chart-header">
             <h3 className="chart-title">Últimas facturas</h3>
@@ -475,10 +506,12 @@ export default function DashboardPage() {
             </table>
           </div>
         </div>
+        )}
 
         {/* Top Clients + Top Products Stack */}
         <div className="stack">
           {/* Top Clients */}
+          {enPanel('clientes_top') && (
           <ChartCard
             title="Clientes por facturación"
             subtitle="Los cinco clientes con mayor volumen (€)"
@@ -495,8 +528,10 @@ export default function DashboardPage() {
           >
             <RankedBars data={topClients} />
           </ChartCard>
+          )}
 
           {/* Top Products */}
+          {enPanel('productos_top') && (
           <ChartCard
             title="Productos más vendidos"
             subtitle="Por importe acumulado facturado (€)"
@@ -513,9 +548,10 @@ export default function DashboardPage() {
           >
             <RankedBars data={topProducts} />
           </ChartCard>
+          )}
 
           {/* Upcoming Due */}
-          {upcomingDue.length > 0 && (
+          {enPanel('proximos_vencimientos') && upcomingDue.length > 0 && (
             <div className="chart-card">
               <div className="chart-header">
                 <div className="chart-heading">

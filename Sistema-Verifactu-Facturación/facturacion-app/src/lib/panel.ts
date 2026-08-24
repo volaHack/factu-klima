@@ -127,12 +127,24 @@ export const FICHAS: Ficha[] = [
  * —cuánto he hecho, cuánto me deben, qué está vencido— y que cada uno añada
  * lo suyo.
  */
+/**
+ * Con lo que arranca un panel que nadie ha tocado.
+ *
+ * Es exactamente lo que el panel enseñaba antes de que esta lista mandara
+ * de verdad: quien ya estaba usando el programa no se encuentra el panel
+ * medio vacío el día que esto se despliega, y quien entra nuevo ve lo
+ * mismo que veía todo el mundo.
+ */
 export const PANEL_POR_DEFECTO: FichaId[] = [
   'facturado_mes',
   'pendiente_cobro',
   'vencido',
+  'estado_verifactu',
   'evolucion_ventas',
   'ultimas_facturas',
+  'clientes_top',
+  'productos_top',
+  'proximos_vencimientos',
 ];
 
 /**

@@ -24,6 +24,41 @@ interface PlanFeature {
   highlight?: boolean;
 }
 
+/**
+ * LO QUE LLEVAN TODOS LOS PLANES — Y POR QUÉ SON LOS MISMOS
+ *
+ * Esta lista era distinta en cada plan: el básico salía sin TPV, sin
+ * portal de aprobación y con «informes básicos», y el caro con todo. Nada
+ * de eso era verdad. Lo ÚNICO que el programa comprueba de verdad es
+ * cuántas facturas llevas emitidas este mes (`evaluatePlanLimit`); el
+ * TPV, el portal y los informes no miran el plan por ningún lado, así que
+ * quien pagaba el básico los tenía igual. La página prometía una cosa y
+ * el programa hacía otra, y en una página de precios eso no es un
+ * descuadre: es cobrar por algo que no se entrega.
+ *
+ * Se arregla diciendo la verdad, que además es un modelo limpio: se paga
+ * por VOLUMEN de facturas y por SOPORTE. El volumen sale de
+ * `plan.invoiceLimit`, que sí está aplicado en el código y en la base de
+ * datos; el soporte es un compromiso humano, no una función.
+ *
+ * Si algún día se quiere que el TPV sea de pago, primero se limita en el
+ * código y después se cambia esta lista, en ese orden.
+ */
+const FUNCIONES_COMUNES: PlanFeature[] = [
+  { text: 'Huella SHA-256 encadenada en cada factura', included: true },
+  { text: 'QR de cotejo impreso en la factura', included: true },
+  { text: 'Diseño de factura para tu oficio', included: true },
+  { text: 'Exportar PDF', included: true },
+  { text: 'Panel de control e informes fiscales', included: true },
+  { text: 'Modo offline (PWA)', included: true },
+  { text: 'Cobro online con Stripe', included: true },
+  { text: 'Portal de aprobación de pedidos', included: true },
+  { text: 'Terminal Punto de Venta (TPV)', included: true },
+  // No se cobra por lo que todavía no se puede hacer: el envío telemático
+  // a la AEAT no está conectado en ningún plan.
+  { text: 'Envío telemático a la AEAT (en preparación)', included: false },
+];
+
 // Metadatos solo de presentación — el precio, el id y el límite de
 // facturas vienen SIEMPRE de src/lib/plans.ts (fuente única de verdad,
 // también usada por el trigger de base de datos vía
@@ -42,16 +77,8 @@ const PLAN_DISPLAY: Record<PlanId, {
     subtitle: 'Para autónomos y negocios pequeños',
     icon: Zap,
     features: [
-      { text: 'Huella SHA-256 en cada factura', included: true },
-      { text: 'Exportar PDF', included: true },
-      { text: 'Panel de control', included: true },
-      { text: 'Modo offline (PWA)', included: true },
-      { text: 'Cobro online con Stripe', included: true },
-      { text: 'Portal de aprobación de pedidos', included: false },
-      { text: 'Terminal Punto de Venta (TPV)', included: false },
-      { text: 'Informes fiscales avanzados', included: false },
-      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
-      { text: 'Soporte prioritario', included: false },
+      ...FUNCIONES_COMUNES,
+      { text: 'Soporte por email', included: true },
     ],
     cta: 'Empezar con Básico',
     gradient: 'linear-gradient(135deg, #4a3a40 0%, #2c2226 100%)',
@@ -63,16 +90,8 @@ const PLAN_DISPLAY: Record<PlanId, {
     icon: Crown,
     popular: true,
     features: [
-      { text: 'Huella SHA-256 en cada factura', included: true },
-      { text: 'Exportar PDF', included: true },
-      { text: 'Panel de control avanzado', included: true },
-      { text: 'Modo offline (PWA)', included: true },
-      { text: 'Cobro online con Stripe', included: true },
-      { text: 'Portal de aprobación de pedidos', included: true, highlight: true },
-      { text: 'Terminal Punto de Venta (TPV)', included: true, highlight: true },
-      { text: 'Informes fiscales avanzados', included: true, highlight: true },
-      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
-      { text: 'Soporte prioritario', included: false },
+      ...FUNCIONES_COMUNES,
+      { text: 'Soporte prioritario por email', included: true, highlight: true },
     ],
     cta: 'Empezar con Pro',
     gradient: 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)',
@@ -83,22 +102,8 @@ const PLAN_DISPLAY: Record<PlanId, {
     subtitle: 'Para empresas que necesitan todo',
     icon: Rocket,
     features: [
-      { text: 'Facturas ilimitadas', included: true, highlight: true },
-      { text: 'Huella SHA-256 en cada factura', included: true },
-      { text: 'Exportar PDF', included: true },
-      { text: 'Panel de control avanzado', included: true },
-      { text: 'Modo offline (PWA)', included: true },
-      { text: 'Cobro online con Stripe', included: true },
-      { text: 'Portal de aprobación de pedidos', included: true },
-      { text: 'Terminal Punto de Venta (TPV)', included: true },
-      { text: 'Informes fiscales avanzados', included: true },
-      // No se cobra por lo que todavía no se puede hacer. El envío
-      // telemático a la AEAT no está conectado en ningún plan —lo que sí
-      // funciona, y en todos, es el sellado encadenado y el QR de cotejo
-      // impreso en la factura—, así que aquí figura como pendiente igual
-      // que en los otros dos y no como el motivo para pagar el plan caro.
-      { text: 'Envío telemático a la AEAT (en preparación)', included: false },
-      { text: 'Soporte prioritario 24/7', included: true, highlight: true },
+      ...FUNCIONES_COMUNES,
+      { text: 'Soporte 24/7 por teléfono y email', included: true, highlight: true },
     ],
     cta: 'Empezar Sin Límites',
     gradient: 'linear-gradient(135deg, #6b2436 0%, #3a1420 100%)',
@@ -464,31 +469,29 @@ export default function PricingContent() {
                 <td className="pricing-table-popular"><Check size={14} /></td>
                 <td><Check size={14} /></td>
               </tr>
-              <tr>
-                <td>Facturación recurrente</td>
-                <td><X size={14} className="pricing-feature-x" /></td>
-                <td className="pricing-table-popular"><Check size={14} /></td>
-                <td><Check size={14} /></td>
-              </tr>
+              {/* Se cae «Facturación recurrente»: no existe en el
+                  programa, ni en el plan caro ni en ninguno. */}
 
               <tr className="pricing-table-section">
                 <td colSpan={4}><Users size={14} /> Gestión</td>
               </tr>
+              {/* Los clientes y los productos NO están limitados por plan
+                  en ningún sitio del código. Aquí ponía 50 / 250 / ∞. */}
               <tr>
-                <td>Clientes</td>
-                <td>50</td>
-                <td className="pricing-table-popular">250</td>
-                <td><span className="pricing-table-unlimited">∞ Ilimitados</span></td>
+                <td>Clientes y proveedores</td>
+                <td><span className="pricing-table-unlimited">∞</span></td>
+                <td className="pricing-table-popular"><span className="pricing-table-unlimited">∞</span></td>
+                <td><span className="pricing-table-unlimited">∞</span></td>
               </tr>
               <tr>
-                <td>Productos</td>
-                <td>100</td>
-                <td className="pricing-table-popular">500</td>
-                <td><span className="pricing-table-unlimited">∞ Ilimitados</span></td>
+                <td>Productos y servicios</td>
+                <td><span className="pricing-table-unlimited">∞</span></td>
+                <td className="pricing-table-popular"><span className="pricing-table-unlimited">∞</span></td>
+                <td><span className="pricing-table-unlimited">∞</span></td>
               </tr>
               <tr>
                 <td>Portal de aprobación</td>
-                <td><X size={14} className="pricing-feature-x" /></td>
+                <td><Check size={14} /></td>
                 <td className="pricing-table-popular"><Check size={14} /></td>
                 <td><Check size={14} /></td>
               </tr>
@@ -496,11 +499,13 @@ export default function PricingContent() {
               <tr className="pricing-table-section">
                 <td colSpan={4}><BarChart3 size={14} /> Informes y cobros</td>
               </tr>
+              {/* No hay dos paneles ni dos juegos de informes: hay uno, y
+                  es el mismo para todos. Aquí ponía «Básico / Avanzado». */}
               <tr>
                 <td>Dashboard analítico</td>
-                <td>Básico</td>
-                <td className="pricing-table-popular">Avanzado</td>
-                <td>Avanzado</td>
+                <td><Check size={14} /></td>
+                <td className="pricing-table-popular"><Check size={14} /></td>
+                <td><Check size={14} /></td>
               </tr>
               <tr>
                 <td>Cobro online Stripe</td>
@@ -510,17 +515,19 @@ export default function PricingContent() {
               </tr>
               <tr>
                 <td>Informes fiscales</td>
-                <td>Básico</td>
-                <td className="pricing-table-popular">Completo</td>
-                <td>Completo</td>
+                <td><Check size={14} /></td>
+                <td className="pricing-table-popular"><Check size={14} /></td>
+                <td><Check size={14} /></td>
               </tr>
 
               <tr className="pricing-table-section">
                 <td colSpan={4}><Store size={14} /> Terminal Punto de Venta</td>
               </tr>
+              {/* El TPV no mira el plan por ningún lado: lo enciende el
+                  sector o el interruptor de Ajustes, en los tres. */}
               <tr>
                 <td>Terminal TPV mostrador</td>
-                <td><X size={14} className="pricing-feature-x" /></td>
+                <td><Check size={14} /></td>
                 <td className="pricing-table-popular"><Check size={14} /></td>
                 <td><Check size={14} /></td>
               </tr>
@@ -540,10 +547,12 @@ export default function PricingContent() {
                 <td className="pricing-table-popular"><X size={14} className="pricing-feature-x" /></td>
                 <td><X size={14} className="pricing-feature-x" /></td>
               </tr>
+              {/* El soporte SÍ es una diferencia real entre planes: es un
+                  compromiso de personas, no una función del programa. */}
               <tr>
-                <td>Soporte prioritario</td>
-                <td><X size={14} className="pricing-feature-x" /></td>
-                <td className="pricing-table-popular">Email</td>
+                <td>Soporte</td>
+                <td>Email</td>
+                <td className="pricing-table-popular">Email prioritario</td>
                 <td>24/7 · Teléfono + email</td>
               </tr>
 
