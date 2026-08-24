@@ -74,11 +74,17 @@ export default function SiteNav() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // El panel ocupa la pantalla entera: sin esto, la página de debajo
+    // se sigue desplazando con el dedo por detrás del menú.
+    document.body.classList.add('nav-abierta');
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.classList.remove('nav-abierta');
+    };
   }, [open]);
 
   return (
-    <nav className={`site-nav ${scrolled ? 'is-scrolled' : ''}`}>
+    <nav className={`site-nav ${scrolled ? 'is-scrolled' : ''} ${open ? 'tiene-panel' : ''}`}>
       {/* El hilo de la cadena: crece con el scroll de toda la página, no
           con un `scroll` listener — es una `animation-timeline: scroll()`
           nativa. Sin ese soporte, o con `prefers-reduced-motion`, se

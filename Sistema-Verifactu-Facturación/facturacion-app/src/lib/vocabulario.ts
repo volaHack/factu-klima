@@ -29,6 +29,72 @@ import type { BusinessSector, GrupoSector } from './types';
 import { BUSINESS_SECTORS } from './constants';
 import { oficioParaSector } from './plantillas/desdeCero';
 
+/**
+ * Un motivo por el que el stock sube o baja sin pasar por una venta.
+ *
+ * `sentido` no cambia la cuenta —la diferencia sale del recuento real
+ * que teclea el usuario— pero sí ordena la lista en dos grupos, que es
+ * como se busca: primero se sabe si se está reponiendo o retirando.
+ */
+export interface MotivoStock {
+  value: string;
+  label: string;
+  sentido: 'entrada' | 'salida' | 'recuento';
+}
+
+/** Los que valen para cualquier oficio con almacén. */
+const MOTIVOS_BASE: readonly MotivoStock[] = [
+  { value: 'recuento', label: 'Recuento periódico de inventario', sentido: 'recuento' },
+  { value: 'correccion', label: 'Corrección de un error anterior', sentido: 'recuento' },
+];
+
+const MOTIVOS_COMERCIO: readonly MotivoStock[] = [
+  ...MOTIVOS_BASE,
+  { value: 'entrada_no_registrada', label: 'Entrada de mercancía no registrada', sentido: 'entrada' },
+  { value: 'devolucion_proveedor', label: 'Devuelto por el proveedor', sentido: 'entrada' },
+  { value: 'caducidad', label: 'Caducado', sentido: 'salida' },
+  { value: 'rotura', label: 'Roto o con desperfecto', sentido: 'salida' },
+  { value: 'merma', label: 'Merma o pérdida', sentido: 'salida' },
+  { value: 'robo', label: 'Robo o desaparición', sentido: 'salida' },
+  { value: 'autoconsumo', label: 'Autoconsumo o degustación', sentido: 'salida' },
+];
+
+const MOTIVOS_SALUD: readonly MotivoStock[] = [
+  ...MOTIVOS_BASE,
+  { value: 'entrada_no_registrada', label: 'Entrada de material no registrada', sentido: 'entrada' },
+  { value: 'consumo_consulta', label: 'Consumido en consulta', sentido: 'salida' },
+  { value: 'caducidad', label: 'Material caducado', sentido: 'salida' },
+  { value: 'lote_retirado', label: 'Lote retirado por el fabricante', sentido: 'salida' },
+  { value: 'rotura', label: 'Roto o contaminado', sentido: 'salida' },
+];
+
+const MOTIVOS_OFICIO: readonly MotivoStock[] = [
+  ...MOTIVOS_BASE,
+  { value: 'entrada_no_registrada', label: 'Compra de material no registrada', sentido: 'entrada' },
+  { value: 'sobrante_obra', label: 'Sobrante devuelto de la obra', sentido: 'entrada' },
+  { value: 'consumo_obra', label: 'Consumido en obra o reparación', sentido: 'salida' },
+  { value: 'defectuosa', label: 'Pieza defectuosa', sentido: 'salida' },
+  { value: 'rotura', label: 'Roto durante el trabajo', sentido: 'salida' },
+  { value: 'merma', label: 'Merma de material', sentido: 'salida' },
+];
+
+const MOTIVOS_PUBLICO: readonly MotivoStock[] = [
+  ...MOTIVOS_BASE,
+  { value: 'entrada_no_registrada', label: 'Entrada de producto no registrada', sentido: 'entrada' },
+  { value: 'consumo_servicio', label: 'Consumido en el servicio', sentido: 'salida' },
+  { value: 'caducidad', label: 'Producto caducado', sentido: 'salida' },
+  { value: 'rotura', label: 'Roto o derramado', sentido: 'salida' },
+  { value: 'muestra', label: 'Muestra o prueba a cliente', sentido: 'salida' },
+];
+
+/** Quien vende horas casi no tiene almacén: lo justo para cuadrar. */
+const MOTIVOS_SERVICIOS: readonly MotivoStock[] = [
+  ...MOTIVOS_BASE,
+  { value: 'entrada_no_registrada', label: 'Entrada no registrada', sentido: 'entrada' },
+  { value: 'consumo_interno', label: 'Consumido en el trabajo', sentido: 'salida' },
+  { value: 'rotura', label: 'Roto o inservible', sentido: 'salida' },
+];
+
 export interface VocabularioDocumento {
   /** Título del bloque de líneas en el formulario. */
   titulo: string;
@@ -64,6 +130,18 @@ export interface VocabularioDocumento {
    */
   rotulosOficio: readonly { clave: string; etiqueta: string }[];
   /**
+   * Por qué se toca el stock a mano en este oficio.
+   *
+   * Estaban escritos dentro de la pantalla de almacenes, seis iguales
+   * para todo el mundo: «Rotura», «Merma», «Caducidad»… Al de la
+   * distribuidora le sirven, pero a un taller lo que se le rompe es una
+   * pieza y lo que gasta se va a una obra, y una clínica no tiene mermas:
+   * tiene material que caduca y material que se consume en consulta.
+   * Poner el motivo de verdad es lo que hace que el histórico sirva
+   * para algo cuando alguien pregunte adónde fue el género.
+   */
+  motivosStock: readonly MotivoStock[];
+  /**
    * Si en este oficio se agrupa la mercancía en bultos.
    *
    * En falso desaparecen el campo de unidades por bulto y el recuento del
@@ -88,6 +166,7 @@ export interface VocabularioDocumento {
 type BaseVocabulario = Omit<VocabularioDocumento, 'cantidad' | 'columnasOficio' | 'rotulosOficio'>;
 
 const COMERCIO: BaseVocabulario = {
+  motivosStock: MOTIVOS_COMERCIO,
   titulo: 'Productos y conceptos',
   linea: 'producto',
   usaBultos: true,
@@ -97,6 +176,7 @@ const COMERCIO: BaseVocabulario = {
 };
 
 const SALUD: BaseVocabulario = {
+  motivosStock: MOTIVOS_SALUD,
   titulo: 'Servicios prestados',
   linea: 'servicio',
   usaBultos: false,
@@ -106,6 +186,7 @@ const SALUD: BaseVocabulario = {
 };
 
 const PROFESIONAL: BaseVocabulario = {
+  motivosStock: MOTIVOS_SERVICIOS,
   titulo: 'Conceptos de la minuta',
   linea: 'concepto',
   usaBultos: false,
@@ -115,6 +196,7 @@ const PROFESIONAL: BaseVocabulario = {
 };
 
 const TECNICO: BaseVocabulario = {
+  motivosStock: MOTIVOS_SERVICIOS,
   titulo: 'Trabajos y servicios',
   linea: 'trabajo',
   usaBultos: false,
@@ -124,6 +206,7 @@ const TECNICO: BaseVocabulario = {
 };
 
 const OFICIO: BaseVocabulario = {
+  motivosStock: MOTIVOS_OFICIO,
   // Un electricista factura mano de obra Y material en la misma hoja, así
   // que el título tiene que dar cabida a las dos cosas.
   titulo: 'Mano de obra y materiales',
@@ -135,6 +218,7 @@ const OFICIO: BaseVocabulario = {
 };
 
 const PUBLICO: BaseVocabulario = {
+  motivosStock: MOTIVOS_PUBLICO,
   titulo: 'Servicios y productos',
   linea: 'servicio',
   usaBultos: false,

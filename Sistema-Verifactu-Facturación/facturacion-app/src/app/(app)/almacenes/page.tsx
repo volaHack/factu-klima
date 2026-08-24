@@ -11,7 +11,7 @@ import TableEmpty from '@/components/ui/TableEmpty';
 import {
   getAlmacenes, saveAlmacen, deleteAlmacen, ensureDefaultAlmacen,
   getProducts, getTraspasos, saveTraspaso, getRegularizaciones,
-  saveRegularizacion,
+  saveRegularizacion, getCompanySettings,
 } from '@/lib/storage';
 import {
   Almacen, Product, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
@@ -19,6 +19,8 @@ import {
 } from '@/lib/types';
 import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import { vocabularioDe } from '@/lib/vocabulario';
+import type { BusinessSector } from '@/lib/types';
 
 type Tab = 'almacenes' | 'existencias' | 'traspasos' | 'regularizaciones';
 
@@ -31,6 +33,8 @@ export default function AlmacenesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [traspasos, setTraspasos] = useState<TraspasoAlmacen[]>([]);
   const [regularizaciones, setRegularizaciones] = useState<RegularizacionStock[]>([]);
+  /** El oficio de la empresa manda los motivos del ajuste (ver vocabulario.ts). */
+  const [sector, setSector] = useState<BusinessSector | undefined>(undefined);
 
   // Búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -72,16 +76,21 @@ export default function AlmacenesPage() {
 
   const { success, error: toastError } = useToast();
 
+  // Los motivos que se le ofrecen a ESTE oficio al tocar el stock a mano.
+  const motivosStock = vocabularioDe(sector).motivosStock;
+
   const loadData = async () => {
     setLoading(true);
     try {
       await ensureDefaultAlmacen();
-      const [allAlms, allProds, allTraspasos, allRegs] = await Promise.all([
+      const [allAlms, allProds, allTraspasos, allRegs, ajustes] = await Promise.all([
         getAlmacenes(),
         getProducts(),
         getTraspasos(),
         getRegularizaciones(),
+        getCompanySettings(),
       ]);
+      setSector(ajustes?.sector);
       setAlmacenes(allAlms);
       setProducts(allProds);
       setTraspasos(allTraspasos);
@@ -1018,6 +1027,12 @@ export default function AlmacenesPage() {
                 </div>
               </div>
 
+              {/* Los motivos los pone el oficio, no una lista fija.
+                  Estaban escritos aquí mismo, seis iguales para todos: a
+                  un taller le ofrecían «merma» y no «pieza defectuosa»
+                  ni «consumido en obra», que es lo que de verdad pasa
+                  con su material. Y van separados en reponer / retirar,
+                  que es lo primero que se sabe al abrir esto. */}
               <div className="form-group">
                 <label className="form-label">Motivo del ajuste</label>
                 <select
@@ -1025,12 +1040,20 @@ export default function AlmacenesPage() {
                   value={regForm.motivo}
                   onChange={e => setRegForm({ ...regForm, motivo: e.target.value })}
                 >
-                  <option value="Recuento periódico de inventario">Recuento periódico de inventario</option>
-                  <option value="Rotura o desperfecto">Rotura o desperfecto</option>
-                  <option value="Merma o pérdida">Merma o pérdida</option>
-                  <option value="Caducidad">Caducidad</option>
-                  <option value="Entrada no registrada">Entrada no registrada</option>
-                  <option value="Corrección de error">Corrección de error</option>
+                  {(['recuento', 'entrada', 'salida'] as const).map(sentido => {
+                    const delGrupo = motivosStock.filter(m => m.sentido === sentido);
+                    if (delGrupo.length === 0) return null;
+                    return (
+                      <optgroup
+                        key={sentido}
+                        label={sentido === 'entrada' ? 'Reponer' : sentido === 'salida' ? 'Retirar' : 'Cuadrar'}
+                      >
+                        {delGrupo.map(m => (
+                          <option key={m.value} value={m.label}>{m.label}</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
 

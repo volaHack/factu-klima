@@ -114,6 +114,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         {/* Membership Tier Badge */}
         <Link
           href="/precios"
+          className="header-plan-badge"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -131,7 +132,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           title="Ver nivel de membresía y cambiar de plan"
         >
           {!isSubActive ? <Lock size={12} /> : planId === 'sin_limite' ? <Zap size={12} /> : <Crown size={12} />}
-          <span>{isSubActive ? planName : 'Sin Suscripción'}</span>
+          <span className="header-plan-texto">{isSubActive ? planName : 'Sin Suscripción'}</span>
         </Link>
 
         {verifactuActive && (

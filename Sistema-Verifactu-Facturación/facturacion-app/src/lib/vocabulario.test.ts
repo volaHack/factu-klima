@@ -175,3 +175,61 @@ describe('los datos que pide cada oficio en la cabecera', () => {
     }
   });
 });
+
+describe('los motivos de tocar el stock a mano', () => {
+  const de = (s: string) => vocabularioDe(s as never).motivosStock;
+  const etiquetas = (s: string) => de(s).map(m => m.label);
+
+  it('un distribuidor puede marcar caducado, roto, mermado o robado', () => {
+    const e = etiquetas('alimentacion');
+    expect(e).toContain('Caducado');
+    expect(e).toContain('Roto o con desperfecto');
+    expect(e).toContain('Merma o pérdida');
+    expect(e).toContain('Robo o desaparición');
+  });
+
+  it('un taller habla de piezas y de obra, no de mermas de almacén', () => {
+    const e = etiquetas('taller');
+    expect(e).toContain('Pieza defectuosa');
+    expect(e).toContain('Consumido en obra o reparación');
+    expect(e).toContain('Sobrante devuelto de la obra');
+  });
+
+  it('una clínica consume en consulta y retira lotes', () => {
+    const e = etiquetas('medicina');
+    expect(e).toContain('Consumido en consulta');
+    expect(e).toContain('Lote retirado por el fabricante');
+    expect(e).toContain('Material caducado');
+  });
+
+  it('una peluquería gasta producto en el servicio', () => {
+    expect(etiquetas('peluqueria')).toContain('Consumido en el servicio');
+  });
+
+  it('todos pueden reponer y retirar, no sólo cuadrar', () => {
+    // Si un oficio se quedara sin motivos de entrada, no habría forma de
+    // registrar una reposición sin inventarse un «recuento».
+    for (const sector of BUSINESS_SECTORS) {
+      const ms = de(sector.value);
+      expect(ms.some(m => m.sentido === 'entrada'), sector.value).toBe(true);
+      expect(ms.some(m => m.sentido === 'salida'), sector.value).toBe(true);
+      expect(ms.some(m => m.sentido === 'recuento'), sector.value).toBe(true);
+    }
+  });
+
+  it('el recuento periódico existe en todos, que es el que viene puesto', () => {
+    // La pantalla de almacenes arranca con esa etiqueta exacta en el
+    // formulario: si algún oficio no la tuviera, abriría con un motivo
+    // que no está en su propia lista.
+    for (const sector of BUSINESS_SECTORS) {
+      expect(etiquetas(sector.value), sector.value).toContain('Recuento periódico de inventario');
+    }
+  });
+
+  it('ningún oficio repite un motivo', () => {
+    for (const sector of BUSINESS_SECTORS) {
+      const vals = de(sector.value).map(m => m.value);
+      expect(new Set(vals).size, sector.value).toBe(vals.length);
+    }
+  });
+});
