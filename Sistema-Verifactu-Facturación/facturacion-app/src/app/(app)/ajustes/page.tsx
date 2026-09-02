@@ -12,6 +12,7 @@ import SelectorSector from '@/components/ajustes/SelectorSector';
 import SelectorModulos from '@/components/ajustes/SelectorModulos';
 import EditorPanel from '@/components/ajustes/EditorPanel';
 import { useToast } from '@/hooks/useToast';
+import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
    sin que el informático tenga que tocar el código. Se guarda en
@@ -184,6 +185,36 @@ export default function AjustesPage() {
     });
   };
 
+  /**
+   * Cambiar de sector cambia también el diseño de la factura.
+   *
+   * Las casillas de cada línea las manda la plantilla activa cuando trae
+   * columnas propias —se imprimen en el PDF, así que hay que rellenarlas—.
+   * Sin esto, quien pasaba de «Distribución» a «Inmobiliaria» seguía viendo
+   * «CAJ.» en cada línea y tenía que ir a /plantillas a montarse otra.
+   *
+   * No se pierde nada: la anterior sigue guardada, sólo deja de ser la
+   * predeterminada. Y un calco del PDF real de la empresa no se toca, que
+   * ése es el membrete de verdad de quien factura.
+   */
+  const elegirSector = async (sector: BusinessSector) => {
+    updateField('sector', sector);
+    try {
+      const r = await ajustarPlantillaAlSector(sector, settings ? { ...settings, sector } : null);
+      if (r.cambiada) {
+        success(
+          `Tu factura pasa a la de ${r.oficio}`,
+          'Las líneas te piden ahora lo de tu oficio. La anterior sigue guardada en Plantillas.',
+        );
+      }
+    } catch {
+      warning(
+        'El sector se ha guardado, pero el diseño no',
+        'Puedes cambiarlo tú en Plantillas cuando quieras.',
+      );
+    }
+  };
+
   const handleSave = async () => {
     if (!settings) return;
     setSaving(true);
@@ -280,7 +311,7 @@ export default function AjustesPage() {
           <label className="form-label" style={{ marginBottom: 'var(--space-3)', display: 'block' }}>Sector de actividad</label>
           <SelectorSector
             valor={settings.sector}
-            onElegir={sector => updateField('sector', sector)}
+            onElegir={elegirSector}
           />
         </div>
 
