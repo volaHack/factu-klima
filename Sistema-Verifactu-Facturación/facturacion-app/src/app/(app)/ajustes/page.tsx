@@ -18,9 +18,11 @@ import { useToast } from '@/hooks/useToast';
    company_settings (ivaRates / igicRates). El commit limpia vacíos,
    duplicados y valores fuera de rango, y persiste en cuanto el campo se
    desenfoca o se añade/elimina un tipo. */
-function TaxRateEditor({ label, rates, onChange, onCommit, onReset }: {
+function TaxRateEditor({ label, rates, activo, onChange, onCommit, onReset }: {
   label: string;
   rates: (number | null)[];
+  /** Si es el régimen con el que se factura ahora mismo. */
+  activo: boolean;
   onChange: (next: (number | null)[]) => void;
   onCommit: (next: number[]) => void;
   onReset: () => void;
@@ -31,17 +33,23 @@ function TaxRateEditor({ label, rates, onChange, onCommit, onReset }: {
   };
 
   return (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
+    <div className={`tax-rate-caja ${activo ? 'es-activo' : ''}`}>
+      <div className="tax-rate-cabeza">
+        <span className="tax-rate-nombre">{label}</span>
+        <span className={`tax-rate-estado ${activo ? 'es-activo' : ''}`}>
+          {activo ? 'En uso' : 'En reserva'}
+        </span>
+      </div>
+
       <div className="tax-rate-editor">
         {rates.map((r, i) => (
           <div className="tax-rate-editor-item" key={`${i}-${r === null ? 'nuevo' : r}`}>
             <input
-              className="form-input"
               type="number"
               min={0}
               max={100}
-              placeholder="%"
+              placeholder="—"
+              aria-label={`Tipo de impuesto ${i + 1} en ${label}`}
               value={r === null ? '' : r}
               onChange={e => {
                 const val = e.target.value;
@@ -51,26 +59,25 @@ function TaxRateEditor({ label, rates, onChange, onCommit, onReset }: {
               onBlur={() => commit(rates)}
               onKeyDown={e => { if (e.key === 'Enter') commit(rates); }}
             />
+            <span className="tax-rate-pct">%</span>
             <button
               type="button"
-              className="btn btn-icon btn-ghost"
+              className="tax-rate-quitar"
               aria-label={`Quitar el tipo ${r === null ? 'nuevo' : r + '%'}`}
               onClick={() => commit(rates.filter((_, j) => j !== i))}
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
             </button>
           </div>
         ))}
-        <div className="tax-rate-editor-actions">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...rates, null])}>
-            <Plus size={14} /> Añadir tipo
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onReset}>
-            <RotateCcw size={14} /> Restablecer
-          </button>
-        </div>
+        <button type="button" className="tax-rate-anadir" onClick={() => onChange([...rates, null])}>
+          <Plus size={14} /> Añadir
+        </button>
       </div>
-      <span className="form-hint">Estos porcentajes aparecen al facturar, en el TPV y en los informes. Incluye el 0% si haces ventas exentas.</span>
+
+      <button type="button" className="tax-rate-restablecer" onClick={onReset}>
+        <RotateCcw size={12} /> Volver a los tipos oficiales
+      </button>
     </div>
   );
 }
@@ -539,26 +546,35 @@ export default function AjustesPage() {
             <h3 className="settings-section-title">Porcentajes de impuesto</h3>
           </div>
           <p className="settings-section-subtitle">
-            Elige los tipos de IVA e IGIC que podrás aplicar al facturar. Los del régimen
-            activo aparecen en facturas, TPV, albaranes e informes; los del otro régimen
-            quedan listos para cuando cambies el interruptor de Canarias.
+            Los que puedes elegir al hacer una factura. Sólo se ofrecen los del
+            régimen en uso; el otro se guarda para el día que cambies el
+            interruptor de Canarias.
           </p>
-          <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+
+          <div className="tax-rate-grid">
             <TaxRateEditor
-              label="Tipos de IVA (%)"
+              label="IVA · Península y Baleares"
+              activo={!settings.igicEnabled}
               rates={ivaRatesDraft}
               onChange={setIvaRatesDraft}
               onCommit={next => commitRates('ivaRates', next)}
               onReset={() => resetRates('ivaRates')}
             />
             <TaxRateEditor
-              label="Tipos de IGIC (%) — Canarias"
+              label="IGIC · Canarias"
+              activo={!!settings.igicEnabled}
               rates={igicRatesDraft}
               onChange={setIgicRatesDraft}
               onCommit={next => commitRates('igicRates', next)}
               onReset={() => resetRates('igicRates')}
             />
           </div>
+
+          <p className="form-hint" style={{ marginTop: 'var(--space-3)' }}>
+            Deja el <strong>0 %</strong> puesto si haces ventas exentas: es el
+            tipo que se elige para una factura sin impuesto, y sin él no habría
+            forma de emitirla.
+          </p>
         </div>
 
         <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
@@ -995,7 +1011,7 @@ export default function AjustesPage() {
                           {t.porcentajeDefecto > 0 ? `+${t.porcentajeDefecto}%` : `${t.porcentajeDefecto}%`}
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--color-text-muted)' }}>Precio manual por producto</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Precio manual por producto</span>
                       )}
                     </td>
                     <td>

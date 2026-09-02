@@ -320,7 +320,7 @@ export default function TesoreriaPage() {
             <ArrowDownLeft size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>PENDIENTE DE COBRO (CLIENTES)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>PENDIENTE DE COBRO (CLIENTES)</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-success)' }}>{formatCurrency(totalPendienteCobro)}</div>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function TesoreriaPage() {
             <ArrowUpRight size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>PENDIENTE DE PAGO (PROVEEDORES)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>PENDIENTE DE PAGO (PROVEEDORES)</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-danger)' }}>{formatCurrency(totalPendientePago)}</div>
           </div>
         </div>
@@ -340,14 +340,14 @@ export default function TesoreriaPage() {
             <Clock size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>FACTURAS VENCIDAS O PENDIENTES</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>FACTURAS VENCIDAS O PENDIENTES</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{vencimientos.length} facturas</div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="tabs" style={{ display: 'flex', gap: 'var(--space-2)', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-4)' }}>
+      <div className="tabs" style={{ display: 'flex', gap: 'var(--space-2)', borderBottom: '1px solid var(--border-color)', marginBottom: 'var(--space-4)' }}>
         <button
           className={`tab-btn ${activeTab === 'vencimientos' ? 'active' : ''}`}
           onClick={() => setActiveTab('vencimientos')}
@@ -355,7 +355,7 @@ export default function TesoreriaPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'vencimientos' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'vencimientos' ? 600 : 400,
-            color: activeTab === 'vencimientos' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'vencimientos' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -376,7 +376,7 @@ export default function TesoreriaPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'cobros' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'cobros' ? 600 : 400,
-            color: activeTab === 'cobros' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'cobros' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -397,7 +397,7 @@ export default function TesoreriaPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'pagos' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'pagos' ? 600 : 400,
-            color: activeTab === 'pagos' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'pagos' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -418,7 +418,7 @@ export default function TesoreriaPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'extractos' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'extractos' ? 600 : 400,
-            color: activeTab === 'extractos' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'extractos' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -438,7 +438,7 @@ export default function TesoreriaPage() {
         <div className="card">
           <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
             <div className="search-box" style={{ position: 'relative', flex: 1, minWidth: 260, maxWidth: 360 }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--color-text-muted)' }} />
+              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} />
               <input
                 type="text"
                 className="form-input"
@@ -486,14 +486,14 @@ export default function TesoreriaPage() {
                     <tr key={v.invoice.id}>
                       <td>
                         <strong>{v.invoice.number}</strong>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           {v.invoice.sentido === 'compra' ? 'Compra (Proveedor)' : 'Venta (Cliente)'}
                         </div>
                       </td>
                       <td>
                         <strong>{v.invoice.clientName}</strong>
                         {v.invoice.clientNif && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{v.invoice.clientNif}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.invoice.clientNif}</div>
                         )}
                       </td>
                       <td>{formatDate(v.invoice.issueDate)}</td>
@@ -510,7 +510,7 @@ export default function TesoreriaPage() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>{formatCurrency(v.invoice.total)}</td>
-                      <td style={{ textAlign: 'right', color: 'var(--color-text-muted)' }}>
+                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>
                         {formatCurrency(v.invoice.paidAmount || 0)}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 700, color: v.invoice.sentido === 'compra' ? 'var(--color-danger)' : 'var(--color-success)' }}>
@@ -559,7 +559,7 @@ export default function TesoreriaPage() {
                       <td>{formatDate(c.fecha)}</td>
                       <td>
                         <strong>{c.contraparteNombre}</strong>
-                        {c.contraparteNif && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{c.contraparteNif}</div>}
+                        {c.contraparteNif && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.contraparteNif}</div>}
                       </td>
                       <td><span className="badge badge-neutral">{c.paymentMethod}</span></td>
                       <td>
@@ -618,7 +618,7 @@ export default function TesoreriaPage() {
                       <td>{formatDate(c.fecha)}</td>
                       <td>
                         <strong>{c.contraparteNombre}</strong>
-                        {c.contraparteNif && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{c.contraparteNif}</div>}
+                        {c.contraparteNif && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.contraparteNif}</div>}
                       </td>
                       <td><span className="badge badge-neutral">{c.paymentMethod}</span></td>
                       <td>
@@ -705,15 +705,15 @@ export default function TesoreriaPage() {
           {/* Resumen del extracto */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div className="card" style={{ padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>TOTAL FACTURADO / DEBE</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL FACTURADO / DEBE</div>
               <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{formatCurrency(extractoData.totalDebe)}</div>
             </div>
             <div className="card" style={{ padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>TOTAL COBRADO / HABER</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL COBRADO / HABER</div>
               <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{formatCurrency(extractoData.totalHaber)}</div>
             </div>
             <div className="card" style={{ padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>SALDO VIVO PENDIENTE</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SALDO VIVO PENDIENTE</div>
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: extractoData.saldoFinal > 0 ? 'var(--color-danger)' : extractoData.saldoFinal < 0 ? 'var(--color-success)' : 'inherit' }}>
                 {formatCurrency(extractoData.saldoFinal)}
               </div>
@@ -829,7 +829,7 @@ export default function TesoreriaPage() {
                 <label className="form-label">Facturas Pendientes a Liquidar</label>
 
                 {facturasParaCobrar.length === 0 ? (
-                  <div style={{ padding: 'var(--space-3)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+                  <div style={{ padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                     No hay facturas pendientes para este {modalTipo === 'cobro' ? 'cliente' : 'proveedor'}.
                   </div>
                 ) : (
@@ -841,7 +841,7 @@ export default function TesoreriaPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          background: 'var(--color-bg-subtle)',
+                          background: 'var(--bg-tertiary)',
                           padding: 'var(--space-2) var(--space-3)',
                           borderRadius: 'var(--radius-md)',
                           gap: 'var(--space-3)'
@@ -849,13 +849,13 @@ export default function TesoreriaPage() {
                       >
                         <div style={{ flex: 2 }}>
                           <strong>{f.invoiceNumber}</strong>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             Total: {formatCurrency(f.total)} | Pendiente: {formatCurrency(f.pendiente)}
                           </div>
                         </div>
 
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Aplicar:</label>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Aplicar:</label>
                           <input
                             type="number"
                             step="0.01"
@@ -878,7 +878,7 @@ export default function TesoreriaPage() {
                 )}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-3)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
                 <span style={{ fontWeight: 600 }}>Total a {modalTipo === 'cobro' ? 'cobrar' : 'pagar'}:</span>
                 <span style={{ fontSize: '1.35rem', fontWeight: 800, color: modalTipo === 'cobro' ? 'var(--color-success)' : 'var(--color-danger)' }}>
                   {formatCurrency(totalImporteModal)}

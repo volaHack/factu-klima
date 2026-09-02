@@ -1703,10 +1703,163 @@ a:hover { color: var(--accent-300); }
 .form-hint { display: block; font-size: 11px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
 
 /* Editor de porcentajes de IVA/IGIC (Ajustes) */
+/* --- Los tipos de impuesto ---------------------------------------------
+   Antes eran dos columnas de casillas numéricas sueltas, con el mismo
+   párrafo de ayuda repetido palabra por palabra debajo de cada una, y
+   sin nada que dijera cuál de los dos regímenes es el que se está
+   usando: eso lo explicaba el texto de arriba y había que creérselo.
+
+   Ahora cada régimen es una caja con su estado —«En uso» / «En
+   reserva»—, los tipos son fichas con su símbolo de porcentaje a la
+   vista, y la ayuda se dice una vez para los dos. */
+/* --- El periodo del 349 ---
+   El trimestre estaba clavado al de hoy, y el 349 de un trimestre se
+   presenta en el mes siguiente a que acabe: quien entraba en octubre a
+   declarar el tercero veía el cuarto recién empezado y vacío. */
+.periodo-349 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.periodo-349 .form-select { width: auto; min-width: 96px; }
+.periodo-349-trimestres {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+.periodo-349-t {
+  min-width: 42px;
+  padding: 6px var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.periodo-349-t:hover { color: var(--text-primary); }
+.periodo-349-t.activo {
+  background: var(--bg-elevated);
+  color: var(--accent-500);
+  box-shadow: var(--shadow-sm);
+}
+
+.tax-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.tax-rate-caja {
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tertiary);
+}
+/* El régimen con el que se factura hoy va marcado, no sólo dicho. */
+.tax-rate-caja.es-activo {
+  border-color: var(--accent-500);
+  background: var(--bg-secondary);
+  box-shadow: inset 3px 0 0 var(--accent-500);
+}
+
+.tax-rate-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.tax-rate-nombre {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.tax-rate-estado {
+  flex-shrink: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--bg-card-hover);
+  color: var(--text-muted);
+}
+.tax-rate-estado.es-activo { background: var(--accent-glow); color: var(--accent-500); }
+
 .tax-rate-editor { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.tax-rate-editor-item { display: flex; align-items: center; gap: 4px; }
-.tax-rate-editor-item .form-input { width: 76px; text-align: right; padding-right: var(--space-2); }
-.tax-rate-editor-actions { display: flex; flex-direction: column; gap: 6px; margin-left: var(--space-1); }
+
+/* Cada tipo, una ficha: el número, su símbolo y el aspa para quitarlo.
+   El «%» dentro de la ficha ahorra tener que ponerlo en el rótulo y
+   deja claro que 21 es un porcentaje y no una cantidad. */
+.tax-rate-editor-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 var(--space-2);
+  height: 38px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+.tax-rate-editor-item:focus-within { border-color: var(--accent-500); }
+.tax-rate-editor-item input {
+  width: 42px;
+  border: none;
+  background: none;
+  text-align: right;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  padding: 0;
+}
+.tax-rate-editor-item input:focus { outline: none; }
+/* Sin las flechitas del navegador: aquí se teclea un número corto. */
+.tax-rate-editor-item input::-webkit-outer-spin-button,
+.tax-rate-editor-item input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tax-rate-editor-item input { -moz-appearance: textfield; appearance: textfield; }
+.tax-rate-pct { font-size: var(--text-sm); color: var(--text-muted); font-weight: 600; }
+.tax-rate-quitar {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  margin-left: 2px;
+  border: none; background: none; cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.tax-rate-quitar:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+
+.tax-rate-anadir {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 38px; padding: 0 var(--space-3);
+  border: 1px dashed var(--border-color-hover);
+  border-radius: var(--radius-md);
+  background: none; cursor: pointer;
+  font-size: var(--text-xs); font-weight: 600;
+  color: var(--text-secondary);
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.tax-rate-anadir:hover { border-color: var(--accent-500); color: var(--accent-500); }
+
+.tax-rate-restablecer {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: var(--space-3);
+  border: none; background: none; padding: 0; cursor: pointer;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+.tax-rate-restablecer:hover { color: var(--accent-500); }
 
 /* ============================================================
    CALLOUTS — avisos con jerarquía, no párrafos sueltos

@@ -380,7 +380,7 @@ export default function AlmacenesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="tabs" style={{ display: 'flex', gap: 'var(--space-2)', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-4)' }}>
+      <div className="tabs" style={{ display: 'flex', gap: 'var(--space-2)', borderBottom: '1px solid var(--border-color)', marginBottom: 'var(--space-4)' }}>
         <button
           className={`tab-btn ${activeTab === 'almacenes' ? 'active' : ''}`}
           onClick={() => setActiveTab('almacenes')}
@@ -388,7 +388,7 @@ export default function AlmacenesPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'almacenes' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'almacenes' ? 600 : 400,
-            color: activeTab === 'almacenes' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'almacenes' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -409,7 +409,7 @@ export default function AlmacenesPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'existencias' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'existencias' ? 600 : 400,
-            color: activeTab === 'existencias' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'existencias' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -430,7 +430,7 @@ export default function AlmacenesPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'traspasos' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'traspasos' ? 600 : 400,
-            color: activeTab === 'traspasos' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'traspasos' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -451,7 +451,7 @@ export default function AlmacenesPage() {
             padding: 'var(--space-3) var(--space-4)',
             borderBottom: activeTab === 'regularizaciones' ? '2px solid var(--color-primary)' : 'none',
             fontWeight: activeTab === 'regularizaciones' ? 600 : 400,
-            color: activeTab === 'regularizaciones' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            color: activeTab === 'regularizaciones' ? 'var(--color-primary)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -492,18 +492,18 @@ export default function AlmacenesPage() {
                     </td>
                     <td>
                       {alm.direccion ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)' }}>
                           <MapPin size={14} /> {alm.direccion}
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
                       )}
                     </td>
                     <td>
                       {alm.principal ? (
                         <span className="badge badge-success">Principal</span>
                       ) : (
-                        <span style={{ color: 'var(--color-text-muted)' }}>Secundario</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Secundario</span>
                       )}
                     </td>
                     <td>
@@ -544,7 +544,7 @@ export default function AlmacenesPage() {
         <div className="card">
           <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div className="search-box" style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--color-text-muted)' }} />
+              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} />
               <input
                 type="text"
                 className="form-input"
@@ -590,7 +590,7 @@ export default function AlmacenesPage() {
                       <td>
                         <strong>{p.name}</strong>
                         {p.supplierRef && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             Ref. Prov: {p.supplierRef}
                           </div>
                         )}
@@ -607,7 +607,7 @@ export default function AlmacenesPage() {
                         const stockEnAlm = p.stocksByAlmacen?.[alm.id] ?? 0;
                         return (
                           <td key={alm.id} style={{ textAlign: 'right' }}>
-                            <span style={{ fontWeight: stockEnAlm > 0 ? 600 : 400, color: stockEnAlm > 0 ? 'inherit' : 'var(--color-text-muted)' }}>
+                            <span style={{ fontWeight: stockEnAlm > 0 ? 600 : 400, color: stockEnAlm > 0 ? 'inherit' : 'var(--text-muted)' }}>
                               {stockEnAlm} {p.unit}
                             </span>
                           </td>
@@ -675,7 +675,7 @@ export default function AlmacenesPage() {
                         </div>
                       </td>
                       <td>
-                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                           {trp.notas || '—'}
                         </span>
                       </td>
@@ -721,7 +721,7 @@ export default function AlmacenesPage() {
                       </td>
                       <td>
                         <strong>{reg.productName}</strong>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{reg.productRef}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{reg.productRef}</div>
                       </td>
                       <td style={{ textAlign: 'right' }}>{reg.stockTeorico}</td>
                       <td style={{ textAlign: 'right', fontWeight: 600 }}>{reg.stockReal}</td>
@@ -741,7 +741,7 @@ export default function AlmacenesPage() {
                       <td>
                         <div>{reg.motivo}</div>
                         {reg.notas && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{reg.notas}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{reg.notas}</div>
                         )}
                       </td>
                     </tr>
@@ -920,7 +920,7 @@ export default function AlmacenesPage() {
                       />
                     </div>
 
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', minWidth: 90, paddingBottom: 8 }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 90, paddingBottom: 8 }}>
                       Stock disp: {stockEnOrigen}
                     </div>
 
@@ -997,9 +997,9 @@ export default function AlmacenesPage() {
                 </select>
               </div>
 
-              <div className="form-row" style={{ background: 'var(--color-bg-subtle)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+              <div className="form-row" style={{ background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Stock Teórico</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Stock Teórico</div>
                   <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{stockTeoricoReg} {selectedProdForReg?.unit}</div>
                 </div>
 
@@ -1016,7 +1016,7 @@ export default function AlmacenesPage() {
                 </div>
 
                 <div style={{ flex: 1, textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Diferencia</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Diferencia</div>
                   <div style={{
                     fontSize: '1.25rem',
                     fontWeight: 700,

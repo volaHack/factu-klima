@@ -48,18 +48,18 @@ export default function SiiPage() {
         </div>
       </div>
 
-      {/* Banner explicativo */}
-      <div className="card" style={{ background: 'var(--bg-info)', border: '1px solid var(--border-info)', padding: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-          <Info size={20} style={{ color: 'var(--text-accent)', flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <strong>¿Quién está obligado?</strong>
-            <p style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              Empresas con facturación anual superior a 6 millones de euros, las inscritas en el REDEME
-              (Registro de Devolución Mensual) y los grupos de IVA. El plazo para enviar cada factura es de
-              <strong> 4 días naturales</strong> desde la emisión.
-            </p>
-          </div>
+      {/* Mismo arreglo que en intracomunitarias: usaba tres variables que
+          no existen (`--bg-info`, `--border-info`, `--text-accent`) y el
+          recuadro salía sin fondo ni borde. */}
+      <div className="status-panel status-panel--info" style={{ marginBottom: 'var(--space-5)' }}>
+        <span className="status-panel-icon"><Info size={18} /></span>
+        <div className="status-panel-body">
+          <div className="status-panel-title">A quién le toca el SII</div>
+          <p className="status-panel-text">
+            A quien factura más de 6 millones al año, a los inscritos en el REDEME y a los
+            grupos de IVA. Si estás en alguno de esos casos, cada factura hay que remitirla
+            en <strong>4 días naturales</strong> desde que se emite.
+          </p>
         </div>
       </div>
 
@@ -96,13 +96,16 @@ export default function SiiPage() {
 
       {/* Alerta si hay facturas sin estado SII */}
       {sinEstado.length > 0 && (
-        <div className="card" style={{ background: 'var(--bg-warning)', border: '1px solid var(--border-warning)', padding: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <AlertTriangle size={18} style={{ color: 'var(--color-warning)' }} />
-            <span style={{ fontSize: 'var(--text-sm)' }}>
-              <strong>{sinEstado.length} factura{sinEstado.length !== 1 ? 's' : ''}</strong> emitida{sinEstado.length !== 1 ? 's' : ''} sin estado SII.
-              Deben marcarse como pendientes y enviarse.
-            </span>
+        <div className="status-panel status-panel--warning" style={{ marginBottom: 'var(--space-5)' }}>
+          <span className="status-panel-icon"><AlertTriangle size={18} /></span>
+          <div className="status-panel-body">
+            <div className="status-panel-title">
+              {sinEstado.length} factura{sinEstado.length !== 1 ? 's' : ''} sin estado en el libro
+            </div>
+            <p className="status-panel-text">
+              Están emitidas pero todavía no constan como pendientes de remitir. Cuentan para
+              el plazo de cuatro días igual que las demás.
+            </p>
           </div>
         </div>
       )}

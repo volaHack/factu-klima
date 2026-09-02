@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  esOperacionIntracomunitaria, tipoOperacion349, generarDatos349,
+  esOperacionIntracomunitaria, tipoOperacion349, generarDatos349, esDelPeriodo,
   generarFichero349, validarVatNumber, calcularResumenIntracomunitarias,
 } from './intracomunitarias';
 import type { Invoice, Client, CompanySettings, UnitOfMeasure } from './types';
@@ -253,5 +253,57 @@ describe('calcularResumenIntracomunitarias', () => {
     const sinVat: Invoice = { ...baseInvoice, clientVatNumber: undefined };
     const resumen = calcularResumenIntracomunitarias([sinVat]);
     expect(resumen.facturasIncompletas).toBe(1);
+  });
+});
+
+describe('el 349 sólo lleva las operaciones de SU trimestre', () => {
+  // El fallo: `generarDatos349` recibía el ejercicio y el trimestre, los
+  // estampaba en la cabecera del fichero y sumaba TODAS las facturas que
+  // le llegaran. El 349 del tercer trimestre salía con las operaciones
+  // del año entero dentro y con la etiqueta del tercero: una declaración
+  // mal presentada, no un descuadre de pantalla.
+  const enFecha = (id: string, issueDate: string): Invoice => ({
+    ...baseInvoice, id, number: `F-${id}`, issueDate,
+  });
+
+  it('deja fuera lo de otro trimestre del mismo año', () => {
+    const t3 = enFecha('a', '2026-08-01');   // agosto → 3T
+    const t1 = enFecha('b', '2026-02-14');   // febrero → 1T
+    const datos = generarDatos349([t3, t1], 2026, '3T');
+    expect(datos.totalBaseImponible).toBe(t3.subtotal);
+  });
+
+  it('deja fuera lo del mismo trimestre de otro año', () => {
+    const esteAnio = enFecha('a', '2026-08-01');
+    const anioPasado = enFecha('b', '2025-08-01');
+    const datos = generarDatos349([esteAnio, anioPasado], 2026, '3T');
+    expect(datos.totalBaseImponible).toBe(esteAnio.subtotal);
+  });
+
+  it('cada trimestre recoge sus tres meses, y los bordes caen donde toca', () => {
+    expect(esDelPeriodo('2026-01-01', 2026, '1T')).toBe(true);
+    expect(esDelPeriodo('2026-03-31', 2026, '1T')).toBe(true);
+    expect(esDelPeriodo('2026-04-01', 2026, '1T')).toBe(false);
+    expect(esDelPeriodo('2026-04-01', 2026, '2T')).toBe(true);
+    expect(esDelPeriodo('2026-12-31', 2026, '4T')).toBe(true);
+    expect(esDelPeriodo('2026-09-30', 2026, '3T')).toBe(true);
+    expect(esDelPeriodo('2026-10-01', 2026, '3T')).toBe(false);
+  });
+
+  it('también entiende el periodo mensual de quien está en el SII', () => {
+    expect(esDelPeriodo('2026-08-15', 2026, '08')).toBe(true);
+    expect(esDelPeriodo('2026-07-15', 2026, '08')).toBe(false);
+  });
+
+  it('con un periodo que no se sabe leer, no recorta el ejercicio', () => {
+    // Prudencia: mejor enseñar el año entero que esconder operaciones
+    // por no haber entendido la etiqueta.
+    expect(esDelPeriodo('2026-05-05', 2026, 'lo-que-sea')).toBe(true);
+    expect(esDelPeriodo('2025-05-05', 2026, 'lo-que-sea')).toBe(false);
+  });
+
+  it('una fecha ilegible no se cuela en la declaración', () => {
+    expect(esDelPeriodo('', 2026, '3T')).toBe(false);
+    expect(esDelPeriodo('no-es-fecha', 2026, '3T')).toBe(false);
   });
 });

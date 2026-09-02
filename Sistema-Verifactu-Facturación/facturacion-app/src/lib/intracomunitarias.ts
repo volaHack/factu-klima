@@ -122,12 +122,47 @@ export function tipoOperacion349(invoice: Invoice): ClaveOperacion349 | null {
  * Las operaciones se agrupan por operador (VAT Number + clave de
  * operación), sumando las bases imponibles de todas sus facturas.
  */
+/**
+ * ¿Cae esta factura dentro del ejercicio y el periodo que se declara?
+ *
+ * `periodo` viene como '1T'…'4T' cuando se presenta por trimestres, o
+ * como '01'…'12' cuando se presenta mensualmente (el caso de quien está
+ * en el SII). Lo que no encaje en ninguno de los dos formatos no se
+ * filtra por mes: se deja pasar todo el ejercicio, que es la respuesta
+ * prudente ante un periodo que no se sabe leer.
+ */
+export function esDelPeriodo(issueDate: string, ejercicio: number, periodo: string): boolean {
+  const fecha = new Date(issueDate);
+  if (Number.isNaN(fecha.getTime())) return false;
+  if (fecha.getFullYear() !== ejercicio) return false;
+
+  const mes = fecha.getMonth() + 1;
+
+  const trimestre = /^([1-4])T$/i.exec(periodo.trim());
+  if (trimestre) {
+    const n = Number(trimestre[1]);
+    return mes > (n - 1) * 3 && mes <= n * 3;
+  }
+
+  const mensual = /^(0?[1-9]|1[0-2])$/.exec(periodo.trim());
+  if (mensual) return mes === Number(mensual[1]);
+
+  return true;
+}
+
 export function generarDatos349(
   invoices: Invoice[],
   ejercicio: number,
   periodo: string,
 ): Datos349 {
-  // Solo facturas intracomunitarias emitidas/selladas
+  // Solo facturas intracomunitarias emitidas/selladas Y DEL PERIODO.
+  //
+  // El filtro por fecha faltaba: esta función recibía el ejercicio y el
+  // trimestre, los estampaba en la cabecera del fichero… y sumaba TODAS
+  // las facturas que le llegaran, fueran del trimestre que fueran. El
+  // 349 del tercer trimestre salía con las operaciones de todo el año
+  // dentro y con la etiqueta del tercero. Eso no es un descuadre de
+  // pantalla: es una declaración mal presentada.
   const intracom = invoices.filter(inv =>
     inv.esIntracomunitaria &&
     inv.tipo !== 'presupuesto' &&
@@ -135,7 +170,8 @@ export function generarDatos349(
     inv.tipo !== 'albaran' &&
     inv.status !== 'borrador' &&
     inv.status !== 'anulada' &&
-    inv.clientVatNumber
+    inv.clientVatNumber &&
+    esDelPeriodo(inv.issueDate, ejercicio, periodo)
   );
 
   // Agrupar por operador + clave

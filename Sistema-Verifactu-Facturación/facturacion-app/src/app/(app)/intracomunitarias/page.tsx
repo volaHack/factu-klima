@@ -29,15 +29,24 @@ export default function IntracomunitariasPage() {
 
   const resumen = useMemo(() => calcularResumenIntracomunitarias(invoices), [invoices]);
 
-  const ahora = new Date();
-  const trimestre = Math.ceil((ahora.getMonth() + 1) / 3);
-  const periodoLabel = `${trimestre}T ${ahora.getFullYear()}`;
+  /**
+   * El trimestre que se está mirando, no forzosamente el de hoy.
+   *
+   * El 349 de un trimestre se presenta en el mes siguiente a que
+   * termine: el del 3T, en octubre. Con el periodo clavado al día de
+   * hoy, quien entraba a presentarlo veía el 4T recién empezado y vacío,
+   * sin ninguna forma de llegar al trimestre que de verdad tenía que
+   * declarar. Arranca en el trimestre en curso y se puede retroceder.
+   */
+  const hoy = new Date();
+  const [ejercicio, setEjercicio] = useState(hoy.getFullYear());
+  const [trimestre, setTrimestre] = useState(Math.ceil((hoy.getMonth() + 1) / 3));
+  const periodoLabel = `${trimestre}T ${ejercicio}`;
 
-  const datos349 = useMemo(() => {
-    const intracom = invoices.filter(i => i.esIntracomunitaria);
-    return generarDatos349(intracom, ahora.getFullYear(), `${trimestre}T`);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoices]);
+  const datos349 = useMemo(
+    () => generarDatos349(invoices, ejercicio, `${trimestre}T`),
+    [invoices, ejercicio, trimestre],
+  );
 
   const descargar349 = () => {
     if (!settings) return;
@@ -60,25 +69,54 @@ export default function IntracomunitariasPage() {
           <h1 className="page-title"><Globe size={22} style={{ marginRight: 8 }} />Operaciones intracomunitarias</h1>
           <p className="page-subtitle">Ventas y compras con otros países de la UE — Modelo 349</p>
         </div>
-        {datos349.totalOperaciones > 0 && (
-          <button className="btn btn-primary" onClick={descargar349}>
-            <Download size={16} /> Descargar fichero 349
-          </button>
-        )}
+        <div className="periodo-349">
+          <select
+            className="form-select"
+            value={ejercicio}
+            onChange={e => setEjercicio(Number(e.target.value))}
+            aria-label="Ejercicio a declarar"
+          >
+            {[hoy.getFullYear(), hoy.getFullYear() - 1, hoy.getFullYear() - 2].map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          <div className="periodo-349-trimestres" role="group" aria-label="Trimestre a declarar">
+            {[1, 2, 3, 4].map(t => (
+              <button
+                key={t}
+                type="button"
+                className={`periodo-349-t ${trimestre === t ? 'activo' : ''}`}
+                aria-pressed={trimestre === t}
+                onClick={() => setTrimestre(t)}
+              >
+                {t}T
+              </button>
+            ))}
+          </div>
+          {datos349.totalOperaciones > 0 && (
+            <button className="btn btn-primary" onClick={descargar349}>
+              <Download size={16} /> Descargar 349
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Banner explicativo */}
-      <div className="card" style={{ background: 'var(--bg-info)', border: '1px solid var(--border-info)', padding: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-          <Info size={20} style={{ color: 'var(--text-accent)', flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <strong>¿Quién está obligado?</strong>
-            <p style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              Cualquier empresa o autónomo que realice operaciones con empresas de otros países de la Unión Europea.
-              Se presenta el <strong>Modelo 349</strong> trimestralmente (o mensualmente si el volumen supera 50.000 €).
-              Las entregas intracomunitarias de bienes están <strong>exentas de IVA</strong> (inversión del sujeto pasivo).
-            </p>
-          </div>
+      {/* Este aviso salía SIN FONDO NI BORDE: usaba `var(--bg-info)`,
+          `var(--border-info)` y `var(--text-accent)`, tres variables que
+          no existen en la hoja de estilos. Un `var()` sin definir y sin
+          respaldo anula la propiedad entera, así que quedaba un párrafo
+          suelto donde tenía que haber un recuadro. Ahora usa
+          `.status-panel`, que es la pieza que el resto de la app ya
+          emplea para esto. */}
+      <div className="status-panel status-panel--info" style={{ marginBottom: 'var(--space-5)' }}>
+        <span className="status-panel-icon"><Info size={18} /></span>
+        <div className="status-panel-body">
+          <div className="status-panel-title">Cuándo hay que presentar el 349</div>
+          <p className="status-panel-text">
+            Si vendes o compras a empresas de otros países de la Unión Europea. Se presenta
+            cada trimestre —o cada mes si pasas de 50.000 € — y las entregas de bienes van
+            <strong> sin IVA</strong>: lo liquida el cliente en su país (inversión del sujeto pasivo).
+          </p>
         </div>
       </div>
 
@@ -108,13 +146,18 @@ export default function IntracomunitariasPage() {
 
       {/* Alerta si hay facturas incompletas */}
       {resumen.facturasIncompletas > 0 && (
-        <div className="card" style={{ background: 'var(--bg-warning)', border: '1px solid var(--border-warning)', padding: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <AlertTriangle size={18} style={{ color: 'var(--color-warning)' }} />
-            <span style={{ fontSize: 'var(--text-sm)' }}>
-              <strong>{resumen.facturasIncompletas} factura{resumen.facturasIncompletas !== 1 ? 's' : ''}</strong> intracomunitaria{resumen.facturasIncompletas !== 1 ? 's' : ''} sin
-              NIF-IVA (VAT Number). No se pueden incluir en el Modelo 349 hasta que se complete el dato en la ficha del cliente.
-            </span>
+        <div className="status-panel status-panel--warning" style={{ marginBottom: 'var(--space-5)' }}>
+          <span className="status-panel-icon"><AlertTriangle size={18} /></span>
+          <div className="status-panel-body">
+            <div className="status-panel-title">
+              {resumen.facturasIncompletas} factura{resumen.facturasIncompletas !== 1 ? 's' : ''} se
+              {resumen.facturasIncompletas !== 1 ? ' quedan' : ' queda'} fuera del 349
+            </div>
+            <p className="status-panel-text">
+              {resumen.facturasIncompletas !== 1 ? 'Les' : 'Le'} falta el NIF-IVA del cliente, que es
+              lo que identifica al operador en el modelo. Añádelo en su ficha y
+              {resumen.facturasIncompletas !== 1 ? ' entrarán' : ' entrará'} solo.
+            </p>
           </div>
         </div>
       )}

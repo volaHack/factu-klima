@@ -112,7 +112,7 @@ function DocumentosContent() {
       <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: '1 1 240px', position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
               className="form-input"
@@ -227,11 +227,11 @@ function DocumentosContent() {
                       <td>{formatDate(doc.issueDate)}</td>
                       <td>
                         <div>{doc.clientName || 'Sin cliente'}</div>
-                        {doc.clientNif && <small style={{ color: 'var(--color-text-muted)' }}>{doc.clientNif}</small>}
+                        {doc.clientNif && <small style={{ color: 'var(--text-muted)' }}>{doc.clientNif}</small>}
                       </td>
                       <td>
                         {doc.documentoOrigenNumber ? (
-                          <small style={{ color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <small style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <ArrowRight size={12} /> {doc.documentoOrigenNumber}
                           </small>
                         ) : '—'}

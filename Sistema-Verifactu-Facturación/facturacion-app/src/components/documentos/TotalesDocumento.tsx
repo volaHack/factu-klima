@@ -64,7 +64,7 @@ export default function TotalesDocumento({
           </span>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Dto. Comercial (%)</label>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dto. Comercial (%)</label>
               <input
                 type="number"
                 min={0}
@@ -78,7 +78,7 @@ export default function TotalesDocumento({
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Pronto Pago (%)</label>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pronto Pago (%)</label>
               <input
                 type="number"
                 min={0}
@@ -92,7 +92,7 @@ export default function TotalesDocumento({
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Dto. Especial (%)</label>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dto. Especial (%)</label>
               <input
                 type="number"
                 min={0}

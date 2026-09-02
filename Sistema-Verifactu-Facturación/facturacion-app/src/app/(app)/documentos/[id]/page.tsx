@@ -59,7 +59,7 @@ export default function DocumentoDetallePage() {
       <div className="page-container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
           <h2>Documento no encontrado</h2>
-          <p style={{ color: 'var(--color-text-muted)', margin: 'var(--space-4) 0' }}>
+          <p style={{ color: 'var(--text-muted)', margin: 'var(--space-4) 0' }}>
             El documento solicitado no existe o ha sido eliminado.
           </p>
           <Link href="/documentos" className="btn btn-primary">
@@ -299,7 +299,7 @@ export default function DocumentoDetallePage() {
 
       {/* Origen encadenado */}
       {documento.documentoOrigenNumber && (
-        <div className="card" style={{ marginBottom: 'var(--space-4)', backgroundColor: 'var(--color-bg-subtle)' }}>
+        <div className="card" style={{ marginBottom: 'var(--space-4)', backgroundColor: 'var(--bg-tertiary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <FileText size={16} color="var(--color-primary)" />
             <span>Documento de origen: <strong>{documento.documentoOrigenNumber}</strong></span>
@@ -334,7 +334,7 @@ export default function DocumentoDetallePage() {
             {documento.notes && (
               <div style={{ marginTop: 'var(--space-2)' }}>
                 <strong>Observaciones:</strong>
-                <p style={{ color: 'var(--color-text-muted)', margin: 0 }}>{documento.notes}</p>
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>{documento.notes}</p>
               </div>
             )}
           </div>
@@ -343,7 +343,7 @@ export default function DocumentoDetallePage() {
 
       {/* Tabla de Líneas */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--space-4)' }}>
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
+        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
           <h3 className="card-title" style={{ margin: 0 }}>{voz.titulo}</h3>
         </div>
         <div className="table-responsive">
@@ -363,14 +363,14 @@ export default function DocumentoDetallePage() {
             <tbody>
               {documento.lineItems.map(li => (
                 <tr key={li.id}>
-                  <td style={{ color: 'var(--color-text-muted)' }}>{li.productRef || '—'}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{li.productRef || '—'}</td>
                   <td style={{ fontWeight: 500 }}>{li.productName}</td>
                   <td style={{ textAlign: 'right' }}>{li.quantity} {li.unit || ''}</td>
                   {muestraUnidades && (
                     <td style={{ textAlign: 'right' }}>
                       {li.unitsPerPackage && li.unitsPerPackage > 0
-                        ? <><strong>{li.quantity * li.unitsPerPackage}</strong> <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>({li.unitsPerPackage}/{li.unit})</span></>
-                        : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                        ? <><strong>{li.quantity * li.unitsPerPackage}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({li.unitsPerPackage}/{li.unit})</span></>
+                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                   )}
                   <td style={{ textAlign: 'right' }}>{formatCurrency(li.unitPrice)}</td>
@@ -383,7 +383,7 @@ export default function DocumentoDetallePage() {
           </table>
         </div>
         {muestraUnidades && (
-          <p style={{ padding: '0 var(--space-4) var(--space-4)', margin: 0, fontSize: '12px', color: 'var(--color-text-muted)', textAlign: 'right' }}>
+          <p style={{ padding: '0 var(--space-4) var(--space-4)', margin: 0, fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>
             Total: {conPlural(documento.lineItems.reduce((s, l) => s + l.quantity, 0), voz.bulto)}
             {' · '}
             <strong>{unidadesTotales(documento.lineItems)}</strong> {voz.contenido[1]}
@@ -422,9 +422,9 @@ export default function DocumentoDetallePage() {
 
             {(tipo === 'factura' || tipo === 'rectificativa') && (
               <>
-                <div className="invoice-totals-row" style={{ borderTop: '1px dashed var(--color-border)', marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)' }}>
-                  <span className="label" style={{ color: 'var(--color-text-muted)' }}>Cobrado / Pagado</span>
-                  <span className="value" style={{ color: 'var(--color-text-muted)' }}>
+                <div className="invoice-totals-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)' }}>
+                  <span className="label" style={{ color: 'var(--text-muted)' }}>Cobrado / Pagado</span>
+                  <span className="value" style={{ color: 'var(--text-muted)' }}>
                     {formatCurrency(documento.paidAmount || 0)}
                   </span>
                 </div>

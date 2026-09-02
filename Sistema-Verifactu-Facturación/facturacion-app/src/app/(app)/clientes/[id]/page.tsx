@@ -140,7 +140,7 @@ export default function ClientDetailPage() {
               {/* Filtro entre fechas */}
               <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Desde:</label>
+                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Desde:</label>
                   <input
                     type="date"
                     className="form-input"
@@ -150,7 +150,7 @@ export default function ClientDetailPage() {
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Hasta:</label>
+                  <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Hasta:</label>
                   <input
                     type="date"
                     className="form-input"
