@@ -5734,8 +5734,14 @@ a.stats-item:focus-visible {
 .tpv-ticket-footer { text-align: center; font-size: 10px; color: var(--text-muted); line-height: 1.5; }
 .tpv-ticket-actions { grid-template-columns: 1fr 1fr; }
 
+/* Al imprimir un ticket sale el ticket y nada más. El «apaga todo y
+   enciende sólo esto» tiene que quedarse en la pantalla del TPV: sin el
+   :has(), `body *` se aplicaba en TODO el sitio y dejaba en blanco el
+   papel de facturas, albaranes, listados e instalar, que no están en la
+   lista de excepciones. Va con :where() para que no sume especificidad
+   y la regla de abajo siga pudiendo devolver la visibilidad al ticket. */
 @media print {
-  body * { visibility: hidden; }
+  body:where(:has(.tpv-ticket-print-area)) * { visibility: hidden; }
   .tpv-ticket-print-area, .tpv-ticket-print-area * { visibility: visible; }
   .tpv-ticket-print-area { position: fixed; top: 0; left: 0; margin: 0; }
   .tpv-ticket { width: 80mm; box-shadow: none; border-radius: 0; }
@@ -9343,6 +9349,10 @@ body.nav-abierta { overflow: hidden; }
    hoja, así que en papel sobra: lo que se archiva es la relación. */
 @media print {
   .listado-filtros { display: none !important; }
+  /* El titular de la pantalla («Relaciones» y el subtítulo que habla de
+     exportar) es rótulo de la aplicación, no de la relación: la hoja ya
+     dice de qué es en su propia cabecera. */
+  body:has(.listado-hoja) .page-header { display: none !important; }
   .listado-hoja { border: none; padding: 0; background: white; }
   .listado-tabla { font-size: 10px; }
   .listado-tabla thead { display: table-header-group; }
