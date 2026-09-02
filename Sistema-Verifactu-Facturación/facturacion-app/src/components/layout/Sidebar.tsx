@@ -8,7 +8,7 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe,
+  Send, Globe, ListOrdered,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -82,6 +82,7 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
 
 const controlItems = [
   { href: '/informes', label: 'Informes y fiscal', icon: BarChart3 },
+  { href: '/listados', label: 'Listados', icon: ListOrdered },
   { href: '/plantillas', label: 'Diseño de facturas', icon: LayoutTemplate },
   { href: '/integridad', label: 'Integridad', icon: ShieldCheck },
   { href: '/verifactu', label: 'Verifactu', icon: Plug },

@@ -9227,3 +9227,124 @@ body.nav-abierta { overflow: hidden; }
 
 .doc-retencion-resumen span { color: var(--text-muted); }
 .doc-retencion-resumen strong { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   LISTADOS — la relación de lo que hay, en una hoja
+   ============================================================
+   Dos piezas: el panel de acotado, que es interfaz, y la hoja, que es
+   papel. La hoja se compone con la misma cuadrícula fina que se espera
+   de una relación de gestión —números a la derecha, monoespaciada la
+   columna del número, una raya por fila y el total cerrando— y es lo
+   ÚNICO que sale por la impresora. */
+
+.listado-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.listado-rangos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-4);
+}
+.listado-rango { display: flex; flex-direction: column; gap: 6px; }
+.listado-rango-titulo {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.listado-rango-campos { display: flex; align-items: center; gap: var(--space-2); }
+.listado-rango-campos .form-input { min-width: 0; }
+.listado-rango-guion { color: var(--text-muted); flex-shrink: 0; }
+
+.listado-pie-filtros {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.listado-pendientes { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.listado-pendientes span { display: flex; flex-direction: column; font-size: var(--text-sm); color: var(--text-primary); }
+.listado-pendientes em { font-style: normal; font-size: var(--text-2xs); color: var(--text-muted); }
+.listado-cuenta {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--text-xs); color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- La hoja --- */
+.listado-hoja {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+.listado-hoja-cabeza {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+.listado-hoja-cabeza h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.listado-hoja-cabeza p { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-muted); }
+.listado-hoja-acotado { display: grid; gap: 2px; margin: 0; font-size: var(--text-2xs); text-align: right; }
+.listado-hoja-acotado > div { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.listado-hoja-acotado dt { color: var(--text-muted); }
+.listado-hoja-acotado dd { margin: 0; color: var(--text-primary); font-weight: 600; }
+
+.listado-tabla { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
+.listado-tabla th {
+  text-align: left;
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.listado-tabla td {
+  padding: 7px var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.listado-tabla .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.listado-tabla .fuerte { color: var(--text-primary); font-weight: 700; }
+.listado-tabla .mono { font-family: var(--font-mono); color: var(--text-primary); }
+.listado-tabla .listado-doc { color: var(--text-muted); }
+.listado-tabla tbody tr:hover td { background: var(--bg-card-hover); }
+.listado-vacio { text-align: center; padding: var(--space-8) var(--space-4) !important; color: var(--text-muted); }
+.listado-tabla tfoot td {
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--text-primary);
+  border-bottom: none;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* --- Impresión: sale la hoja y nada más ---
+   El panel de acotado ya está resumido en la cabecera de la propia
+   hoja, así que en papel sobra: lo que se archiva es la relación. */
+@media print {
+  .listado-filtros { display: none !important; }
+  .listado-hoja { border: none; padding: 0; background: white; }
+  .listado-tabla { font-size: 10px; }
+  .listado-tabla thead { display: table-header-group; }
+  .listado-tabla tr { page-break-inside: avoid; }
+}
