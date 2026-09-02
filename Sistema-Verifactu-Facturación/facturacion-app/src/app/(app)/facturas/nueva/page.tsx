@@ -27,6 +27,7 @@ import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import { getPlantillaActiva } from '@/lib/plantillas/almacen';
 import { clavesManualesUsadasPorPlantilla, columnasPersonalizadasDePlantilla } from '@/lib/plantillas/plantilla';
+import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
 import AvisoPlantillaDeOtroOficio from '@/components/facturas/AvisoPlantillaDeOtroOficio';
@@ -96,6 +97,18 @@ export default function NuevaFacturaPage() {
       setDueDate(addDays(getToday(), settings.defaultPaymentDays));
       setLineItems([createEmptyLine(settings)]);
       try {
+        // Antes de leer el diseño, que siga al sector. Ajustes ya lo hace al
+        // tocar el selector, pero eso no alcanza a quien cambió de gremio
+        // antes de que esto existiera: se quedaría con las columnas del
+        // oficio anterior para siempre. Aquí se corrige solo, y no hace nada
+        // cuando ya coinciden.
+        const ajuste = await ajustarPlantillaAlSector(settings.sector, settings);
+        if (ajuste.cambiada) {
+          success(
+            `Tu factura pasa a la de ${ajuste.oficio}`,
+            'Las líneas te piden ahora lo de tu oficio. La anterior sigue guardada en Diseño de facturas.',
+          );
+        }
         const plantilla = await getPlantillaActiva('factura');
         if (plantilla?.plantilla) {
           setClavesManuales(clavesManualesUsadasPorPlantilla(plantilla.plantilla));
