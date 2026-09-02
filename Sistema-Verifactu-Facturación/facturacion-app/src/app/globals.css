@@ -2638,6 +2638,36 @@ a:hover { color: var(--accent-300); }
 
 /* --- Print Styles --- */
 @media print {
+  /* El papel es blanco siempre, tenga la app el tema que tenga. En modo
+     oscuro los tokens de texto son hueso casi blanco (#f7ebef) y los de
+     borde son blancos al 14 %: sobre folio blanco no se ve nada, y la
+     hoja salia vacia aunque estuviera toda ahi. Volvemos a la paleta de
+     tinta, igual que .public-layout-force-light hace con las paginas
+     publicas. El atributo va en el selector para empatar en
+     especificidad con :root[data-theme="dark"] y ganarle por orden. */
+  :root, :root[data-theme] {
+    color-scheme: light;
+
+    --bg-primary: #fff;
+    --bg-secondary: #fff;
+    --bg-tertiary: #fff;
+    --bg-card: #fff;
+    --bg-card-hover: transparent;
+    --bg-elevated: #fff;
+    --bg-input: #fff;
+
+    --text-primary: #1a1216;
+    --text-secondary: #4a3a40;
+    --text-tertiary: #6b5a60;
+    --text-muted: #6f5d63;
+    --text-inverse: #fff;
+
+    /* Algo mas marcados que en pantalla: una linea al 12 % de negro que
+       en un monitor se lee, en papel se queda en nada. */
+    --border-color: rgba(26, 18, 22, 0.30);
+    --border-subtle: rgba(26, 18, 22, 0.15);
+  }
+
   .sidebar, .header, .mobile-nav, .toast-container, .page-header-actions, .detail-sidebar { display: none !important; }
   .app-main { margin-left: 0 !important; }
   .app-content { padding: 0 !important; }
