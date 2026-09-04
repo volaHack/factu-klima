@@ -1210,6 +1210,9 @@ a:hover { color: var(--accent-300); }
 .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
 .badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+.badge-success { background: var(--color-success-bg); color: var(--color-success); }
+.badge-info { background: var(--color-info-bg); color: var(--color-info); }
+.badge-neutral { background: var(--color-neutral-bg); color: var(--color-neutral); }
 
 /* --- Modal --- */
 .modal-overlay {
@@ -4021,6 +4024,10 @@ a:focus-visible {
   background: linear-gradient(135deg, rgba(22, 26, 38, 0.92), rgba(14, 16, 24, 0.92));
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
+  --hero-accent: var(--accent-200);
+}
+:root[data-theme="dark"] .hero-panel {
+  --hero-accent: var(--accent-300, #f5b3ca);
 }
 /* Misma fuente de luz que las tarjetas KPI, pero rasante y por la
    izquierda, para que la marca del negocio quede iluminada. */
@@ -4035,11 +4042,11 @@ a:focus-visible {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: var(--text-2xs); font-weight: 600;
   text-transform: uppercase; letter-spacing: var(--tracking-caps);
-  color: var(--accent-200); margin-bottom: var(--space-2);
+  color: var(--hero-accent, #f0a8c4); margin-bottom: var(--space-2);
 }
 .hero-panel-name {
   font-size: var(--text-xl); font-weight: 650;
-  color: var(--text-inverse); letter-spacing: var(--tracking-display);
+  color: #ffffff; letter-spacing: var(--tracking-display);
   line-height: 1.15;
 }
 /* Chip de serie / próxima numeración del hero. El panel es oscuro en
@@ -4058,7 +4065,7 @@ a:focus-visible {
   width: 26px; height: 26px; border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   background: var(--accent-gradient);
-  color: var(--text-inverse);
+  color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 .hero-panel-series-text {
@@ -4067,15 +4074,15 @@ a:focus-visible {
 .hero-panel-series-label {
   font-size: var(--text-2xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: var(--tracking-caps);
-  color: var(--accent-200); white-space: nowrap;
+  color: var(--hero-accent, #f0a8c4); white-space: nowrap;
 }
 .hero-panel-series-number {
   font-family: var(--font-mono); font-size: var(--text-sm);
-  font-weight: 600; color: var(--text-inverse);
+  font-weight: 600; color: #ffffff;
   font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
 }
 .hero-panel-series-hint {
-  font-size: var(--text-2xs); color: rgba(255, 255, 255, 0.6);
+  font-size: var(--text-2xs); color: rgba(255, 255, 255, 0.7);
   padding-left: var(--space-2); border-left: 1px solid rgba(255, 255, 255, 0.18);
   line-height: 1.3;
 }
@@ -4622,6 +4629,32 @@ a.stats-item:focus-visible {
   font-family: var(--font-family);
   position: relative;
   overflow-x: hidden;
+
+  /* Curvas propias de esta página. Las de la casa
+     —cubic-bezier(0.25, 0.1, 0.25, 1), que es el `ease` de toda la
+     vida— sirven para cambios de color, pero le faltan piernas para
+     un movimiento: arrancan despacio justo en el momento en que el
+     usuario está mirando. Estas dos salen disparadas y frenan al
+     final, que es lo que hace que 200 ms se sientan como 120.
+     Se quedan en `.pricing-page` a propósito: esto es un cambio de
+     /precios, no una reforma del sistema de diseño entero. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Alto de la barra pública, para que la cabecera de la tabla
+     comparativa se pegue justo por debajo y no detrás. */
+  --alto-nav: 57px;
+}
+
+/* Texto solo para lectores de pantalla. No existía en la hoja. */
+.pricing-page .sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- Background effects --- */
@@ -4742,20 +4775,10 @@ a.stats-item:focus-visible {
   max-width: 860px;
   margin: 0 auto;
 }
-.pricing-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  background: var(--accent-glow);
-  border: 1px solid rgba(176, 42, 92, 0.3);
-  color: var(--accent-400);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-full);
-  margin-bottom: var(--space-6);
-  letter-spacing: 0.02em;
-}
+/* `.pricing-hero-badge` vivía aquí sin que ningún elemento la usara —la
+   pastilla del héroe se quitó y la regla se quedó—. Igual que
+   `.pricing-card-icon` y el bloque `.pricing-footer*`, que ahora pinta
+   SiteFooter con sus propias clases. */
 .pricing-hero-title {
   font-size: clamp(2rem, 5vw, 3.25rem);
   font-weight: 700;
@@ -4839,16 +4862,48 @@ a.stats-item:focus-visible {
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
 }
-.pricing-promo-cupon:hover {
-  border-color: var(--accent-500);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-promo-cupon:hover {
+    border-color: var(--accent-500);
+    color: var(--text-primary);
+  }
 }
+.pricing-promo-cupon:active { transform: scale(0.98); }
 .pricing-promo-codigo {
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-primary);
 }
+
+/* «Copiar» / «Copiado» / «Copia a mano»: las tres caras apiladas en la
+   MISMA celda de rejilla, así el botón mide siempre lo que la más ancha
+   y no da un respingo al cambiar de estado. Cruzan con opacidad y un
+   punto de desenfoque — sin el blur se ven dos textos pisándose, que es
+   justo lo que delata un cambio hecho a lo bruto. */
+.pricing-promo-estado {
+  display: inline-grid;
+  align-items: center;
+  justify-items: start;
+}
+.pricing-promo-estado-cara {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+  opacity: 0;
+  filter: blur(2px);
+  transition: opacity 180ms var(--ease-out), filter 180ms var(--ease-out);
+}
+.pricing-promo-estado[data-estado='idle']  .pricing-promo-estado-cara:nth-child(1),
+.pricing-promo-estado[data-estado='ok']    .pricing-promo-estado-cara:nth-child(2),
+.pricing-promo-estado[data-estado='fallo'] .pricing-promo-estado-cara:nth-child(3) {
+  opacity: 1;
+  filter: blur(0);
+}
+.pricing-promo-estado[data-estado='ok'] { color: var(--color-success, var(--accent-500)); }
+.pricing-promo-estado[data-estado='fallo'] { color: var(--color-warning); }
 
 /* «en preparación» en la tabla comparativa: dice la verdad sin gritarla. */
 .pricing-table-pendiente {
@@ -4872,35 +4927,74 @@ a.stats-item:focus-visible {
   margin-right: auto;
 }
 
-/* --- Billing Toggle --- */
+/* --- Conmutador Mensual / Anual -------------------------------------
+   Dos capas idénticas superpuestas. La de abajo lleva los botones
+   reales, en tinta apagada. La de encima es la misma lista ya pintada
+   «activa» —pastilla clara, texto fuerte— y se recorta con `clip-path`
+   para enseñar sólo la mitad que toca; al cambiar de mitad se anima el
+   recorte y el texto y la pastilla cruzan a la vez y exactos. Temporizar
+   `color` y `background` por separado nunca cuadra: durante la
+   transición se ven los dos colores a medio camino.
+   Las dos mitades son 1fr 1fr porque el recorte al 50% sólo cae en su
+   sitio si miden lo mismo. */
 .pricing-billing-toggle {
-  display: inline-flex;
+  position: relative;
+  display: inline-block;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
   padding: 3px;
+  isolation: isolate;
+}
+.pricing-billing-capa {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 2px;
 }
+.pricing-billing-capa--activa {
+  position: absolute;
+  inset: 3px;
+  gap: 2px;
+  pointer-events: none;
+  /* Estado inicial = mensual (mitad izquierda). El atributo de abajo
+     lo mueve; si el JS no llegara, se ve el conmutador correcto. */
+  clip-path: inset(0 50% 0 0);
+  transition: clip-path 260ms var(--ease-out);
+}
+.pricing-billing-toggle[data-activo='annual'] .pricing-billing-capa--activa {
+  clip-path: inset(0 0 0 50%);
+}
+/* Las dos copias tienen que ser GEOMÉTRICAMENTE idénticas o el recorte
+   no cae donde debe, así que el peso tipográfico es el mismo en las dos
+   (600) y lo que cambia es sólo el color y la pastilla. */
 .pricing-billing-btn {
   background: none;
   border: none;
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  /* Nada de `transition: all`: aquí lo único que cambia es el color, y
+     el movimiento lo lleva el recorte de la capa de encima. */
+  transition: color var(--transition-fast);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
+  white-space: nowrap;
 }
-.pricing-billing-btn.active {
+.pricing-billing-capa--activa .pricing-billing-btn {
   background: var(--bg-card-hover);
   color: var(--text-primary);
-  font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
+.pricing-billing-btn:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+.pricing-billing-btn:active { transform: scale(0.98); }
 .pricing-billing-save {
   background: var(--accent-glow);
   color: var(--accent-400);
@@ -4924,8 +5018,8 @@ a.stats-item:focus-visible {
 }
 .pricing-card {
   background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* Sin `backdrop-filter`: `--bg-card` es #fbf6f2 opaco, así que no
+     había nada detrás que desenfocar. */
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
   padding: var(--space-8);
@@ -4935,10 +5029,15 @@ a.stats-item:focus-visible {
   box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
-.pricing-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--border-color-hover);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 25px rgba(201, 64, 122, 0.15);
+/* El hover, sólo donde hay puntero de verdad. En táctil el navegador lo
+   dispara al tocar y la tarjeta se quedaba levantada hasta que tocabas
+   otra cosa. */
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--border-color-hover);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 25px rgba(201, 64, 122, 0.15);
+  }
 }
 .pricing-card--popular {
   border: 1.5px solid rgba(201, 64, 122, 0.65);
@@ -4946,9 +5045,11 @@ a.stats-item:focus-visible {
   box-shadow: 0 0 40px rgba(176, 42, 92, 0.10), var(--shadow-md);
   transform: scale(1.03);
 }
-.pricing-card--popular:hover {
-  transform: scale(1.03) translateY(-4px);
-  box-shadow: 0 0 60px rgba(176, 42, 92, 0.14), var(--shadow-lg);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card--popular:hover {
+    transform: scale(1.03) translateY(-4px);
+    box-shadow: 0 0 60px rgba(176, 42, 92, 0.14), var(--shadow-lg);
+  }
 }
 .pricing-card-badge {
   position: absolute;
@@ -4972,14 +5073,6 @@ a.stats-item:focus-visible {
 /* Card header */
 .pricing-card-header {
   margin-bottom: var(--space-6);
-}
-.pricing-card-icon {
-  width: 48px; height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-4);
 }
 .pricing-card-name {
   font-size: var(--text-xl);
@@ -5015,6 +5108,20 @@ a.stats-item:focus-visible {
   letter-spacing: -0.04em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  /* La cifra es lo único que cambia al conmutar mensual/anual, así que
+     es lo único que se mueve: entra desenfocada y un pelo más arriba.
+     160 ms — por debajo de los 300 ms que separan «responde» de
+     «tarda»—, y con la curva fuerte, que arranca ya movida.
+     El desenfoque es lo que impide leer el cambio como dos números
+     pisándose en vez de uno solo que cambia.
+     React remonta el span (`key={billing}`), así que un clic rápido
+     empieza una entrada nueva en vez de arrastrar la anterior.
+     El bloque global de `prefers-reduced-motion` ya la neutraliza. */
+  animation: pricing-cifra-entra 160ms var(--ease-out) both;
+}
+@keyframes pricing-cifra-entra {
+  from { opacity: 0; filter: blur(4px); transform: translateY(-4px); }
+  to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
 }
 .pricing-card-period {
   font-size: var(--text-sm);
@@ -5048,10 +5155,32 @@ a.stats-item:focus-visible {
   gap: var(--space-2);
   transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.pricing-card-cta:hover {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(76, 26, 40, 0.28);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card-cta:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(76, 26, 40, 0.28);
+  }
+}
+/* Acuse de recibo al pulsar. 0.985 y no el 0.97 de manual: esto es un
+   compromiso de 79 €/mes, tiene que notarse que el botón te ha oído, no
+   dar un bote. */
+.pricing-card-cta:active:not(:disabled) {
+  transform: scale(0.985);
+  box-shadow: none;
+}
+/* Enfocado no se veía NADA: `outline-style: none` y sin sombra. Quien
+   compra con teclado no sabía dónde estaba, y esto es el botón que
+   cobra. El doble anillo (crema + vino) se ve sobre los tres degradados
+   de las tarjetas, que van de gris tostado a vino oscuro. */
+.pricing-card-cta:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--bg-card);
+}
+.pricing-card-cta:disabled {
+  cursor: progress;
+  opacity: 0.75;
 }
 
 /* Divider */
@@ -5124,9 +5253,11 @@ a.stats-item:focus-visible {
   text-align: center;
   transition: border-color var(--transition-base), transform var(--transition-base);
 }
-.pricing-highlight-card:hover {
-  border-color: var(--border-color);
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-highlight-card:hover {
+    border-color: var(--border-color);
+    transform: translateY(-2px);
+  }
 }
 .pricing-highlight-icon {
   width: 44px; height: 44px;
@@ -5158,24 +5289,39 @@ a.stats-item:focus-visible {
   margin: 0 auto;
   padding: 0 var(--space-6) 80px;
 }
+/* El envoltorio con scroll SÓLO donde hace falta. En escritorio la tabla
+   cabe entera (medido: scrollWidth === clientWidth), y el `overflow-x`
+   estaba convirtiendo este div en el contenedor de scroll de la
+   cabecera `sticky` — un contenedor que nunca desborda en vertical, así
+   que la cabecera no se pegaba jamás. Veinte filas y cuatro columnas sin
+   saber cuál es cuál. Debajo de 900 px sí desborda y sí hace falta. */
 .pricing-table-wrapper {
-  overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
   background: var(--bg-card);
 }
+@media (max-width: 900px) {
+  .pricing-table-wrapper { overflow-x: auto; }
+}
 .pricing-table {
   width: 100%;
+  /* Reparto fijo: las tres columnas de plan miden lo mismo. Se estaban
+     yendo a 474/139/207/271 px. */
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  min-width: 640px;
 }
+.pricing-col-caracteristica { width: 40%; }
 .pricing-table th,
 .pricing-table td {
   padding: var(--space-3) var(--space-5);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
 }
-.pricing-table th {
+/* Sólo la cabecera de arriba lleva versalitas y fondo: `tbody th` son
+   ahora los nombres de fila (scope="row"), que van como iban los td. */
+.pricing-table thead th {
   font-weight: 600;
   font-size: var(--text-xs);
   text-transform: uppercase;
@@ -5183,32 +5329,37 @@ a.stats-item:focus-visible {
   color: var(--text-muted);
   background: var(--bg-tertiary);
   position: sticky;
-  top: 0;
+  top: var(--alto-nav);
+  z-index: 1;
 }
 .pricing-table td {
   color: var(--text-secondary);
 }
-.pricing-table td:first-child {
+.pricing-table tbody th {
   color: var(--text-primary);
   font-weight: 500;
 }
 .pricing-table td svg {
   color: var(--accent-400);
 }
+/* El flex va en el <span>, NO en el <td>: un td con `display: flex`
+   deja de ser table-cell, el navegador le fabrica una celda anónima y
+   el `colspan={4}` se pierde — que es por lo que la banda de sección
+   ocupaba 474 px de 1090 y descuadraba el ancho de las cuatro
+   columnas de toda la tabla. */
 .pricing-table-section td {
   background: rgba(26, 18, 22, 0.025);
   font-weight: 600;
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   padding-top: var(--space-4);
+}
+.pricing-table-section td > span {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-.pricing-table-section td[colspan] {
-  display: flex;
 }
 .pricing-table-popular {
   background: rgba(176, 42, 92, 0.035);
@@ -5217,7 +5368,8 @@ a.stats-item:focus-visible {
   color: var(--accent-400);
   font-weight: 600;
 }
-.pricing-table tbody tr:last-child td {
+.pricing-table tbody tr:last-child td,
+.pricing-table tbody tr:last-child th {
   border-bottom: none;
 }
 
@@ -5234,48 +5386,105 @@ a.stats-item:focus-visible {
   flex-direction: column;
   gap: var(--space-3);
 }
+/* El item ya no es un <button> con un <div> dentro (HTML inválido): es
+   un contenedor con <h3><button> arriba y el panel debajo. */
 .pricing-faq-item {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--space-5) var(--space-6);
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-.pricing-faq-item:hover {
-  border-color: var(--border-color);
-  background: var(--bg-card-hover);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-faq-item:hover {
+    border-color: var(--border-color);
+    background: var(--bg-card-hover);
+  }
 }
 .pricing-faq-item.open {
   border-color: var(--border-color-hover);
+}
+.pricing-faq-heading {
+  margin: 0;
+  font: inherit;
 }
 .pricing-faq-question {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  padding: var(--space-5) var(--space-6);
+  background: none;
+  border: none;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
   font-weight: 600;
   font-size: var(--text-base);
   gap: var(--space-4);
 }
+.pricing-faq-question:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: -2px;
+}
+.pricing-faq-question:active { transform: scale(0.995); }
+
+/* El `+` y el `−` se intercambiaban como texto y el glifo pegaba un
+   salto lateral: tienen métricas distintas. Un solo icono que gira 45°
+   no mueve nada. */
 .pricing-faq-toggle {
-  font-size: var(--text-xl);
   color: var(--text-muted);
   flex-shrink: 0;
-  width: 24px;
-  text-align: center;
+  transition: transform 200ms var(--ease-out), color var(--transition-fast);
+}
+.pricing-faq-item.open .pricing-faq-toggle {
+  transform: rotate(45deg);
+  color: var(--accent-400);
+}
+
+/* LA ALTURA
+   `grid-template-rows: 0fr → 1fr` es lo que permite animar hasta una
+   altura desconocida sin medir nada en JS y sin fijar un max-height a
+   ojo. Y es una `transition`, no un keyframe: quien abre cuatro
+   preguntas seguidas ve cada una redirigir desde donde iba, en vez de
+   reiniciarse desde cero.
+   Cerrado va con `visibility: hidden`, no con el atributo `hidden`: el
+   atributo es `display: none` y no se puede animar, y dejarlo sólo a
+   0fr mantendría la respuesta en el árbol de accesibilidad y en el
+   tabulador aunque no se vea. El cambio de visibilidad se retrasa los
+   200 ms que dura el plegado para que no desaparezca a media
+   animación, y al abrir entra sin retraso. */
+.pricing-faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 200ms var(--ease-out), visibility 0s linear 200ms;
+}
+.pricing-faq-item.open .pricing-faq-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 200ms var(--ease-out), visibility 0s;
+}
+.pricing-faq-panel-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 .pricing-faq-answer {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.7;
-  margin-top: var(--space-4);
+  margin: 0 var(--space-6) var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
+  /* El texto entra un poco después que la altura y se va enseguida:
+     lento donde el usuario decide, rápido donde responde el sistema. */
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out);
+}
+.pricing-faq-item.open .pricing-faq-answer {
+  opacity: 1;
+  transition: opacity 200ms var(--ease-out) 80ms;
 }
 
 /* --- Final CTA --- */
@@ -5318,38 +5527,55 @@ a.stats-item:focus-visible {
   cursor: pointer;
   transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.pricing-final-cta-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(176, 42, 92, 0.28);
+@media (hover: hover) and (pointer: fine) {
+  .pricing-final-cta-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(176, 42, 92, 0.28);
+  }
+}
+.pricing-final-cta-btn:active { transform: scale(0.985); box-shadow: none; }
+.pricing-final-cta-btn:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 3px;
 }
 
-/* --- Footer --- */
-.pricing-footer {
-  position: relative;
-  z-index: 1;
-  border-top: 1px solid var(--border-subtle);
-  padding: var(--space-6);
-}
-.pricing-footer-inner {
+/* --- La propina, al pie ---------------------------------------------
+   Estaba en mitad del embudo, entre las tarjetas y la tabla, con
+   corazón rojo fuera de paleta, emoji de café en un <h3> y cuarenta
+   líneas de estilos en línea. Ahora es una línea con el mismo peso que
+   el aviso de IVA, detrás del CTA final: quien la busque la encuentra, y
+   a quien está decidiendo si paga 79 €/mes no se le pide un café. */
+.pricing-propina {
   max-width: 1140px;
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 0 var(--space-6) var(--space-8);
+  text-align: center;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
-.pricing-footer-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-  font-weight: 600;
+.pricing-propina-enlace {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-400);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
 }
-.pricing-footer-inner p {
-  margin: 0;
+@media (hover: hover) and (pointer: fine) {
+  .pricing-propina-enlace:hover { color: var(--accent-500); }
 }
+.pricing-propina-enlace:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* El bloque `.pricing-footer*` que había aquí no lo usaba nadie: el pie
+   lo pinta SiteFooter con sus propias clases. */
 
 /* --- Responsive --- */
 @media (max-width: 1024px) {
@@ -5361,11 +5587,13 @@ a.stats-item:focus-visible {
     transform: none;
     order: -1;
   }
-  .pricing-card--popular:hover {
-    transform: translateY(-4px);
-  }
   .pricing-highlights-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .pricing-card--popular:hover {
+    transform: translateY(-4px);
   }
 }
 
@@ -5393,18 +5621,14 @@ a.stats-item:focus-visible {
   .pricing-final-cta-inner {
     padding: var(--space-8) var(--space-5);
   }
-  .pricing-footer-inner {
-    flex-direction: column;
-    gap: var(--space-3);
-    text-align: center;
-  }
   .pricing-nav-login {
     display: none;
   }
-  .pricing-table th:nth-child(3),
-  .pricing-table td:nth-child(3) {
-    display: none;
-  }
+  /* En móvil se escondía la TERCERA columna, que es justo la del plan
+     marcado como «Más popular»: comparabas los planes menos el que se
+     te recomienda. Ahora la tabla tiene `min-width` y su envoltorio
+     desborda en horizontal debajo de 900 px, así que se ven las tres
+     arrastrando de lado. */
 }
 /* ============================================================
    TPV (punto de venta) — pantalla completa, sin el menú lateral.
@@ -5898,17 +6122,28 @@ a.stats-item:focus-visible {
   box-shadow: 0 32px 80px -20px rgba(0,0,0,0.55), 0 0 40px rgba(16, 185, 129, 0.12) !important;
 }
 
-.pricing-card, .pricing-highlight-card {
+/* Estas tres reglas estaban SIN acotar y, por venir las últimas de la
+   hoja, ganaban a las del bloque de /precios: el hover de las tarjetas
+   de precio salía en verde esmeralda —rgba(16, 185, 129), que no es de
+   esta paleta— en vez de en el vino de la casa, y con una curva y una
+   duración distintas a las del sistema. La home reutiliza las clases
+   `pricing-*`, así que se acotan a `.home-page`, que es para lo que
+   estaban escritas («Landing Page Animations»), y el hover se mete
+   detrás del media query de puntero como el resto. */
+.home-page .pricing-card,
+.home-page .pricing-highlight-card {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.pricing-highlight-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.08);
-}
-.pricing-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .home-page .pricing-highlight-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(16, 185, 129, 0.25);
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.08);
+  }
+  .home-page .pricing-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.35);
+  }
 }
 
 /* Responsive landing adjustments */

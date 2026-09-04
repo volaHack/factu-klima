@@ -54,6 +54,13 @@ export async function POST(request: Request) {
     customer: settings?.stripe_customer_id || undefined,
     customer_email: settings?.stripe_customer_id ? undefined : user.email,
     line_items: [{ price: priceId, quantity: 1 }],
+    // Sin esto, Stripe Checkout NO pinta la casilla de código de
+    // descuento. La página de precios enseña el cupón de lanzamiento y
+    // hasta tiene un botón para copiarlo, así que el cliente llegaba
+    // aquí con el código en el portapapeles, sin ningún sitio donde
+    // pegarlo, y pagaba el precio entero: la página prometía −50% y la
+    // pasarela cobraba el 100%.
+    allow_promotion_codes: true,
     metadata: { userId: user.id, planId: plan.id },
     subscription_data: { metadata: { userId: user.id, planId: plan.id } },
     success_url: `${baseUrl}/dashboard?subscribed=true`,
