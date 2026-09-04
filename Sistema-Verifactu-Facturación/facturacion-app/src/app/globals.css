@@ -9628,3 +9628,281 @@ body.nav-abierta { overflow: hidden; }
   .listado-tabla thead { display: table-header-group; }
   .listado-tabla tr { page-break-inside: avoid; }
 }
+
+/* ============================================================
+   LISTADOS FISCALES (/listados-fiscales)
+
+   Sin paleta ni tipografias propias: todo sale de los tokens del
+   sistema, para que el modulo se lea como una parte mas del programa y
+   no como algo pegado encima. Lo unico especifico es la reticula de
+   tarjetas de modelo y el bloque de estado/errores, que no existian.
+   ============================================================ */
+
+.lf-ejercicio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.lf-ejercicio select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.lf-aviso {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-500);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.lf-aviso p { margin: 0; }
+.lf-aviso svg { flex-shrink: 0; margin-top: 2px; color: var(--accent-500); }
+
+.lf-seccion { margin-bottom: var(--space-8); }
+.lf-seccion > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-4);
+}
+
+.lf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.lf-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lf-card:not(.lf-card--na):not(.lf-card--pendiente):hover {
+    border-color: var(--accent-500);
+    transform: translateY(-2px);
+  }
+}
+/* Un modelo que no aplica o que no esta hecho se ve apagado, pero se ve:
+   esconderlo desconcierta mas que ensenarlo desactivado. */
+.lf-card--na, .lf-card--pendiente { opacity: 0.62; }
+
+.lf-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lf-card-head h3 { margin: 0; font-size: var(--text-lg); font-weight: 700; }
+.lf-org {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+}
+.lf-org--aeat { background: var(--accent-glow); color: var(--accent-500); }
+.lf-org--atc { background: var(--color-info-bg); color: var(--color-info); }
+
+.lf-card-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.lf-card-datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.lf-card-datos dt {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+.lf-card-datos dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lf-card-estado {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.lf-card-btn { margin-top: auto; justify-content: center; }
+
+/* --- Pagina de un modelo --- */
+.lf-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+.lf-volver:hover { color: var(--text-primary); }
+
+.lf-estado {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  font-size: var(--text-sm);
+}
+.lf-estado-ok, .lf-estado-mal, .lf-estado-aviso {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+.lf-estado-ok { color: var(--accent-500); }
+.lf-estado-mal { color: var(--color-danger); }
+.lf-estado-aviso { color: var(--color-warning); }
+.lf-acciones { margin-left: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.lf-errores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.lf-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.lf-error span { flex: 1; }
+.lf-error a { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; white-space: nowrap; }
+.lf-error--critico {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.lf-error--aviso {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.lf-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.lf-resumen > div {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lf-resumen span {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+.lf-resumen strong { font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
+
+.lf-preview {
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--accent-500);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+.lf-preview h2 { margin: 0 0 var(--space-3); font-size: var(--text-base); }
+.lf-preview p { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; }
+.lf-preview code { font-family: var(--font-mono); font-size: var(--text-xs); }
+.lf-preview-trimestres {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.lf-preview-trimestres > div { display: flex; flex-direction: column; gap: 2px; }
+.lf-preview-trimestres span { font-size: var(--text-2xs); color: var(--text-muted); }
+.lf-preview-trimestres strong { font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
+.lf-preview-nota { font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+.lf-filtros {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.lf-buscador {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  flex: 1 1 260px;
+}
+.lf-buscador svg { color: var(--text-muted); flex-shrink: 0; }
+.lf-buscador input {
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  width: 100%;
+  outline: none;
+}
+
+.lf-detalle td { background: var(--bg-secondary); }
+.lf-detalle ul { list-style: none; margin: 0; padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.lf-detalle li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  align-items: center;
+}
+.lf-detalle li span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+@media (max-width: 768px) {
+  .lf-acciones { margin-left: 0; width: 100%; }
+  .lf-preview-trimestres { grid-template-columns: repeat(2, 1fr); }
+}
