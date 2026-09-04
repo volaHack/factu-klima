@@ -5444,16 +5444,21 @@ a.stats-item:focus-visible {
 }
 
 /* LA ALTURA
-   `grid-template-rows: 0fr → 1fr` es lo que permite animar hasta una
-   altura desconocida sin medir nada en JS y sin fijar un max-height a
-   ojo. Y es una `transition`, no un keyframe: quien abre cuatro
-   preguntas seguidas ve cada una redirigir desde donde iba, en vez de
-   reiniciarse desde cero.
+   `grid-template-rows: 0fr → 1fr` con `overflow: hidden` y `min-height: 0`
+   en el hijo. Es lo que permite animar hasta una altura que no se conoce
+   de antemano sin medir nada en JS y sin inventarse un `max-height` a
+   ojo — el truco del `max-height` grande siempre miente en la curva,
+   porque se come la mayor parte de la duración recorriendo altura que no
+   existe. Y tiene soporte en los tres motores, al contrario que
+   `interpolate-size`/`height: auto`, que hoy es sólo de Chrome.
+   Es una `transition`, no un keyframe: quien abre cuatro preguntas
+   seguidas ve cada una redirigir desde donde iba, en vez de reiniciarse
+   desde cero.
    Cerrado va con `visibility: hidden`, no con el atributo `hidden`: el
-   atributo es `display: none` y no se puede animar, y dejarlo sólo a
-   0fr mantendría la respuesta en el árbol de accesibilidad y en el
-   tabulador aunque no se vea. El cambio de visibilidad se retrasa los
-   200 ms que dura el plegado para que no desaparezca a media
+   atributo es `display: none` y no se puede animar, y dejar sólo la
+   altura a cero mantendría la respuesta en el árbol de accesibilidad y
+   en el tabulador aunque no se vea. El cambio de visibilidad se retrasa
+   los 200 ms que dura el plegado para que no desaparezca a media
    animación, y al abrir entra sin retraso. */
 .pricing-faq-panel {
   display: grid;
