@@ -251,9 +251,41 @@ export interface Gasto {
   /** A qué obra o expediente se le imputa este gasto. */
   obraId?: string;
   notas?: string;
+
+  /* --- Clasificación fiscal (migración 036) ---
+     Soportar una cuota y poder deducirla son dos cosas distintas, y los
+     modelos 303 y 420 las piden separadas y por tipo de operación. */
+
+  /** Si la cuota soportada da derecho a deducción. Por defecto sí. */
+  deducible?: boolean;
+  /** A qué casilla del 303/420 va la cuota. Ver la migración 036. */
+  tipoOperacion?: TipoOperacionGasto;
+  /** Cuota realmente deducible si es menor que `taxAmount` (prorrata,
+   *  afectación parcial). Sin valor = se deduce entera. */
+  cuotaDeducible?: number;
+
   createdAt: string;
   updatedAt: string;
 }
+
+/** Tipos de operación de un gasto, tal y como los separa el modelo 303. */
+export type TipoOperacionGasto =
+  | 'interior_corriente'
+  | 'interior_inversion'
+  | 'importacion_corriente'
+  | 'importacion_inversion'
+  | 'intracomunitaria_corriente'
+  | 'intracomunitaria_inversion'
+  | 'inversion_sujeto_pasivo'
+  | 'no_sujeta'
+  | 'exenta';
+
+/** Régimen de IRPF del empresario: decide si le toca el 130 o el 131. */
+export type RegimenIrpf =
+  | 'directa_normal'
+  | 'directa_simplificada'
+  | 'objetiva'
+  | 'no_aplica';
 
 /**
  * Un vehículo de la empresa, para saber lo que cuesta cada furgoneta.
@@ -913,6 +945,16 @@ export interface CompanySettings {
   // Cuando igicEnabled = true, el sistema muestra tasas IGIC en
   // todos los formularios, facturas, TPV e informes.
   igicEnabled?: boolean;
+
+  /* --- Régimen fiscal para los listados fiscales (migración 036) --- */
+
+  /** Régimen de IRPF del empresario. Sin valor = sin configurar: el
+   *  panel NO decide por el usuario cuál de los dos modelos le toca. */
+  regimenIrpf?: RegimenIrpf;
+  /** Epígrafe del IAE, que es lo que fija los módulos del 131. */
+  epigrafeIae?: string;
+  /** Prorrata general, si se aplica. Sin valor = se deduce el 100%. */
+  porcentajeProrrata?: number;
 
   // Porcentajes disponibles para elegir en facturas, TPV e informes.
   // La empresa los configura en Ajustes sin necesidad de informático.

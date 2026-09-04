@@ -2767,6 +2767,9 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     tpv_mode: settings.tpvMode ?? defaultTpvModeForSector(settings.sector),
     tpv_enabled: settings.tpvEnabled === undefined ? null : settings.tpvEnabled,
     igic_enabled: settings.igicEnabled ?? false,
+    regimen_irpf: settings.regimenIrpf || null,
+    epigrafe_iae: settings.epigrafeIae || null,
+    porcentaje_prorrata: settings.porcentajeProrrata ?? null,
     stripe_enabled: settings.stripeEnabled ?? false,
     albaran_series: settings.albaranSeries || 'ALB',
     next_albaran_number: settings.nextAlbaranNumber || 1,
@@ -3161,6 +3164,9 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     tpvMode: (s.tpv_mode as TpvMode) || defaultTpvModeForSector(s.sector),
     tpvEnabled: s.tpv_enabled == null ? undefined : Boolean(s.tpv_enabled),
     igicEnabled: s.igic_enabled ?? false,
+    regimenIrpf: s.regimen_irpf || undefined,
+    epigrafeIae: s.epigrafe_iae || undefined,
+    porcentajeProrrata: s.porcentaje_prorrata == null ? undefined : Number(s.porcentaje_prorrata),
     ivaRates: Array.isArray(s.iva_rates) ? s.iva_rates.map(Number) : undefined,
     igicRates: Array.isArray(s.igic_rates) ? s.igic_rates.map(Number) : undefined,
     stripeEnabled: s.stripe_enabled ?? false,
@@ -4297,6 +4303,9 @@ export async function saveGasto(gasto: Gasto): Promise<void> {
     vehiculo_id: gasto.vehiculoId || null,
     obra_id: gasto.obraId || null,
     notas: gasto.notas || null,
+    deducible: gasto.deducible ?? true,
+    tipo_operacion: gasto.tipoOperacion || 'interior_corriente',
+    cuota_deducible: gasto.cuotaDeducible ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -4343,6 +4352,12 @@ function mapGastoFromDb(g: any): Gasto {
     vehiculoId: g.vehiculo_id || undefined,
     obraId: g.obra_id || undefined,
     notas: g.notas || undefined,
+    // Los gastos anteriores a la migración 036 no traen estas columnas:
+    // se dan por deducibles e interiores corrientes, que es el caso
+    // normal y lo mismo que hace el DEFAULT de la base de datos.
+    deducible: g.deducible ?? true,
+    tipoOperacion: g.tipo_operacion || 'interior_corriente',
+    cuotaDeducible: g.cuota_deducible == null ? undefined : Number(g.cuota_deducible),
     createdAt: g.created_at || g.createdAt || new Date().toISOString(),
     updatedAt: g.updated_at || g.updatedAt || new Date().toISOString(),
   };

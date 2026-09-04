@@ -18,7 +18,7 @@ comprobó, modelo por modelo, en las sedes de los organismos (no en blogs):
 | Modelo | Organismo | ¿Diseño de registro público? | Fuente |
 |---|---|---|---|
 | **347** | AEAT | **Sí** — ejercicio 2025 y siguientes, Orden HAC/1431/2025 | [347.pdf](https://sede.agenciatributaria.gob.es/static_files/Sede/Disenyo_registro/DR_300_399/archivos/347.pdf) |
-| **303** | AEAT | **Sí** — ejercicio 2026 y siguientes (xlsx, act. 28/01/26) | [Diseños 300-399](https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-300-399.html) |
+| **303** | AEAT | **Sí** — v1.01, ejercicio 2026 y siguientes | [DR303e26v101.xlsx](https://sede.agenciatributaria.gob.es/static_files/Sede/Disenyo_registro/DR_300_399/archivos_26/DR303e26v101.xlsx) |
 | **130** | AEAT | **No** — no figura en el índice de diseños de registro | [Diseños 100-199](https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-100-199.html) |
 | **131** | AEAT | **No** — ídem | ídem |
 | **420** | ATC | **No** — presentación por Sede o programa de ayuda de la ATC | [Trámite 4015](https://sede.gobiernodecanarias.org/sede/tramites/4015) |
@@ -55,18 +55,31 @@ contra el PDF oficial.
 |---|---|
 | Arquitectura `FiscalEngine` (tipos, registro de modelos) | Hecho — `src/lib/fiscal/tipos.ts` |
 | `FiscalDataService` (lee datos reales vía `storage.ts`) | Hecho |
-| Modelo 347: cálculo, validación, vista previa, **fichero oficial** | Hecho, con 46 tests |
-| Pantalla `/listados-fiscales` (tarjetas de los 7 modelos) | Hecho |
-| Pantalla `/listados-fiscales/347` | Hecho |
-| Entrada en el menú lateral | Hecho |
-| Modelos 303, 130, 131, 420, 415, 425 | **Pendientes** |
-| Historial de generaciones | **Pendiente** |
+| `FiscalCalculationService` (períodos, desgloses, deducibilidad) | Hecho |
+| **Modelo 347** — cálculo, validación, vista previa, **fichero oficial** | Hecho |
+| **Modelo 303** — cálculo, validación, vista previa, **fichero oficial** | Hecho |
+| **Modelo 130** — cálculo acumulado, validación, casillas | Hecho |
+| **Modelo 131** — liquidación con el rendimiento de módulos que aporta el usuario | Hecho |
+| **Modelo 420** — IGIC repercutido/soportado, liquidación, CSV | Hecho |
+| **Modelo 415** — operaciones con terceros IGIC, CSV | Hecho |
+| **Modelo 425** — resumen anual desde los cuatro 420, CSV | Hecho |
+| Panel con las 7 tarjetas y sus resúmenes reales | Hecho |
+| Historial de generaciones con redescarga del fichero | Hecho |
+| Migración 036 (clasificación fiscal de gastos, régimen IRPF, historial) | Hecho y **aplicada** |
+| Tests | 93 en `src/lib/fiscal/` |
 
-Los modelos pendientes aparecen en el panel con su tarjeta y el botón
-desactivado, diciendo que no están implementados. No se enseña un
-resultado inventado para rellenar la tarjeta.
+### Ficheros que se generan
 
----
+| Modelo | Qué produce |
+|---|---|
+| 347 | Fichero oficial `.347`: registros de 500 posiciones, CRLF, ISO-8859-1 |
+| 303 | Fichero oficial `.303`: formato etiquetado `<T3030EEEEPP0000>` + páginas 01 y 03, ISO-8859-1 |
+| 130, 131 | CSV con las casillas para copiarlas en el formulario de la Sede |
+| 420, 415, 425 | CSV con el detalle para cotejar y archivar |
+
+Los CSV **no son ficheros de presentación**: los modelos de la ATC y los
+pagos fraccionados no tienen diseño de registro público, y la pantalla lo
+dice en un aviso fijo con enlace al trámite oficial.
 
 ## 3. Huecos de datos encontrados en la base de datos
 
@@ -75,39 +88,47 @@ lo que se puede calcular hoy**, con independencia de cuánto código se
 escriba:
 
 1. **No hay facturas recibidas ni gastos.** `invoices` tiene 49 filas, las
-   49 con `sentido = 'venta'`; `gastos` tiene 0 filas. Todo el lado de
-   soportado/deducible del 303 y del 420 sale a cero mientras eso siga
-   así. El cálculo está bien; los datos no existen.
+   49 con `sentido = 'venta'`; `gastos` tiene 0 filas. El cálculo del
+   soportado/deducible del 303 y del 420 está hecho y probado, pero
+   **saldrá a cero hasta que se registren gastos**. Es una limitación de
+   datos, no de código.
 
-2. **`gastos` no clasifica fiscalmente.** Tiene `tax_rate` y `tax_amount`,
-   pero no si la cuota es **deducible**, ni el tipo de operación
-   (importación, inversión del sujeto pasivo, bien de inversión, no
-   sujeta, exenta). El punto 5 del encargo exige distinguirlas: hacen
-   falta columnas nuevas antes de poder hacer un 420 o un 303 correcto.
+2. ~~`gastos` no clasifica fiscalmente~~ → **resuelto** en la migración
+   036: `deducible`, `tipo_operacion` y `cuota_deducible`. Falta exponer
+   esos campos en el formulario de alta de gastos, que hoy sigue
+   guardándolos con el valor por defecto.
 
-3. **`company_settings` no guarda el régimen de IRPF** ni el epígrafe de
-   IAE. El punto 9 pide comprobar si el 130 o el 131 le corresponden al
-   usuario antes de enseñarlo como pendiente: hoy no hay dónde mirarlo.
+3. ~~`company_settings` no guarda el régimen de IRPF~~ → **resuelto** en
+   la 036: `regimen_irpf`, `epigrafe_iae`, `porcentaje_prorrata`. Falta
+   exponerlos en Ajustes; mientras estén vacíos, el 130 y el 131 se
+   niegan a validar en vez de adivinar el régimen.
 
 4. **`invoice_tax_breakdown.rate` es `INTEGER`.** No puede representar
    tipos no enteros. Para IVA/IGIC actuales vale, pero es una limitación
    real a tener presente.
 
-5. **IVA vs IGIC es un interruptor de empresa** (`company_settings.igic_enabled`),
+5. **No se distingue exenta de no sujeta.** El 420 las pide en casillas
+   separadas y el programa no guarda ningún campo que lo diga
+   (`tipoFacturaFiscal` es F1–F3/R1–R5). Se informa la base al 0 % junta
+   y la pantalla avisa de que hay que repartirla a mano.
+
+6. **IVA vs IGIC es un interruptor de empresa** (`company_settings.igic_enabled`),
    no un campo por factura. Es correcto —un negocio tributa en uno u
    otro por sus entregas— y el panel lo usa para marcar qué modelos le
    aplican. El tenant activo tiene `igic_enabled = true` (canario).
 
 ---
 
-## 4. Orden sugerido para continuar
+## 4. Qué falta
 
-1. Migración con las columnas del punto 3 (deducibilidad y tipo de
-   operación en `gastos`, régimen de IRPF en `company_settings`) y la
-   tabla `fiscal_generaciones` del historial.
-2. Modelo 420 (es el que de verdad le aplica al tenant activo): cálculo
-   de IGIC repercutido y soportado por tipo, liquidación y vista previa.
-3. Modelo 303 con su generador, que sí tiene diseño publicado.
-4. Modelos 415 y 425 sobre los datos del 420.
-5. Modelos 130 y 131, una vez exista el régimen de IRPF.
-6. Historial de generaciones y redescarga.
+1. **Exponer los campos nuevos en la interfaz**: la clasificación fiscal
+   en el formulario de gastos (deducible, tipo de operación, cuota
+   deducible) y el régimen de IRPF en Ajustes. El motor ya los usa; hoy
+   se guardan con el valor por defecto.
+2. **Separar exenta de no sujeta** en las facturas, para poder repartir
+   la base al 0 % del 420 sin intervención manual.
+3. **Páginas 02, 04 y 05 del 303** (régimen simplificado, anexos): sólo
+   hacen falta si algún usuario tributa en simplificado.
+4. **Arrastre automático de compensaciones** entre trimestres del 420 y de
+   los pagos fraccionados del 130: hoy se teclean, pudiendo salir del
+   historial.

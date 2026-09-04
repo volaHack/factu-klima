@@ -9906,3 +9906,60 @@ body.nav-abierta { overflow: hidden; }
   .lf-acciones { margin-left: 0; width: 100%; }
   .lf-preview-trimestres { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* --- Listados fiscales: piezas de las pantallas de modelo --- */
+
+.lf-periodo { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; }
+
+.lf-subtitulo {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+.lf-liquidacion {
+  margin: var(--space-5) 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+.lf-liquidacion .lf-subtitulo { margin-top: 0; }
+.lf-liquidacion dl { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.lf-liquidacion dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+.lf-liquidacion dt { color: var(--text-secondary); margin: 0; }
+.lf-liquidacion dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.lf-liquidacion-total {
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-3);
+  font-size: var(--text-base);
+}
+.lf-liquidacion-total dt { color: var(--text-primary); font-weight: 600; }
+.lf-liquidacion-total dd { font-size: var(--text-lg); }
+
+.lf-input-num {
+  width: 140px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lf-input-num:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 1px;
+}
+
+.lf-aviso a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
