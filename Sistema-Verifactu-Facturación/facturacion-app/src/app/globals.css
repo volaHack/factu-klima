@@ -6498,16 +6498,51 @@ a.stats-item:focus-visible {
   inset: 0;
   z-index: 120;
   flex-direction: column;
-  justify-content: center;
+
+  /* CENTRADO, PERO SIN COMERSE LO QUE NO CABE
+     `justify-content: center` en un contenedor que además desborda deja
+     lo de arriba FUERA del área a la que se puede llegar con el dedo: el
+     scroll no sube por encima del origen. En un móvil en horizontal —o
+     con el tamaño de letra grande del sistema— los enlaces miden más que
+     la pantalla, y «Producto» quedaba cortado e inalcanzable.
+     `safe center` centra cuando cabe y se pega arriba cuando no. La
+     primera declaración es la red para navegadores que no la entiendan:
+     se quedan arriba, que es feo pero se puede usar. */
+  justify-content: flex-start;
+  justify-content: safe center;
+
   gap: 2px;
-  padding: calc(var(--header-height) + var(--space-6)) var(--space-6) var(--space-8);
+
+  /* 100dvh, no el `inset: 0` a secas: en el móvil la barra de direcciones
+     del navegador entra y sale, y con la altura «grande» el botón de
+     «Crear cuenta» se quedaba por debajo del borde visible. El
+     `env(safe-area-inset-*)` es para el iPhone con muesca: sin él, el
+     último botón cae bajo la barra del gesto de inicio. */
+  height: 100vh;
+  height: 100dvh;
+  padding:
+    calc(var(--header-height) + var(--space-6) + env(safe-area-inset-top, 0px))
+    calc(var(--space-6) + env(safe-area-inset-right, 0px))
+    calc(var(--space-8) + env(safe-area-inset-bottom, 0px))
+    calc(var(--space-6) + env(safe-area-inset-left, 0px));
+
   background:
     radial-gradient(120% 80% at 100% 0%, rgba(176, 42, 92, 0.34), transparent 62%),
     linear-gradient(160deg, #4c1a28 0%, #2a0d16 100%);
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* El desplazamiento con el dedo, con la inercia de siempre en iOS. */
+  -webkit-overflow-scrolling: touch;
 }
 .site-nav-panel.is-open { display: flex; }
+
+/* Por encima del punto en el que desaparece el hamburguesa, el panel no
+   se pinta AUNQUE se quedara abierto: es el cinturón además del tirante
+   del efecto que lo cierra al girar el aparato. */
+@media (min-width: 861px) {
+  .site-nav-panel,
+  .site-nav-panel.is-open { display: none; }
+}
 
 .site-nav-panel-link {
   position: relative;
@@ -6528,6 +6563,11 @@ a.stats-item:focus-visible {
 .site-nav-panel-link:nth-of-type(3) { animation-delay: 120ms; }
 .site-nav-panel-link:nth-of-type(4) { animation-delay: 160ms; }
 .site-nav-panel-link:active { color: var(--accent-200); }
+/* Nunca se encoge por debajo de su alto: en un contenedor flex que
+   desborda, los hijos se comprimen y los enlaces se quedaban solapados
+   unos con otros en las pantallas más bajas. */
+.site-nav-panel-link,
+.site-nav-panel-cta { flex-shrink: 0; }
 
 @keyframes navPanelEntra {
   from { opacity: 0; transform: translateY(18px); }

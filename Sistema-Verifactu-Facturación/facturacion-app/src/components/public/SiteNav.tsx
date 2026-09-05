@@ -83,6 +83,30 @@ export default function SiteNav() {
     };
   }, [open]);
 
+  /**
+   * EL MENÚ SE QUEDABA ATRAPADO AL GIRAR LA TABLETA
+   *
+   * El panel se abre a cualquier anchura, pero el botón con el que se
+   * cierra —el hamburguesa— sólo existe por debajo de 860 px. Bastaba con
+   * abrir el menú en vertical y girar el aparato: la barra volvía a su
+   * versión de escritorio, el hamburguesa desaparecía, y quedaba una
+   * pantalla de vino a pantalla completa sin ninguna manera de salir. En
+   * una tableta o un móvil no hay tecla Escape que valga; el único remedio
+   * era recargar la página.
+   *
+   * Así que el propio cambio de anchura lo cierra. Y por si el JavaScript
+   * no llegara a ejecutarse, el CSS tampoco deja que el panel se pinte por
+   * encima de esa anchura.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const escritorio = window.matchMedia('(min-width: 861px)');
+    const alCambiar = () => { if (escritorio.matches) setOpen(false); };
+    alCambiar();
+    escritorio.addEventListener('change', alCambiar);
+    return () => escritorio.removeEventListener('change', alCambiar);
+  }, [open]);
+
   return (
     <nav className={`site-nav ${scrolled ? 'is-scrolled' : ''} ${open ? 'tiene-panel' : ''}`}>
       {/* El hilo de la cadena: crece con el scroll de toda la página, no
