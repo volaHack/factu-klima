@@ -33,7 +33,7 @@ export type ModuloId =
   // --- Almacén ---
   | 'almacenes' | 'lotes' | 'numeros_serie' | 'produccion'
   // --- Comercial ---
-  | 'tarifas' | 'vendedores' | 'comisiones' | 'rappels' | 'rutas' | 'grupos_clientes'
+  | 'tarifas' | 'vendedores' | 'comisiones' | 'ofertas' | 'rappels' | 'rutas' | 'grupos_clientes'
   // --- Trabajo por proyecto ---
   | 'obras' | 'ordenes_trabajo'
   // --- Dinero ---
@@ -103,6 +103,8 @@ export const MODULOS: Modulo[] = [
     descripcion: 'Cada comercial con su serie de numeración, su almacén y sus clientes.' },
   { id: 'comisiones', nombre: 'Comisiones', grupo: 'comercial', requiere: ['vendedores'], disponible: true,
     descripcion: 'Lo que se lleva cada comercial, sobre lo facturado o sobre lo cobrado, y por artículo o por cliente.' },
+  { id: 'ofertas', nombre: 'Ofertas y promociones', grupo: 'comercial', disponible: true,
+    descripcion: 'El 3x2, la segunda unidad rebajada, «diez cajas y una gratis» y los precios de promoción por días y horas.' },
   { id: 'rappels', nombre: 'Rappels por volumen', grupo: 'comercial', disponible: true,
     descripcion: 'Descuentos que se ganan al llegar a un volumen y se liquidan al cerrar el periodo, no en cada factura.' },
   { id: 'rutas', nombre: 'Rutas de reparto', grupo: 'comercial', requiere: ['albaranes'], disponible: true,

@@ -8,7 +8,7 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe, ListOrdered, Landmark,
+  Send, Globe, ListOrdered, Landmark, Tag,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -71,6 +71,7 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
   { href: '/obras', label: 'Obras y expedientes', icon: Briefcase, modulo: 'obras' },
   { href: '/ordenes-trabajo', label: 'Órdenes de trabajo', icon: Wrench, modulo: 'ordenes_trabajo' },
   { href: '/lotes', label: 'Lotes y trazabilidad', icon: Boxes, modulo: 'lotes' },
+  { href: '/ofertas', label: 'Ofertas y promociones', icon: Tag, modulo: 'ofertas' },
   { href: '/rappels', label: 'Rappels por volumen', icon: Percent, modulo: 'rappels' },
   { href: '/grupos-clientes', label: 'Grupos y cadenas', icon: Building2, modulo: 'grupos_clientes' },
   { href: '/rutas-reparto', label: 'Rutas de reparto', icon: Truck, modulo: 'rutas' },

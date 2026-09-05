@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   trazabilidadDeLote, resumenDeLote, lotesDisponibles, consumirLote,
   lotesCaducando, diasHastaCaducidad, aplicarLoteALinea,
+  bloquearLote, liberarLote, sePuedeVender, estadoDeLote,
+  lotesFrenadosEnLineas, clientesAfectadosPorLote,
 } from './lotes';
 import { InvoiceStatus, type Invoice, type InvoiceLineItem, type Lote } from './types';
 
@@ -218,5 +220,120 @@ describe('aplicarLoteALinea', () => {
     const l = aplicarLoteALinea(linea({ loteId: 'l1', loteCodigo: 'L-4471' }), null);
     expect(l.loteId).toBeUndefined();
     expect(l.loteCodigo).toBeUndefined();
+  });
+});
+
+// ============================================================
+// FRENAR UN LOTE
+// ============================================================
+
+describe('bloquearLote — parar el género antes de que salga por la puerta', () => {
+  it('inmoviliza con su motivo y su hora', () => {
+    const parado = bloquearLote(lote(), 'inmovilizado', 'Aviso AESAN sobre listeria', new Date('2026-06-11T09:30:00Z'));
+    expect(parado.estado).toBe('inmovilizado');
+    expect(parado.motivoBloqueo).toBe('Aviso AESAN sobre listeria');
+    expect(parado.bloqueadoEn).toBe('2026-06-11T09:30:00.000Z');
+  });
+
+  it('sin motivo no se bloquea: dentro de seis meses nadie sabría por qué', () => {
+    expect(() => bloquearLote(lote(), 'retirado', '   ')).toThrow(/por qué/i);
+  });
+
+  it('no muta el lote original', () => {
+    const original = lote();
+    bloquearLote(original, 'retirado', 'Contaminación');
+    expect(original.estado).toBeUndefined();
+  });
+});
+
+describe('sePuedeVender', () => {
+  it('un lote sin estado es de antes de que esto existiera: se vende', () => {
+    expect(sePuedeVender(lote())).toBe(true);
+    expect(estadoDeLote(lote())).toBe('disponible');
+  });
+
+  it('inmovilizado y retirado, no', () => {
+    expect(sePuedeVender(lote({ estado: 'inmovilizado' }))).toBe(false);
+    expect(sePuedeVender(lote({ estado: 'retirado' }))).toBe(false);
+  });
+});
+
+describe('liberarLote', () => {
+  it('un inmovilizado vuelve a la venta si la alerta era de otra cosa', () => {
+    const parado = bloquearLote(lote(), 'inmovilizado', 'Comprobando');
+    const libre = liberarLote(parado);
+    expect(libre.estado).toBe('disponible');
+    expect(libre.motivoBloqueo).toBeUndefined();
+  });
+
+  it('un RETIRADO no se libera: la marca es un hecho, no una opinión', () => {
+    const retirado = bloquearLote(lote(), 'retirado', 'Contaminación confirmada');
+    expect(() => liberarLote(retirado)).toThrow(/retirado/i);
+  });
+});
+
+describe('lotesDisponibles deja fuera lo bloqueado', () => {
+  it('un lote inmovilizado no se ofrece aunque tenga existencias y caduque antes', () => {
+    const lotes = [
+      lote({ id: 'a', codigo: 'A', fechaCaducidad: '2026-06-01', estado: 'inmovilizado' }),
+      lote({ id: 'b', codigo: 'B', fechaCaducidad: '2026-12-01' }),
+    ];
+    expect(lotesDisponibles(lotes, 'p1').map(l => l.id)).toEqual(['b']);
+  });
+});
+
+describe('lotesFrenadosEnLineas — el portero antes de cobrar', () => {
+  const lotes = [
+    lote({ id: 'l1', codigo: 'L-4471', estado: 'retirado', motivoBloqueo: 'Listeria' }),
+    lote({ id: 'l2', codigo: 'L-9000' }),
+  ];
+
+  it('canta la línea que lleva un lote frenado', () => {
+    const avisos = lotesFrenadosEnLineas([{ loteId: 'l1' }, { loteId: 'l2' }], lotes);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatchObject({ codigo: 'L-4471', estado: 'retirado', motivo: 'Listeria' });
+  });
+
+  it('con todo en regla no dice nada', () => {
+    expect(lotesFrenadosEnLineas([{ loteId: 'l2' }], lotes)).toEqual([]);
+  });
+
+  it('las líneas sin lote no molestan', () => {
+    expect(lotesFrenadosEnLineas([{}, { loteId: undefined }], lotes)).toEqual([]);
+  });
+
+  it('el mismo lote en dos líneas se avisa una sola vez', () => {
+    const avisos = lotesFrenadosEnLineas([{ loteId: 'l1' }, { loteId: 'l1' }], lotes);
+    expect(avisos).toHaveLength(1);
+  });
+
+  it('devuelve TODOS los lotes frenados, no sólo el primero', () => {
+    const dos = [...lotes, lote({ id: 'l3', codigo: 'L-5000', estado: 'inmovilizado', motivoBloqueo: 'Revisión' })];
+    const avisos = lotesFrenadosEnLineas([{ loteId: 'l1' }, { loteId: 'l3' }], dos);
+    expect(avisos.map(a => a.codigo)).toEqual(['L-4471', 'L-5000']);
+  });
+});
+
+describe('clientesAfectadosPorLote — la lista con la que se llama', () => {
+  it('agrupa por cliente y suma lo servido', () => {
+    const facturas = [
+      factura({ number: 'FAC-1', issueDate: '2026-06-01', clientId: 'c1', clientName: 'Bar Paco', lineItems: [linea({ quantity: 10 })] }),
+      factura({ number: 'FAC-2', issueDate: '2026-06-05', clientId: 'c1', clientName: 'Bar Paco', lineItems: [linea({ quantity: 4 })] }),
+      factura({ number: 'FAC-3', issueDate: '2026-06-03', clientId: 'c2', clientName: 'Kiosco Ana', lineItems: [linea({ quantity: 30 })] }),
+    ];
+    const afectados = clientesAfectadosPorLote('l1', facturas);
+
+    // Ordenados por unidades: primero a quien más se le sirvió.
+    expect(afectados.map(a => a.clientName)).toEqual(['Kiosco Ana', 'Bar Paco']);
+
+    const paco = afectados.find(a => a.clientId === 'c1')!;
+    expect(paco.unidades).toBe(14);
+    expect(paco.documentos).toEqual(['FAC-1', 'FAC-2']);
+    expect(paco.desde).toBe('2026-06-01');
+    expect(paco.hasta).toBe('2026-06-05');
+  });
+
+  it('sin entregas, lista vacía', () => {
+    expect(clientesAfectadosPorLote('nope', [factura()])).toEqual([]);
   });
 });

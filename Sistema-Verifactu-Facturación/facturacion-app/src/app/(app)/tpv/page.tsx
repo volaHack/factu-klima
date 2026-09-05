@@ -19,7 +19,7 @@ import TpvTables from '@/components/tpv/TpvTables';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
-  issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices,
+  issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices, getOfertas, getLotes,
 } from '@/lib/storage';
 import {
   getOpenChecks, createOpenCheck, saveOpenCheck, deleteOpenCheck, addLineToCheck, OpenCheck,
@@ -27,10 +27,12 @@ import {
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
 import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
 import { nextOfflineNumber } from '@/lib/tpvOffline';
+import { aplicarOfertas } from '@/lib/ofertas';
+import { lotesFrenadosEnLineas } from '@/lib/lotes';
 import { getDeviceSuffix } from '@/lib/offlineDb';
 import { posAudio } from '@/lib/posAudio';
 import {
-  Product, CompanySettings, PosSession, PosCartLine, PosHeldSale,
+  Product, CompanySettings, PosSession, PosCartLine, PosHeldSale, Oferta, Lote,
   Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure
 } from '@/lib/types';
 import { useToast } from '@/hooks/useToast';
@@ -72,6 +74,8 @@ export default function TpvPage() {
   const [todaySalesOpen, setTodaySalesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [ayudaOpen, setAyudaOpen] = useState(false);
+  const [ofertas, setOfertas] = useState<Oferta[]>([]);
+  const [lotes, setLotes] = useState<Lote[]>([]);
   const [weightProduct, setWeightProduct] = useState<Product | null>(null);
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
   const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
@@ -113,9 +117,17 @@ export default function TpvPage() {
   }, []);
 
   const loadProducts = useCallback(async () => {
-    const [prods, cats] = await Promise.all([getProducts(), getCompanyCategories()]);
+    // Las ofertas y los lotes viajan con el catálogo: el TPV los necesita en
+    // cada venta y ninguno de los dos puede depender de que haya línea —una
+    // promoción que deja de aplicarse sin internet es un cliente al que se le
+    // cobra de más, y un lote parado que se vende sin internet es peor—.
+    const [prods, cats, ofs, lts] = await Promise.all([
+      getProducts(), getCompanyCategories(), getOfertas(), getLotes(),
+    ]);
     setProducts(prods);
     setCategories(cats);
+    setOfertas(ofs);
+    setLotes(lts);
   }, []);
 
   const loadChecks = useCallback(async () => {
@@ -209,10 +221,48 @@ export default function TpvPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart, isAnyModalOpen, holdSale]);
 
-  const total = cart.reduce((sum, l) => {
+  /**
+   * LAS OFERTAS, SOBRE EL CARRITO Y EN VIVO
+   *
+   * Se recalculan en cada cambio del carrito con la MISMA función que usará
+   * la factura (`aplicarOfertas`): el 3x2 tiene que dar lo mismo en la caja
+   * que en el papel, y la única manera de garantizarlo es que sea el mismo
+   * código y no dos que se parecen.
+   *
+   * El descuento de la oferta NO pisa el que el cajero haya puesto a mano:
+   * viaja aparte y se acaba guardando en el segundo hueco de descuento de la
+   * línea, encadenado al primero.
+   */
+  const promociones = useMemo(
+    () => aplicarOfertas(
+      cart.map((l, i) => ({
+        id: `${l.productId}-${i}`,
+        productId: l.productId,
+        categoria: products.find(p => p.id === l.productId)?.category,
+        nombre: l.productName,
+        cantidad: l.quantity,
+        precioUnitario: l.unitPrice,
+        descuentoManual: l.discountPercent,
+      })),
+      ofertas,
+    ),
+    [cart, ofertas, products],
+  );
+
+  /** Cuánto descuenta la oferta en cada línea, por su posición en el carrito. */
+  const descuentoOfertaPorLinea = useMemo(() => {
+    const mapa = new Map<number, number>();
+    promociones.lineas.forEach((l, i) => {
+      if (l.descuentoOferta > 0) mapa.set(i, l.descuentoOferta);
+    });
+    return mapa;
+  }, [promociones]);
+
+  const total = cart.reduce((sum, l, i) => {
     const gross = l.quantity * l.unitPrice;
     const discount = gross * (l.discountPercent / 100);
-    const subtotal = gross - discount;
+    const trasManual = gross - discount;
+    const subtotal = trasManual * (1 - (descuentoOfertaPorLinea.get(i) ?? 0) / 100);
     return sum + subtotal + subtotal * (l.taxRate / 100);
   }, 0);
 
@@ -518,10 +568,31 @@ export default function TpvPage() {
     // Usar las líneas proporcionadas (mesa) o el carrito actual (venta normal)
     const lines = linesOverride ?? cart;
 
-    const lineItems: InvoiceLineItem[] = lines.map(l => {
+    // Las ofertas se recalculan sobre las líneas que se van a cobrar, que no
+    // siempre son las del carrito: al cobrar la cuenta de una mesa vienen de
+    // otro sitio (`linesOverride`).
+    const promoDelCobro = aplicarOfertas(
+      lines.map((l, i) => ({
+        id: `${l.productId}-${i}`,
+        productId: l.productId,
+        categoria: products.find(p => p.id === l.productId)?.category,
+        nombre: l.productName,
+        cantidad: l.quantity,
+        precioUnitario: l.unitPrice,
+        descuentoManual: l.discountPercent,
+      })),
+      ofertas,
+    );
+
+    const lineItems: InvoiceLineItem[] = lines.map((l, i) => {
       const gross = l.quantity * l.unitPrice;
       const discount = gross * (l.discountPercent / 100);
-      const subtotal = Number((gross - discount).toFixed(2));
+      // El descuento de la oferta va en el SEGUNDO hueco, encadenado: así el
+      // precio negociado a mano y la promoción conviven, y la factura
+      // impresa enseña los dos por separado en vez de un porcentaje raro
+      // que no se parece a ninguno de los dos.
+      const descuentoOferta = promoDelCobro.lineas[i]?.descuentoOferta ?? 0;
+      const subtotal = Number(((gross - discount) * (1 - descuentoOferta / 100)).toFixed(2));
       const taxAmount = Number((subtotal * (l.taxRate / 100)).toFixed(2));
       return {
         id: generateId(),
@@ -533,11 +604,30 @@ export default function TpvPage() {
         unit: l.unit,
         taxRate: l.taxRate,
         discountPercent: l.discountPercent,
+        discountPercent2: descuentoOferta > 0 ? descuentoOferta : undefined,
         subtotal,
         taxAmount,
         total: Number((subtotal + taxAmount).toFixed(2)),
       };
     });
+
+    /**
+     * EL PORTERO DEL LOTE
+     *
+     * Antes de emitir nada: si alguna línea sale de un lote inmovilizado o
+     * retirado, la venta no pasa. La base de datos también lo impide —hay un
+     * disparador en `invoice_line_items`—, pero eso da un error de servidor
+     * a mitad del cobro; aquí se para antes y se explica cuál es el lote y
+     * por qué está parado, que es lo que el cajero necesita saber para
+     * apartar el género.
+     */
+    const frenados = lotesFrenadosEnLineas(lineItems, lotes);
+    if (frenados.length > 0) {
+      const detalle = frenados
+        .map(f => `${f.codigo} (${f.productName}): ${f.motivo || 'sin motivo anotado'}`)
+        .join(' · ');
+      throw new Error(`No se puede vender: el lote ${detalle}. Aparta el género y quítalo del ticket.`);
+    }
 
     const totals = calculateInvoiceTotals(lineItems);
 

@@ -113,6 +113,7 @@ const TABLE_MAP: Record<SyncTable, string> = {
   company_settings: 'company_settings',
   invoice_line_items: 'invoice_line_items',
   invoice_tax_breakdown: 'invoice_tax_breakdown',
+  ofertas: 'ofertas',
   order_approvals: 'order_approvals',
   order_approval_items: 'order_approval_items',
   user_profiles: 'user_profiles',

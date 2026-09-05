@@ -6544,6 +6544,204 @@ a.stats-item:focus-visible {
 }
 
 /* ============================================================
+   OFERTAS Y PROMOCIONES
+   ============================================================ */
+
+.ofertas-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.ofertas-ficha {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Una oferta apagada tiene que LEERSE apagada de un vistazo: si no, se
+   busca por qué no se está aplicando en el sitio equivocado. */
+.ofertas-ficha.is-apagada { opacity: 0.55; }
+
+.ofertas-ficha-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.ofertas-ficha-cabecera h3 { font-size: var(--text-md); font-weight: 700; margin: 0; }
+/* La regla, en la tipografía de las cifras: es la promesa del cartel y es
+   lo que hay que poder leer sin abrir la ficha. */
+.ofertas-ficha-regla {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent-500);
+  font-weight: 700;
+}
+.ofertas-ficha-alcance { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.ofertas-ficha-aviso {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+}
+.ofertas-ficha-acciones {
+  display: flex; gap: var(--space-2); margin-top: auto; padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+/* --- Las plantillas del estado vacío --- */
+.ofertas-plantillas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  width: 100%;
+}
+.ofertas-plantilla {
+  text-align: left;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: transform 140ms var(--ease-settle), border-color 140ms var(--ease-settle);
+}
+.ofertas-plantilla:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) {
+  .ofertas-plantilla:hover { border-color: var(--accent-500); }
+}
+.ofertas-plantilla strong { font-size: var(--text-base); color: var(--text-primary); }
+.ofertas-plantilla span { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
+
+/* --- La prueba en vivo ---
+   Una promoción mal puesta no se ve al guardarla: se ve en el arqueo, tres
+   días después. Esto la enseña antes de que la vea un cliente. */
+.ofertas-prueba {
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--accent-500);
+  background: var(--accent-glow);
+}
+.ofertas-prueba-titulo {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-2xs); text-transform: uppercase;
+  letter-spacing: var(--tracking-caps); font-weight: 700;
+  color: var(--accent-500); margin-bottom: var(--space-3);
+}
+.ofertas-prueba-campos {
+  display: flex; flex-wrap: wrap; gap: var(--space-4);
+  font-size: var(--text-sm); color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+.ofertas-prueba-campos label { display: flex; align-items: center; gap: 6px; }
+.ofertas-prueba-campos .form-input { width: 84px; }
+.ofertas-prueba-resultado {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+}
+.ofertas-prueba-resultado > div { display: flex; flex-direction: column; gap: 2px; }
+.ofertas-prueba-resultado span {
+  font-size: var(--text-2xs); text-transform: uppercase;
+  letter-spacing: var(--tracking-caps); color: var(--text-muted);
+}
+.ofertas-prueba-resultado strong { font-family: var(--font-mono); font-size: var(--text-lg); font-weight: 800; }
+.ofertas-prueba-resultado .es-precio { color: var(--text-primary); }
+.ofertas-prueba-resultado .es-ahorro { color: var(--color-success); }
+.ofertas-prueba-detalle { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-secondary); }
+
+/* --- Selectores de producto, categoría y días --- */
+.ofertas-selector {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  max-height: 180px; overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+.ofertas-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 140ms var(--ease-settle), border-color 140ms var(--ease-settle), color 140ms var(--ease-settle);
+}
+.ofertas-chip:active { transform: scale(0.97); }
+.ofertas-chip.is-elegido { border-color: var(--accent-500); color: var(--accent-500); font-weight: 700; }
+
+.ofertas-dias { display: flex; gap: var(--space-2); }
+.ofertas-dia {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-weight: 700; font-size: var(--text-sm);
+  cursor: pointer;
+  transition: transform 140ms var(--ease-settle), border-color 140ms var(--ease-settle), color 140ms var(--ease-settle);
+  touch-action: manipulation;
+}
+.ofertas-dia:active { transform: scale(0.95); }
+.ofertas-dia.is-elegido { border-color: var(--accent-500); color: var(--accent-500); background: var(--accent-glow); }
+
+.ofertas-tramo {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.ofertas-tramo .form-input { width: 84px; }
+
+/* ============================================================
+   LOTES PARADOS
+   ============================================================
+
+   El color no es decorativo: un lote inmovilizado y uno retirado se
+   gestionan distinto —uno se puede liberar y el otro no— y hay que
+   distinguirlos de un vistazo en una lista larga y con prisa. */
+
+.lote-estado {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.lote-estado--inmovilizado {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+.lote-estado--retirado {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+
+/* Una fila de un lote parado se precinta con una banda roja al canto. */
+.lote-fila-bloqueada { background: color-mix(in srgb, var(--color-danger) 5%, transparent); }
+.lote-fila-bloqueada td:first-child { box-shadow: inset 3px 0 0 0 var(--color-danger); }
+
+.lote-motivo { font-size: var(--text-xs); color: var(--text-muted); font-style: italic; }
+
+/* --- La lista con la que se llama a los clientes --- */
+.retirada-clientes { display: flex; flex-direction: column; gap: var(--space-2); }
+.retirada-cliente {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.retirada-cliente-nombre { font-weight: 700; font-size: var(--text-sm); }
+.retirada-cliente-docs { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); }
+.retirada-cliente-uds {
+  font-family: var(--font-mono); font-weight: 800; font-size: var(--text-lg);
+  color: var(--color-danger); white-space: nowrap;
+}
+
+/* ============================================================
    SUPERFICIE PÚBLICA — barra, pie, botones, home e instalar
    ============================================================
 

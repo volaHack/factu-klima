@@ -390,6 +390,136 @@ export interface Lote {
   proveedorId?: string;
   proveedorNombre?: string;
   notas?: string;
+  /**
+   * EN QUÉ SITUACIÓN ESTÁ EL LOTE.
+   *
+   * Es lo que faltaba para poder FRENAR un lote. Hasta ahora la
+   * trazabilidad sabía decir a quién se le había servido el lote L-4471,
+   * pero nada impedía seguir vendiéndolo mientras se averiguaba: el aviso
+   * de la agencia de seguridad alimentaria llegaba y el género seguía
+   * saliendo por la puerta.
+   *
+   * - `disponible`: se vende con normalidad.
+   * - `inmovilizado`: retenido mientras se comprueba. No se puede vender,
+   *   pero sigue en el almacén y puede volver a liberarse.
+   * - `retirado`: fuera de circulación para siempre. No se vende ni se
+   *   libera; queda para la trazabilidad y para poder demostrar cuándo se
+   *   retiró y por qué.
+   *
+   * Ausente en los lotes guardados antes de que esto existiera, y se trata
+   * como `disponible`: una empresa que ya tenía lotes no puede encontrarse
+   * el almacén entero bloqueado el día que esto se despliega.
+   */
+  estado?: EstadoLote;
+  /** Por qué se inmovilizó o se retiró. Obligatorio al bloquear. */
+  motivoBloqueo?: string;
+  /** Cuándo se bloqueó, para poder demostrar la rapidez de la reacción. */
+  bloqueadoEn?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Ver `Lote.estado`. */
+export type EstadoLote = 'disponible' | 'inmovilizado' | 'retirado';
+
+/**
+ * UNA OFERTA DE MOSTRADOR
+ *
+ * Lo que va en el cartel: «3x2», «segunda unidad al 50 %», «diez cajas y
+ * una gratis», «los martes la fruta a mitad de precio». Todas caben en la
+ * misma ficha porque todas responden a lo mismo —a quién alcanza, cuándo
+ * vive y cuánto descuenta—; lo único que cambia es la aritmética, y de eso
+ * se encarga `ofertas.ts`.
+ *
+ * A diferencia del rappel, que es el premio por comprar mucho a lo largo de
+ * un periodo y se liquida al cerrarlo, la oferta se aplica AQUÍ Y AHORA,
+ * en la línea de la venta, y el cliente la ve en su ticket.
+ */
+export type TipoOferta =
+  /** Llévate N, paga M. El 3x2 y el «diez y una gratis» (11x10). */
+  | 'nxm'
+  /** La segunda unidad con un tanto por ciento de descuento. */
+  | 'unidad_siguiente'
+  /** Un tanto por ciento sobre la línea entera. */
+  | 'porcentaje'
+  /** Tantos euros menos por cada unidad. */
+  | 'importe'
+  /** Precio cerrado por unidad mientras dure. */
+  | 'precio_fijo'
+  /** Por tramos de cantidad: a partir de tantas unidades, tanto por ciento. */
+  | 'escalado'
+  /** Al comprar N de esto, se regala otra cosa. */
+  | 'regalo';
+
+/** A qué alcanza una oferta. */
+export type AlcanceOferta = 'producto' | 'categoria' | 'todo';
+
+/** Un tramo de las ofertas escaladas. */
+export interface TramoOferta {
+  desdeCantidad: number;
+  porcentaje: number;
+}
+
+export interface Oferta {
+  id: string;
+  /** Lo que se lee en el cartel y en el ticket. */
+  nombre: string;
+  tipo: TipoOferta;
+
+  alcance: AlcanceOferta;
+  /** Ids de producto o nombres de categoría, según el alcance. Vacío en `todo`. */
+  alcanceIds: string[];
+
+  // --- La aritmética, según el tipo ---
+  /** N de «N x M», y el «cada cuántos» del regalo. */
+  paramN?: number;
+  /** M de «N x M». */
+  paramM?: number;
+  /** El tanto por ciento de las ofertas que descuentan porcentaje. */
+  paramPorcentaje?: number;
+  /** Los euros de las de importe, y el precio de las de precio fijo. */
+  paramImporte?: number;
+  tramos?: TramoOferta[];
+  regaloProductId?: string;
+  regaloNombre?: string;
+  regaloCantidad?: number;
+
+  // --- Cuándo vive ---
+  /** `YYYY-MM-DD`. Sin valor, desde siempre. */
+  desde?: string;
+  /** `YYYY-MM-DD`. Sin valor, hasta que se desactive. */
+  hasta?: string;
+  /** 0 = domingo. Vacío o ausente: todos los días. */
+  diasSemana?: number[];
+  /** `HH:MM`. Las dos juntas o ninguna; admiten cruzar la medianoche. */
+  horaInicio?: string;
+  horaFin?: string;
+
+  // --- A quién y con qué condiciones ---
+  soloGrupoClienteId?: string;
+  soloClienteId?: string;
+  /** Compra mínima del ticket para que entre. */
+  minimoImporte?: number;
+  /** Unidades mínimas en la línea para que entre. */
+  minimoUnidades?: number;
+
+  // --- Gobierno ---
+  activa: boolean;
+  /**
+   * Si convive con otras sobre la misma línea.
+   *
+   * Las no acumulables compiten entre sí y gana la que más ahorra al
+   * cliente; las acumulables se suman encima. Por defecto NO acumulable,
+   * que es lo que espera cualquiera que ponga dos carteles distintos.
+   */
+  acumulable: boolean;
+  /** Sólo desempata entre dos que ahorren lo mismo. Mayor va primero. */
+  prioridad?: number;
+  /** Tope de veces que puede aplicarse. Sin valor, ilimitada. */
+  usosMaximos?: number;
+  /** Cuántas veces se ha aplicado ya. */
+  usos?: number;
+
   createdAt: string;
   updatedAt: string;
 }

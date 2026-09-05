@@ -15,7 +15,7 @@ export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings'
   'devoluciones' | 'devolucion_line_items' |
   'abonos' | 'abono_aplicaciones' | 'document_templates' | 'vendedores' |
   'almacenes' | 'traspasos' | 'traspaso_line_items' | 'regularizaciones_stock' |
-  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes' | 'rutas_reparto' | 'numeros_serie' | 'escandallos';
+  'cobros_pagos' | 'gastos' | 'vehiculos' | 'obras' | 'ordenes_trabajo' | 'lotes' | 'rappels' | 'grupos_clientes' | 'rutas_reparto' | 'numeros_serie' | 'escandallos' | 'ofertas';
 
 export interface SyncQueueItem {
   id: string;
@@ -145,6 +145,12 @@ function openDB(): Promise<IDBDatabase> {
       }
 
       // Store nueva (v12) — rappels por volumen
+      // El TPV necesita las ofertas aunque se caiga la línea: una promoción
+      // que deja de aplicarse porque no hay internet es un cliente al que se
+      // le cobra de más en la caja.
+      if (!db.objectStoreNames.contains('ofertas')) {
+        db.createObjectStore('ofertas', { keyPath: 'id' });
+      }
       if (!db.objectStoreNames.contains('rappels')) {
         db.createObjectStore('rappels', { keyPath: 'id' });
       }

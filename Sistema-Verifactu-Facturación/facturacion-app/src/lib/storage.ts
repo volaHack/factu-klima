@@ -18,7 +18,7 @@ import {
 } from './offlineDb';
 import {
   Abono, AbonoAplicacion, Albaran, Client, CompanySettings, CustomCategory,
-  Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, OrderApproval,
+  Devolucion, Invoice, InvoiceLineItem, InvoiceStatus, Oferta, OrderApproval,
   OrderApprovalItem, PaymentMethod, PosSession, Product, SerieDocumento,
   SentidoDocumento, TipoDocumento, TpvMode, UserProfile, Vendedor,
   Almacen, TraspasoAlmacen, TraspasoLineItem, RegularizacionStock,
@@ -4684,6 +4684,11 @@ export async function saveLote(lote: Lote): Promise<void> {
     proveedor_id: lote.proveedorId || null,
     proveedor_nombre: lote.proveedorNombre || null,
     notas: lote.notas || null,
+    // El estado del lote y su motivo: es lo que impide que un lote parado
+    // por una alerta sanitaria siga saliendo por la puerta.
+    estado: lote.estado || 'disponible',
+    motivo_bloqueo: lote.motivoBloqueo || null,
+    bloqueado_en: lote.bloqueadoEn || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -4728,8 +4733,134 @@ function mapLoteFromDb(l: any): Lote {
     proveedorId: l.proveedor_id || undefined,
     proveedorNombre: l.proveedor_nombre || undefined,
     notas: l.notas || undefined,
+    // Los lotes guardados antes de que esto existiera vienen sin estado y
+    // se leen como disponibles: nadie se encuentra el almacén bloqueado el
+    // día que esto se despliega.
+    estado: l.estado || 'disponible',
+    motivoBloqueo: l.motivo_bloqueo || undefined,
+    bloqueadoEn: l.bloqueado_en || undefined,
     createdAt: l.created_at || l.createdAt || new Date().toISOString(),
     updatedAt: l.updated_at || l.updatedAt || new Date().toISOString(),
+  };
+}
+
+// ============================================================
+// OFERTAS DE MOSTRADOR
+// ============================================================
+
+export async function getOfertas(): Promise<Oferta[]> {
+  const offlineAvail = await isOfflineDbAvailable();
+  if (offlineAvail) {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const cached = await getAll<any>('ofertas');
+    if (cached.length > 0) return cached.map(mapOfertaFromDb);
+  }
+
+  if (!navigator.onLine) return [];
+
+  const { data, error } = await supabase().from('ofertas').select('*').order('nombre', { ascending: true });
+  if (error || !data) return [];
+
+  if (await isOfflineDbAvailable()) {
+    await clearStore('ofertas');
+    await putMany('ofertas', data);
+  }
+  return data.map(mapOfertaFromDb);
+}
+
+export async function saveOferta(oferta: Oferta): Promise<void> {
+  const userId = await requireUserId();
+  const row = {
+    id: oferta.id,
+    user_id: userId,
+    nombre: oferta.nombre,
+    tipo: oferta.tipo,
+    alcance: oferta.alcance,
+    alcance_ids: oferta.alcanceIds ?? [],
+    param_n: oferta.paramN ?? null,
+    param_m: oferta.paramM ?? null,
+    param_porcentaje: oferta.paramPorcentaje ?? null,
+    param_importe: oferta.paramImporte ?? null,
+    tramos: oferta.tramos ?? [],
+    regalo_product_id: oferta.regaloProductId || null,
+    regalo_nombre: oferta.regaloNombre || null,
+    regalo_cantidad: oferta.regaloCantidad ?? null,
+    desde: oferta.desde || null,
+    hasta: oferta.hasta || null,
+    dias_semana: oferta.diasSemana ?? null,
+    hora_inicio: oferta.horaInicio || null,
+    hora_fin: oferta.horaFin || null,
+    solo_grupo_cliente_id: oferta.soloGrupoClienteId || null,
+    solo_cliente_id: oferta.soloClienteId || null,
+    minimo_importe: oferta.minimoImporte ?? null,
+    minimo_unidades: oferta.minimoUnidades ?? null,
+    activa: oferta.activa,
+    acumulable: oferta.acumulable,
+    prioridad: oferta.prioridad ?? 0,
+    usos_maximos: oferta.usosMaximos ?? null,
+    usos: oferta.usos ?? 0,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (await isOfflineDbAvailable()) await put('ofertas', row);
+
+  if (navigator.onLine) {
+    try {
+      await supabase().from('ofertas').upsert(row);
+    } catch {
+      await enqueueSyncAction('upsert', 'ofertas', row);
+    }
+  } else {
+    await enqueueSyncAction('upsert', 'ofertas', row);
+  }
+}
+
+export async function deleteOferta(id: string): Promise<void> {
+  if (await isOfflineDbAvailable()) await removeFromDb('ofertas', id);
+  if (navigator.onLine) {
+    try {
+      await supabase().from('ofertas').delete().eq('id', id);
+    } catch {
+      await enqueueSyncAction('delete', 'ofertas', { id });
+    }
+  } else {
+    await enqueueSyncAction('delete', 'ofertas', { id });
+  }
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function mapOfertaFromDb(o: any): Oferta {
+  const numeroOpcional = (v: unknown) => (v === null || v === undefined ? undefined : Number(v));
+  return {
+    id: o.id,
+    nombre: o.nombre || '',
+    tipo: o.tipo,
+    alcance: o.alcance || 'todo',
+    alcanceIds: Array.isArray(o.alcance_ids) ? o.alcance_ids : [],
+    paramN: numeroOpcional(o.param_n),
+    paramM: numeroOpcional(o.param_m),
+    paramPorcentaje: numeroOpcional(o.param_porcentaje),
+    paramImporte: numeroOpcional(o.param_importe),
+    tramos: Array.isArray(o.tramos) ? o.tramos : [],
+    regaloProductId: o.regalo_product_id || undefined,
+    regaloNombre: o.regalo_nombre || undefined,
+    regaloCantidad: numeroOpcional(o.regalo_cantidad),
+    desde: o.desde || undefined,
+    hasta: o.hasta || undefined,
+    diasSemana: Array.isArray(o.dias_semana) ? o.dias_semana : undefined,
+    horaInicio: o.hora_inicio || undefined,
+    horaFin: o.hora_fin || undefined,
+    soloGrupoClienteId: o.solo_grupo_cliente_id || undefined,
+    soloClienteId: o.solo_cliente_id || undefined,
+    minimoImporte: numeroOpcional(o.minimo_importe),
+    minimoUnidades: numeroOpcional(o.minimo_unidades),
+    activa: o.activa !== false,
+    acumulable: o.acumulable === true,
+    prioridad: Number(o.prioridad ?? 0),
+    usosMaximos: numeroOpcional(o.usos_maximos),
+    usos: Number(o.usos ?? 0),
+    createdAt: o.created_at || new Date().toISOString(),
+    updatedAt: o.updated_at || new Date().toISOString(),
   };
 }
 

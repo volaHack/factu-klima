@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Boxes, Plus, Trash2, X, AlertTriangle, Search, ShieldAlert } from 'lucide-react';
+import { Boxes, Plus, Trash2, X, AlertTriangle, Search, ShieldAlert, Ban, Undo2, PhoneCall } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import { getLotes, saveLote, deleteLote, getProducts, getInvoices, getProveedores } from '@/lib/storage';
-import { trazabilidadDeLote, resumenDeLote, lotesCaducando, diasHastaCaducidad } from '@/lib/lotes';
-import { Lote, Product, Invoice, Client } from '@/lib/types';
-import { generateId, formatCurrency, formatDate, getToday } from '@/lib/utils';
+import {
+  trazabilidadDeLote, resumenDeLote, lotesCaducando, diasHastaCaducidad,
+  bloquearLote, liberarLote, estadoDeLote, sePuedeVender, clientesAfectadosPorLote,
+} from '@/lib/lotes';
+import { Lote, Product, Invoice, Client, EstadoLote } from '@/lib/types';
+import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 
 type Tab = 'lotes' | 'trazabilidad';
@@ -28,6 +31,17 @@ export default function LotesPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(loteVacio());
 
+  /**
+   * FRENAR UN LOTE
+   *
+   * Cuando llega el aviso de la agencia de seguridad alimentaria, lo primero
+   * no es buscar a quién se le vendió: es que deje de venderse. Este modal
+   * es ese botón, y pide el motivo porque dentro de seis meses —o delante de
+   * un inspector— hay que poder decir por qué se paró y cuándo.
+   */
+  const [bloqueando, setBloqueando] = useState<{ lote: Lote; estado: EstadoLote } | null>(null);
+  const [motivoBloqueo, setMotivoBloqueo] = useState('');
+
   // Trazabilidad: la búsqueda que responde a una alerta sanitaria.
   const [busquedaCodigo, setBusquedaCodigo] = useState('');
   const [loteEncontrado, setLoteEncontrado] = useState<Lote | null>(null);
@@ -36,6 +50,39 @@ export default function LotesPage() {
   const { success, error: toastError } = useToast();
 
   const leer = () => Promise.all([getLotes(), getProducts(), getInvoices(), getProveedores()]);
+
+  const confirmarBloqueo = async () => {
+    if (!bloqueando) return;
+    try {
+      const parado = bloquearLote(bloqueando.lote, bloqueando.estado as 'inmovilizado' | 'retirado', motivoBloqueo);
+      await saveLote(parado);
+      setBloqueando(null);
+      setMotivoBloqueo('');
+      await cargar();
+      success(
+        bloqueando.estado === 'retirado' ? 'Lote retirado' : 'Lote inmovilizado',
+        'Deja de poder venderse ahora mismo, también desde el TPV.',
+      );
+    } catch (err) {
+      toastError('No se ha podido bloquear', err instanceof Error ? err.message : '');
+    }
+  };
+
+  const devolverALaVenta = async (lote: Lote) => {
+    try {
+      await saveLote(liberarLote(lote));
+      await cargar();
+      success('Lote liberado', 'Vuelve a poder venderse.');
+    } catch (err) {
+      toastError('No se puede liberar', err instanceof Error ? err.message : '');
+    }
+  };
+
+  /** A quién hay que llamar. Agrupado por cliente, no por línea de factura. */
+  const afectados = useMemo(
+    () => (loteEncontrado ? clientesAfectadosPorLote(loteEncontrado.id, invoices) : []),
+    [loteEncontrado, invoices],
+  );
 
   const cargar = async () => {
     const [l, p, inv, prov] = await leer();
@@ -180,9 +227,22 @@ export default function LotesPage() {
                     lotes.map(l => {
                       const dias = diasHastaCaducidad(l);
                       return (
-                        <tr key={l.id}>
-                          <td className="mono"><strong>{l.codigo}</strong></td>
-                          <td>{l.productName}</td>
+                        <tr key={l.id} className={sePuedeVender(l) ? '' : 'lote-fila-bloqueada'}>
+                          <td className="mono">
+                            <strong>{l.codigo}</strong>
+                            {!sePuedeVender(l) && (
+                              <>
+                                <br />
+                                <span className={`lote-estado lote-estado--${estadoDeLote(l)}`}>
+                                  <Ban size={11} /> {estadoDeLote(l)}
+                                </span>
+                              </>
+                            )}
+                          </td>
+                          <td>
+                            {l.productName}
+                            {l.motivoBloqueo && <div className="lote-motivo">{l.motivoBloqueo}</div>}
+                          </td>
                           <td>{formatDate(l.fechaEntrada)}</td>
                           <td>
                             {l.fechaCaducidad ? formatDate(l.fechaCaducidad) : '—'}
@@ -192,10 +252,43 @@ export default function LotesPage() {
                           </td>
                           <td style={{ textAlign: 'right' }}>{l.cantidadEntrada}</td>
                           <td style={{ textAlign: 'right', fontWeight: 700 }}>{l.cantidadDisponible}</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button type="button" className="btn btn-ghost btn-xs text-danger" onClick={() => handleEliminar(l)} title="Eliminar">
-                              <Trash2 size={14} />
-                            </button>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {sePuedeVender(l) ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => { setBloqueando({ lote: l, estado: 'inmovilizado' }); setMotivoBloqueo(''); }}
+                                  title="Inmovilizar: retenerlo mientras se comprueba"
+                                >
+                                  <Ban size={14} />
+                                </button>
+                                <button type="button" className="btn btn-ghost btn-xs text-danger" onClick={() => handleEliminar(l)} title="Eliminar">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            ) : estadoDeLote(l) === 'inmovilizado' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => devolverALaVenta(l)}
+                                  title="Devolver a la venta"
+                                >
+                                  <Undo2 size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs text-danger"
+                                  onClick={() => { setBloqueando({ lote: l, estado: 'retirado' }); setMotivoBloqueo(l.motivoBloqueo ?? ''); }}
+                                  title="Retirar definitivamente"
+                                >
+                                  <ShieldAlert size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <span className="lote-motivo">Retirado</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -206,6 +299,46 @@ export default function LotesPage() {
             </div>
           </div>
         </>
+      )}
+
+      {bloqueando && (
+        <div className="modal-overlay" onClick={() => setBloqueando(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                {bloqueando.estado === 'retirado' ? 'Retirar el lote' : 'Inmovilizar el lote'} {bloqueando.lote.codigo}
+              </h3>
+              <button className="modal-close" onClick={() => setBloqueando(null)} aria-label="Cerrar"><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <p className="form-hint" style={{ marginBottom: 'var(--space-4)' }}>
+                {bloqueando.estado === 'retirado'
+                  ? 'Sale de circulación para siempre y NO se puede volver a poner a la venta. Queda registrado con su fecha y su motivo.'
+                  : 'Se retiene mientras se comprueba. Deja de poder venderse, y si la alerta era de otra cosa se libera con un clic.'}
+              </p>
+              <div className="form-group">
+                <label className="form-label required">Por qué</label>
+                <textarea
+                  className="form-textarea"
+                  rows={3}
+                  autoFocus
+                  placeholder="Aviso AESAN del 5 de septiembre por presencia de listeria"
+                  value={motivoBloqueo}
+                  onChange={e => setMotivoBloqueo(e.target.value)}
+                />
+                <span className="form-hint">
+                  Dentro de seis meses, quien mire este lote tiene que poder saber por qué se paró sin llamar a nadie.
+                </span>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setBloqueando(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={confirmarBloqueo} disabled={!motivoBloqueo.trim()}>
+                <Ban size={16} /> {bloqueando.estado === 'retirado' ? 'Retirar' : 'Inmovilizar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === 'trazabilidad' && (
@@ -243,6 +376,36 @@ export default function LotesPage() {
                 <div><span>Unidades entregadas</span><strong>{resumenDelBuscado?.unidades ?? 0}</strong></div>
                 <div><span>Quedan en almacén</span><strong>{loteEncontrado.cantidadDisponible}</strong></div>
               </div>
+
+              {/* A QUIEN HAY QUE LLAMAR
+                  El detalle de abajo es el registro —una fila por linea de
+                  factura— y es lo correcto para una inspeccion. Pero con el
+                  telefono en la mano lo que hace falta es una lista de
+                  personas, no de documentos: un nombre, cuanto se le sirvio y
+                  con que albaranes, empezando por quien mas tiene. */}
+              {afectados.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-5)' }}>
+                  <div className="section-title" style={{ marginBottom: 'var(--space-3)' }}>
+                    <PhoneCall size={16} />
+                    <h2 className="settings-section-title">
+                      Hay que avisar a {afectados.length} {afectados.length === 1 ? 'cliente' : 'clientes'}
+                    </h2>
+                  </div>
+                  <div className="retirada-clientes">
+                    {afectados.map(a => (
+                      <div key={a.clientId} className="retirada-cliente">
+                        <div>
+                          <div className="retirada-cliente-nombre">{a.clientName}</div>
+                          <div className="retirada-cliente-docs">
+                            {a.documentos.join(' · ')} — del {formatDate(a.desde)} al {formatDate(a.hasta)}
+                          </div>
+                        </div>
+                        <div className="retirada-cliente-uds">{a.unidades} uds.</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="table-responsive">
                 <table className="table">
