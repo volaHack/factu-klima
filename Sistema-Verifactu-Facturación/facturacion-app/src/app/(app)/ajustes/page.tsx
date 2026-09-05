@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor, getAlmacenes } from '@/lib/storage';
+import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor, getAlmacenes, contarFacturasSelladas, ErrorGuardado } from '@/lib/storage';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -85,6 +85,15 @@ function TaxRateEditor({ label, rates, activo, onChange, onCommit, onReset }: {
 
 export default function AjustesPage() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
+  /**
+   * Cuántas facturas selladas hay ya.
+   *
+   * Con una sola, el NIF del emisor deja de poder cambiarse: entra en la
+   * huella encadenada de todas ellas. Lo impone el guardián de la base de
+   * datos; aquí se sabe para poder avisar ANTES, en vez de dejar escribir un
+   * NIF que el servidor va a rechazar.
+   */
+  const [facturasSelladas, setFacturasSelladas] = useState(0);
   const [stripeKeys, setStripeKeys] = useState<{
     hasSecretKey: boolean;
     hasWebhookSecret: boolean;
@@ -119,14 +128,16 @@ export default function AjustesPage() {
 
   useEffect(() => {
     (async () => {
-      const [data, vendList, almList] = await Promise.all([
+      const [data, vendList, almList, selladas] = await Promise.all([
         getCompanySettings(),
         getVendedores(),
         getAlmacenes(),
+        contarFacturasSelladas(),
       ]);
       setSettings(data);
       setVendedores(vendList);
       setAlmacenes(almList);
+      setFacturasSelladas(selladas);
       // Borradores iniciales de los porcentajes de impuesto
       setIvaRatesDraft((data.ivaRates?.length ? data.ivaRates : DEFAULT_IVA_RATES).map(r => r));
       setIgicRatesDraft((data.igicRates?.length ? data.igicRates : DEFAULT_IGIC_RATES).map(r => r));
@@ -176,12 +187,33 @@ export default function AjustesPage() {
     }
   };
 
+  /**
+   * Guarda un campo y, si el servidor lo rechaza, LO DICE.
+   *
+   * Antes esta promesa no tenía `catch`: cuando el guardado fallaba —y falla
+   * de verdad, por ejemplo al tocar el NIF con facturas ya selladas— el error
+   * se perdía, la pantalla se quedaba con el valor nuevo y un rato después
+   * volvía el viejo sin explicación. Ahora el campo se devuelve a como
+   * estaba y se enseña el motivo, que es lo único que permite entender qué
+   * ha pasado.
+   */
   const updateField = (field: keyof CompanySettings, value: unknown) => {
     if (!settings) return;
+    const anterior = settings;
     const next = { ...settings, [field]: value };
     setSettings(next);
     saveCompanySettings(next).then(() => {
       window.dispatchEvent(new CustomEvent('klima-settings-updated', { detail: next }));
+    }).catch((err: unknown) => {
+      setSettings(anterior);
+      if (err instanceof ErrorGuardado) {
+        toastError('Ese cambio no se puede guardar', err.message);
+      } else {
+        toastError(
+          'No se ha podido guardar',
+          err instanceof Error ? err.message : 'Vuelve a intentarlo en un momento.',
+        );
+      }
     });
   };
 
@@ -392,7 +424,23 @@ export default function AjustesPage() {
         <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
           <div className="form-group">
             <label className="form-label required">NIF / CIF</label>
-            <input className="form-input" value={settings.nif} onChange={e => updateField('nif', e.target.value)} />
+            <input
+              className="form-input"
+              value={settings.nif}
+              readOnly={facturasSelladas > 0}
+              onChange={e => updateField('nif', e.target.value)}
+              title={facturasSelladas > 0
+                ? 'El NIF del emisor no puede cambiarse mientras haya facturas emitidas'
+                : undefined}
+            />
+            {facturasSelladas > 0 && (
+              <span className="form-hint">
+                No se puede cambiar: tienes {facturasSelladas} factura{facturasSelladas === 1 ? '' : 's'} ya
+                emitida{facturasSelladas === 1 ? '' : 's'} cuya huella Veri*Factu se calculó con este NIF.
+                Cambiarlo rompería la cadena. Si te equivocaste al ponerlo, hay que anular esas facturas
+                y volver a emitirlas con el NIF correcto.
+              </span>
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">Email de facturación</label>

@@ -2743,6 +2743,69 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   return settings;
 }
 
+/**
+ * El servidor ha dicho que no, y va a seguir diciendo que no.
+ *
+ * Se distingue de una caída de red porque cambia lo que hay que hacer con el
+ * cambio: una caída se reintenta cuando vuelva la conexión; un rechazo hay
+ * que contárselo al usuario y deshacerlo.
+ */
+export class ErrorGuardado extends Error {}
+
+/** Forma mínima del error que devuelve supabase-js. */
+export interface FalloSupabase {
+  message?: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
+/**
+ * Distingue «no se ha podido llegar al servidor» de «el servidor lo ha
+ * rechazado».
+ *
+ * Los SQLSTATE que empiezan por 23 son las violaciones de integridad
+ * (`23514` es el `check_violation` con el que el guardián antifraude corta el
+ * cambio de NIF); los que empiezan por 42 son errores de la propia consulta;
+ * y `42501` es el permiso denegado de RLS. Ninguno mejora esperando.
+ */
+export function esRechazoDefinitivo(fallo: FalloSupabase): boolean {
+  const codigo = String(fallo?.code ?? '');
+  if (/^(23|42)/.test(codigo)) return true;
+  return /ANTIFRAUDE/i.test(String(fallo?.message ?? ''));
+}
+
+/** El texto que verá el usuario, sin el ruido de PostgREST alrededor. */
+export function mensajeDeRechazo(fallo: FalloSupabase): string {
+  const bruto = String(fallo?.message ?? '').trim();
+  // Los mensajes del guardián ya vienen escritos para leerse; el prefijo
+  // sobra en pantalla.
+  const limpio = bruto.replace(/^ANTIFRAUDE:\s*/i, '');
+  return limpio || 'El servidor ha rechazado el cambio.';
+}
+
+/**
+ * Cuántas facturas selladas tiene la empresa.
+ *
+ * Es lo que decide si el NIF del emisor todavía se puede tocar: en cuanto hay
+ * una factura sellada, su NIF forma parte de la huella encadenada y cambiarlo
+ * rompería la cadena de todas las demás. Lo comprueba el guardián de la base
+ * de datos; esto sólo sirve para poder DECÍRSELO al usuario antes de que
+ * escriba, en vez de dejarle teclear un NIF que no va a poder guardar.
+ */
+export async function contarFacturasSelladas(): Promise<number> {
+  try {
+    if (!navigator.onLine) return 0;
+    const { count } = await supabase()
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .not('sealed_at', 'is', null);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function saveCompanySettings(settings: CompanySettings): Promise<void> {
   const userId = await requireUserId();
 
@@ -2810,9 +2873,25 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
   };
 
   const offlineAvail = await isOfflineDbAvailable();
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const anterior = offlineAvail ? await getById<any>('settings', 'company') : null;
   if (offlineAvail) {
     await withSettingsCacheLock(() => put('settings', { ...fullRow, key: 'company' }));
   }
+
+  /**
+   * Deshace el guardado local.
+   *
+   * Hace falta cuando el servidor RECHAZA el cambio: si la caché se queda con
+   * el valor nuevo y la base de datos con el viejo, la pantalla enseña una
+   * cosa y la verdad es otra, hasta que el refresco de fondo de
+   * `getCompanySettings` devuelve el valor de la base y el cambio «se
+   * deshace solo» delante del usuario sin que nadie le haya dicho nada.
+   */
+  const deshacerCacheLocal = async () => {
+    if (!offlineAvail) return;
+    if (anterior) await withSettingsCacheLock(() => put('settings', anterior));
+  };
 
   if (navigator.onLine) {
     try {
@@ -2837,14 +2916,35 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
         // Si alguna columna aún no existe en BD (migración sin aplicar),
         // reintenta sin custom_categories ni iva_rates/igic_rates para no
         // romper el resto del guardado.
-        if (/custom_categories|iva_rates|igic_rates|series_documentos|tarifas|almacenes/i.test(String(res.error.message))) {
-          const retry = await write(row);
-          if (retry?.error) await enqueueSyncAction('upsert', 'company_settings', row);
-        } else {
+        const columnaQueFalta = /custom_categories|iva_rates|igic_rates|series_documentos|tarifas|almacenes/i
+          .test(String(res.error.message));
+        const fallo = columnaQueFalta ? (await write(row))?.error : res.error;
+
+        if (fallo) {
+          // UN RECHAZO DEL SERVIDOR NO SE PUEDE REINTENTAR
+          //
+          // Encolarlo era lo que hacía este código, y es lo que convertía un
+          // «no puedes hacer eso» en un «guardado» seguido de un cambio que
+          // se deshace solo un rato después. El guardián antifraude de la
+          // base de datos (`fn_settings_guard`) rechaza cambiar el NIF del
+          // emisor cuando ya hay facturas selladas, porque su NIF entra en la
+          // huella encadenada de todas ellas; reintentarlo mil veces va a
+          // fallar mil veces igual.
+          //
+          // Así que la caché local vuelve a lo que había y el error sube tal
+          // cual: el mensaje del guardián explica el motivo mucho mejor que
+          // nada de lo que pudiéramos escribir aquí.
+          if (esRechazoDefinitivo(fallo)) {
+            await deshacerCacheLocal();
+            throw new ErrorGuardado(mensajeDeRechazo(fallo));
+          }
           await enqueueSyncAction('upsert', 'company_settings', row);
         }
       }
-    } catch {
+    } catch (err) {
+      // Un rechazo ya viene explicado: se deja pasar. Lo demás —caída de red,
+      // servidor que no contesta— sí es reintentable.
+      if (err instanceof ErrorGuardado) throw err;
       await enqueueSyncAction('upsert', 'company_settings', row);
     }
   } else {
