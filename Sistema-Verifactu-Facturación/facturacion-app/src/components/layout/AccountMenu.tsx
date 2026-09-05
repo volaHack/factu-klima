@@ -18,6 +18,7 @@ function initialsFrom(name: string, email: string): string {
 
 export default function AccountMenu() {
   const [open, setOpen] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [email, setEmail] = useState('');
@@ -25,6 +26,45 @@ export default function AccountMenu() {
   const [avatarDraft, setAvatarDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const formSalir = useRef<HTMLFormElement>(null);
+
+  /**
+   * Cierra la sesión de verdad: en el navegador y en el servidor.
+   *
+   * El orden importa. Primero se tira la sesión del cliente y se vacía la
+   * caché sin conexión —si no, quien entre después con otra cuenta se
+   * encuentra las facturas de la anterior en IndexedDB—, y sólo entonces se
+   * envía el formulario a `/auth/signout`, que borra la cookie del servidor y
+   * redirige a /login con una navegación completa.
+   */
+  const cerrarSesion = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (cerrando) return;
+    setCerrando(true);
+    // `currentTarget` se vacía en cuanto este manejador cede el control, así
+    // que el formulario se coge de la ref, que sí sobrevive al await.
+    const formulario = formSalir.current;
+    try {
+      await createClient().auth.signOut();
+    } catch {
+      // Sin conexión no se puede avisar a Supabase; se sigue igualmente,
+      // porque lo que no puede pasar es que el botón no haga nada.
+    }
+    try {
+      // Con un tope: `clearOfflineCache` abre IndexedDB, y una conexión que
+      // otra pestaña deje bloqueada no rechaza la promesa, se queda esperando
+      // para siempre. Sin este tope, el botón volvería a no hacer nada, que
+      // es justo el fallo que se está arreglando.
+      await Promise.race([
+        clearOfflineCache(),
+        new Promise(listo => setTimeout(listo, 3000)),
+      ]);
+    } catch {
+      // Una caché que no se deja borrar tampoco puede dejarte dentro.
+    }
+    if (formulario) formulario.submit();
+    else window.location.href = '/auth/signout';
+  };
 
   useEffect(() => {
     (async () => {
@@ -150,17 +190,30 @@ export default function AccountMenu() {
                 <Settings size={16} /> Ajustes de la empresa
               </Link>
               <div className="account-dropdown-divider" />
-              <form
-                action="/auth/signout"
-                method="post"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  await clearOfflineCache();
-                  e.currentTarget.submit();
-                }}
-              >
-                <button type="submit" className="account-dropdown-item danger" style={{ width: '100%' }}>
-                  <LogOut size={16} /> Cerrar sesión
+              {/*
+                POR QUÉ ESTO NO ERA UN `onSubmit` NORMAL
+
+                Lo era, y por eso no funcionaba. El manejador hacía
+                `await clearOfflineCache()` y después `e.currentTarget.submit()`,
+                pero React vacía `currentTarget` en cuanto el manejador
+                devuelve el control —y un `await` lo devuelve—: al volver del
+                await valía `null`, la llamada reventaba dentro de una promesa
+                sin `catch` y el botón se quedaba sin hacer absolutamente nada.
+
+                Ahora el formulario se guarda en una `ref`, que sobrevive al
+                await. Y se cierra sesión también en el navegador antes de
+                enviarlo: la sesión vive en las cookies que escribe
+                `createBrowserClient`, así que limpiar sólo la del servidor
+                dejaba al cliente creyendo que seguía dentro.
+              */}
+              <form ref={formSalir} action="/auth/signout" method="post" onSubmit={cerrarSesion}>
+                <button
+                  type="submit"
+                  className="account-dropdown-item danger"
+                  style={{ width: '100%' }}
+                  disabled={cerrando}
+                >
+                  <LogOut size={16} /> {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
                 </button>
               </form>
             </div>

@@ -14,6 +14,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
+import type { CompanySettings } from '@/lib/types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -96,34 +97,45 @@ const controlItems = [
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const [brandName, setBrandName] = useState('DistAlSur');
+  const [logoUrl, setLogoUrl] = useState('');
   const [sectorIcon, setSectorIcon] = useState('Apple');
   const [sectorLabel, setSectorLabel] = useState('Distribución');
   const [tpvActive, setTpvActive] = useState(true);
   const [modulos, setModulos] = useState<ModuloId[] | null>(null);
 
   useEffect(() => {
+    const aplicar = (settings: CompanySettings) => {
+      setTpvActive(isTpvEnabled(settings));
+      // Sin configurar todavía, mandan los de fábrica de su sector: una
+      // empresa que ya existía no puede quedarse sin menús de golpe.
+      setModulos(settings.modulos ?? modulosPorDefecto(settings.sector));
+      setBrandName(settings.tradeName || settings.businessName || 'Empresa');
+      setLogoUrl(settings.logoUrl || '');
+      const sec = BUSINESS_SECTORS.find(s => s.value === settings.sector);
+      if (sec) {
+        setSectorIcon(sec.icon);
+        setSectorLabel(sec.label);
+      }
+    };
+
     const updateState = async () => {
       const settings = await getCompanySettings();
-      if (settings) {
-        setTpvActive(isTpvEnabled(settings));
-        // Sin configurar todavía, mandan los de fábrica de su sector: una
-        // empresa que ya existía no puede quedarse sin menús de golpe.
-        setModulos(settings.modulos ?? modulosPorDefecto(settings.sector));
-        setBrandName(settings.tradeName || settings.businessName || 'Empresa');
-        const sec = BUSINESS_SECTORS.find(s => s.value === settings.sector);
-        if (sec) {
-          setSectorIcon(sec.icon);
-          setSectorLabel(sec.label);
-        }
-      }
+      if (settings) aplicar(settings);
     };
 
     updateState();
 
+    /**
+     * Al guardar en Ajustes se avisa con los ajustes nuevos dentro del evento.
+     *
+     * Antes, de ese detalle sólo se leía si el TPV seguía encendido, así que
+     * cambiar el nombre comercial —o subir un logotipo— no se veía aquí hasta
+     * recargar la página. Se aplica entero, que es para lo que viene.
+     */
     const handleCustomEvent = (e: Event) => {
-      const customEvt = e as CustomEvent;
+      const customEvt = e as CustomEvent<CompanySettings | undefined>;
       if (customEvt.detail) {
-        setTpvActive(isTpvEnabled(customEvt.detail));
+        aplicar(customEvt.detail);
       } else {
         updateState();
       }
@@ -160,7 +172,14 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
       <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
         {/* Logo */}
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">{brandName.charAt(0).toUpperCase()}</div>
+          {/* El logotipo de la empresa manda sobre la inicial: en cuanto hay
+              uno subido, el panel deja de parecer una plantilla genérica. */}
+          <div className={`sidebar-logo-icon${logoUrl ? ' sidebar-logo-icon--imagen' : ''}`}>
+            {logoUrl
+              ? /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={logoUrl} alt="" />
+              : brandName.charAt(0).toUpperCase()}
+          </div>
           <div className="sidebar-logo-text">
             <h1>{brandName}</h1>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

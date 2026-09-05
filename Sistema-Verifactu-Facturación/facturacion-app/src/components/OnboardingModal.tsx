@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import {
   Sparkles, ArrowRight, ArrowLeft, Building2, Palette, FileText,
-  Rocket, Check, Upload, User
+  Rocket, Check, Upload, User, Image as ImageIcon, Trash2
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CompanySettings, BusinessSector, AccentTheme } from '@/lib/types';
 import { saveCompanySettings, saveUserProfile } from '@/lib/storage';
 import { BUSINESS_SECTORS, ACCENT_THEMES, PAYMENT_METHODS } from '@/lib/constants';
+import { processLogoFile } from '@/lib/utils';
 import SelectorSector from '@/components/ajustes/SelectorSector';
 
 interface OnboardingModalProps {
@@ -29,11 +30,35 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
   const [settings, setSettings] = useState<CompanySettings>({ ...initialSettings });
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [errorLogo, setErrorLogo] = useState('');
 
   const updateField = (field: keyof CompanySettings, value: unknown) => {
     setSettings(prev => ({ ...prev, [field]: value }));
     if (field === 'accentTheme') {
       document.body.className = `theme-${value}`;
+    }
+  };
+
+  /**
+   * El logotipo se pide aquí, en el alta, y no sólo en Ajustes.
+   *
+   * El paso ya prometía «añade tu logotipo» en su subtítulo y no había dónde
+   * ponerlo: había que descubrir Ajustes por tu cuenta. Y es de lo primero
+   * que se nota, porque sale en el menú lateral desde el minuto uno y en las
+   * facturas que se generan con diseño automático.
+   *
+   * `processLogoFile` es el mismo que usa Ajustes: reduce la imagen a 600 px
+   * y la deja en un `data:` URL, que es lo que sabe incrustar el generador de
+   * PDF. Sin eso, un logotipo de 4 MB recién sacado del móvil viaja entero a
+   * la base de datos y luego a cada factura.
+   */
+  const elegirLogo = async (archivo?: File) => {
+    if (!archivo) return;
+    try {
+      setErrorLogo('');
+      updateField('logoUrl', await processLogoFile(archivo));
+    } catch (err) {
+      setErrorLogo(err instanceof Error ? err.message : 'Prueba con un PNG o un JPG.');
     }
   };
 
@@ -204,6 +229,49 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
                   </div>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Logotipo</label>
+                  <div className="ajustes-logo">
+                    <div className="ajustes-logo-muestra">
+                      {settings.logoUrl
+                        ? /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={settings.logoUrl} alt="Logotipo de tu empresa" />
+                        : <span className="ajustes-logo-vacio"><ImageIcon size={22} /></span>}
+                    </div>
+                    <div className="ajustes-logo-acciones">
+                      <p className="onboarding-subtitle" style={{ margin: '0 0 var(--space-2)' }}>
+                        Saldrá en el menú lateral y en las facturas con diseño automático.
+                        Un PNG con el fondo transparente queda mejor.
+                      </p>
+                      <div className="ajustes-logo-botones">
+                        <label className="btn btn-secondary btn-sm">
+                          <Upload size={14} /> {settings.logoUrl ? 'Cambiar' : 'Subir logotipo'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={e => { void elegirLogo(e.target.files?.[0]); e.target.value = ''; }}
+                          />
+                        </label>
+                        {settings.logoUrl && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => updateField('logoUrl', '')}
+                          >
+                            <Trash2 size={14} /> Quitar
+                          </button>
+                        )}
+                      </div>
+                      {errorLogo && (
+                        <p className="form-hint" style={{ color: 'var(--danger-500, #dc2626)' }}>
+                          No se pudo cargar el logotipo: {errorLogo}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="onboarding-form-row">
                   <div className="form-group">
                     <label className="form-label">Email de contacto</label>
@@ -353,6 +421,15 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
               </div>
               <h2>¡Todo listo!</h2>
               <p>Tu sistema de facturación está configurado y listo para empezar.</p>
+
+              {settings.logoUrl && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={settings.logoUrl}
+                  alt="Logotipo de tu empresa"
+                  style={{ maxWidth: 160, maxHeight: 64, objectFit: 'contain', marginBottom: 'var(--space-3)' }}
+                />
+              )}
 
               <div className="onboarding-summary">
                 <div className="onboarding-summary-item">
