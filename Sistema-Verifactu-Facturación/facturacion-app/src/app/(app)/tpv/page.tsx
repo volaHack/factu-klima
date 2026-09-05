@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair, Sparkles } from 'lucide-react';
 import TpvProductGrid from '@/components/tpv/TpvProductGrid';
 import TpvCart from '@/components/tpv/TpvCart';
 import TpvCheckout from '@/components/tpv/TpvCheckout';
-import TpvCashSession from '@/components/tpv/TpvCashSession';
+import TpvCashSession, { type DatosTurno } from '@/components/tpv/TpvCashSession';
 import TpvTicket from '@/components/tpv/TpvTicket';
 import TpvCustomItemModal from '@/components/tpv/TpvCustomItemModal';
 import TpvKeyboardHelpModal from '@/components/tpv/TpvKeyboardHelpModal';
+import TpvAyudaModal from '@/components/tpv/TpvAyudaModal';
 import TpvQuickCreateProductModal from '@/components/tpv/TpvQuickCreateProductModal';
 import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
 import TpvInsightsModal from '@/components/tpv/TpvInsightsModal';
@@ -70,6 +71,7 @@ export default function TpvPage() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [todaySalesOpen, setTodaySalesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [ayudaOpen, setAyudaOpen] = useState(false);
   const [weightProduct, setWeightProduct] = useState<Product | null>(null);
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
   const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
@@ -134,8 +136,8 @@ export default function TpvPage() {
   // Atajos de teclado globales para el cajero
   const isAnyModalOpen = useMemo(
     () => checkoutOpen || customItemOpen || quickCreateOpen || shortcutsOpen ||
-      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen || weightProduct !== null || activeCheck !== null,
-    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen, weightProduct, activeCheck],
+      heldListOpen || cashModalMode !== null || lastSale !== null || todaySalesOpen || insightsOpen || weightProduct !== null || activeCheck !== null || ayudaOpen,
+    [checkoutOpen, customItemOpen, quickCreateOpen, shortcutsOpen, heldListOpen, cashModalMode, lastSale, todaySalesOpen, insightsOpen, weightProduct, activeCheck, ayudaOpen],
   );
 
   const holdSale = useCallback(() => {
@@ -420,6 +422,63 @@ export default function TpvPage() {
     return closed;
   };
 
+  /**
+   * Lo vendido desde que se abrió la caja, repartido por forma de pago.
+   *
+   * Se calcula aquí y no en el servidor porque los datos ya están en el
+   * navegador: son las mismas facturas que alimentan «Tickets Hoy». Si algo
+   * falla, se devuelve `undefined` y el cierre se queda sin resumen, que es
+   * mejor que un cierre que no se puede completar.
+   */
+  const datosDelTurno = async (): Promise<DatosTurno | undefined> => {
+    if (!session || !settings) return undefined;
+    try {
+      const desde = new Date(session.openedAt).getTime();
+      const delTurno = (await getInvoices()).filter(i =>
+        i.series === settings.tpvSeries && new Date(i.createdAt).getTime() >= desde);
+
+      const porMetodo = (m: PaymentMethod) => delTurno
+        .filter(i => i.paymentMethod === m)
+        .reduce((suma, i) => suma + (i.total ?? 0), 0);
+
+      const unidades = new Map<string, number>();
+      for (const factura of delTurno) {
+        for (const linea of factura.lineItems ?? []) {
+          unidades.set(linea.productName, (unidades.get(linea.productName) ?? 0) + (linea.quantity ?? 0));
+        }
+      }
+
+      return {
+        ventasEfectivo: porMetodo(PaymentMethod.EFECTIVO),
+        ventasTarjeta: porMetodo(PaymentMethod.TARJETA),
+        ventasBizum: porMetodo(PaymentMethod.BIZUM),
+        numeroVentas: delTurno.length,
+        masVendidos: [...unidades.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([nombre, uds]) => ({ nombre, unidades: uds })),
+      };
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Se calculan al abrir el modal de cierre, no al cerrarlo: leer las
+  // facturas tarda, y para cuando la caja está contada ya están listas.
+  const [turno, setTurno] = useState<DatosTurno | undefined>(undefined);
+  useEffect(() => {
+    if (cashModalMode !== 'close') return;
+    let vivo = true;
+    void datosDelTurno().then(d => { if (vivo) setTurno(d); });
+    return () => { vivo = false; };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [cashModalMode]);
+
+  // Se deriva en vez de limpiarse dentro del efecto: escribir estado en el
+  // cuerpo de un efecto encadena renders, y aquí basta con no pasar lo del
+  // turno anterior cuando el modal no está abierto.
+  const turnoActual = cashModalMode === 'close' ? turno : undefined;
+
   const finishClosingSession = () => {
     setSession(undefined);
     setSessionDismissed(false);
@@ -604,6 +663,18 @@ export default function TpvPage() {
               <ArrowLeft size={18} /> Salir del TPV
             </Link>
           )}
+          {/* La ayuda va la primera de la barra y con su propio color: es
+              el botón que se busca cuando algo no se sabe hacer, y buscarlo
+              entre seis botones grises es justo lo que no se puede pedir
+              con un cliente delante. */}
+          <button
+            className="btn btn-sm tpv-ayuda-boton"
+            onClick={() => setAyudaOpen(true)}
+            title="Pregunta lo que necesites sobre el mostrador"
+          >
+            <Sparkles size={15} />
+            <span>Ayuda</span>
+          </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setShortcutsOpen(true)}
@@ -798,6 +869,20 @@ export default function TpvPage() {
         />
       )}
 
+      {ayudaOpen && (
+        <TpvAyudaModal
+          onClose={() => setAyudaOpen(false)}
+          contexto={{
+            lineas: cart.length,
+            total,
+            cajaAbierta: Boolean(session),
+            aparcadas: heldSales.length,
+            modo: settings?.tpvMode ?? 'tienda',
+            sinConexion: typeof navigator !== 'undefined' && !navigator.onLine,
+          }}
+        />
+      )}
+
       {shortcutsOpen && (
         <TpvKeyboardHelpModal onClose={() => setShortcutsOpen(false)} />
       )}
@@ -825,6 +910,7 @@ export default function TpvPage() {
           session={session}
           onSubmit={handleCloseSession}
           onDone={finishClosingSession}
+          datosTurno={turnoActual}
         />
       )}
 

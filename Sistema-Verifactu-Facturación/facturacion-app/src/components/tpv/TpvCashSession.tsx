@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Lock, Unlock, Banknote, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PosSession } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
@@ -11,11 +11,27 @@ interface TpvOpenSessionProps {
   onSkip: () => void;
 }
 
+/** Los números del turno, para que la ayuda pueda contar cómo ha ido. */
+export interface DatosTurno {
+  ventasEfectivo: number;
+  ventasTarjeta: number;
+  ventasBizum: number;
+  numeroVentas: number;
+  masVendidos: { nombre: string; unidades: number }[];
+}
+
 interface TpvCloseSessionProps {
   mode: 'close';
   session: PosSession;
   onSubmit: (countedCash: number) => Promise<PosSession>;
   onDone: () => void;
+  /**
+   * Lo vendido en el turno. Es opcional a propósito: si no llega —porque
+   * las facturas no se pudieron leer, o porque no hay conexión— la caja se
+   * cierra igual y simplemente no hay resumen. Cerrar la caja no puede
+   * depender de que un servicio de IA conteste.
+   */
+  datosTurno?: DatosTurno;
 }
 
 type TpvCashSessionProps = TpvOpenSessionProps | TpvCloseSessionProps;
@@ -27,8 +43,56 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [closed, setClosed] = useState<PosSession | null>(null);
+  const [resumen, setResumen] = useState('');
+  const [resumenFallido, setResumenFallido] = useState(false);
+  // Una `ref` y no un estado: sólo sirve para no pedir el resumen dos
+  // veces, y ponerlo en el estado obligaría a escribirlo dentro del efecto
+  // —lo que dispara un render en cascada— para algo que no se pinta.
+  const resumenPedido = useRef(false);
 
   const value = Number(amount.replace(',', '.')) || 0;
+
+  /**
+   * EL RESUMEN DEL TURNO
+   *
+   * Se pide cuando la caja YA está cerrada, no antes. Así el cierre —que es
+   * la operación que de verdad importa— nunca espera por él ni falla por él:
+   * si la IA no contesta, la pantalla de cierre sale igual, sólo que sin las
+   * dos frases de arriba.
+   *
+   * Los números salen de las ventas del turno, no del modelo: lo único que
+   * pone la IA son las palabras.
+   */
+  const datosTurno = props.mode === 'close' ? props.datosTurno : undefined;
+  useEffect(() => {
+    if (!closed || !datosTurno || resumenPedido.current) return;
+    resumenPedido.current = true;
+
+    let vivo = true;
+    fetch('/api/tpv/ayuda', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modo: 'turno',
+        turno: {
+          efectivoInicial: closed.startingCash ?? 0,
+          efectivoContado: closed.countedCash ?? 0,
+          descuadre: (closed.countedCash ?? 0) - (closed.expectedCash ?? 0),
+          ...datosTurno,
+        },
+      }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!vivo) return;
+        if (d?.texto) setResumen(String(d.texto));
+        else setResumenFallido(true);
+      })
+      // Sin resumen; la caja ya está cerrada, que es lo que importa.
+      .catch(() => { if (vivo) setResumenFallido(true); });
+
+    return () => { vivo = false; };
+  }, [closed, datosTurno]);
 
   if (props.mode === 'open') {
     const handleOpen = async () => {
@@ -251,9 +315,20 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
               </div>
             </div>
 
+            {datosTurno && !resumenFallido && (
+              <div className="tpv-turno-resumen">
+                <div className="tpv-turno-resumen-titulo">
+                  <Sparkles size={13} /> Cómo ha ido el turno
+                </div>
+                {resumen
+                  ? <p className="tpv-turno-resumen-texto">{resumen}</p>
+                  : <p className="tpv-turno-resumen-texto" style={{ opacity: 0.7 }}>Repasando el turno…</p>}
+              </div>
+            )}
+
             <button
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', justifyContent: 'center', fontWeight: 700 }}
+              style={{ width: '100%', padding: '12px', justifyContent: 'center', fontWeight: 700, marginTop: 'var(--space-5)' }}
               onClick={props.onDone}
             >
               Entendido y Volver

@@ -6235,6 +6235,315 @@ a.stats-item:focus-visible {
 
 
 /* ============================================================
+   EL TPV SE TOCA CON EL DEDO Y SE APRIETA CIENTOS DE VECES AL DÍA
+   ============================================================
+
+   Todo lo de aquí abajo sale de una observación: un cajero no MIRA el
+   TPV, lo APORREA. Pulsa el mismo botón doscientas veces en un turno,
+   muchas veces sin apartar la vista del cliente. Eso cambia lo que hace
+   falta de la interfaz respecto al resto de la aplicación:
+
+   1. CADA BOTÓN TIENE QUE PARECER UN BOTÓN. Antes casi todos los
+      controles del TPV eran una caja del mismo color que el fondo del
+      modal con un borde de un píxel del mismo gris que todo lo demás.
+      Sobre una pantalla con brillo, a un metro de distancia y con prisa,
+      no se distinguía qué era pulsable y qué era decoración.
+
+   2. TIENE QUE RESPONDER AL DEDO. Ninguno de estos controles tenía
+      estado `:active`. Sin acuse de recibo, el cajero duda de si ha
+      pulsado y pulsa otra vez — y en un teclado numérico de cobro eso
+      es teclear el importe dos veces.
+
+   3. EL `:hover` NO EXISTE EN UNA PANTALLA TÁCTIL. Y peor: al tocar, el
+      navegador deja el estado de hover PEGADO en el último botón
+      pulsado, así que quedaba un botón resaltado que no era el activo.
+      Por eso todo hover va detrás de `@media (hover: hover)`.
+
+   4. Y EN ORDENADOR, EL FOCO SE TIENE QUE VER. El mismo TPV se usa con
+      teclado numérico y lector de códigos: quien va con el tabulador
+      necesita saber dónde está.
+
+   Los tiempos y las curvas siguen la guía de Emil Kowalski instalada en
+   `.agents/skills/emil-design-eng`: 100-160 ms para el acuse de una
+   pulsación, `scale(0.97)` —ni más ni menos—, curva de salida fuerte
+   (aquí `--ease-settle`, que ya es la firma de la casa) y nunca
+   `transition: all`. El bloque global de `prefers-reduced-motion` deja
+   estas transiciones en 0,01 ms: el acuse sigue existiendo, pero
+   instantáneo, que es justo lo que pide ese ajuste.
+   ============================================================ */
+
+/* La superficie común de todo lo pulsable del TPV: se levanta del fondo
+   con su propio color y un borde que sí se ve, en vez de confundirse
+   con el panel que hay debajo. */
+.tpv-payment-method-btn,
+.tpv-cash-quick button,
+.tpv-keypad button {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong, var(--border-color));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  /* Propiedades concretas, nunca `all`. */
+  transition:
+    transform 140ms var(--ease-settle),
+    background-color 140ms var(--ease-settle),
+    border-color 140ms var(--ease-settle),
+    color 140ms var(--ease-settle);
+  /* En táctil, el navegador se toma 300 ms para decidir si es un doble
+     toque. Sin esto, cada pulsación del teclado numérico llega tarde. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Nadie quiere seleccionar el «7» del teclado al pulsarlo rápido. */
+  user-select: none;
+}
+
+/* El acuse de recibo. Es lo único que le dice al cajero «te he oído». */
+.tpv-payment-method-btn:active,
+.tpv-cash-quick button:active,
+.tpv-keypad button:active,
+.tpv-view-tab:active,
+.tpv-cart-actions .btn:active,
+.tpv-checkout-actions .btn:active {
+  transform: scale(0.97);
+}
+
+/* El hover, sólo donde hay un puntero de verdad. */
+@media (hover: hover) and (pointer: fine) {
+  .tpv-payment-method-btn:hover,
+  .tpv-cash-quick button:hover,
+  .tpv-keypad button:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-500);
+  }
+  .tpv-payment-method-btn:hover { color: var(--accent-500); }
+}
+
+/* El foco de teclado: un anillo, no un cambio de color que se confunda
+   con el estado activo. */
+.tpv-payment-method-btn:focus-visible,
+.tpv-cash-quick button:focus-visible,
+.tpv-keypad button:focus-visible,
+.tpv-view-tab:focus-visible,
+.tpv-table:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+/* --- Formas de pago: son tres decisiones, no tres etiquetas --- */
+.tpv-payment-method-btn {
+  min-height: 104px;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+.tpv-payment-method-btn svg { color: var(--accent-500); }
+
+/* --- Teclado numérico: 64 px es la medida de una yema, 52 no --- */
+.tpv-keypad button {
+  height: 64px;
+  font-size: var(--text-xl);
+  font-family: var(--font-mono);
+}
+
+/* --- Los atajos de efectivo, legibles de un vistazo --- */
+.tpv-cash-quick button {
+  min-height: 44px;
+  font-family: var(--font-mono);
+}
+/* «Exacto» es el que se pulsa nueve de cada diez veces: se le nota. */
+.tpv-cash-quick button:first-child {
+  font-family: var(--font-family);
+  border-color: var(--accent-500);
+  color: var(--accent-500);
+  font-weight: 700;
+}
+
+/* --- Las cifras de entregado y cambio, que es lo que se lee en alto --- */
+.tpv-cash-display > div {
+  border: 1px solid var(--border-color);
+  padding: var(--space-3) var(--space-4);
+}
+.tpv-cash-display-value { font-size: var(--text-2xl); }
+/* Cuando ya hay bastante dinero, el cambio se pone en verde Y se hace
+   más grande: es la cifra que el cajero canta al cliente. */
+.tpv-cash-display-value.is-positive { font-size: var(--text-3xl); }
+
+/* --- Pestañas: la activa se ve aunque no se distingan los colores --- */
+.tpv-view-tab {
+  min-height: 44px;
+  padding: 8px 18px;
+  transition:
+    transform 140ms var(--ease-settle),
+    color 140ms var(--ease-settle),
+    background-color 140ms var(--ease-settle),
+    box-shadow 140ms var(--ease-settle);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tpv-view-tab:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+}
+/* Una barra bajo la pestaña activa, además del color: el color solo no
+   basta ni con la pantalla girada ni para quien no distingue el rosa. */
+.tpv-view-tab.is-active {
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 0 var(--accent-500);
+}
+
+/* --- La cabecera del cobro: el importe es el protagonista --- */
+.tpv-checkout-header h3 {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* --- El botón de cobrar, que es el final del camino --- */
+.tpv-checkout-btn:disabled {
+  /* Deshabilitado tiene que LEERSE como deshabilitado, no como un botón
+     normal un poco más apagado: si no, se pulsa y se cree que falla. */
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tpv-checkout-btn:disabled:active { transform: none; }
+
+/* --- Los dos botones del pie del cobro, uno al lado del otro ---
+   `Atrás` salía a media anchura en una fila y `Confirmar cobro` a lo ancho
+   en la siguiente: dos filas para dos botones, y el de volver con el mismo
+   peso visual que el de cobrar. Ahora van juntos y el de cobrar manda. */
+.tpv-checkout-actions { grid-template-columns: minmax(96px, 1fr) 2fr; }
+.tpv-checkout-actions .tpv-checkout-btn { grid-column: auto; }
+
+/* ------------------------------------------------------------------
+   El botón y el panel de ayuda
+   ------------------------------------------------------------------ */
+
+/* Se distingue del resto de la barra a propósito: es el que se busca
+   cuando algo no se sabe hacer. Contorno de acento, no relleno: no
+   compite con «Cobrar», que es el único botón lleno del mostrador. */
+.tpv-ayuda-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-500);
+  color: var(--accent-500);
+  font-weight: 700;
+  transition:
+    transform 140ms var(--ease-settle),
+    background-color 140ms var(--ease-settle);
+  touch-action: manipulation;
+}
+.tpv-ayuda-boton:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .tpv-ayuda-boton:hover { background: var(--bg-card-hover); }
+}
+
+.tpv-ayuda-modal { max-width: 560px; display: flex; flex-direction: column; }
+.tpv-ayuda-titulo { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.tpv-ayuda-chispa {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-md);
+  display: grid; place-items: center;
+  background: var(--accent-glow);
+  color: var(--accent-500);
+}
+.tpv-ayuda-sub {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+.tpv-ayuda-cuerpo { min-height: 168px; }
+
+/* Las preguntas de ejemplo. No son decorado: un cajero con un cliente
+   delante no escribe, pulsa. */
+.tpv-ayuda-ejemplos { display: flex; flex-direction: column; gap: var(--space-2); }
+.tpv-ayuda-ejemplo {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    transform 140ms var(--ease-settle),
+    border-color 140ms var(--ease-settle),
+    color 140ms var(--ease-settle);
+  touch-action: manipulation;
+}
+.tpv-ayuda-ejemplo:active { transform: scale(0.99); }
+@media (hover: hover) and (pointer: fine) {
+  .tpv-ayuda-ejemplo:hover { border-color: var(--accent-500); color: var(--text-primary); }
+}
+.tpv-ayuda-ejemplo:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+
+.tpv-ayuda-cargando {
+  display: flex; align-items: center; gap: var(--space-2);
+  color: var(--text-muted); font-size: var(--text-sm);
+  padding: var(--space-4) 0;
+}
+
+.tpv-ayuda-pregunta-eco {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+/* El texto llega con saltos de línea y a veces con pasos numerados: se
+   respeta lo que manda el modelo en vez de adivinar un formato. */
+.tpv-ayuda-texto {
+  white-space: pre-wrap;
+  font-size: var(--text-base);
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+.tpv-ayuda-respuesta .btn { margin-top: var(--space-4); }
+
+.tpv-ayuda-pie { gap: var(--space-2); align-items: flex-end; }
+.tpv-ayuda-campo { flex: 1; resize: none; min-height: 52px; }
+
+/* --- El resumen del turno al cerrar caja --- */
+.tpv-turno-resumen {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--accent-500);
+  background: var(--accent-glow);
+  text-align: left;
+}
+.tpv-turno-resumen-titulo {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--accent-500);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+.tpv-turno-resumen-texto {
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------
+   Y en pantalla táctil, todo un punto más grande
+   ------------------------------------------------------------------ */
+@media (pointer: coarse) {
+  .tpv-keypad button { height: 72px; font-size: var(--text-2xl); }
+  .tpv-payment-method-btn { min-height: 120px; }
+  .tpv-cash-quick button { min-height: 52px; }
+  .tpv-view-tab { min-height: 48px; padding: 10px 20px; }
+  /* El aspa de cerrar un modal es el objetivo más pequeño y el que más
+     se falla con el dedo. */
+  .modal-close,
+  .tpv-checkout-header .btn-icon { min-width: 44px; min-height: 44px; }
+}
+
+/* ============================================================
    SUPERFICIE PÚBLICA — barra, pie, botones, home e instalar
    ============================================================
 
