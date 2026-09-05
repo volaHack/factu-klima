@@ -468,18 +468,31 @@ describe('las unidades por bulto en la factura impresa', () => {
   }, 60_000);
 });
 
-describe('el aviso de QR que falta', () => {
-  it('una factura desde cero ya trae su QR: no hay aviso que dar', () => {
+describe('el aviso del QR tributario', () => {
+  it('una factura desde cero ya reserva su sitio: no hay aviso que dar', () => {
     const analisis = facturaDesdeCero('generico', AJUSTES);
     const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
-    expect(diagnostico.avisos.some(a => a.texto.includes('QR de Veri*Factu'))).toBe(false);
+    expect(diagnostico.avisos.some(a => a.texto.includes('QR tributario'))).toBe(false);
   });
 
-  it('una plantilla sin el campo del QR lo avisa: sin él la factura incumple', () => {
+  it('una plantilla sin hueco avisa de dónde va a caer el QR', () => {
     const analisis = facturaDesdeCero('generico', AJUSTES);
     analisis.campos = analisis.campos.filter(c => c.clave !== 'verifactu_qr');
     const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
-    expect(diagnostico.avisos.some(a => a.nivel === 'aviso' && a.texto.includes('QR de Veri*Factu'))).toBe(true);
+    // Ya no se avisa de que la factura saldrá sin QR —no puede—, sino de que
+    // se estampará arriba, que es donde manda la AEAT y donde puede estar el
+    // membrete de quien calcó su propio PDF.
+    expect(diagnostico.avisos.some(a => a.nivel === 'aviso' && a.texto.includes('no reserva sitio para el QR tributario'))).toBe(true);
+  });
+
+  it('avisa cuando algo del diseño se mete en la zona de reserva del QR', () => {
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    const qr = analisis.campos.find(c => c.clave === 'verifactu_qr')!;
+    const intruso = analisis.campos.find(c => c.clave === 'empresa_nombre')!;
+    intruso.x = qr.x;
+    intruso.y = qr.y + 5;
+    const { diagnostico } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    expect(diagnostico.avisos.some(a => a.texto.includes('zona de reserva'))).toBe(true);
   });
 });
 

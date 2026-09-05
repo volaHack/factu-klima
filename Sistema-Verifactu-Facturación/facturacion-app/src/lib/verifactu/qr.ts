@@ -30,6 +30,16 @@ import QRCode from 'qrcode';
  */
 const URL_COTEJO_AEAT = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR';
 
+/**
+ * El mismo servicio en el Portal de Pruebas Externas.
+ *
+ * No se usa al imprimir —una factura de verdad enlaza siempre a producción—
+ * pero está aquí porque el documento técnico lo publica junto al otro y
+ * tenerlo escrito evita que alguien lo teclee mal el día que haga falta
+ * probar el cotejo de punta a punta.
+ */
+export const URL_COTEJO_PRUEBAS = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
+
 /** DD-MM-YYYY con guiones, que es el formato que pide la AEAT para este campo — no el DD/MM/YYYY con barras que se usa en pantalla. */
 function fechaParaQr(fechaIso: string): string {
   const fecha = new Date(fechaIso);
@@ -52,7 +62,63 @@ export interface DatosQrVerifactu {
   importeTotal: number;
 }
 
-/** La URL exacta que codifica el QR: la que abre quien lo escanea. */
+/**
+ * COMPROBAR LOS CUATRO DATOS ANTES DE CODIFICARLOS
+ *
+ * El apartado 6 del documento técnico de la AEAT fija el formato exacto de
+ * cada parámetro, y el servicio de cotejo devuelve error si alguno no encaja.
+ * Un QR mal formado no se ve mal: se ve perfecto, se escanea perfecto, y sólo
+ * falla cuando el cliente lo abre y la sede electrónica le contesta que la
+ * factura no existe. Así que se comprueba aquí, antes de imprimir nada.
+ *
+ * Devuelve los problemas en castellano llano, vacío si todo está bien.
+ */
+export function validarDatosQr(datos: DatosQrVerifactu): string[] {
+  const problemas: string[] = [];
+
+  const nif = nifParaQr(datos.nifEmisor || '');
+  if (!nif) {
+    problemas.push('falta el NIF del expedidor');
+  } else if (!/^[A-Z0-9]{9}$/.test(nif)) {
+    // «Formato NIF», longitud 9. No se comprueba el dígito de control aquí:
+    // de eso ya se encarga `validation/nif.ts` al dar de alta la empresa, y
+    // duplicar la regla sólo serviría para que discreparan.
+    problemas.push(`el NIF del expedidor («${datos.nifEmisor}») no tiene los 9 caracteres que exige la AEAT`);
+  }
+
+  const numero = datos.numeroFactura || '';
+  if (!numero) {
+    problemas.push('falta el número de la factura');
+  } else if (numero.length > 60) {
+    problemas.push('el número de serie y factura pasa de 60 caracteres');
+  } else if (/[^\x20-\x7e]/.test(numero)) {
+    // «las cadenas de texto solo pueden contener caracteres ASCII con códigos
+    // del 32 al 126» (apartado 4 del documento técnico).
+    problemas.push(`el número de factura («${numero}») lleva caracteres que la AEAT no admite`);
+  }
+
+  if (!datos.fechaEmision || !fechaParaQr(datos.fechaEmision)) {
+    problemas.push('falta la fecha de expedición o no se entiende');
+  }
+
+  if (typeof datos.importeTotal !== 'number' || !Number.isFinite(datos.importeTotal)) {
+    problemas.push('falta el importe total de la factura');
+  } else if (Math.abs(datos.importeTotal) >= 1e12) {
+    problemas.push('el importe total pasa de los 12 dígitos que admite la AEAT');
+  }
+
+  return problemas;
+}
+
+/**
+ * La URL exacta que codifica el QR: la que abre quien lo escanea.
+ *
+ * `URLSearchParams` codifica exactamente igual que el
+ * `java.net.URLEncoder.encode(param, "UTF-8")` del ejemplo que la propia AEAT
+ * publica en el apartado 4.1 de su documento técnico —el «&» de un número de
+ * serie sale como `%26`, el espacio como `+`—, así que no hay que inventar
+ * ninguna codificación propia: la de la plataforma ya es la buena.
+ */
 export function urlCotejoAeat(datos: DatosQrVerifactu): string {
   const params = new URLSearchParams({
     nif: nifParaQr(datos.nifEmisor),
@@ -75,11 +141,19 @@ export function urlCotejoAeat(datos: DatosQrVerifactu): string {
  * QR roto.
  */
 export async function generarQrVerifactu(datos: DatosQrVerifactu): Promise<string> {
-  if (!datos.nifEmisor || !datos.numeroFactura || !datos.fechaEmision) return '';
+  if (validarDatosQr(datos).length > 0) return '';
   const url = urlCotejoAeat(datos);
   return QRCode.toDataURL(url, {
-    margin: 1,
-    width: 300,
+    // Nivel M, que es el que exige el art. 21.1 de la Orden HAC/1177/2024.
+    // La librería sigue la ISO/IEC 18004 que cita el mismo artículo.
     errorCorrectionLevel: 'M',
+    // El espacio vacío alrededor lo pone el bloque (6 mm de papel de verdad,
+    // ver `qrFactura.ts`), no la imagen: dejar aquí un margen ancho sólo
+    // encogería los módulos dentro del cuadrado de 35 mm y haría el código
+    // más difícil de leer, no más fácil.
+    margin: 0,
+    // 1.200 px sobre un cuadrado de 35 mm son ~870 ppp: de sobra para que la
+    // impresión salga nítida y los módulos no queden dentados.
+    width: 1200,
   });
 }

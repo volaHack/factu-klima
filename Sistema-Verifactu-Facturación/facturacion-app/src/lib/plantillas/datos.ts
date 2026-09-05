@@ -15,6 +15,7 @@ import { descuentoEfectivo, unidadesTotales } from '../documentos';
 import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
 import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
+import { LEYENDA_LARGA } from '../verifactu/qrFactura';
 import { CAMPOS, RENGLONES_IMPUESTO, totalDeColumna } from './contrato';
 
 /** Documento imprimible: factura, albarán, presupuesto, pedido o rectificativa. */
@@ -425,9 +426,16 @@ export function construirDatos(
     verifactu_huella: factura?.verifactu?.chainedHash || '',
     verifactu_huella_corta: factura?.verifactu?.chainedHash?.slice(0, 16) || '',
     verifactu_fecha: factura?.verifactu?.timestamp ? formatDate(factura.verifactu.timestamp) : '',
-    verifactu_leyenda: factura?.verifactu?.chainedHash
-      ? 'Factura con registro de facturación encadenado (SHA-256).'
-      : '',
+    // La frase es la del art. 20.1.b de la Orden HAC/1177/2024, literal. La
+    // que había antes —«Factura con registro de facturación encadenado
+    // (SHA-256)»— estaba inventada: describía bien lo que hace el programa,
+    // pero no es lo que la norma manda imprimir.
+    //
+    // En el PDF esta clave ya no se pinta por su cuenta: la leyenda va pegada
+    // debajo del código, como exige el apartado 3 del documento técnico, y la
+    // estampa `estamparQr.ts` junto con él. Se conserva porque las plantillas
+    // guardadas hace meses la tienen colocada y el editor la sigue enseñando.
+    verifactu_leyenda: LEYENDA_LARGA,
     verifactu_qr: opciones.qrCotejo || factura?.verifactu?.qrCodeUrl || '',
 
     // Datos libres / manuales

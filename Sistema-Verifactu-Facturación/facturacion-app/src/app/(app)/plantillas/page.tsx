@@ -26,7 +26,6 @@ import {
   PlantillaInvalida,
 } from '@/lib/plantillas/almacen';
 import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
-import { generarQrVerifactu } from '@/lib/verifactu/qr';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
 import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector } from '@/lib/plantillas/desdeCero';
@@ -171,20 +170,29 @@ export default function PlantillasPage() {
   // VISTA PREVIA Y GUARDADO
   // ============================================================
 
-  /** Datos con los que se previsualiza: la última factura real, si la hay. */
+  /**
+   * Datos con los que se previsualiza: la última factura real, si la hay.
+   *
+   * Lleva el mismo QR tributario que llevará la factura de verdad al
+   * descargarla —mismo tamaño, mismo sitio, misma leyenda—, para que la vista
+   * previa no mienta sobre cómo va a quedar la hoja. `exigido: false` porque
+   * esto es una prueba: si a la empresa todavía le falta el NIF, la vista
+   * previa sale sin QR en vez de negarse a salir.
+   */
   const datosDePrueba = async () => {
     const documento = ultimaFactura ?? facturaDeMuestra();
     const configuracion = ajustes ?? ({} as CompanySettings);
-    // El mismo QR de cotejo que lleva la factura de verdad al descargarla,
-    // para que la vista previa del editor no mienta sobre cómo va a
-    // quedar el hueco reservado para él.
-    const qrCotejo = await generarQrVerifactu({
-      nifEmisor: configuracion.nif || '',
-      numeroFactura: documento.number,
-      fechaEmision: documento.issueDate,
-      importeTotal: documento.total,
-    });
-    return construirDatos({ tipo: 'factura', documento }, configuracion, { qrCotejo });
+    const datos = construirDatos({ tipo: 'factura', documento }, configuracion);
+    const qr = {
+      exigido: false,
+      datos: {
+        nifEmisor: configuracion.nif || '',
+        numeroFactura: documento.number,
+        fechaEmision: documento.issueDate,
+        importeTotal: documento.total,
+      },
+    };
+    return { datos, qr };
   };
 
   const verComoQueda = async () => {
@@ -192,7 +200,8 @@ export default function PlantillasPage() {
     setGenerandoVista(true);
     try {
       const { plantilla } = compilar(sesion);
-      const blob = await generarPdfBlob(plantilla, await datosDePrueba(), { titulo: 'Vista previa' });
+      const { datos, qr } = await datosDePrueba();
+      const blob = await generarPdfBlob(plantilla, datos, { titulo: 'Vista previa', qr });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
     } catch (err) {
@@ -205,7 +214,8 @@ export default function PlantillasPage() {
   const probarPlantillaGuardada = async (plantilla: PlantillaDocumento) => {
     setGenerandoVista(true);
     try {
-      const blob = await generarPdfBlob(plantilla.plantilla, await datosDePrueba(), { titulo: plantilla.nombre });
+      const { datos, qr } = await datosDePrueba();
+      const blob = await generarPdfBlob(plantilla.plantilla, datos, { titulo: plantilla.nombre, qr });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
     } catch (err) {

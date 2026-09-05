@@ -10,9 +10,53 @@
  * papel, igual que en el resto del módulo de plantillas.
  */
 
+import { acotarTamanoQr, componerBloqueQr, type BloqueQr } from '../verifactu/qrFactura';
 import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
 import { COLUMNAS_VENCIMIENTOS } from './contrato';
 import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FuenteRejilla, RejillaDetectada, TablaDetectada } from './tipos';
+
+/** La clave del hueco del QR tributario dentro del contrato de campos. */
+export const CLAVE_QR = 'verifactu_qr';
+
+export function esCampoQr(campo: { clave?: string | null }): boolean {
+  return campo.clave === CLAVE_QR;
+}
+
+/**
+ * EL HUECO DEL QR NO SE PUEDE PONER COMO A UNO LE APETEZCA
+ *
+ * Es el único elemento de la plantilla con la forma y el sitio dictados por
+ * una norma: cuadrado, entre 30 y 40 mm de lado (art. 21.1 de la Orden
+ * HAC/1177/2024) y con su rótulo encima y su leyenda debajo cabiendo en la
+ * hoja. Así que el editor no lo deja libre: se arrastra y se estira como
+ * cualquier otro, pero al soltarlo cae siempre dentro de lo legal.
+ *
+ * Se resuelve con el MISMO `componerBloqueQr` que usa el estampado del PDF,
+ * no con una copia de las reglas: si el editor y el PDF calcularan cada uno
+ * por su lado, el hueco que se ve al diseñar y el sitio donde acaba el código
+ * dejarían de ser el mismo en cuanto uno de los dos cambiara.
+ */
+export function acotarCajaQr(caja: Caja, pagina: { ancho: number; alto: number }): Caja {
+  const lado = acotarTamanoQr(Math.max(caja.ancho, caja.alto));
+  const bloque = componerBloqueQr({
+    hoja: { ancho: pagina.ancho, alto: pagina.alto },
+    tamanoMm: lado,
+    ancla: { x: caja.x, y: caja.y },
+  });
+  return { x: bloque.qr.x, y: bloque.qr.y, ancho: lado, alto: lado };
+}
+
+/** El bloque completo (rótulo, código, leyenda y reserva) de un campo QR. */
+export function bloqueDeCampoQr(
+  campo: { x: number; y: number; ancho: number; alto: number },
+  pagina: { ancho: number; alto: number },
+): BloqueQr {
+  return componerBloqueQr({
+    hoja: { ancho: pagina.ancho, alto: pagina.alto },
+    tamanoMm: Math.max(campo.ancho, campo.alto),
+    ancla: { x: campo.x, y: campo.y },
+  });
+}
 
 export interface Caja {
   x: number;

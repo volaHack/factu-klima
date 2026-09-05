@@ -5981,6 +5981,33 @@ a.stats-item:focus-visible {
   padding: var(--space-4);
   border-radius: var(--radius-md);
 }
+/* --- El QR tributario del ticket ---
+   Medido en milímetros de papel, no en píxeles: al imprimir tiene que salir
+   con un lado de 35 mm (entre los 30 y los 40 del art. 21.1 de la Orden
+   HAC/1177/2024) y con al menos 2 mm en blanco alrededor —aquí 6, que es lo
+   que recomienda la AEAT—. En pantalla se ve a la misma escala. */
+.tpv-ticket-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1mm;
+  padding: 6mm 0;
+  margin-bottom: var(--space-2);
+  background: #ffffff;
+  color: #000000;
+}
+.tpv-ticket-qr img {
+  width: 35mm;
+  height: 35mm;
+  display: block;
+}
+.tpv-ticket-qr-rotulo,
+.tpv-ticket-qr-leyenda {
+  font-size: 9pt;
+  line-height: 1.2;
+  max-width: 47mm;
+}
 .tpv-ticket-header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-bottom: var(--space-3); }
 .tpv-ticket-header strong { font-size: 13px; }
 .tpv-ticket-meta { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 11px; }
@@ -8572,6 +8599,56 @@ body.nav-abierta { overflow: hidden; }
   justify-content: center;
   color: var(--accent-500);
   pointer-events: none;
+  opacity: 0.75;
+}
+
+/* --- El bloque del QR tributario ---
+   Se pinta a escala real sobre el papel del editor: lo que se ve aquí es
+   milímetro a milímetro lo que va a salir impreso. El recuadro a rayas es la
+   zona de reserva que exige la AEAT (2 mm mínimo, 6 recomendados): lo que se
+   coloque ahí dentro quedará tapado por el blanco del código. */
+
+.plantilla-qr-reserva {
+  position: absolute;
+  border: 1px dashed color-mix(in srgb, var(--accent-500) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-500) 5%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9;
+}
+.plantilla-qr-texto {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.15;
+  color: var(--text-primary);
+  white-space: normal;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+}
+.plantilla-marca-qr {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--accent-500);
+  pointer-events: none;
+  text-align: center;
+}
+.plantilla-marca-qr b {
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.plantilla-marca-qr i {
+  font-style: normal;
+  font-size: 9px;
   opacity: 0.75;
 }
 

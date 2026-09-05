@@ -31,6 +31,7 @@
  */
 
 import type { BusinessSector, CompanySettings } from '../types';
+import { componerBloqueQr } from '../verifactu/qrFactura';
 import { campoPorClave } from './contrato';
 import { campoNuevo, rejillaNueva } from './editor';
 import type {
@@ -314,8 +315,21 @@ const MARGEN = 15;
  * editor, la generación— no tiene que saber que esta plantilla no salió de
  * ningún PDF.
  */
+//
+// OJO CON EL PÍXEL: EL QUE HABÍA NO ERA BLANCO
+//
+// El que estaba puesto aquí era `[R=0, G=255, B=0, A=127]` con filtro «Sub»:
+// un verde a medio tapar. Y como `rehidratarLienzo` lo pinta encima de un
+// lienzo blanco, el calco que se guardaba —y que se imprime detrás de cada
+// factura hecha desde cero— salía verde claro de arriba abajo. Se veía en el
+// PDF descargado, no sólo en las pruebas.
+//
+// Se descubrió al comprobar el contraste del QR, que es de lo poco que la
+// especificación de la AEAT exige del fondo: «El contraste de colores entre
+// el código "QR" y el fondo debe ser lo suficientemente alto para asegurar la
+// legibilidad». Éste es blanco opaco de verdad: `[255, 255, 255, 255]`.
 const PAPEL_EN_BLANCO =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=';
 
 function hojaEnBlanco(): PaginaExtraida {
   return {
@@ -377,7 +391,16 @@ function rotuloConDato(
 // LA TABLA DE LÍNEAS
 // ============================================================
 
-const Y_TABLA = 108;
+/**
+ * Dónde empieza la tabla de líneas.
+ *
+ * Bajó de 108 a 112 al subir el QR tributario a la cabecera: el bloque del
+ * código ocupa la franja central de arriba y empuja hacia abajo los datos del
+ * cliente y los rótulos del oficio. Cuatro milímetros son media línea de
+ * tabla, y la alternativa era que el último rótulo del pie del oficio se
+ * montara sobre la cabecera de la tabla.
+ */
+const Y_TABLA = 112;
 const ALTO_FILA = 7;
 
 /**
@@ -477,34 +500,75 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   const oficio = oficioPorId(oficioId);
   const campos: CampoDetectado[] = [];
   const derecha = ANCHO - MARGEN;
-  const media = ANCHO / 2;
+
+  // --- EL QR TRIBUTARIO, LO PRIMERO DE LA HOJA ---
+  //
+  // «El código "QR" se situará al principio de la factura, antes de que
+  // empiece el contenido de ésta generado por el sistema informático de
+  // facturación… el código "QR" se situará arriba de esta, próximo al margen
+  // superior, preferiblemente centrado respecto a los márgenes izquierdo y
+  // derecho» (apartado 3 del documento técnico de la AEAT). Antes iba a 24 mm
+  // en el pie derecho, que era pequeño e ilegal por partida doble.
+  //
+  // La cabecera se reparte a los dos lados de esa franja central. No es un
+  // apaño: el propio anexo del documento técnico lo declara compatible —«en
+  // casos con suficiente espacio a los lados del código "QR", como cuando se
+  // utiliza un formato DIN A4 en vertical, la utilización de los espacios
+  // señalados arriba… para mostrar ciertos contenidos de la factura, como
+  // datos referidos al emisor (incluido el logotipo) o al destinatario, se
+  // considera compatible con el código "QR" al principio de la factura».
+  //
+  // La geometría no se escribe a mano aquí: sale de `componerBloqueQr`, que
+  // es la misma que usa el estampado del PDF. Así el hueco que se ve en el
+  // editor y el sitio donde acaba el código de verdad son el mismo sitio.
+  const bloqueQr = componerBloqueQr({ hoja: { ancho: ANCHO, alto: ALTO } });
+  const qr = campoNuevo(id(), {
+    x: bloqueQr.qr.x, y: bloqueQr.qr.y, ancho: bloqueQr.qr.ancho, alto: bloqueQr.qr.alto,
+  });
+  qr.clave = 'verifactu_qr';
+  qr.tipo = 'imagen';
+  qr.motivo = 'QR tributario obligatorio, colocado según la especificación de la AEAT';
+  campos.push(qr);
+
+  // El rótulo «QR tributario:» y la frase «Factura verificable en la sede
+  // electrónica de la AEAT» NO son campos de la plantilla: van pegados al
+  // código, encima y debajo, y los pinta el mismo estampado que lo dibuja
+  // (`estamparQr.ts`). Ponerlos aquí como campos sueltos sería volver a lo de
+  // antes, cuando la leyenda vivía por su cuenta en una esquina del pie.
+
+  // Debajo del bloque no puede haber nada hasta aquí.
+  const yBajoElQr = Math.ceil(bloqueQr.reserva.y + bloqueQr.reserva.alto) + 3;
+  // Las dos columnas de cabecera, a izquierda y derecha de la franja del QR.
+  const anchoColumna = Math.floor(bloqueQr.reserva.x - MARGEN);
+  const xColumnaDerecha = ANCHO - MARGEN - anchoColumna;
 
   // --- Quién factura, arriba a la izquierda ---
-  campos.push(colocar({ clave: 'empresa_nombre', x: MARGEN, y: 18, ancho: 90, tamano: 13, negrita: true }));
-  campos.push(colocar({ clave: 'empresa_nif', x: MARGEN, y: 25, ancho: 90, tamano: 9 }));
-  campos.push(colocar({ clave: 'empresa_direccion', x: MARGEN, y: 29.5, ancho: 90, tamano: 9 }));
-  campos.push(colocar({ clave: 'empresa_poblacion', x: MARGEN, y: 34, ancho: 90, tamano: 9 }));
-  campos.push(colocar({ clave: 'empresa_telefono', x: MARGEN, y: 38.5, ancho: 90, tamano: 9 }));
-  campos.push(colocar({ clave: 'empresa_email', x: MARGEN, y: 43, ancho: 90, tamano: 9 }));
-  // El logotipo, arriba a la derecha y vacío mientras no haya ninguno subido.
-  const logo = campoNuevo(id(), { x: derecha - 38, y: 16, ancho: 38, alto: 18 });
+  campos.push(colocar({ clave: 'empresa_nombre', x: MARGEN, y: 14, ancho: anchoColumna, tamano: 12, negrita: true }));
+  campos.push(colocar({ clave: 'empresa_nif', x: MARGEN, y: 21, ancho: anchoColumna, tamano: 9 }));
+  campos.push(colocar({ clave: 'empresa_direccion', x: MARGEN, y: 25.5, ancho: anchoColumna, tamano: 9 }));
+  campos.push(colocar({ clave: 'empresa_poblacion', x: MARGEN, y: 30, ancho: anchoColumna, tamano: 9 }));
+  campos.push(colocar({ clave: 'empresa_telefono', x: MARGEN, y: 34.5, ancho: anchoColumna, tamano: 9 }));
+  campos.push(colocar({ clave: 'empresa_email', x: MARGEN, y: 39, ancho: anchoColumna, tamano: 9 }));
+
+  // --- El logotipo y qué documento es, arriba a la derecha ---
+  const logo = campoNuevo(id(), { x: derecha - 38, y: 14, ancho: 38, alto: 18 });
   logo.clave = 'empresa_logo';
   logo.tipo = 'imagen';
   logo.motivo = 'Colocado al empezar desde cero';
   campos.push(logo);
 
-  // --- Qué documento es y de cuándo ---
-  campos.push(colocar({ clave: 'doc_tipo', x: derecha - 80, y: 40, ancho: 80, tamano: 17, negrita: true, derecha: true }));
-  campos.push(...rotuloConDato('NÚMERO', 'doc_numero', derecha - 80, 50, 38, { negrita: true }));
-  campos.push(...rotuloConDato('FECHA', 'doc_fecha', derecha - 38, 50, 38));
-  campos.push(...rotuloConDato('VENCIMIENTO', 'doc_vencimiento', derecha - 38, 60, 38));
+  campos.push(colocar({ clave: 'doc_tipo', x: xColumnaDerecha, y: 36, ancho: anchoColumna, tamano: 16, negrita: true, derecha: true }));
+  campos.push(...rotuloConDato('NÚMERO', 'doc_numero', xColumnaDerecha, 45, anchoColumna, { negrita: true }));
 
-  // --- A quién se la hacemos ---
-  campos.push(colocar({ texto: 'FACTURAR A', x: MARGEN, y: 58, ancho: 80, tamano: 7 }));
-  campos.push(colocar({ clave: 'cliente_nombre', x: MARGEN, y: 62, ancho: 88, tamano: 11, negrita: true }));
-  campos.push(colocar({ clave: 'cliente_nif', x: MARGEN, y: 68.5, ancho: 88, tamano: 9 }));
-  campos.push(colocar({ clave: 'cliente_direccion', x: MARGEN, y: 73, ancho: 88, tamano: 9 }));
-  campos.push(colocar({ clave: 'cliente_poblacion', x: MARGEN, y: 77.5, ancho: 88, tamano: 9 }));
+  // --- A quién se la hacemos, ya por debajo del bloque del QR ---
+  campos.push(colocar({ texto: 'FACTURAR A', x: MARGEN, y: yBajoElQr, ancho: 80, tamano: 7 }));
+  campos.push(colocar({ clave: 'cliente_nombre', x: MARGEN, y: yBajoElQr + 4, ancho: 100, tamano: 11, negrita: true }));
+  campos.push(colocar({ clave: 'cliente_nif', x: MARGEN, y: yBajoElQr + 10.5, ancho: 100, tamano: 9 }));
+  campos.push(colocar({ clave: 'cliente_direccion', x: MARGEN, y: yBajoElQr + 15, ancho: 100, tamano: 9 }));
+  campos.push(colocar({ clave: 'cliente_poblacion', x: MARGEN, y: yBajoElQr + 19.5, ancho: 100, tamano: 9 }));
+
+  campos.push(...rotuloConDato('FECHA', 'doc_fecha', derecha - 68, yBajoElQr, 32));
+  campos.push(...rotuloConDato('VENCIMIENTO', 'doc_vencimiento', derecha - 32, yBajoElQr, 32));
 
   // --- Lo que el oficio necesita y los demás no ---
   //
@@ -519,7 +583,7 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   // (art. 20.Uno.3º LIVA)» es una frase que se imprime tal cual, no un
   // hueco que rellenar. Se distinguen por los dos puntos del final, que
   // es justo como están escritos.
-  let yPie = 88;
+  let yPie = yBajoElQr + 27;
   let nManual = 0;
   for (const rotulo of oficio.pie ?? []) {
     if (rotulo.trimEnd().endsWith(':') && nManual < MAXIMO_MANUALES) {
@@ -563,15 +627,13 @@ export function facturaDesdeCero(oficioId: string, ajustes?: CompanySettings | n
   campos.push(colocar({ texto: 'RELACIÓN DE PAGOS', x: MARGEN, y: yTotales + 26, ancho: 118, tamano: 7 }));
 
   // --- Forma de pago y sello Veri*Factu ---
+  //
+  // Aquí ya no va ningún QR: subió a la cabecera, que es donde lo quiere la
+  // AEAT. Lo que sí se queda al pie es la huella encadenada, que no tiene
+  // sitio marcado en ninguna norma y es donde se ha mirado siempre.
   campos.push(...rotuloConDato('CUENTA', 'empresa_iban', MARGEN, 250, 88));
   campos.push(colocar({ clave: 'doc_notas', x: MARGEN, y: 262, ancho: 120, tamano: 8 }));
-
-  const qr = campoNuevo(id(), { x: derecha - 24, y: 246, ancho: 24, alto: 24 });
-  qr.clave = 'verifactu_qr';
-  qr.tipo = 'imagen';
-  qr.motivo = 'Colocado al empezar desde cero';
-  campos.push(qr);
-  campos.push(colocar({ clave: 'verifactu_leyenda', x: media - 20, y: 272, ancho: 90, tamano: 6, derecha: true }));
+  campos.push(colocar({ clave: 'verifactu_huella_corta', x: derecha - 70, y: 272, ancho: 70, tamano: 6, derecha: true }));
 
   // --- Con qué se ven llenos los recuadros en el editor ---
   //

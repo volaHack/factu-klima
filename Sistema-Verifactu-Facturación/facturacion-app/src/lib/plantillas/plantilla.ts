@@ -49,10 +49,12 @@
  */
 
 import type { Schema, Template } from '@pdfme/common';
+import { componerBloqueQr, invadenLaReserva } from '../verifactu/qrFactura';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
 import type {
   AnalisisPdf,
+  AvisoAnalisis,
   CampoDetectado,
   DiagnosticoPlantilla,
   FuenteRejilla,
@@ -433,6 +435,67 @@ export function tablaPorDefecto(anchoPagina: number, altoPagina: number): TablaD
 }
 
 // ============================================================
+// EL QR TRIBUTARIO
+// ============================================================
+
+/**
+ * Lo que hay que decirle al usuario sobre el QR de esta plantilla.
+ *
+ * Ya no hace falta avisar de que «la factura saldrá sin QR»: no puede salir
+ * sin él. El estampado lo pone siempre, y cuando la plantilla no reserva
+ * hueco lo coloca donde manda la especificación —arriba, centrado en vertical
+ * o a la izquierda en apaisado—. Eso es lo bueno de que no dependa de cada
+ * diseño; y es también lo que hay que avisar, porque sobre un membrete
+ * calcado ese sitio puede estar ocupado.
+ */
+function avisosDelQr(
+  campos: CampoDetectado[],
+  analisis: AnalisisPdf,
+  tabla: TablaDetectada,
+): AvisoAnalisis[] {
+  const { pagina } = analisis;
+  const hoja = { ancho: pagina.ancho, alto: pagina.alto };
+  const hueco = campos.find(c => c.clave === 'verifactu_qr');
+
+  const bloque = componerBloqueQr({
+    hoja,
+    tamanoMm: hueco ? Math.max(hueco.ancho, hueco.alto) : undefined,
+    ancla: hueco ? { x: hueco.x, y: hueco.y } : undefined,
+  });
+
+  const avisos: AvisoAnalisis[] = [];
+
+  if (!hueco) {
+    avisos.push({
+      nivel: 'aviso',
+      texto: 'Esta plantilla no reserva sitio para el QR tributario, así que se estampará donde manda la AEAT: '
+        + `arriba, ${bloque.lado} × ${bloque.lado} mm. Si ahí tienes el membrete, dibuja un recuadro donde `
+        + 'prefieras que vaya y elige «QR de cotejo» en el panel de la derecha.',
+    });
+  }
+
+  // Lo que caiga dentro de la zona de reserva quedará tapado por el blanco
+  // del código. En el PDF no rompe nada —el QR sale legible igual—, pero el
+  // elemento invadido desaparece, y eso hay que decirlo aquí, que es donde
+  // todavía se puede mover.
+  const estorban = invadenLaReserva(bloque, [
+    ...campos.filter(c => c.clave !== 'verifactu_qr' && c.clave !== 'verifactu_leyenda'),
+    ...analisis.rejillas,
+    { x: tabla.x, y: tabla.y, ancho: tabla.ancho, alto: tabla.altoTotal },
+  ]);
+  if (estorban.length > 0) {
+    avisos.push({
+      nivel: 'aviso',
+      texto: `Hay ${estorban.length === 1 ? 'un elemento' : `${estorban.length} elementos`} dentro de la zona de reserva del `
+        + 'QR tributario. El código se imprime encima y con su espacio en blanco alrededor, así que se leerá bien, '
+        + 'pero lo que haya debajo quedará tapado. Muévelo o mueve el QR.',
+    });
+  }
+
+  return avisos;
+}
+
+// ============================================================
 // COMPILACIÓN
 // ============================================================
 
@@ -523,23 +586,7 @@ export function compilarPlantilla(
     __rejillas: analisis.rejillas,
   } as Template;
 
-  // El reglamento exige que la factura lleve el QR de cotejo de la AEAT.
-  // Empezar desde cero siempre lo coloca, pero reconstruir el diseño de
-  // una factura subida no lo detecta solo —no hay manera fiable de
-  // adivinar dónde había un QR en un PDF ajeno—, así que si nadie lo ha
-  // puesto a mano se avisa aquí, con el mismo mecanismo que ya usa esta
-  // pantalla para el resto de comprobaciones, en vez de dejar que la
-  // plantilla se guarde y las facturas salgan sin él en silencio.
-  const avisos = campos.some(c => c.clave === 'verifactu_qr')
-    ? analisis.avisos
-    : [
-        ...analisis.avisos,
-        {
-          nivel: 'aviso' as const,
-          texto: 'Esta plantilla no tiene el código QR de Veri*Factu. Sin él, las facturas incumplen el reglamento. '
-            + 'Dibuja un recuadro donde quieras que aparezca y elige «QR de cotejo» en el panel de la derecha.',
-        },
-      ];
+  const avisos = [...analisis.avisos, ...avisosDelQr(campos, analisis, tabla)];
 
   return {
     plantilla,

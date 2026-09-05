@@ -40,11 +40,10 @@ async function componerPdf(
   documento: Invoice | Albaran,
   avisar: (titulo: string, texto: string) => void,
 ): Promise<{ blob: Blob; nombre: string } | null> {
-  const [{ getPlantillaActiva }, { construirDatos }, { generarPdfBlob }, { generarQrVerifactu }] = await Promise.all([
+  const [{ getPlantillaActiva }, { construirDatos }, { generarPdfBlob }] = await Promise.all([
     import('@/lib/plantillas/almacen'),
     import('@/lib/plantillas/datos'),
     import('@/lib/plantillas/generar'),
-    import('@/lib/verifactu/qr'),
   ]);
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -62,9 +61,9 @@ async function componerPdf(
     documento.clientId ? getClientById(documento.clientId) : Promise.resolve(undefined),
   ]);
 
-  // El QR de cotejo que exige Veri*Factu, con los cuatro datos que la
-  // propia factura ya tiene: no depende de ninguna conexión con la AEAT,
-  // así que se genera aquí siempre que hay algo firme que codificar.
+  // El QR tributario que exige Veri*Factu, con los cuatro datos que la propia
+  // factura ya tiene: no depende de ninguna conexión con la AEAT, así que se
+  // genera siempre que hay algo firme que codificar.
   //
   // Sólo en factura o rectificativa ya emitida, no en un borrador. Un
   // borrador —y un presupuesto o un pedido, que ni siquiera son facturas—
@@ -72,28 +71,34 @@ async function componerPdf(
   // no hay conexión y que se reasigna al sellar. Imprimir ahí un QR sería
   // imprimir un código que apunta a un número que la factura de verdad
   // puede no acabar teniendo.
+  //
+  // Aquí sólo se dice DE QUÉ factura es y si es de las que obligan. Dónde va,
+  // cuánto mide, qué rótulo lleva y qué se comprueba antes de imprimir sale
+  // todo de `qrFactura.ts`, que es el único sitio donde eso se decide.
   const esFacturaEmitida = (tipo === 'factura' || tipo === 'rectificativa')
     && !['borrador', 'anulada'].includes(String((documento as Invoice).status));
-
-  const qrCotejo = esFacturaEmitida
-    ? await generarQrVerifactu({
-        nifEmisor: ajustes.nif,
-        numeroFactura: documento.number,
-        fechaEmision: documento.issueDate,
-        importeTotal: documento.total,
-      })
-    : '';
 
   const datos = construirDatos(
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     { tipo: tipo as any, documento: documento as any },
     ajustes,
-    { cliente, datosExtras: documento.datosExtras, qrCotejo },
+    { cliente, datosExtras: documento.datosExtras },
   );
 
   const blob = await generarPdfBlob(plantilla.plantilla, datos, {
     titulo: `${tipo.toUpperCase()} ${documento.number}`,
     autor: ajustes.businessName || '',
+    qr: esFacturaEmitida
+      ? {
+          exigido: true,
+          datos: {
+            nifEmisor: ajustes.nif,
+            numeroFactura: documento.number,
+            fechaEmision: documento.issueDate,
+            importeTotal: documento.total,
+          },
+        }
+      : undefined,
   });
 
   return { blob, nombre: `${documento.number.replace(/[^\w-]/g, '_')}.pdf` };

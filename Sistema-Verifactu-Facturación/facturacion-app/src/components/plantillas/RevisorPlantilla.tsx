@@ -26,7 +26,7 @@
  *     el salto en vez de pelearse con él.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, AlignCenter, AlignEndHorizontal, AlignHorizontalJustifyCenter,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignVerticalJustifyCenter,
@@ -34,6 +34,7 @@ import {
   Info, Italic, Layers, Lock, Maximize2, Move, Plus, Redo2, Search, Sparkles,
   Rows3,
   CalendarClock,
+  QrCode,
   Table2, Tag, Trash2, Type, Undo2, Unlock, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import {
@@ -43,9 +44,9 @@ import {
 } from '@/lib/plantillas/contrato';
 import { describirParaIa, fusionarSugerencias } from '@/lib/plantillas/ia';
 import {
-  acotar, alinear, anadirColumna, calcularImanes, campoNuevo, distribuir,
-  duplicarCampo, ejemploDeColumna, escalarColumnas, igualarColumnas, intersecan,
-  moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
+  acotar, acotarCajaQr, alinear, anadirColumna, bloqueDeCampoQr, calcularImanes, campoNuevo,
+  distribuir, duplicarCampo, ejemploDeColumna, escalarColumnas, esCampoQr, igualarColumnas,
+  intersecan, moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
   hacerSitio, redimensionarColumna, redimensionarColumnaRejilla, redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
@@ -269,7 +270,12 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     if (camposTocados) {
       cambios.campos = campos.map(c => {
         const caja = nuevas.get(`campo:${c.id}`);
-        return caja ? { ...c, ...caja } : c;
+        if (!caja) return c;
+        // El hueco del QR tributario pasa por su acotador: cuadrado, entre 30
+        // y 40 mm y con el bloque entero dentro del papel. Es lo que impide
+        // que un arrastre lo saque de la zona imprimible o que un tirón de
+        // esquina lo deje en 12 mm, que es un QR que ya no cumple.
+        return { ...c, ...(esCampoQr(c) ? acotarCajaQr(caja, pagina) : caja) };
       });
     }
 
@@ -321,7 +327,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     }
 
     onCambiar(cambios);
-  }, [campos, zonas, rejillas, tabla, onCambiar]);
+  }, [campos, zonas, rejillas, tabla, pagina, onCambiar]);
 
   const actualizarCampo = useCallback((id: string, cambios: Partial<CampoDetectado>) => {
     onCambiar({ campos: campos.map(c => (c.id === id ? { ...c, ...cambios } : c)) });
@@ -1034,6 +1040,40 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               />
             )}
 
+            {/* --- EL BLOQUE DEL QR TRIBUTARIO, A ESCALA REAL ---
+                 Lo que se pinta aquí no es adorno: es exactamente lo que va a
+                 salir impreso —el rótulo «QR tributario:» encima, el código
+                 con su lado en milímetros y la leyenda debajo—, calculado con
+                 la misma función que lo estampa en el PDF. El recuadro a
+                 rayas es la zona de reserva: lo que se meta ahí dentro saldrá
+                 tapado por el blanco del código. --- */}
+            {campos.filter(esCampoQr).map(campo => {
+              const bloque = bloqueDeCampoQr(campo, pagina);
+              const caja = (c: { x: number; y: number; ancho: number; alto: number }) => ({
+                left: pct(c.x, pagina.ancho), top: pct(c.y, pagina.alto),
+                width: pct(c.ancho, pagina.ancho), height: pct(c.alto, pagina.alto),
+              });
+              return (
+                <Fragment key={`qr-${campo.id}`}>
+                  <div className="plantilla-qr-reserva" style={caja(bloque.reserva)} />
+                  <div
+                    className="plantilla-qr-texto"
+                    style={{ ...caja(bloque.rotulo), fontSize: `${puntosAPx(bloque.rotulo.tamano)}px` }}
+                  >
+                    {bloque.rotulo.texto}
+                  </div>
+                  {bloque.leyenda && (
+                    <div
+                      className="plantilla-qr-texto"
+                      style={{ ...caja(bloque.leyenda), fontSize: `${puntosAPx(bloque.leyenda.tamano)}px` }}
+                    >
+                      {bloque.leyenda.texto}
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
+
             {/* --- Campos --- */}
             {campos.map(campo => {
               const activo = seleccionados.has(`campo:${campo.id}`);
@@ -1081,7 +1121,15 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                   )}
 
                   {campo.tipo === 'imagen' && (
-                    <span className="plantilla-marca-imagen"><ImageIcon size={Math.max(10, Math.min(20, campo.alto * pxPorMm * 0.5))} /></span>
+                    esCampoQr(campo) ? (
+                      <span className="plantilla-marca-qr">
+                        <QrCode size={Math.max(12, Math.min(48, campo.alto * pxPorMm * 0.45))} />
+                        <b>QR VERI*FACTU</b>
+                        <i>{Math.round(campo.ancho)} × {Math.round(campo.alto)} mm</i>
+                      </span>
+                    ) : (
+                      <span className="plantilla-marca-imagen"><ImageIcon size={Math.max(10, Math.min(20, campo.alto * pxPorMm * 0.5))} /></span>
+                    )
                   )}
 
                   {verEtiquetas && !vistaPrevia && (

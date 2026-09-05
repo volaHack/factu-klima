@@ -1,7 +1,10 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Printer, Plus, Share2, Mail, MessageCircle, X, CloudOff } from 'lucide-react';
 import { Invoice, CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getTaxLabel } from '@/lib/constants';
+import { generarQrVerifactu, validarDatosQr } from '@/lib/verifactu/qr';
+import { LEYENDA_LARGA, ROTULO_QR } from '@/lib/verifactu/qrFactura';
 
 interface TpvTicketProps {
   invoice: Invoice;
@@ -13,6 +16,37 @@ interface TpvTicketProps {
 
 export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onClose }: TpvTicketProps) {
   const change = cashGiven != null ? cashGiven - invoice.total : undefined;
+
+  /**
+   * EL QR TRIBUTARIO DEL TICKET
+   *
+   * Un ticket de mostrador es una factura simplificada (art. 7 del RD
+   * 1619/2012), y una factura simplificada es una factura: lleva el mismo QR
+   * que la ordinaria, con el mismo rótulo encima y la misma frase debajo. Este
+   * ticket se imprimía sin ninguno de los tres.
+   *
+   * No hace falta ninguna conexión con la AEAT para tenerlo: se compone con
+   * los cuatro datos que el propio ticket ya enseña. Si a la empresa le falta
+   * el NIF —o el ticket todavía va con número provisional por estar sin
+   * conexión— no se pinta nada en vez de imprimir un código que llevaría a
+   * ninguna parte.
+   */
+  const datosQr = useMemo(() => ({
+    nifEmisor: settings.nif || '',
+    numeroFactura: invoice.number,
+    fechaEmision: invoice.issueDate,
+    importeTotal: invoice.total,
+  }), [settings.nif, invoice.number, invoice.issueDate, invoice.total]);
+
+  const sePuedeCodificar = validarDatosQr(datosQr).length === 0;
+
+  const [qr, setQr] = useState('');
+  useEffect(() => {
+    if (!sePuedeCodificar) return;
+    let vivo = true;
+    generarQrVerifactu(datosQr).then(imagen => { if (vivo) setQr(imagen); }).catch(() => { /* sin QR antes que con uno roto */ });
+    return () => { vivo = false; };
+  }, [sePuedeCodificar, datosQr]);
 
   const getTicketTextSummary = () => {
     const header = `${settings.tradeName || settings.businessName}\nTicket N.º ${invoice.number}\nFecha: ${formatDate(invoice.issueDate)}\n------------------------\n`;
@@ -50,6 +84,16 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
 
         <div className="tpv-ticket-print-area">
           <div className="tpv-ticket">
+            {/* Al principio del ticket, antes de nada: es donde la
+                especificación de la AEAT lo pide en formato vertical. */}
+            {sePuedeCodificar && qr && (
+              <div className="tpv-ticket-qr">
+                <span className="tpv-ticket-qr-rotulo">{ROTULO_QR}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qr} alt="Código QR para verificar esta factura en la sede electrónica de la AEAT" />
+                <span className="tpv-ticket-qr-leyenda">{LEYENDA_LARGA}</span>
+              </div>
+            )}
             <div className="tpv-ticket-header">
               <strong>{settings.tradeName || settings.businessName}</strong>
               <span>{settings.nif}</span>
