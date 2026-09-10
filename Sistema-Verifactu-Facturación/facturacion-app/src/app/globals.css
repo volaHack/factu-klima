@@ -789,7 +789,7 @@ a:hover { color: var(--accent-300); }
 .header-breadcrumb span { color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .header-search { flex: 1; max-width: 400px; margin: 0 auto; }
-.header-actions { display: flex; align-items: center; gap: var(--space-2); }
+.header-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 
 .header-menu-btn {
   display: none; background: none; border: none;
@@ -925,6 +925,56 @@ a:hover { color: var(--accent-300); }
 .btn-lg { padding: 10px 20px; font-size: var(--text-md); }
 .btn-icon { padding: var(--space-2); border-radius: var(--radius-md); }
 
+/* ------------------------------------------------------------------
+   Variantes que se estaban usando sin existir
+   ------------------------------------------------------------------
+   `btn-xs`, `btn-outline`, `text-danger` y `badge-outline` aparecen en
+   decenas de pantallas del programa y no tenían ni una regla en ninguna
+   hoja de estilos. No fallaban: simplemente no hacían nada, así que un
+   «Eliminar» pequeño y rojo salía del tamaño y del color de un botón
+   normal, y un botón «de contorno» salía relleno como los demás. Es el
+   mismo fallo que tenía `kpi-card-sub`, y del mismo tipo: una clase
+   escrita de memoria que nunca llegó al CSS.
+   ------------------------------------------------------------------ */
+
+/* Más pequeño que `btn-sm`: el de las acciones de una fila de tabla. */
+.btn-xs {
+  padding: 3px 8px;
+  font-size: var(--text-2xs);
+  gap: 4px;
+  border-radius: var(--radius-sm);
+}
+.btn-xs svg { width: 13px; height: 13px; }
+
+/* Contorno: pesa menos que `btn-secondary` sin llegar a desaparecer como
+   `btn-ghost`. Para la acción secundaria que aún tiene que verse. */
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color-hover);
+}
+
+/* Se usa sobre todo en `btn btn-ghost ... text-danger`, es decir para
+   teñir de rojo un botón que por lo demás es neutro: por eso el color va
+   forzado, para ganarle al que pone la variante del botón. */
+.text-danger { color: var(--color-danger) !important; }
+.btn-ghost.text-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger) !important;
+}
+
+.badge-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+
 /* --- Form Inputs --- */
 .form-group { display: flex; flex-direction: column; gap: var(--space-1); }
 
@@ -960,6 +1010,17 @@ a:hover { color: var(--accent-300); }
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 34px;
+}
+
+/* Un desplegable a la altura de `btn-sm`, para las barras de filtros.
+   Va DETRÁS de `.form-input, .form-select, .form-textarea` a propósito:
+   aquel bloque declara padding y tamaño de letra con la misma
+   especificidad, así que puesto delante este modificador no hacía nada.
+   Es la misma trampa que tenía el botón de ayuda en la cabecera. */
+.form-select-sm {
+  padding: 5px 26px 5px 10px;
+  font-size: var(--text-xs);
+  background-position: right 8px center;
 }
 
 /* --- Elegant iOS Toggle Switch Slider --- */
@@ -1082,6 +1143,12 @@ a:hover { color: var(--accent-300); }
    Es la pieza más grande de la pantalla a propósito — en un panel de
    trabajo el ancla del ojo tiene que ser el número, no el titular. */
 .kpi-card-value {
+  /* En bloque a la fuerza. Media aplicación pinta esto con <div> y la otra
+     media con <span>; en un <span> el margen inferior no se aplica y la
+     cifra se pega al texto de debajo — «0,00 €Ventas comunitarias exentas
+     art. 25», todo seguido en la misma línea. Declararlo aquí lo arregla
+     en las dos formas de escribirlo, y en las que vengan. */
+  display: block;
   font-size: var(--text-3xl); font-weight: 600;
   color: var(--text-primary);
   line-height: 1.1;
@@ -1089,7 +1156,13 @@ a:hover { color: var(--accent-300); }
   letter-spacing: var(--tracking-display);
   font-variant-numeric: proportional-nums;
 }
-.kpi-card-label {
+.kpi-card-label,
+.kpi-card-sub {
+  /* `.kpi-card-sub` se usa en Intracomunitarias y en Retenciones y no
+     existía en ninguna hoja de estilos: era texto suelto sin tamaño, sin
+     color y sin salto de línea. Es el mismo pie que `.kpi-card-label`, así
+     que comparten declaración en vez de duplicarla y que se separen. */
+  display: block;
   font-size: var(--text-xs); color: var(--text-tertiary);
   line-height: 1.45;
 }
@@ -1106,13 +1179,20 @@ a:hover { color: var(--accent-300); }
 }
 
 /* --- Tables --- */
-.table-container {
+.table-container,
+/* `table-responsive` se escribe en quince pantallas y no existía en
+   ninguna hoja: las tablas de esas pantallas no tenían dónde
+   desplazarse, así que en un móvil estiraban la página entera y sacaban
+   la barra horizontal del navegador. Es la misma caja, así que comparten
+   declaración. */
+.table-responsive {
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
   box-shadow: var(--shadow-sm);
 }
+.table-responsive { -webkit-overflow-scrolling: touch; }
 .table { width: 100%; border-collapse: collapse; }
 
 .table th {
@@ -2564,6 +2644,16 @@ a:hover { color: var(--accent-300); }
 @media (max-width: 520px) {
   .header-plan-texto { display: none; }
   .header-plan-badge { padding: 6px 8px; }
+
+  /* En un teléfono estrecho la barra pide más ancho del que hay: seis
+     controles de 44 px, tres huecos de 16 y cinco de 8 suman más de 330 px
+     en una pantalla de 320. Antes eso no se veía porque los botones se
+     encogían —y el de ayuda, que es el primero, se quedaba en una rendija—;
+     ahora que ninguno cede, lo que sobra se sale por la derecha. Se recorta
+     el aire, que es lo que sobra de verdad: los botones se quedan a su
+     tamaño y caben todos. */
+  .header { padding: 0 var(--space-3); gap: var(--space-2); }
+  .header-actions { gap: 4px; }
 
   .app-content {
     padding: var(--space-4);
@@ -6630,6 +6720,11 @@ a.stats-item:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Sin esto se encogía. Es el primer hijo de `.header-actions` y el único
+     de la cabecera que no lo declaraba (el del menú y el de buscar sí), así
+     que en cuanto la pantalla se estrechaba era el que cedía sitio: el
+     interrogante se quedaba en una rendija y parecía roto. */
+  flex-shrink: 0;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
@@ -6648,6 +6743,17 @@ a.stats-item:focus-visible {
   .header-ayuda-btn:hover { color: var(--accent-500); background: var(--bg-card-hover); }
 }
 .header-ayuda-btn:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+
+/* En el teléfono, a la medida del dedo como el resto de la barra: 36 px lo
+   dejaba como el objetivo más pequeño de la pantalla, justo para lo que más
+   se pulsa cuando uno no sabe qué hacer.
+   Va AQUÍ y no con las demás consultas de medios de la cabecera (línea
+   ~2500) por un motivo aburrido y decisivo: los estilos de la ayuda se
+   declaran mil líneas más abajo, y con la misma especificidad gana la
+   última regla del fichero. Puesto arriba, no se aplicaba nunca. */
+@media (max-width: 768px) {
+  .header-ayuda-btn { width: 44px; height: 44px; }
+}
 
 .ayuda-panel {
   position: fixed;
