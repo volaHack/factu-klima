@@ -1,15 +1,22 @@
 /**
- * AYUDA IA DEL MOSTRADOR
+ * LA AYUDA CON IA DEL PROGRAMA
  *
- * Dos cosas, y sólo dos, porque son las que un cajero necesita de verdad:
+ * Tres cosas, y sólo tres, porque son las que se preguntan de verdad:
  *
- * 1. `duda` — responder a lo que se pregunta en voz alta detrás del
- *    mostrador: «el cliente quiere pagar mitad en efectivo y mitad con
- *    tarjeta», «me he equivocado de precio y ya he cobrado», «cómo aparco
- *    esta venta». Con los pasos DE ESTE programa, no consejos genéricos.
+ * 1. `duda` — lo que se pregunta en voz alta detrás del mostrador: «el
+ *    cliente quiere pagar mitad en efectivo y mitad con tarjeta», «me he
+ *    equivocado de precio y ya he cobrado», «cómo aparco esta venta». Con
+ *    los pasos DE ESTE programa, no consejos genéricos.
  *
  * 2. `turno` — al cerrar la caja, contar en dos frases cómo ha ido, si el
  *    descuadre tiene pinta de error de cambio y qué conviene reponer.
+ *
+ * 3. `pagina` — la duda sobre CUALQUIER pantalla del programa. Se le manda
+ *    la ayuda escrita de esa pantalla (`src/lib/ayuda/paginas.ts`) como
+ *    base, así que contesta con lo que la pantalla hace de verdad y no con
+ *    lo que un modelo se imagine que hace un programa de facturación. Es la
+ *    misma regla que en el mostrador: primero lo que hay escrito, y el
+ *    modelo sólo pone las palabras.
  *
  * POR QUÉ VIVE EN EL SERVIDOR
  * ---------------------------
@@ -162,6 +169,40 @@ function instruccionesTurno(r: ResumenTurno): string {
   ].join('\n');
 }
 
+export interface ContextoPagina {
+  titulo: string;
+  paraQue: string;
+  pasos: string[];
+  saber: string[];
+}
+
+function instruccionesPagina(pregunta: string, p: ContextoPagina): string {
+  return [
+    'Eres el ayudante de un programa español de facturación. Alguien está',
+    `mirando la pantalla «${p.titulo}» y tiene una duda.`,
+    '',
+    'REGLAS:',
+    '- Responde en castellano, de tú, en 4 frases como mucho.',
+    '- Usa SOLO lo que aparece en la documentación de abajo. Si la respuesta',
+    '  no está ahí, dilo claramente («eso no lo hace esta pantalla») y, si',
+    '  sabes por la documentación qué pantalla lo hace, mándale a ella.',
+    '- No inventes botones, pantallas, campos ni funciones.',
+    '- Si hay que hacer algo, dilo en pasos cortos con el nombre exacto del',
+    '  botón.',
+    '- Nada de saludos ni de despedidas.',
+    '',
+    `DOCUMENTACIÓN DE LA PANTALLA «${p.titulo}»:`,
+    `Para qué sirve: ${p.paraQue}`,
+    '',
+    'Cómo se usa:',
+    ...p.pasos.map((paso, i) => `${i + 1}. ${paso}`),
+    ...(p.saber.length ? ['', 'Lo que conviene saber:', ...p.saber.map(x => `- ${x}`)] : []),
+    '',
+    'PREGUNTA:',
+    pregunta,
+  ].join('\n');
+}
+
 function numero(valor: unknown): number {
   return typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
 }
@@ -177,7 +218,7 @@ export async function POST(request: NextRequest) {
 
   // Cada respuesta cuesta dinero. Un cajero pregunta unas cuantas veces por
   // turno; sesenta por hora es de sobra y corta cualquier bucle.
-  const permitido = await checkRateLimit(`tpv-ayuda:${clientIpFromRequest(request)}`, 60, 3600);
+  const permitido = await checkRateLimit(`ayuda:${clientIpFromRequest(request)}`, 60, 3600);
   if (!permitido) {
     return NextResponse.json(
       { error: 'Has preguntado muchas veces seguidas. Espera un minuto.' },
@@ -185,7 +226,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let cuerpo: { modo?: string; pregunta?: string; contexto?: Partial<ContextoTpv>; turno?: Partial<ResumenTurno> };
+  let cuerpo: {
+    modo?: string;
+    pregunta?: string;
+    contexto?: Partial<ContextoTpv>;
+    turno?: Partial<ResumenTurno>;
+    pagina?: Partial<ContextoPagina>;
+  };
   try {
     cuerpo = await request.json();
   } catch {
@@ -209,6 +256,22 @@ export async function POST(request: NextRequest) {
             .slice(0, 5)
             .map(p => ({ nombre: String(p?.nombre ?? '').slice(0, 60), unidades: numero(p?.unidades) }))
         : [],
+    });
+  } else if (cuerpo.modo === 'pagina') {
+    const pregunta = String(cuerpo.pregunta ?? '').trim().slice(0, MAXIMO_PREGUNTA);
+    if (!pregunta) {
+      return NextResponse.json({ error: 'Escribe tu pregunta.' }, { status: 400 });
+    }
+    const p = cuerpo.pagina ?? {};
+    // Se acota lo que llega del cliente: el texto viaja al modelo y no tiene
+    // sentido pagar por una documentación de diez folios que nadie escribió.
+    const lista = (v: unknown) =>
+      (Array.isArray(v) ? v : []).slice(0, 12).map(x => String(x).slice(0, 300));
+    instrucciones = instruccionesPagina(pregunta, {
+      titulo: String(p.titulo ?? 'esta pantalla').slice(0, 80),
+      paraQue: String(p.paraQue ?? '').slice(0, 400),
+      pasos: lista(p.pasos),
+      saber: lista(p.saber),
     });
   } else {
     const pregunta = String(cuerpo.pregunta ?? '').trim().slice(0, MAXIMO_PREGUNTA);
@@ -261,7 +324,7 @@ export async function POST(request: NextRequest) {
 
   if (!respuesta.ok) {
     // El detalle del proveedor no se le enseña al usuario; al registro sí.
-    console.error('[tpv/ayuda] Gemini respondió', respuesta.status, await respuesta.text().catch(() => ''));
+    console.error('[ayuda] Gemini respondió', respuesta.status, await respuesta.text().catch(() => ''));
     return NextResponse.json(
       { error: 'La ayuda no está disponible ahora mismo. Inténtalo en un momento.' },
       { status: 502 },

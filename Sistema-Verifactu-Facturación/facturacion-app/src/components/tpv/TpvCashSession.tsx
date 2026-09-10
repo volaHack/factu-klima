@@ -69,7 +69,7 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
     resumenPedido.current = true;
 
     let vivo = true;
-    fetch('/api/tpv/ayuda', {
+    fetch('/api/ayuda', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

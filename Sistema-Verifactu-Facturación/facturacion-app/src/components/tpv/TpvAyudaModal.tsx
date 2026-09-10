@@ -73,7 +73,7 @@ export default function TpvAyudaModal({ contexto, onClose }: Props) {
     setError('');
     setRespuesta('');
     try {
-      const res = await fetch('/api/tpv/ayuda', {
+      const res = await fetch('/api/ayuda', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modo: 'duda', pregunta: limpia, contexto }),

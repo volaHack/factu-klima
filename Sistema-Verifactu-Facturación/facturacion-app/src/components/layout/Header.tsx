@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, Search, Bell, ShieldCheck, Crown, Zap, Lock, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import TipModal from '@/components/ui/TipModal';
+import AyudaContextual from '@/components/ayuda/AyudaContextual';
 import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
 import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
@@ -103,6 +104,11 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
       </div>
 
       <div className="header-actions">
+        {/* La ayuda de la pantalla en la que estás. Va aquí y no en cada
+            página porque la cabecera es el único sitio que aparece en las
+            cuarenta y siete: se monta una vez y funciona en todas. */}
+        <AyudaContextual />
+
         <button
           className="header-search-btn-mobile"
           onClick={onSearchClick}
