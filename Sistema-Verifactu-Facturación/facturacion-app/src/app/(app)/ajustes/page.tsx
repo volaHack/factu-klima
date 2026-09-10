@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor, deleteVendedor, getAlmacenes, contarFacturasSelladas, ErrorGuardado } from '@/lib/storage';
+import {
+  getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor,
+  deleteVendedor, getAlmacenes, contarFacturasSelladas, ErrorGuardado,
+  getInvoices, getClients, getProducts, getAlbaranes, getDevoluciones, getAbonos,
+  getGastos, getLotes, getOfertas,
+} from '@/lib/storage';
+import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -94,6 +100,56 @@ export default function AjustesPage() {
    * NIF que el servidor va a rechazar.
    */
   const [facturasSelladas, setFacturasSelladas] = useState(0);
+  const [exportando, setExportando] = useState(false);
+
+  /**
+   * SACAR TODOS LOS DATOS
+   *
+   * Quien factura con esto está obligado a conservar sus registros cuatro
+   * años, y hasta ahora dependía entera y exclusivamente de que nuestro
+   * servidor siguiera ahí. Ahora se los lleva cuando quiera.
+   *
+   * Se descargan varios ficheros seguidos y no un ZIP: comprimir en el
+   * navegador exige una biblioteca entera que sólo se usaría aquí, y lo que
+   * el usuario necesita es tener los datos, no tenerlos en un solo archivo.
+   * Se van soltando con un respiro entre medias porque el navegador ignora
+   * las descargas que llegan todas en el mismo instante.
+   */
+  const exportarTodo = async () => {
+    if (exportando) return;
+    setExportando(true);
+    try {
+      const [
+        ajustes, facturas, clientes, productos, albaranes, devoluciones, abonos, gastos, lotes, ofertasEmpresa,
+      ] = await Promise.all([
+        getCompanySettings(), getInvoices(), getClients(), getProducts(),
+        getAlbaranes(), getDevoluciones(), getAbonos(), getGastos(), getLotes(), getOfertas(),
+      ]);
+
+      const datos: DatosEmpresa = {
+        ajustes, facturas, clientes, productos, albaranes, devoluciones, abonos, gastos, lotes,
+        ofertas: ofertasEmpresa,
+      };
+
+      const ficheros = prepararExportacion(datos);
+      for (const fichero of ficheros) {
+        descargar(fichero);
+        await new Promise(listo => setTimeout(listo, 350));
+      }
+
+      const resumen = resumirExportacion(datos)
+        .map(r => `${r.cuantos} ${r.que.toLowerCase()}`)
+        .join(', ');
+      success(
+        `Se han descargado ${ficheros.length} ficheros`,
+        resumen ? `Llevan ${resumen}. Guárdalos donde guardes lo importante.` : 'Guárdalos donde guardes lo importante.',
+      );
+    } catch (err) {
+      toastError('No se ha podido exportar', err instanceof Error ? err.message : 'Vuelve a intentarlo.');
+    } finally {
+      setExportando(false);
+    }
+  };
   const [stripeKeys, setStripeKeys] = useState<{
     hasSecretKey: boolean;
     hasWebhookSecret: boolean;
@@ -1125,6 +1181,30 @@ export default function AjustesPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Copia de seguridad. Va justo antes de la zona de mantenimiento a
+          propósito: quien llega ahí buscando el botón de borrar se encuentra
+          primero con el de llevarse los datos. */}
+      <div className="settings-section">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <Download size={18} />
+          <h2 className="settings-section-title">Tus datos son tuyos</h2>
+        </div>
+        <p className="settings-section-subtitle">
+          Descarga una copia completa cuando quieras. Estás obligado a conservar tus registros
+          cuatro años, y esto es lo que te permite hacerlo sin depender de nosotros.
+        </p>
+        <ul className="exportar-lista">
+          <li><b>Copia completa (JSON)</b> — todo, para volver a montarlo en otro sitio.</li>
+          <li><b>Libro de facturas (CSV)</b> — el registro de emitidas, con su huella Veri*Factu.</li>
+          <li><b>Detalle de líneas (CSV)</b> — lo que pide el asesor para cuadrar el IVA.</li>
+          <li><b>Gastos, catálogo y clientes (CSV)</b> — para abrirlos en una hoja de cálculo.</li>
+        </ul>
+        <button className="btn btn-secondary" onClick={exportarTodo} disabled={exportando}>
+          {exportando ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
+          {exportando ? 'Preparando…' : 'Descargar todos mis datos'}
+        </button>
       </div>
 
       {/* Reset */}

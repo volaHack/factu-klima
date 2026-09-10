@@ -6588,6 +6588,34 @@ a.stats-item:focus-visible {
   border: 0;
 }
 
+/* --- La lista de lo que se lleva el usuario al exportar --- */
+.exportar-lista {
+  list-style: none;
+  margin: var(--space-4) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.exportar-lista li {
+  position: relative;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+.exportar-lista li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-500);
+}
+.exportar-lista b { color: var(--text-primary); font-weight: 600; }
+
 /* ============================================================
    LA AYUDA DE CADA PANTALLA
    ============================================================
