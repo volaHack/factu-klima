@@ -3871,6 +3871,195 @@ export async function checkVerifactuConnection(): Promise<{
 }
 
 // ============================================================
+// LA COLA DE ENVÍO A LA AGENCIA TRIBUTARIA
+// ============================================================
+//
+// La cadena de registros la genera y la firma la base de datos al sellar
+// cada factura (ver migración 038). Desde aquí sólo se LEE lo que hay y
+// se pide al servidor que mande lo pendiente: el envío necesita
+// descifrar el certificado, y eso no puede pasar en el navegador.
+
+export type EstadoRegistroVerifactu =
+  | 'pendiente' | 'enviando' | 'aceptado'
+  | 'aceptado_con_errores' | 'rechazado' | 'error_envio';
+
+export interface RegistroVerifactu {
+  id: string;
+  invoiceId: string;
+  tipoRegistro: 'alta' | 'anulacion';
+  indice: number;
+  primerRegistro: boolean;
+  huella: string;
+  huellaAnterior: string | null;
+  numSerie: string;
+  fechaExpedicion: string;
+  tipoFactura: string | null;
+  importeTotal: number;
+  cuotaTotal: number;
+  fechaHoraHuso: string;
+  estado: EstadoRegistroVerifactu;
+  entorno: 'pruebas' | 'produccion' | null;
+  csvAeat: string | null;
+  codigoError: string | null;
+  descripcionError: string | null;
+  enviadoEn: string | null;
+  respondidoEn: string | null;
+}
+
+export interface ConfigVerifactu {
+  activo: boolean;
+  entorno: 'pruebas' | 'produccion';
+  envioAutomatico: boolean;
+  productorNombre: string;
+  productorNif: string;
+  nombreSistema: string;
+  idSistema: string;
+  versionSistema: string;
+  numeroInstalacion: string;
+}
+
+const CONFIG_VERIFACTU_POR_DEFECTO: ConfigVerifactu = {
+  activo: false,
+  entorno: 'pruebas',
+  envioAutomatico: true,
+  productorNombre: '',
+  productorNif: '',
+  nombreSistema: 'Klima',
+  idSistema: '01',
+  versionSistema: '1.0',
+  numeroInstalacion: '',
+};
+
+export async function getConfigVerifactu(): Promise<ConfigVerifactu> {
+  const userId = await getCurrentUserId();
+  if (!userId) return { ...CONFIG_VERIFACTU_POR_DEFECTO };
+
+  const { data } = await supabase()
+    .from('verifactu_config').select('*').eq('user_id', userId).maybeSingle();
+
+  if (!data) return { ...CONFIG_VERIFACTU_POR_DEFECTO };
+
+  return {
+    activo: data.activo ?? false,
+    entorno: data.entorno === 'produccion' ? 'produccion' : 'pruebas',
+    envioAutomatico: data.envio_automatico ?? true,
+    productorNombre: data.productor_nombre ?? '',
+    productorNif: data.productor_nif ?? '',
+    nombreSistema: data.nombre_sistema ?? 'Klima',
+    idSistema: data.id_sistema ?? '01',
+    versionSistema: data.version_sistema ?? '1.0',
+    numeroInstalacion: data.numero_instalacion ?? '',
+  };
+}
+
+export async function saveConfigVerifactu(config: ConfigVerifactu): Promise<void> {
+  const userId = await requireUserId();
+
+  const { error } = await supabase().from('verifactu_config').upsert({
+    user_id: userId,
+    activo: config.activo,
+    entorno: config.entorno,
+    envio_automatico: config.envioAutomatico,
+    productor_nombre: config.productorNombre.trim() || null,
+    productor_nif: config.productorNif.trim().toUpperCase() || null,
+    nombre_sistema: config.nombreSistema.trim() || 'Klima',
+    id_sistema: config.idSistema.trim() || '01',
+    version_sistema: config.versionSistema.trim() || '1.0',
+    numero_instalacion: config.numeroInstalacion.trim() || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+
+  if (error) throw new Error(error.message);
+}
+
+export async function getRegistrosVerifactu(limite = 500): Promise<RegistroVerifactu[]> {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
+  const { data, error } = await supabase()
+    .from('verifactu_registros')
+    .select('*')
+    .eq('user_id', userId)
+    .order('indice', { ascending: false })
+    .limit(limite);
+
+  if (error || !data) return [];
+
+  // La tabla es nueva y todavía no está en los tipos generados de
+  // Supabase, así que se declara aquí la forma de la fila en vez de
+  // dejar que todo se convierta en «any» sin que nadie lo note.
+  interface FilaRegistroDb {
+    id: string; invoice_id: string; tipo_registro: 'alta' | 'anulacion';
+    indice: number | string; primer_registro: boolean;
+    huella: string; huella_anterior: string | null;
+    num_serie: string; fecha_expedicion: string; tipo_factura: string | null;
+    importe_total: number | string | null; cuota_total: number | string | null;
+    fecha_hora_huso: string; estado: EstadoRegistroVerifactu;
+    entorno: 'pruebas' | 'produccion' | null; csv_aeat: string | null;
+    codigo_error: string | null; descripcion_error: string | null;
+    enviado_en: string | null; respondido_en: string | null;
+  }
+
+  return (data as unknown as FilaRegistroDb[]).map(r => ({
+    id: r.id,
+    invoiceId: r.invoice_id,
+    tipoRegistro: r.tipo_registro,
+    indice: Number(r.indice),
+    primerRegistro: r.primer_registro,
+    huella: r.huella,
+    huellaAnterior: r.huella_anterior,
+    numSerie: r.num_serie,
+    fechaExpedicion: r.fecha_expedicion,
+    tipoFactura: r.tipo_factura,
+    importeTotal: Number(r.importe_total ?? 0),
+    cuotaTotal: Number(r.cuota_total ?? 0),
+    fechaHoraHuso: r.fecha_hora_huso,
+    estado: r.estado,
+    entorno: r.entorno,
+    csvAeat: r.csv_aeat,
+    codigoError: r.codigo_error,
+    descripcionError: r.descripcion_error,
+    enviadoEn: r.enviado_en,
+    respondidoEn: r.respondido_en,
+  }));
+}
+
+export interface ResultadoEnvioAeat {
+  ok: boolean;
+  error?: string;
+  entorno?: 'pruebas' | 'produccion';
+  csv?: string | null;
+  enviados?: number;
+  aceptados?: number;
+  conAvisos?: number;
+  rechazados?: number;
+  sinRespuesta?: number;
+  resumen?: string;
+  mensaje?: string;
+  problemas?: Array<{ numero: string; problemas: string[] }>;
+}
+
+/**
+ * Pide al servidor que mande lo pendiente.
+ *
+ * Devuelve el resultado en vez de lanzar incluso cuando falla: lo que
+ * pasa aquí hay que enseñarlo entero (cuántas entraron, cuáles no y por
+ * qué), y un throw se queda en «algo ha fallado».
+ */
+export async function enviarPendientesAeat(): Promise<ResultadoEnvioAeat> {
+  try {
+    const respuesta = await fetch('/api/verifactu/enviar', { method: 'POST' });
+    const datos = await respuesta.json();
+    return respuesta.ok ? datos : { ...datos, ok: false };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'No se ha podido contactar con el servidor.',
+    };
+  }
+}
+
+// ============================================================
 // COBROS, PAGOS Y TESORERÍA (Fase 4)
 // ============================================================
 

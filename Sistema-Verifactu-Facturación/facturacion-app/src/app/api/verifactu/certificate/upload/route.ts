@@ -1,193 +1,158 @@
 /**
  * POST /api/verifactu/certificate/upload
- * Recibe un certificado .p12/.pem y lo almacena cifrado.
  *
- * ============================================================================
- * ADVERTENCIA IMPORTANTE — INTEGRACIÓN DE DEMOSTRACIÓN, NO VALIDACIÓN REAL
- * ============================================================================
- * Este endpoint NO valida que el fichero subido sea un certificado FNMT
- * legítimo. No descifra el PKCS#12, no comprueba la cadena de confianza,
- * no verifica que sea de firma electrónica y no consulta la lista de
- * revocación (CRL) de la AEAT/FNMT. Un usuario autenticado puede subir
- * CUALQUIER archivo BASE64 con CUALQUIER contraseña no vacía y el sistema
- * lo aceptará y lo mostrará como "certificado cargado" — subject/issuer
- * son texto fijo, no datos extraídos del certificado real.
+ * Recibe el .p12/.pfx del obligado tributario, comprueba que sea de
+ * verdad lo que dice ser, y lo guarda cifrado para poder presentarlo
+ * ante la AEAT en cada envío.
  *
- * Hacer esa validación de verdad requiere una librería de parseo
- * PKCS#12/X.509 (p.ej. node-forge o pkijs) que no está instalada en este
- * proyecto (ver package.json) y añadirla no entra en el alcance de esta
- * revisión de seguridad. En vez de simular una validación que no existe,
- * este endpoint:
- *   1. Marca cada certificado con validation_status = 'unverified' en BD.
- *   2. Devuelve un campo `warning` explícito en la respuesta.
- *   3. Dice la verdad en cada comentario/mensaje de error en vez de fingir.
+ * QUÉ CAMBIÓ RESPECTO A LA VERSIÓN ANTERIOR
+ * Antes esto era, y lo decía en sus propios comentarios, «una validación
+ * de formulario»: comprobaba que el contenido fuera BASE64 y que la
+ * contraseña no estuviera vacía, y guardaba un titular «(sin verificar)»
+ * y una caducidad inventada a un año vista. Ahora se abre el PKCS#12 de
+ * verdad (ver lib/verifactu/certificado.ts), lo que comprueba de una
+ * sentada tres cosas que importan:
  *
- * Lo que SÍ es real a partir de esta revisión:
- *   - El contenido se cifra en reposo con AES-256-GCM (ver
- *     certificateEncryption.ts) usando una clave que sólo vive en el
- *     servidor. Antes se guardaba con Buffer.from(...).toString(), que ni
- *     cifra nada ni preserva los bytes originales (corrompe binario no-UTF8).
- *   - El thumbprint es un SHA-256 real del fichero subido, no un valor fijo
- *     inventado igual para todos los certificados.
- * ============================================================================
+ *   - que el fichero es un PKCS#12 y no un .cer sin clave privada;
+ *   - que la contraseña es LA BUENA, en el momento de escribirla y no
+ *     semanas después con un error de saludo TLS incomprensible;
+ *   - quién es el titular, quién lo emitió y cuándo caduca, leídos del
+ *     certificado en vez de rellenados a ojo.
+ *
+ * LA CONTRASEÑA SE GUARDA CIFRADA, NO EN HASH
+ * Un hash sirve para comprobar que alguien sabe la contraseña. Aquí no
+ * hay que comprobar nada: hay que ABRIR el certificado en cada envío
+ * para levantar el TLS mutuo, y un hash no abre nada. La alternativa
+ * sería pedírsela al usuario cada vez, que convierte «facturar» en
+ * «facturar y quedarse mirando la pantalla». Se cifra con AES-256-GCM
+ * con una clave que sólo existe en el servidor.
+ *
+ * LO QUE SIGUE SIN COMPROBARSE
+ * Que el certificado no esté revocado. Eso exige consultar la CRL o el
+ * OCSP del emisor, con su petición de red y sus tiempos de espera. No
+ * está hecho.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { encryptCertificateBlob, hashUploadedBytes } from '@/lib/verifactu/certificateEncryption';
+import { avisosDelCertificado, leerCertificado } from '@/lib/verifactu/certificado';
 import { checkRateLimit } from '@/lib/rateLimit';
 
-// Un .p12/.pem real pesa como mucho unos pocos KB. 10 MB es generoso y
-// evita que este endpoint se use para volcar payloads enormes en la BD.
+// Un .p12 real pesa unos pocos KB. 10 MB es generoso y evita que este
+// endpoint se use para volcar payloads enormes en la base de datos.
 const MAX_CERTIFICATE_BYTES = 10 * 1024 * 1024;
-
-/**
- * MOCK — simula la validación de un certificado FNMT.
- *
- * En un servidor real, aquí iría:
- * 1. Descifrar el .p12 con la contraseña (crypto nativo / OpenSSL)
- * 2. Extraer los datos del certificado (subject, issuer, fechas reales)
- * 3. Validar que venga de AC FNMT (cadena de confianza)
- * 4. Verificar que sea para firma electrónica
- * 5. Comprobar contra CRL que no esté revocado
- *
- * Nada de eso ocurre aquí todavía. Sólo se comprueba que el payload sea
- * BASE64 y que se haya escrito alguna contraseña — es decir, esto no es
- * una validación de certificado, es una validación de formulario.
- */
-async function mockValidateCertificateServer(rawBytes: Buffer, password: string) {
-  if (rawBytes.length === 0) {
-    throw new Error('Certificado vacío o BASE64 inválido');
-  }
-
-  if (!password || password.length < 1) {
-    throw new Error('Contraseña requerida');
-  }
-
-  // Mock: datos de certificado NO extraídos del fichero real.
-  // Se marcan explícitamente como "sin verificar" para que no se
-  // confundan con datos reales del certificado en la UI.
-  return {
-    thumbprint: hashUploadedBytes(rawBytes), // SHA-256 real del archivo (no es el fingerprint X.509)
-    subjectName: '(sin verificar) — no se ha parseado el certificado real',
-    issuerName: '(sin verificar) — no se ha comprobado que sea AC FNMT',
-    serialNumber: 'SIN-VERIFICAR',
-    notBefore: new Date(),
-    notAfter: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // fecha inventada, no extraída del certificado
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticación
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
-
-    const allowed = await checkRateLimit(`cert-upload:${user.id}`, 5, 3600);
-    if (!allowed) {
+    if (!(await checkRateLimit(`cert-upload:${user.id}`, 5, 3600))) {
       return NextResponse.json(
         { error: 'Demasiadas subidas de certificado. Inténtalo de nuevo más tarde.' },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
-    const body = await request.json();
-    const { certificate, password } = body;
-
+    const { certificate, password } = await request.json();
     if (!certificate || !password || typeof certificate !== 'string' || typeof password !== 'string') {
-      return NextResponse.json(
-        { error: 'Certificado y contraseña requeridos' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Certificado y contraseña requeridos' }, { status: 400 });
     }
 
-    // Decodificar BASE64 a los bytes binarios reales UNA sola vez. Antes
-    // el código volvía a decodificar por separado para "validar" y para
-    // "guardar", y la copia que se guardaba pasaba por .toString('utf8'),
-    // lo que corrompe datos binarios no-UTF8 (los sustituye por U+FFFD).
+    // Se decodifica UNA sola vez a los bytes binarios reales. La versión
+    // vieja los volvía a decodificar por separado para «validar» y para
+    // «guardar», y la copia que guardaba pasaba por .toString('utf8'),
+    // que corrompe cualquier byte que no forme UTF-8 válido — es decir,
+    // rompía el certificado antes de guardarlo.
     let rawBytes: Buffer;
     try {
       rawBytes = Buffer.from(certificate.split(',').pop() || '', 'base64');
     } catch {
-      return NextResponse.json(
-        { error: 'Certificado inválido (no es BASE64)' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Certificado inválido (no es BASE64)' }, { status: 400 });
     }
 
     if (rawBytes.length === 0) {
-      return NextResponse.json(
-        { error: 'Certificado vacío o BASE64 inválido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Certificado vacío o BASE64 inválido' }, { status: 400 });
     }
-
     if (rawBytes.length > MAX_CERTIFICATE_BYTES) {
       return NextResponse.json(
         { error: `El certificado supera el tamaño máximo permitido (${MAX_CERTIFICATE_BYTES / (1024 * 1024)} MB)` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // "Validar" certificado (ver advertencia arriba: esto es un mock)
-    let certData;
+    // Validación de verdad: si esto pasa, el fichero es un PKCS#12 y la
+    // contraseña abre la clave privada.
+    let datos;
     try {
-      certData = await mockValidateCertificateServer(rawBytes, password);
-    } catch (validationErr) {
+      datos = leerCertificado(rawBytes, password);
+    } catch (e) {
       return NextResponse.json(
-        { error: validationErr instanceof Error ? validationErr.message : 'Certificado inválido' },
-        { status: 400 }
+        { error: e instanceof Error ? e.message : 'No se ha podido leer el certificado' },
+        { status: 400 },
       );
     }
 
-    // Cifrar en reposo con AES-256-GCM. Si la clave de cifrado no está
-    // configurada, se rechaza la subida en vez de guardar en texto plano
-    // afirmando (como antes) que estaba "encriptado".
-    let encryptedBlob: string;
+    if (datos.notAfter < new Date()) {
+      return NextResponse.json(
+        { error: `Este certificado caducó el ${datos.notAfter.toLocaleDateString('es-ES')}. Renuévalo antes de subirlo.` },
+        { status: 400 },
+      );
+    }
+
+    // Cifrado en reposo. Si la clave de cifrado no está configurada, se
+    // rechaza la subida en vez de guardar en claro afirmando lo
+    // contrario, que es lo que hacía la primera versión de esto.
+    let blobCertificado: string;
+    let blobPassword: string;
     try {
-      encryptedBlob = encryptCertificateBlob(rawBytes);
+      blobCertificado = encryptCertificateBlob(rawBytes);
+      blobPassword = encryptCertificateBlob(Buffer.from(password, 'utf8'));
     } catch (encErr) {
       console.error('No se pudo cifrar el certificado:', encErr);
       return NextResponse.json(
-        {
-          error:
-            'El servidor no está configurado para cifrar certificados (falta CERTIFICATE_ENCRYPTION_KEY). No se ha guardado nada.',
-        },
-        { status: 500 }
+        { error: 'El servidor no está configurado para cifrar certificados (falta CERTIFICATE_ENCRYPTION_KEY). No se ha guardado nada.' },
+        { status: 500 },
       );
     }
 
-    const uploadedIp =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      null;
+    const { data: ajustes } = await supabase
+      .from('company_settings').select('nif').eq('user_id', user.id).maybeSingle();
 
-    // Almacenar en Supabase (cifrado — ver advertencia de cabecera:
-    // cifrado en reposo no es lo mismo que certificado verificado)
+    const uploadedIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || null;
+
+    // Al subir uno nuevo, el anterior deja de estar activo: si no, el
+    // envío podría seguir usando el viejo sin que nadie lo note.
+    await supabase.from('verifactu_certificates')
+      .update({ is_valid: false, last_validation_error: 'Sustituido por un certificado más reciente' })
+      .eq('user_id', user.id)
+      .eq('is_valid', true);
+
     const { data, error } = await supabase
       .from('verifactu_certificates')
       .insert({
         user_id: user.id,
-        certificate_data: encryptedBlob,
-        certificate_thumbprint: certData.thumbprint,
-        subject_name: certData.subjectName,
-        issuer_name: certData.issuerName,
-        serial_number: certData.serialNumber,
-        not_before: certData.notBefore.toISOString(),
-        not_after: certData.notAfter.toISOString(),
+        certificate_data: blobCertificado,
+        certificate_password_encrypted: blobPassword,
+        certificate_thumbprint: hashUploadedBytes(rawBytes),
+        subject_name: datos.subjectName,
+        issuer_name: datos.issuerName,
+        serial_number: datos.serialNumber,
+        not_before: datos.notBefore.toISOString(),
+        not_after: datos.notAfter.toISOString(),
         is_valid: true,
         is_revoked: false,
         is_aeat_connected: false,
-        validation_status: 'unverified',
+        // «verified» significa aquí lo que puede significar: es un
+        // PKCS#12 legítimo, la contraseña es correcta y los datos son
+        // los que trae el certificado. No incluye comprobación de
+        // revocación, que sigue sin estar hecha.
+        validation_status: 'verified',
         uploaded_ip: uploadedIp,
       })
       .select('id')
@@ -195,27 +160,23 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error storing certificate:', error);
-      return NextResponse.json(
-        { error: 'No se pudo almacenar el certificado' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'No se pudo almacenar el certificado' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       certificateId: data.id,
-      message: 'Certificado guardado cifrado en el servidor.',
-      warning:
-        'MODO DEMOSTRACIÓN: no se ha verificado que el certificado sea auténtico ni que provenga de AC FNMT. Las facturas NO se envían todavía automáticamente a la AEAT con este certificado.',
+      titular: datos.subjectName,
+      emisor: datos.issuerName,
+      caduca: datos.notAfter.toISOString(),
+      avisos: avisosDelCertificado(datos, ajustes?.nif),
+      message: 'Certificado comprobado y guardado cifrado en el servidor.',
     });
   } catch (err) {
     console.error('Certificate upload error:', err);
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : 'Error al cargar certificado',
-      },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : 'Error al cargar certificado' },
+      { status: 500 },
     );
   }
 }

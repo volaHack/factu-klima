@@ -22,9 +22,9 @@
  * porque un paso que dice «pulsa en guardar» cuando el botón pone «Emitir
  * factura» es peor que no decir nada.
  *
- * Y no se inventa nada. Si una pantalla no hace algo, aquí no aparece; y si
- * algo del programa está a medias, se dice —ver `/verifactu`—. La confianza
- * en la ayuda se pierde entera con una sola cosa que no cuadre.
+ * Y no se inventa nada. Si una pantalla no hace algo, aquí no aparece, y si
+ * algo del programa está a medias, se dice. La confianza en la ayuda se
+ * pierde entera con una sola cosa que no cuadre.
  */
 
 export interface AyudaPagina {
@@ -420,14 +420,20 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   {
     ruta: '/verifactu',
     titulo: 'Veri*Factu',
-    paraQue: 'El estado de tu cumplimiento antifraude: la cadena de huellas de tus facturas y tu certificado.',
+    paraQue: 'Desde aquí se mandan tus facturas a la Agencia Tributaria y se ve qué ha dicho de cada una.',
     pasos: [
-      'Sube tu certificado digital de la FNMT si lo tienes.',
-      'Comprueba que la cadena de huellas está intacta.',
-      'Cada factura que emites se sella con SHA-256 encadenado a la anterior, sin que tengas que hacer nada.',
+      'Sube tu certificado digital en formato .p12 o .pfx, con su contraseña. Se comprueba al momento.',
+      'Rellena quién produce el software (nombre y NIF): la AEAT lo exige en cada registro y no es un dato que se pueda deducir.',
+      'Empieza en el entorno de PRUEBAS. Lo que se manda ahí no cuenta, y sirve para ver que todo encaja.',
+      'Pulsa «Comprobar conexión»: eso hace el mismo saludo seguro que hace un envío de verdad.',
+      'Activa el envío y pulsa «Enviar». Cada factura aparecerá como aceptada, aceptada con avisos o rechazada.',
     ],
     saber: [
-      'IMPORTANTE Y HONESTO: el sellado y el encadenado de tus facturas SÍ funcionan, y el QR tributario cumple la especificación de la AEAT. Lo que todavía NO está es el ENVÍO automático a la Agencia Tributaria: eso sigue en modo demostración. Consúltalo con tu asesor antes de confiar en ello para una obligación de envío.',
+      'Cada factura que emites genera su registro y su huella oficial sin que tengas que hacer nada. Lo que se envía aquí es eso, no la factura en PDF.',
+      '«Aceptado con avisos» significa que la Agencia ya la tiene registrada y avisa de algo. NO se reenvía: volver a mandarla crearía un duplicado, y el duplicado sí es un problema.',
+      'Anular una factura ya enviada no la borra de la AEAT: genera otro registro que dice que aquélla queda sin efecto, y también se manda.',
+      'Si la conexión se corta a mitad, la factura se queda en «pendiente» y se reintenta. Nunca se da por enviada algo que no se sabe si llegó.',
+      'Antes de pasar a producción, habla con tu asesor: el alta en el sistema y el certificado con el que se firma son cosa tuya, no del programa.',
       'El NIF de tu empresa no se puede cambiar una vez has emitido facturas: entra en la huella de todas ellas.',
       'El contador de facturas no puede retroceder.',
     ],

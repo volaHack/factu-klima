@@ -59,9 +59,10 @@ const FUNCIONES_COMUNES: PlanFeature[] = [
   { text: 'Cobro online con Stripe', included: true },
   { text: 'Portal de aprobación de pedidos', included: true },
   { text: 'Terminal Punto de Venta (TPV)', included: true },
-  // No se cobra por lo que todavía no se puede hacer: el envío telemático
-  // a la AEAT no está conectado en ningún plan.
-  { text: 'Envío telemático a la AEAT (en preparación)', included: false },
+  // Ya se puede: el envío telemático a la AEAT está conectado (registro de
+  // alta y de anulación, encadenados, con el certificado del titular). Va
+  // en todos los planes porque es una obligación legal, no un extra.
+  { text: 'Envío telemático a la AEAT', included: true },
 ];
 
 // Metadatos solo de presentación — el precio, el NOMBRE y el límite de
@@ -128,7 +129,6 @@ const plans = PLANS.map(plan => ({ ...plan, ...PLAN_DISPLAY[plan.id] }));
    Escrito una vez, las tres columnas no se pueden separar. */
 
 const SI = <Check size={14} />;
-const NO = <X size={14} className="pricing-feature-x" />;
 const INFINITO = <span className="pricing-table-unlimited">∞</span>;
 
 /** Fila cuyo valor es idéntico en los tres planes. */
@@ -199,7 +199,7 @@ const faqs = [
   },
   {
     q: '¿Qué parte de Veri*Factu está funcionando hoy?',
-    a: 'El registro de facturación, que es la parte que te toca a ti y va en todos los planes: cada factura que emites se sella con una huella SHA-256 encadenada a la anterior, queda inalterable, y sale impresa con su código QR de cotejo. Eso es lo que exige el RD 1007/2023 del sistema informático de facturación, y está en marcha desde el primer día. Lo que todavía NO está conectado es el envío telemático de esas facturas a la AEAT: lo estamos preparando y no se cobra en ningún plan. Mientras tanto puedes generar y descargar el XML de cada factura desde la pantalla de Verifactu.',
+    a: 'Las dos partes, y las dos en todos los planes. Por un lado el registro de facturación: cada factura que emites se sella con la huella oficial encadenada a la anterior, queda inalterable y sale impresa con su código QR de cotejo. Por otro, el envío telemático a la Agencia Tributaria, con tu certificado digital, incluidas las anulaciones. Lo que tienes que poner tú es el certificado; lo demás va solo. Puedes probarlo primero contra el entorno de pruebas de la AEAT, donde nada de lo que mandes cuenta.',
   },
 ];
 
@@ -595,11 +595,8 @@ export default function PricingContent() {
 
               <FilaSeccion icono={Plug}>Cumplimiento</FilaSeccion>
               <FilaIgual etiqueta="Verificación integridad">{SI}</FilaIgual>
-              <FilaIgual
-                etiqueta={<>Envío telemático a la AEAT <span className="pricing-table-pendiente">en preparación</span></>}
-              >
-                {NO}
-              </FilaIgual>
+              <FilaIgual etiqueta="Envío telemático a la AEAT">{SI}</FilaIgual>
+              <FilaIgual etiqueta="Anulaciones comunicadas a la AEAT">{SI}</FilaIgual>
               {/* El soporte SÍ es una diferencia real entre planes: es un
                   compromiso de personas, no una función del programa. Es
                   la única fila que no se sirve de `FilaIgual`. */}

@@ -19,10 +19,9 @@ import Link from 'next/link';
 export function VerifactuStatus() {
   const status = useVerifactuConnection();
 
-  const expiresAt = status.expiresAt ? new Date(status.expiresAt) : null;
-  const daysUntilExpiry = expiresAt
-    ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
+  // Los días que faltan los calcula el hook, no esta función: `Date.now()`
+  // durante el render devuelve algo distinto en cada repintado.
+  const daysUntilExpiry = status.diasParaCaducar;
 
   // Sin certificado: no es un error, es una tarea pendiente. El tono lo
   // dice ("todavía", "cuando lo cargues") y el aviso va en ámbar, no en
@@ -34,8 +33,8 @@ export function VerifactuStatus() {
         <span className="status-panel-body">
           <span className="status-panel-title">Todavía no has conectado con la AEAT</span>
           <span className="status-panel-text">
-            Sigues facturando con normalidad y cada factura se sella igual. Para enviarlas
-            telemáticamente necesitas cargar tu certificado FNMT.
+            Sigues facturando con normalidad y cada factura se sella y se encadena igual. Para
+            que salgan hacia la Agencia Tributaria hace falta tu certificado digital.
           </span>
           <span className="status-panel-facts">
             <span className="status-panel-fact">Cargar certificado</span>
@@ -76,7 +75,7 @@ export function VerifactuStatus() {
           {status.isChecking
             ? 'Validando el certificado instalado.'
             : status.isConnected
-              ? 'Certificado activo. Recuerda que el envío automático sigue en modo demostración.'
+              ? 'El certificado está activo y la AEAT lo acepta. Tus facturas se pueden enviar.'
               : status.error || 'No se ha podido contactar con el servicio. Vuelve a intentarlo en unos minutos.'}
         </span>
 
