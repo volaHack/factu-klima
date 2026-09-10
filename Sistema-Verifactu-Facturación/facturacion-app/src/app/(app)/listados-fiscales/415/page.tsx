@@ -118,7 +118,7 @@ export default function Modelo415Page() {
               <th className="num">Importe</th>
               <th className="num">1T</th><th className="num">2T</th>
               <th className="num">3T</th><th className="num">4T</th>
-              <th />
+              <th><span className="solo-lectores">Total</span></th>
             </tr>
           </thead>
           <tbody>

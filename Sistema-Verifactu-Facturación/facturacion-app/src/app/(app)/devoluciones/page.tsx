@@ -232,7 +232,7 @@ export default function DevolucionesAbonosPage() {
                 <th style={{ textAlign: 'right' }}>Aplicado</th>
                 <th style={{ textAlign: 'right' }}>Disponible</th>
                 <th>Estado</th>
-                <th style={{ width: 120 }}></th>
+                <th style={{ width: 120 }}><span className="solo-lectores">Acciones</span></th>
               </tr>
             </thead>
             <tbody>

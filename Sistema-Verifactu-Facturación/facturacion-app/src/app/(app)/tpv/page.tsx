@@ -258,6 +258,28 @@ export default function TpvPage() {
     return mapa;
   }, [promociones]);
 
+  /**
+   * Lo mismo pero para PINTARLO: los euros y la frase del cartel.
+   *
+   * Cuando dos ofertas caen sobre la misma línea se enseña la que más
+   * descuenta y se suman los euros de todas. Poner tres frases debajo de un
+   * artículo en un carrito es ilegible, y la que más descuenta es la que el
+   * cliente ha visto en el cartel.
+   */
+  const ofertasParaElCarrito = useMemo(() => {
+    const mapa = new Map<number, { ahorro: number; detalle: string }>();
+    promociones.lineas.forEach((linea, i) => {
+      if (linea.ahorro <= 0) return;
+      const suyas = promociones.aplicadas.filter(a => a.lineaId === linea.id);
+      const mayor = suyas.slice().sort((a, b) => b.ahorro - a.ahorro)[0];
+      mapa.set(i, {
+        ahorro: linea.ahorro,
+        detalle: suyas.length > 1 ? `${mayor?.detalle ?? ''} +${suyas.length - 1}` : (mayor?.detalle ?? ''),
+      });
+    });
+    return mapa;
+  }, [promociones]);
+
   const total = cart.reduce((sum, l, i) => {
     const gross = l.quantity * l.unitPrice;
     const discount = gross * (l.discountPercent / 100);
@@ -875,6 +897,7 @@ export default function TpvPage() {
           onCheckout={() => setCheckoutOpen(true)}
           heldCount={heldSales.length}
           onShowHeld={() => setHeldListOpen(true)}
+          ofertas={ofertasParaElCarrito}
         />
       </div>
 

@@ -198,7 +198,7 @@ export default function ListadosFiscalesPage() {
                 <tr>
                   <th>Modelo</th><th>Ejercicio</th><th>Periodo</th><th>Generado</th>
                   <th>Usuario</th><th className="num">Registros</th>
-                  <th className="num">Resultado</th><th>Estado</th><th />
+                  <th className="num">Resultado</th><th>Estado</th><th><span className="solo-lectores">Acciones</span></th>
                 </tr>
               </thead>
               <tbody>

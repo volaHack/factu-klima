@@ -263,7 +263,7 @@ export default function Modelo347Page() {
                 <th className="num">2T</th>
                 <th className="num">3T</th>
                 <th className="num">4T</th>
-                <th />
+                <th><span className="solo-lectores">Total</span></th>
               </tr>
             </thead>
             <tbody>

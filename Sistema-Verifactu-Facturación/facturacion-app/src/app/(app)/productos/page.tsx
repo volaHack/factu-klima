@@ -550,7 +550,7 @@ export default function ProductosPage() {
                   <th className={sortField === 'active' ? 'sorted' : ''} onClick={() => handleSort('active')} style={{ cursor: 'pointer' }}>
                     Estado {sortIcon('active')}
                   </th>
-                  <th style={{ width: 100 }}></th>
+                  <th style={{ width: 100 }}><span className="solo-lectores">Acciones</span></th>
                 </tr>
               </thead>
               <tbody>

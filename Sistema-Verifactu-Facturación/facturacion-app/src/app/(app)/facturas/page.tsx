@@ -584,6 +584,7 @@ export default function FacturasPage() {
             <tr>
               <th className="table-checkbox">
                 <input
+                  aria-label="Seleccionar todas las filas"
                   type="checkbox"
                   checked={paginated.length > 0 && selectedIds.size === paginated.length}
                   onChange={toggleSelectAll}
@@ -607,7 +608,7 @@ export default function FacturasPage() {
               <th className={sortField === 'total' ? 'sorted' : ''} onClick={() => handleSort('total')} style={{ textAlign: 'right' }}>
                 Total {sortIcon('total')}
               </th>
-              <th style={{ width: 50 }}></th>
+              <th style={{ width: 50 }}><span className="solo-lectores">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -615,6 +616,7 @@ export default function FacturasPage() {
               <tr key={inv.id}>
                 <td className="table-checkbox">
                   <input
+                    aria-label="Seleccionar esta fila"
                     type="checkbox"
                     checked={selectedIds.has(inv.id)}
                     onChange={() => toggleSelect(inv.id)}

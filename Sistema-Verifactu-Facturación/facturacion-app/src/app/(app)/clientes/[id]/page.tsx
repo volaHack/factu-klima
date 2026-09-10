@@ -179,7 +179,7 @@ export default function ClientDetailPage() {
                     <th>Fecha</th>
                     <th>Estado</th>
                     <th style={{ textAlign: 'right' }}>Total</th>
-                    <th></th>
+                    <th><span className="solo-lectores">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>

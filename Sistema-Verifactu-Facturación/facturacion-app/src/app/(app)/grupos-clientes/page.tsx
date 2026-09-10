@@ -129,7 +129,7 @@ export default function GruposClientesPage() {
           <table className="table">
             <thead>
               <tr>
-                <th></th>
+                <th><span className="solo-lectores">Acciones</span></th>
                 <th>Grupo</th>
                 <th style={{ textAlign: 'right' }}>Clientes</th>
                 <th style={{ textAlign: 'right' }}>Facturas</th>

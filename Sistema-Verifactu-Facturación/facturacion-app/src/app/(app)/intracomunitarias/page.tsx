@@ -696,7 +696,7 @@ export default function IntracomunitariasPage() {
                     )}
                   </div>
                 </th>
-                <th style={{ width: 44, textAlign: 'center' }}></th>
+                <th style={{ width: 44, textAlign: 'center' }}><span className="solo-lectores">Acciones</span></th>
               </tr>
             </thead>
             <tbody>

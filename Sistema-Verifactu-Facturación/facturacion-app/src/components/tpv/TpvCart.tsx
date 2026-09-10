@@ -1,11 +1,35 @@
 'use client';
 
-import { Minus, Plus, Trash2, PauseCircle, ShoppingBag, Percent } from 'lucide-react';
+import { Minus, Plus, Trash2, PauseCircle, ShoppingBag, Percent, Tag } from 'lucide-react';
 import { PosCartLine } from '@/lib/types';
 import { formatCurrency, calculateLineSubtotal, calculateLineTax } from '@/lib/utils';
 
+/**
+ * Lo que una oferta le hace a una línea del carrito.
+ *
+ * Se pasa ya calculado desde la pantalla del TPV, que es quien tiene las
+ * ofertas cargadas: el carrito sólo lo pinta. Así el cálculo sigue estando
+ * en un solo sitio —`lib/ofertas.ts`— y esta lista no tiene que saber nada
+ * de promociones para enseñarlas.
+ */
+export interface OfertaEnLinea {
+  /** Lo que se ahorra en esta línea, en euros. */
+  ahorro: number;
+  /** «3x2 · 1 unidad gratis». Es lo que el cajero le lee al cliente. */
+  detalle: string;
+}
+
 interface TpvCartProps {
   lines: PosCartLine[];
+  /**
+   * Ofertas aplicadas, por POSICIÓN en `lines`.
+   *
+   * Por posición y no por `productId` porque el mismo artículo puede
+   * aparecer dos veces en el carrito —dos líneas del mismo producto a
+   * precios distintos— y entonces la clave por producto machacaría una con
+   * la otra.
+   */
+  ofertas?: Map<number, OfertaEnLinea>;
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
   onRemove: (productId: string) => void;
@@ -34,12 +58,17 @@ export default function TpvCart({
   onShowHeld,
   title,
   tableMode,
+  ofertas,
 }: TpvCartProps) {
-  const lineTotal = (l: PosCartLine) => {
+  const lineTotal = (l: PosCartLine, i: number) => {
     const subtotal = calculateLineSubtotal(l.quantity, l.unitPrice, l.discountPercent);
-    return subtotal + calculateLineTax(subtotal, l.taxRate);
+    // Lo que descuenta la oferta se resta ANTES del impuesto: el descuento
+    // baja la base imponible, el tipo no cambia.
+    const conOferta = Math.max(0, subtotal - (ofertas?.get(i)?.ahorro ?? 0));
+    return conOferta + calculateLineTax(conOferta, l.taxRate);
   };
-  const total = lines.reduce((sum, l) => sum + lineTotal(l), 0);
+  const total = lines.reduce((sum, l, i) => sum + lineTotal(l, i), 0);
+  const ahorroTotal = lines.reduce((sum, _l, i) => sum + (ofertas?.get(i)?.ahorro ?? 0), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
 
   const cycleDiscount = (l: PosCartLine) => {
@@ -70,10 +99,20 @@ export default function TpvCart({
             </span>
           </div>
         ) : (
-          lines.map(l => (
+          lines.map((l, i) => (
             <div key={l.productId} className="tpv-cart-line">
               <div className="tpv-cart-line-info">
                 <span className="tpv-cart-line-name">{l.productName}</span>
+                {/* La oferta, debajo del nombre y con lo que ahorra al lado.
+                    Sin esto el total salía bien pero el cajero no podía
+                    contestar al cliente que pregunta por qué le cuesta eso. */}
+                {ofertas?.get(i) && (
+                  <span className="tpv-cart-line-oferta">
+                    <Tag size={11} />
+                    {ofertas.get(i)!.detalle}
+                    <b>−{formatCurrency(ofertas.get(i)!.ahorro)}</b>
+                  </span>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                   <span className="tpv-cart-line-unit">{formatCurrency(l.unitPrice)} / {l.unit}</span>
                   {onSetDiscount && (
@@ -111,7 +150,7 @@ export default function TpvCart({
                   <Plus size={14} />
                 </button>
               </div>
-              <span className="tpv-cart-line-total">{formatCurrency(lineTotal(l))}</span>
+              <span className="tpv-cart-line-total">{formatCurrency(lineTotal(l, i))}</span>
               <button className="tpv-cart-line-remove" onClick={() => onRemove(l.productId)} aria-label="Eliminar línea">
                 <Trash2 size={14} />
               </button>
@@ -121,6 +160,14 @@ export default function TpvCart({
       </div>
 
       <div className="tpv-cart-footer">
+        {/* El ahorro del ticket entero: es lo que se canta en alto al
+            cobrar, y lo que el cliente quiere oír. */}
+        {ahorroTotal > 0 && (
+          <div className="tpv-cart-ahorro-row">
+            <span><Tag size={13} /> Ahorro en ofertas</span>
+            <span className="tpv-cart-ahorro">−{formatCurrency(ahorroTotal)}</span>
+          </div>
+        )}
         <div className="tpv-cart-total-row">
           <span>{itemCount} {itemCount === 1 ? 'artículo' : 'artículos'}</span>
           <span className="tpv-cart-total">{formatCurrency(total)}</span>

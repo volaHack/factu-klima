@@ -128,7 +128,7 @@ export default function RutasRepartoPage() {
           <table className="table">
             <thead>
               <tr>
-                <th></th>
+                <th><span className="solo-lectores">Acciones</span></th>
                 <th>Ruta</th>
                 <th>Día habitual</th>
                 <th style={{ textAlign: 'right' }}>Paradas pendientes</th>

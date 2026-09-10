@@ -5908,6 +5908,35 @@ a.stats-item:focus-visible {
 .tpv-cart-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .tpv-checkout-btn { grid-column: 1 / -1; font-size: var(--text-md); padding: var(--space-4); }
 
+/* --- La oferta, debajo del artículo ---
+   El total ya salía bien sin esto; lo que faltaba era que el cajero pudiera
+   CONTESTAR al cliente que pregunta por qué le cuesta eso. En verde, que es
+   el color de lo que suma a favor de quien compra, y no en el acento, que
+   aquí compite con el botón de cobrar. */
+.tpv-cart-line-oferta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--color-success);
+  line-height: 1.3;
+}
+.tpv-cart-line-oferta b { font-family: var(--font-mono); font-weight: 700; }
+
+.tpv-cart-ahorro-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-success);
+  font-weight: 600;
+}
+.tpv-cart-ahorro-row > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.tpv-cart-ahorro { font-family: var(--font-mono); font-weight: 800; }
+
 /* --- Modales del TPV (checkout / caja / aparcadas / ticket) --- */
 .tpv-checkout-modal, .tpv-session-modal, .tpv-held-modal, .tpv-ticket-modal {
   max-width: 420px;
@@ -6541,6 +6570,22 @@ a.stats-item:focus-visible {
      se falla con el dedo. */
   .modal-close,
   .tpv-checkout-header .btn-icon { min-width: 44px; min-height: 44px; }
+}
+
+/* Texto que sólo existe para quien oye la página: una cabecera de columna
+   de acciones, por ejemplo. Se saca del flujo sin `display:none`, que lo
+   escondería también de los lectores de pantalla, que es justo lo contrario
+   de lo que se busca. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ============================================================

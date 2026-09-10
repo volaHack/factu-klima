@@ -416,7 +416,7 @@ export default function ClientesPage() {
                 Total facturado {sortIcon('total')}
               </th>
               <th>Estado</th>
-              <th style={{ width: 120 }}></th>
+              <th style={{ width: 120 }}><span className="solo-lectores">Acciones</span></th>
             </tr>
           </thead>
           <tbody>

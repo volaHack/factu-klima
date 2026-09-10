@@ -431,7 +431,7 @@ export default function SiiPage() {
               <th className={sortField === 'siiStatus' ? 'sorted' : ''} onClick={() => handleSort('siiStatus')}>
                 Estado SII {sortIcon('siiStatus')}
               </th>
-              <th style={{ width: 40 }}></th>
+              <th style={{ width: 40 }}><span className="solo-lectores">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
