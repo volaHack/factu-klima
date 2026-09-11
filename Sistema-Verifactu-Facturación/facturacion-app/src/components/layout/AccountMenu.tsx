@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { clearOfflineCache } from '@/lib/offlineDb';
@@ -25,6 +25,7 @@ export default function AccountMenu() {
   const [nameDraft, setNameDraft] = useState('');
   const [avatarDraft, setAvatarDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const formSalir = useRef<HTMLFormElement>(null);
 
@@ -68,14 +69,16 @@ export default function AccountMenu() {
 
   useEffect(() => {
     (async () => {
-      const [p, { data }] = await Promise.all([
+      const [p, { data }, esAdminRes] = await Promise.all([
         getUserProfile(),
         createClient().auth.getUser(),
+        createClient().rpc('soy_admin'),
       ]);
       setProfile(p);
       setEmail(data?.user?.email || '');
       setNameDraft(p?.displayName || '');
       setAvatarDraft(p?.avatarUrl || '');
+      setEsAdmin(esAdminRes.data === true);
     })();
   }, []);
 
@@ -186,6 +189,11 @@ export default function AccountMenu() {
               <button className="account-dropdown-item" onClick={() => setEditing(true)}>
                 <User size={16} /> Editar perfil
               </button>
+              {esAdmin && (
+                <Link href="/admin" className="account-dropdown-item" onClick={() => setOpen(false)}>
+                  <Shield size={16} /> Administración
+                </Link>
+              )}
               <Link href="/ajustes" className="account-dropdown-item" onClick={() => setOpen(false)}>
                 <Settings size={16} /> Ajustes de la empresa
               </Link>

@@ -246,6 +246,10 @@ export default function PricingContent() {
         router.push('/login?next=/precios');
         return;
       }
+      if (res.status === 400 && data.requiresSettings) {
+        router.push('/ajustes');
+        return;
+      }
       if (!res.ok || !data.url) {
         setApiError(data.error || 'No se pudo iniciar el pago. Inténtalo de nuevo.');
         setLoadingPlan(null);
@@ -683,7 +687,7 @@ export default function PricingContent() {
       </section>
 
       <p className="pricing-iva-note">
-        Todos los precios indicados son sin IVA. El IVA se añade según la legislación vigente.
+        Precios sin impuestos. A empresas y autónomos de Canarias se les añade el IGIC; a los del resto de España la factura va sin IGIC ni IVA, por inversión del sujeto pasivo.
       </p>
 
       {/* La propina, ya fuera del embudo: una línea al pie, con el peso

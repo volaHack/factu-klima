@@ -48,3 +48,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.continue/
+.trae/
+__pycache__/
+migration_units_per_package.sql

@@ -551,6 +551,84 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
     relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
   },
+  // ============================================================
+  // ADMINISTRACIÓN DEL SISTEMA
+  // ============================================================
+  {
+    ruta: '/admin',
+    titulo: 'Panel de administración',
+    paraQue: 'Resumen global del servicio: ingresos recurrentes, cuentas activas por plan, cortesías y eventos pendientes.',
+    pasos: [
+      'Revisa las tarjetas de métricas para ver el estado de las suscripciones.',
+      'Si hay eventos de Stripe por revisar o cobros fallidos, entra en Cuentas para ver el detalle.',
+    ],
+    saber: [
+      'Solo pueden acceder las cuentas autorizadas en la tabla de administradores con verificación de segundo factor.',
+    ],
+    relacionadas: [
+      { ruta: '/admin/cuentas', texto: 'Cuentas' },
+      { ruta: '/admin/hacienda', texto: 'Hacienda' },
+    ],
+  },
+  {
+    ruta: '/admin/2fa',
+    titulo: 'Verificación en dos pasos',
+    paraQue: 'Confirmar tu identidad con un código TOTP temporal antes de entrar al panel de administración.',
+    pasos: [
+      'Abre tu aplicación de autenticación (Google Authenticator, 1Password, etc.).',
+      'Introduce el código de 6 dígitos que aparece en tu dispositivo.',
+      'Pulsa en Verificar para acceder al panel.',
+    ],
+    saber: [
+      'La sesión de administración exige verificación AAL2 para proteger los datos de suscripción y facturación.',
+    ],
+  },
+  {
+    ruta: '/admin/cuentas',
+    titulo: 'Gestión de cuentas',
+    paraQue: 'Listado y administración de todas las cuentas registradas, sus planes, cortesías y estados de suscripción.',
+    pasos: [
+      'Busca una cuenta por correo electrónico, nombre o NIF.',
+      'Pulsa en una cuenta para ver su ficha y gestionar su plan o conceder cortesías.',
+    ],
+    saber: [
+      'Todas las acciones administrativas sobre una cuenta quedan registradas de forma inalterable con su motivo.',
+    ],
+    relacionadas: [
+      { ruta: '/admin', texto: 'Resumen' },
+      { ruta: '/admin/registro', texto: 'Registro de auditoría' },
+    ],
+  },
+  {
+    ruta: '/admin/hacienda',
+    titulo: 'Hacienda y modelos tributarios',
+    paraQue: 'Control de la facturación de la plataforma, el cálculo del IGIC y los plazos de los modelos 420 y 130.',
+    pasos: [
+      'Comprueba el próximo plazo de liquidación y los días restantes.',
+      'Revisa las bases imponibles y el IGIC devengado por las suscripciones y propinas.',
+      'Accede a los listados fiscales para preparar la presentación oficial.',
+    ],
+    saber: [
+      'El modelo 420 se presenta en la Agencia Tributaria Canaria y el modelo 130 en la AEAT.',
+    ],
+    relacionadas: [
+      { ruta: '/listados-fiscales', texto: 'Listados fiscales' },
+      { ruta: '/verifactu', texto: 'Veri*Factu' },
+    ],
+  },
+  {
+    ruta: '/admin/registro',
+    titulo: 'Registro de acciones de administración',
+    paraQue: 'Historial inalterable de todas las operaciones realizadas por los administradores sobre las cuentas.',
+    pasos: [
+      'Consulta la cronología de cambios de plan, cortesías y cancelaciones.',
+      'Verifica el autor, la fecha y el motivo obligatorio de cada acción.',
+    ],
+    saber: [
+      'El registro es de solo lectura y no permite modificación ni borrado de eventos pasados.',
+    ],
+    relacionadas: [{ ruta: '/admin', texto: 'Resumen' }],
+  },
 ];
 
 /**

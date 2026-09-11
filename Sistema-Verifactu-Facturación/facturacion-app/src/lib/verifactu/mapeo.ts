@@ -128,6 +128,7 @@ export function desgloseDeFactura(
     intracomunitaria?: boolean;
     claveRegimen?: string | null;
     exencionPorDefecto?: string;
+    calificacionSinCuota?: 'N1' | 'N2';
   } = {},
 ): DetalleDesglose[] {
   const impuesto = opciones.igic ? '03' : '01';
@@ -142,6 +143,11 @@ export function desgloseDeFactura(
     const cuota = numero(t.tax_amount);
 
     if (tipo === 0) {
+      // No sujeta (N1/N2) no es lo mismo que exenta (E1…E6): la
+      // plataforma factura a la península sin IGIC por localización.
+      if (opciones.calificacionSinCuota) {
+        return { impuesto, claveRegimen, calificacionOperacion: opciones.calificacionSinCuota, baseImponible: base };
+      }
       // Exenta: ni TipoImpositivo ni CuotaRepercutida. Mandar un 0,00 en
       // esos campos no es lo mismo que no mandarlos, y el esquema los
       // tiene por opcionales justo para este caso.
@@ -234,6 +240,7 @@ export function registroAltaDesdeFila(ctx: ContextoAlta): RegistroAlta {
       intracomunitaria: factura.es_intracomunitaria ?? false,
       claveRegimen: factura.clave_regimen_iva,
       exencionPorDefecto: ctx.exencionPorDefecto,
+      calificacionSinCuota: (factura.datos_extras?.calificacionSinCuota ?? factura.datos_extras?.calificacion) as 'N1' | 'N2' | undefined,
     }),
     cuotaTotal: numero(registro.cuota_total),
     importeTotal: numero(registro.importe_total),

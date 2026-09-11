@@ -5,6 +5,7 @@
 // ============================================================
 
 import { createClient } from '@/lib/supabase/client';
+import { estadoEfectivo, type FilaSuscripcion } from './suscripcion';
 import { consumirLote } from './lotes';
 import { venderNumero } from './numerosSerie';
 import { costeDeEscandallo, nuevoPmpTrasFabricar } from './fabricacion';
@@ -2728,15 +2729,26 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     }
   }
 
+  // El plan lo deciden Stripe y la administradora, y vive en
+  // `suscripciones`, que el usuario sólo puede leer (migración 040).
+  // Antes aquí se forzaba 'inactive' a todo el que no fuera la propietaria:
+  // un cliente que pagaba veía «Sin suscripción». Sin conexión se queda lo
+  // que hubiera en caché.
   try {
-    const { data: authData } = await supabase().auth.getUser();
-    const email = authData?.user?.email?.toLowerCase();
-    if (email === 'volitancrooss@gmail.com') {
+    const [{ data: fila }, { data: esAdmin }] = await Promise.all([
+      supabase()
+        .from('suscripciones')
+        .select('origen, plan_id, estado, cortesia_hasta, periodo_fin, cancela_al_final')
+        .maybeSingle(),
+      supabase().rpc('soy_admin'),
+    ]);
+    if (esAdmin) {
       settings.planId = 'sin_limite';
       settings.subscriptionStatus = 'active';
     } else {
-      // Todas las demás cuentas se inician en 'inactive' (Sin Suscripción)
-      settings.subscriptionStatus = 'inactive';
+      const estado = estadoEfectivo(fila as FilaSuscripcion | null);
+      settings.planId = estado.planId ?? settings.planId;
+      settings.subscriptionStatus = estado.activa ? 'active' : 'inactive';
     }
   } catch {}
 
@@ -2854,9 +2866,8 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     modulos: settings.modulos ?? null,
     panel: settings.panel ?? null,
     comision_base: settings.comisionBase ?? 'facturado',
-    plan_id: settings.planId || 'basico',
-    subscription_plan: settings.planId || 'basico',
-    subscription_status: settings.subscriptionStatus || 'inactive',
+    // plan_id, subscription_plan y subscription_status ya no se escriben
+    // desde el navegador: viven en `suscripciones` (migración 040).
   };
 
   // Categorías personalizadas y porcentajes de IVA/IGIC configurables: van
