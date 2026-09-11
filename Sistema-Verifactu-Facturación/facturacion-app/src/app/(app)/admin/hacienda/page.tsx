@@ -111,14 +111,7 @@ export default async function AdminHacienda() {
 
       {/* Banner de plazo estilo Apple */}
       <div
-        className="apple-card"
-        style={{
-          borderLeft: avisoUrgente ? '4px solid #f59e0b' : '4px solid #3b82f6',
-          background: avisoUrgente
-            ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.5) 0%, rgba(255, 255, 255, 0.9) 100%)'
-            : 'linear-gradient(135deg, rgba(239, 246, 255, 0.5) 0%, rgba(255, 255, 255, 0.9) 100%)',
-          padding: '1.25rem 1.5rem',
-        }}
+        className={`apple-card ${avisoUrgente ? 'hacienda-banner-aviso' : 'hacienda-banner-normal'}`}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           {avisoUrgente ? (
@@ -199,7 +192,7 @@ export default async function AdminHacienda() {
 
       {/* Facturas Emitidas Table Card */}
       <div className="apple-card" style={{ padding: 0 }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-subtle, rgba(0,0,0,0.06))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>
               Facturas Emitidas por la Plataforma ({facturas.length})
@@ -243,7 +236,7 @@ export default async function AdminHacienda() {
                       <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {formatCurrency(Number(f.subtotal) || 0)}
                       </td>
-                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: esSinIgic ? 'var(--text-tertiary)' : '#059669' }}>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: esSinIgic ? 'var(--text-tertiary)' : 'var(--color-success, #059669)' }}>
                         {formatCurrency(Number(f.total_tax) || 0)}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>

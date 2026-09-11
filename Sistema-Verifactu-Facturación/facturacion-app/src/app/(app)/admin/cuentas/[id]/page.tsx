@@ -5,7 +5,7 @@ import { listarCuentas, registroDeAdmin } from '@/lib/admin/datos';
 import { getPlan } from '@/lib/plans';
 import { formatDate } from '@/lib/utils';
 import AccionesCuenta from '@/components/admin/AccionesCuenta';
-import { ArrowLeft, Shield, Mail, FileText, Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Shield, Mail, FileText, Calendar, Clock, CheckCircle, AlertCircle, CreditCard, Gift, ExternalLink } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,20 +114,69 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
 
           <div>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
-              Origen de Suscripción
+              Método de Facturación
             </div>
             <div style={{ fontSize: '0.9375rem', fontWeight: 500, marginTop: '0.25rem' }}>
-              {c.fila?.origen === 'stripe' ? 'Pasarela Stripe' : c.fila?.origen === 'cortesia' ? 'Cortesía de Administrador' : 'Ninguno'}
+              {c.esAdmin ? (
+                <span className="apple-pill apple-pill-purple">Cuenta de Sistema</span>
+              ) : c.fila?.origen === 'stripe' ? (
+                <span className="apple-pill apple-pill-blue">
+                  <CreditCard size={12} />
+                  <span>Stripe · {c.fila.intervalo === 'year' ? 'Anual' : 'Mensual'}</span>
+                </span>
+              ) : c.fila?.origen === 'cortesia' ? (
+                <span className="apple-pill apple-pill-amber">
+                  <Gift size={12} />
+                  <span>Cortesía directa</span>
+                </span>
+              ) : (
+                <span className="apple-pill apple-pill-slate">Sin suscripción</span>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Bloque detallado de facturación y pasarela Stripe */}
+        {c.fila?.origen === 'stripe' && (
+          <div style={{ marginTop: '1.25rem', padding: '1rem', borderRadius: '0.75rem', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.875rem', color: '#2563eb' }}>
+                <CreditCard size={16} />
+                <span>Facturación Gestionada por Stripe</span>
+              </div>
+              {c.fila.stripe_customer_id && (
+                <a
+                  href={`https://dashboard.stripe.com/customers/${c.fila.stripe_customer_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="apple-pill apple-pill-blue"
+                  style={{ textDecoration: 'none' }}
+                  title="Abrir ficha de cliente en Stripe Dashboard"
+                >
+                  <span>Abrir en Stripe</span>
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-tertiary)' }}>ID Cliente Stripe: </span>
+                <code style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{c.fila.stripe_customer_id || '—'}</code>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-tertiary)' }}>ID Suscripción: </span>
+                <code style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{c.fila.stripe_subscription_id || '—'}</code>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(c.fila?.cortesia_hasta || c.fila?.periodo_fin) && (
           <div style={{ marginTop: '1.25rem', padding: '0.75rem 1rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem' }}>
             <Calendar size={16} className="text-gray-500" />
             <span>
               {c.fila.cortesia_hasta
-                ? `Cortesía vigente hasta el ${formatDate(c.fila.cortesia_hasta)}`
+                ? `Cortesía vigente hasta el ${formatDate(c.fila.cortesia_hasta)} ${c.fila.motivo ? `· Motivo: ${c.fila.motivo}` : ''}`
                 : `Periodo actual hasta el ${formatDate(c.fila.periodo_fin!)} ${c.fila.cancela_al_final ? '(se cancelará al finalizar)' : '(renovación automática)'}`}
             </span>
           </div>

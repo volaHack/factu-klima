@@ -3,7 +3,7 @@ import { exigirAdminCon2fa } from '@/lib/admin/dal';
 import { listarCuentas } from '@/lib/admin/datos';
 import { getPlan } from '@/lib/plans';
 import { formatDate } from '@/lib/utils';
-import { Search, ChevronRight, UserCheck, Shield, Sparkles, Download } from 'lucide-react';
+import { Search, ChevronRight, UserCheck, Shield, Sparkles, Download, CreditCard, Gift } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,6 +114,7 @@ export default async function AdminCuentas({
                   <th>Usuario / Empresa</th>
                   <th>Plan Actual</th>
                   <th>Estado</th>
+                  <th>Método de Facturación</th>
                   <th>Vencimiento / Renovación</th>
                   <th style={{ textAlign: 'right' }}>Facturas / Mes</th>
                   <th style={{ textAlign: 'right' }}>Último Acceso</th>
@@ -180,6 +181,27 @@ export default async function AdminCuentas({
                           )
                         ) : (
                           <span className="apple-pill apple-pill-slate">Inactiva</span>
+                        )}
+                      </td>
+
+                      <td>
+                        {c.esAdmin ? (
+                          <span className="apple-pill apple-pill-purple">
+                            <Shield size={12} />
+                            Sistema
+                          </span>
+                        ) : c.fila?.origen === 'stripe' ? (
+                          <span className="apple-pill apple-pill-blue" title={`ID Cliente: ${c.fila.stripe_customer_id || 'Stripe'}`}>
+                            <CreditCard size={12} />
+                            <span>Stripe · {c.fila.intervalo === 'year' ? 'Anual' : 'Mensual'}</span>
+                          </span>
+                        ) : c.fila?.origen === 'cortesia' ? (
+                          <span className="apple-pill apple-pill-amber" title={`Motivo: ${c.fila.motivo || 'Cortesía manual'}`}>
+                            <Gift size={12} />
+                            <span>Cortesía manual</span>
+                          </span>
+                        ) : (
+                          <span className="apple-pill apple-pill-slate">Sin suscripción</span>
                         )}
                       </td>
 

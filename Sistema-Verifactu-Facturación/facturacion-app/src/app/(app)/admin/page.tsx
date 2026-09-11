@@ -84,12 +84,7 @@ export default async function AdminResumen() {
       {/* Banner de aviso fiscal inteligente si está cerca el plazo */}
       {avisoPlazo && (
         <div
-          className="apple-card"
-          style={{
-            borderLeft: '4px solid #f59e0b',
-            background: 'linear-gradient(135deg, rgba(254, 243, 199, 0.4) 0%, rgba(255, 255, 255, 0.8) 100%)',
-            padding: '1.125rem 1.5rem',
-          }}
+          className="apple-card admin-deadline-banner"
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>

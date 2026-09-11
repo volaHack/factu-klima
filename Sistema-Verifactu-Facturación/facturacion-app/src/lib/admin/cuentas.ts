@@ -4,7 +4,12 @@ import { estadoEfectivo, type EstadoSuscripcion, type FilaSuscripcion } from '@/
 export interface UsuarioAuth { id: string; email?: string | null; created_at: string; last_sign_in_at?: string | null; }
 export interface AjustesCuenta { user_id: string; business_name: string | null; nif: string | null; updated_at: string | null; }
 export interface FilaSuscripcionCompleta extends FilaSuscripcion {
-  user_id: string; intervalo: 'month' | 'year' | null; actualizado_en: string;
+  user_id: string;
+  intervalo: 'month' | 'year' | null;
+  actualizado_en: string;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  motivo?: string | null;
 }
 
 export interface Cuenta {

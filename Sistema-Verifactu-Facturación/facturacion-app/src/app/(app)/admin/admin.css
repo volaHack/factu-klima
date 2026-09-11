@@ -520,6 +520,25 @@
   }
 }
 
+/* Banner styles adapting cleanly to theme */
+.hacienda-banner-aviso {
+  border-left: 4px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, var(--bg-card) 100%) !important;
+  padding: 1.25rem 1.5rem;
+}
+
+.hacienda-banner-normal {
+  border-left: 4px solid #3b82f6 !important;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, var(--bg-card) 100%) !important;
+  padding: 1.25rem 1.5rem;
+}
+
+.admin-deadline-banner {
+  border-left: 4px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, var(--bg-card) 100%) !important;
+  padding: 1.125rem 1.5rem;
+}
+
 /* ============================================================
    DARK MODE OVERRIDES
    ============================================================ */
@@ -542,4 +561,40 @@
   background: linear-gradient(135deg, #371e28 0%, #2b151e 100%);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .apple-pill-blue {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+:root[data-theme="dark"] .apple-pill-purple {
+  background: rgba(139, 92, 246, 0.18);
+  color: #d8b4fe;
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+:root[data-theme="dark"] .apple-pill-emerald {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+:root[data-theme="dark"] .apple-pill-amber {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+:root[data-theme="dark"] .apple-pill-rose {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+:root[data-theme="dark"] .apple-pill-slate {
+  background: rgba(148, 163, 184, 0.15);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.25);
 }

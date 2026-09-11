@@ -131,6 +131,14 @@ export function documentoConvertido(
     status: InvoiceStatus.BORRADOR,
     documentoOrigenId: original.documentoOrigenId ?? original.id,
     documentoOrigenNumber: original.documentoOrigenNumber ?? original.number,
+    lineItems: (original.lineItems || []).map(li => ({
+      ...li,
+      id: crypto.randomUUID(),
+    })),
+    paidDate: undefined,
+    paidAmount: 0,
+    paymentRecordIds: [],
+    verifactu: undefined,
     createdAt: now,
     updatedAt: now,
   };

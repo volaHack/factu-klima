@@ -83,6 +83,26 @@ describe('documentoConvertido', () => {
     expect(convertido.status).toBe(InvoiceStatus.BORRADOR);
     expect(convertido.number).toMatch(/^PED-\d{4}-\d{4}$/);
   });
+
+  it('regenera los identificadores de las líneas para evitar violaciones de clave única', async () => {
+    const { documentoConvertido } = await import('./documentos');
+    const original = {
+      id: 'ped-94f430d1',
+      number: 'PED-2026-0002',
+      tipo: 'pedido',
+      sentido: 'venta',
+      lineItems: [
+        { id: 'li-original-1', productName: 'Producto 1', quantity: 2, unitPrice: 10 },
+        { id: 'li-original-2', productName: 'Producto 2', quantity: 1, unitPrice: 25 },
+      ],
+    } as any;
+    const albaran = documentoConvertido(original, 'albaran', settings);
+    expect(albaran.id).not.toBe(original.id);
+    expect(albaran.lineItems.length).toBe(2);
+    expect(albaran.lineItems[0].id).not.toBe('li-original-1');
+    expect(albaran.lineItems[1].id).not.toBe('li-original-2');
+    expect(albaran.lineItems[0].productName).toBe('Producto 1');
+  });
 });
 
 describe('rectificar', () => {

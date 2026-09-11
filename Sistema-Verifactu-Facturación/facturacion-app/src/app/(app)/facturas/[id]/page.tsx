@@ -140,6 +140,13 @@ export default function InvoiceDetailPage() {
       number: `${invoice.number}-COPIA`,
       status: InvoiceStatus.BORRADOR,
       paidDate: undefined,
+      paidAmount: 0,
+      paymentRecordIds: [],
+      verifactu: undefined,
+      lineItems: (invoice.lineItems || []).map(li => ({
+        ...li,
+        id: generateId(),
+      })),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

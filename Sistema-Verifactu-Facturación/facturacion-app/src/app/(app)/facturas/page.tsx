@@ -260,7 +260,13 @@ export default function FacturasPage() {
         number: `${inv.number}-COPIA`,
         status: InvoiceStatus.BORRADOR,
         paidDate: undefined,
+        paidAmount: 0,
+        paymentRecordIds: [],
         verifactu: undefined,
+        lineItems: (inv.lineItems || []).map(li => ({
+          ...li,
+          id: generateId(),
+        })),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
