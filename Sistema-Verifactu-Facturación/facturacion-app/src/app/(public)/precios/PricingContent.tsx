@@ -10,11 +10,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Check, X, ShieldCheck,
-  FileText, Users, BarChart3, Plug,
-  ArrowRight, Star,
-  Clock, Headphones, Download, Globe, Loader2, Store,
-  Copy, Plus,
+  Check, ArrowRight, Star, Loader2, Copy, Plus,
+  FileText, Users, BarChart3, Plug, Store, Download, Headphones,
+  Fingerprint, QrCode, Palette, FileDown, WifiOff, CreditCard, ClipboardCheck, Send,
+  type LucideIcon,
 } from 'lucide-react';
 import { PLANS, ANNUAL_MONTHS_FREE, type PlanId } from '@/lib/plans';
 import SiteNav from '@/components/public/SiteNav';
@@ -23,10 +22,9 @@ import TipModal from '@/components/ui/TipModal';
 
 type BillingCycle = 'monthly' | 'annual';
 
-interface PlanFeature {
+interface FuncionComun {
   text: string;
-  included: boolean;
-  highlight?: boolean;
+  icon: LucideIcon;
 }
 
 /**
@@ -48,21 +46,28 @@ interface PlanFeature {
  *
  * Si algún día se quiere que el TPV sea de pago, primero se limita en el
  * código y después se cambia esta lista, en ese orden.
+ *
+ * Y si son las mismas en los tres, se dicen UNA vez. Estaban copiadas
+ * dentro de cada tarjeta: doce líneas idénticas tres veces, que en el
+ * teléfono eran tres pantallas de scroll para encontrar las dos que
+ * cambian. Ahora la tarjeta lleva sólo lo que distingue a un plan del
+ * siguiente —facturas y soporte— y esta lista va una vez, debajo, en
+ * «Incluido en todos los planes».
  */
-const FUNCIONES_COMUNES: PlanFeature[] = [
-  { text: 'Huella SHA-256 encadenada en cada factura', included: true },
-  { text: 'QR de cotejo impreso en la factura', included: true },
-  { text: 'Diseño de factura para tu oficio', included: true },
-  { text: 'Exportar PDF', included: true },
-  { text: 'Panel de control e informes fiscales', included: true },
-  { text: 'Modo offline (PWA)', included: true },
-  { text: 'Cobro online con Stripe', included: true },
-  { text: 'Portal de aprobación de pedidos', included: true },
-  { text: 'Terminal Punto de Venta (TPV)', included: true },
+const FUNCIONES_COMUNES: FuncionComun[] = [
+  { text: 'Huella SHA-256 encadenada en cada factura', icon: Fingerprint },
+  { text: 'QR de cotejo impreso en la factura', icon: QrCode },
+  { text: 'Diseño de factura para tu oficio', icon: Palette },
+  { text: 'Exportar PDF', icon: FileDown },
+  { text: 'Panel de control e informes fiscales', icon: BarChart3 },
+  { text: 'Modo offline (PWA)', icon: WifiOff },
+  { text: 'Cobro online con Stripe', icon: CreditCard },
+  { text: 'Portal de aprobación de pedidos', icon: ClipboardCheck },
+  { text: 'Terminal Punto de Venta (TPV)', icon: Store },
   // Ya se puede: el envío telemático a la AEAT está conectado (registro de
   // alta y de anulación, encadenados, con el certificado del titular). Va
   // en todos los planes porque es una obligación legal, no un extra.
-  { text: 'Envío telemático a la AEAT', included: true },
+  { text: 'Envío telemático a la AEAT', icon: Send },
 ];
 
 // Metadatos solo de presentación — el precio, el NOMBRE y el límite de
@@ -79,7 +84,8 @@ const FUNCIONES_COMUNES: PlanFeature[] = [
 const PLAN_DISPLAY: Record<PlanId, {
   subtitle: string;
   popular?: boolean;
-  features: PlanFeature[];
+  /** El soporte dicho entero, como va en la tarjeta. */
+  soporteLargo: string;
   /** El soporte, tal cual va en la tabla comparativa. Es la ÚNICA
    *  diferencia real entre planes además del volumen. */
   soporte: string;
@@ -88,10 +94,7 @@ const PLAN_DISPLAY: Record<PlanId, {
 }> = {
   basico: {
     subtitle: 'Para autónomos y negocios pequeños',
-    features: [
-      ...FUNCIONES_COMUNES,
-      { text: 'Soporte por email', included: true },
-    ],
+    soporteLargo: 'Soporte por email',
     soporte: 'Email',
     cta: 'Empezar con Básico',
     gradient: 'linear-gradient(135deg, #4a3a40 0%, #2c2226 100%)',
@@ -99,20 +102,14 @@ const PLAN_DISPLAY: Record<PlanId, {
   pro: {
     subtitle: 'Para pymes en crecimiento',
     popular: true,
-    features: [
-      ...FUNCIONES_COMUNES,
-      { text: 'Soporte prioritario por email', included: true, highlight: true },
-    ],
+    soporteLargo: 'Soporte prioritario por email',
     soporte: 'Email prioritario',
     cta: 'Empezar con Pro',
     gradient: 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)',
   },
   sin_limite: {
     subtitle: 'Para empresas que necesitan todo',
-    features: [
-      ...FUNCIONES_COMUNES,
-      { text: 'Soporte 24/7 por teléfono y email', included: true, highlight: true },
-    ],
+    soporteLargo: 'Soporte 24/7 por teléfono y email',
     soporte: '24/7 · Teléfono + email',
     cta: 'Empezar Sin Límites',
     gradient: 'linear-gradient(135deg, #6b2436 0%, #3a1420 100%)',
@@ -172,13 +169,6 @@ const CUPON = 'LANZAMIENTO50';
  *  `plans.ts` dice que son dos. Escrito una vez, no puede volver a
  *  descuadrarse. */
 const MESES_GRATIS_TEXTO = ['cero', 'un', 'dos', 'tres', 'cuatro'][ANNUAL_MONTHS_FREE] ?? String(ANNUAL_MONTHS_FREE);
-
-const highlights = [
-  { icon: ShieldCheck, title: 'Sellado SHA-256', desc: 'Cada factura lleva huella criptográfica inalterable' },
-  { icon: Globe, title: 'Funciona offline', desc: 'PWA instalable que sincroniza al volver online' },
-  { icon: Clock, title: 'Activa en 2 minutos', desc: 'Crea tu cuenta y empieza a facturar de inmediato' },
-  { icon: Headphones, title: 'Soporte real', desc: 'Personas reales que entienden tu negocio' },
-];
 
 const faqs = [
   {
@@ -467,44 +457,47 @@ export default function PricingContent() {
 
               <div className="pricing-card-divider" />
 
+              {/* Sólo lo que cambia de un plan a otro. Lo común va una vez,
+                  debajo: ver el comentario de FUNCIONES_COMUNES. */}
               <ul className="pricing-card-features">
                 <li className="pricing-feature">
-                  <Check size={15} className="pricing-feature-check" />
-                  <span>{plan.invoiceLimit === null ? 'Facturas ilimitadas' : `Hasta ${plan.invoiceLimit} facturas/mes`}</span>
+                  <FileText size={16} className="pricing-feature-icono" aria-hidden="true" />
+                  <span>{plan.invoiceLimit === null ? 'Facturas ilimitadas' : `Hasta ${plan.invoiceLimit} facturas al mes`}</span>
                 </li>
-                {plan.features.map((feat, i) => (
-                  <li
-                    key={i}
-                    className={`pricing-feature ${!feat.included ? 'pricing-feature--disabled' : ''} ${feat.highlight ? 'pricing-feature--highlight' : ''}`}
-                  >
-                    {feat.included ? (
-                      <Check size={15} className="pricing-feature-check" />
-                    ) : (
-                      <X size={15} className="pricing-feature-x" />
-                    )}
-                    <span>{feat.text}</span>
-                  </li>
-                ))}
+                <li className="pricing-feature">
+                  <Headphones size={16} className="pricing-feature-icono" aria-hidden="true" />
+                  <span>{plan.soporteLargo}</span>
+                </li>
               </ul>
+              <a href="#incluido" className="pricing-card-incluido">
+                <Check size={14} aria-hidden="true" />
+                Y el programa entero, igual en los tres
+              </a>
             </div>
           );
         })}
       </section>
 
-      {/* Highlights */}
-      <section className="pricing-highlights">
-        <h2 className="pricing-section-title">Incluido en todos los planes</h2>
-        <div className="pricing-highlights-grid">
-          {highlights.map((h, i) => (
-            <div key={i} className="pricing-highlight-card">
-              <div className="pricing-highlight-icon">
-                <h.icon size={22} />
-              </div>
-              <h4>{h.title}</h4>
-              <p>{h.desc}</p>
-            </div>
+      {/* INCLUIDO EN TODOS LOS PLANES
+          Eran cuatro tarjetas con un icono en un cuadradito —«Sellado
+          SHA-256», «Funciona offline», «Activa en 2 minutos», «Soporte
+          real»— que repetían a medias la lista de cada tarjeta, y la
+          última contradecía a la tabla: el soporte SÍ cambia de un plan a
+          otro. Ahora es la lista entera, una sola vez, y es a donde lleva
+          el enlace de cada tarjeta. */}
+      <section className="pricing-incluido" id="incluido" aria-labelledby="incluido-titulo">
+        <h2 className="pricing-section-title" id="incluido-titulo">Incluido en todos los planes</h2>
+        <p className="pricing-section-lead">
+          Se paga por volumen de facturas y por soporte. El programa es el mismo, entero, en los tres.
+        </p>
+        <ul className="pricing-incluido-lista">
+          {FUNCIONES_COMUNES.map(f => (
+            <li key={f.text} className="pricing-incluido-item">
+              <f.icon size={18} className="pricing-incluido-icono" aria-hidden="true" />
+              {f.text}
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* LA PROPINA SE HA IDO ABAJO, DETRÁS DEL CTA FINAL.
@@ -563,8 +556,12 @@ export default function PricingContent() {
                 <th scope="row">Facturas por mes</th>
                 {plans.map(plan => (
                   <td key={plan.id} className={plan.popular ? 'pricing-table-popular' : undefined}>
+                    {/* En el teléfono la palabra no cabe en la columna y
+                        se partía en «Ilimitada / s»: allí se queda el ∞,
+                        como en las filas de clientes y productos, y la
+                        palabra sigue ahí para el lector de pantalla. */}
                     {plan.invoiceLimit === null
-                      ? <span className="pricing-table-unlimited">∞ Ilimitadas</span>
+                      ? <span className="pricing-table-unlimited">∞ <span className="pricing-table-unlimited-texto">Ilimitadas</span></span>
                       : plan.invoiceLimit}
                   </td>
                 ))}

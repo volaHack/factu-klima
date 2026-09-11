@@ -148,15 +148,28 @@ export default function InvoiceDetailPage() {
     router.push(`/facturas/${newInv.id}`);
   };
 
-  const handleCopyHash = (hash: string) => {
-    navigator.clipboard.writeText(hash);
+  // `writeText` no se esperaba ni se capturaba: en http, en Safari en
+  // privado o sin permiso la promesa se rechazaba sola y el aviso decía
+  // «copiado» igualmente. Mismo arreglo que el cupón de /precios.
+  const copiar = async (texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    } catch {
+      toastError('No se ha podido copiar', 'Selecciónalo y cópialo a mano.');
+      return false;
+    }
+  };
+
+  const handleCopyHash = async (hash: string) => {
+    if (!await copiar(hash)) return;
     setCopiedHash(true);
     setTimeout(() => setCopiedHash(false), 2000);
     success('Huella copiada', 'Puedes usarla para verificar la factura');
   };
 
-  const handleCopyIban = (iban: string) => {
-    navigator.clipboard.writeText(iban);
+  const handleCopyIban = async (iban: string) => {
+    if (!await copiar(iban)) return;
     setCopiedIban(true);
     setTimeout(() => setCopiedIban(false), 2000);
     success('Copiado', 'IBAN copiado al portapapeles');
@@ -179,8 +192,8 @@ export default function InvoiceDetailPage() {
     return `${window.location.origin}/aprobar/${approval.token}`;
   };
 
-  const handleCopyApprovalLink = () => {
-    navigator.clipboard.writeText(getApprovalLink());
+  const handleCopyApprovalLink = async () => {
+    if (!await copiar(getApprovalLink())) return;
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
     success('Enlace copiado', 'Compártelo con tu cliente por WhatsApp o email');
@@ -262,7 +275,7 @@ export default function InvoiceDetailPage() {
             {invoice.clientName} · emitida el {formatDate(invoice.issueDate)} · vence el {formatDate(invoice.dueDate)}
           </p>
         </div>
-        <div className="page-header-actions">
+        <div className="page-header-actions detalle-acciones-cabecera">
           {invoice.status === InvoiceStatus.BORRADOR && (
             <>
               <Link href={`/facturas/${invoice.id}/editar`} className="btn btn-secondary">
@@ -299,7 +312,12 @@ export default function InvoiceDetailPage() {
           )}
           <BotonVistaPreviaPdf tipo="factura" documento={invoice} />
           <BotonDescargarPdf tipo="factura" documento={invoice} />
-          <button className="btn btn-ghost" onClick={() => window.print()} title="Imprimir o guardar PDF">
+          <button
+            className="btn btn-ghost detalle-accion-imprimir"
+            onClick={() => window.print()}
+            title="Imprimir o guardar PDF"
+            aria-label="Imprimir o guardar PDF"
+          >
             <Printer size={16} />
           </button>
         </div>
@@ -327,7 +345,7 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
-      <div className="detail-layout">
+      <div className="detail-layout detalle-factura">
         {/* Main Content - Print Ready Preview */}
         <div className="detail-main">
           <div className="invoice-preview">
@@ -379,30 +397,39 @@ export default function InvoiceDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoice.lineItems.map(line => (
-                  <tr key={line.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
-                    <td style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
-                    <td style={{ textAlign: 'right' }}>{line.quantity} {line.unit}</td>
-                    {muestraUnidades && (
-                      <td style={{ textAlign: 'right' }}>
-                        {line.unitsPerPackage && line.unitsPerPackage > 0
-                          ? <><strong>{line.quantity * line.unitsPerPackage}</strong> <span style={{ color: '#64748b', fontSize: '11px' }}>({line.unitsPerPackage}/{line.unit})</span></>
-                          : <span style={{ color: '#64748b' }}>—</span>}
+                {/* En el teléfono esta tabla no cabe: siete u ocho columnas
+                    en 300 px. Cada celda lleva clase y etiqueta para que ahí
+                    cada línea se lea como una fila de lista —nombre e importe
+                    arriba, cantidad, precio e IVA debajo— sin tocar el papel
+                    impreso, que sigue siendo tabla. Ver `.linea-*` en
+                    globals.css. */}
+                {invoice.lineItems.map(line => {
+                  const dto = descuentoEfectivo(line);
+                  return (
+                    <tr key={line.id}>
+                      <td className={`linea-ref${line.productRef ? '' : ' es-vacio'}`} style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
+                      <td className="linea-desc" style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
+                      <td className="linea-dato" data-label="Cant.">{line.quantity} {line.unit}</td>
+                      {muestraUnidades && (
+                        <td className="linea-dato" data-label={voz.contenido[1]}>
+                          {line.unitsPerPackage && line.unitsPerPackage > 0
+                            ? <><strong>{line.quantity * line.unitsPerPackage}</strong> <span style={{ color: '#64748b', fontSize: '11px' }}>({line.unitsPerPackage}/{line.unit})</span></>
+                            : <span style={{ color: '#64748b' }}>—</span>}
+                        </td>
+                      )}
+                      <td className="linea-dato" data-label="Precio">{formatCurrency(line.unitPrice)}</td>
+                      <td className="linea-dato" data-label="IVA">{line.taxRate}%</td>
+                      <td className={`linea-dato${dto > 0 ? '' : ' es-vacio'}`} data-label="Dto." title={
+                        (line.discountPercent2 || line.discountPercent3)
+                          ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
+                          : undefined
+                      }>
+                        {dto > 0 ? `${dto}%` : '-'}
                       </td>
-                    )}
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
-                    <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
-                    <td style={{ textAlign: 'right' }} title={
-                      (line.discountPercent2 || line.discountPercent3)
-                        ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
-                        : undefined
-                    }>
-                      {descuentoEfectivo(line) > 0 ? `${descuentoEfectivo(line)}%` : '-'}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
-                  </tr>
-                ))}
+                      <td className="linea-subtotal" style={{ fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
@@ -496,7 +523,7 @@ export default function InvoiceDetailPage() {
         <div className="detail-sidebar">
           {/* Estado de sellado: qué protege esta factura y qué ya no se puede tocar */}
           {sealed ? (
-            <div className="card">
+            <div className="card detalle-sello">
               <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>
                 Sello fiscal
               </h4>
@@ -511,6 +538,7 @@ export default function InvoiceDetailPage() {
                     className="btn btn-ghost btn-icon btn-sm"
                     onClick={() => handleCopyHash(chainedHash)}
                     title="Copiar huella"
+                    aria-label="Copiar huella"
                   >
                     {copiedHash ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                   </button>
@@ -522,7 +550,7 @@ export default function InvoiceDetailPage() {
               </p>
             </div>
           ) : (
-            <div className="callout callout-info">
+            <div className="callout callout-info detalle-sello">
               <FileWarning size={16} />
               <div>
                 <strong>Borrador sin valor fiscal</strong>
@@ -535,7 +563,7 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* Info Card */}
-          <div className="card">
+          <div className="card detalle-registro">
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Detalles del registro</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
@@ -563,7 +591,7 @@ export default function InvoiceDetailPage() {
 
           {/* Bank IBAN Copy Box */}
           {companySettings?.iban && (
-            <div className="card">
+            <div className="card detalle-iban">
               <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>Cobro por transferencia</h4>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-2)' }}>{companySettings?.bankName}</div>
               <div style={{
@@ -571,7 +599,12 @@ export default function InvoiceDetailPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)'
               }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{companySettings?.iban}</span>
-                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleCopyIban(companySettings?.iban)}>
+                <button
+                  className="btn btn-ghost btn-icon btn-sm"
+                  onClick={() => handleCopyIban(companySettings?.iban)}
+                  title="Copiar IBAN"
+                  aria-label="Copiar IBAN"
+                >
                   {copiedIban ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                 </button>
               </div>
@@ -579,7 +612,7 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* Amounts Summary */}
-          <div className="card">
+          <div className="card detalle-importes">
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Importes</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
@@ -605,10 +638,10 @@ export default function InvoiceDetailPage() {
 
           {/* Approval Status Card */}
           {approval && invoice.status === InvoiceStatus.PRE_APROBACION && (
-            <div className="card" style={{ border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.06)' }}>
+            <div className="card detalle-aprobacion" style={{ border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.06)' }}>
               <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)', color: 'var(--color-info)' }}>
                 <Clock size={16} style={{ marginRight: '6px' }} />
-                Esperando Respuesta del Cliente
+                Esperando respuesta del cliente
               </h4>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-3)' }}>
                 Expira el {new Date(approval.expiresAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -618,16 +651,24 @@ export default function InvoiceDetailPage() {
                 display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)',
               }}>
                 <Link2 size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-secondary)', wordBreak: 'break-all', flex: 1 }}>
-                  {getApprovalLink().substring(0, 50)}...
+                {/* El enlace entero y recortado por CSS, no con un
+                    `substring(0, 50)` que en un teléfono seguía partiéndose
+                    en tres líneas de letra de 10 px. */}
+                <span className="detalle-enlace" title={getApprovalLink()}>
+                  {getApprovalLink()}
                 </span>
-                <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCopyApprovalLink}>
+                <button
+                  className="btn btn-ghost btn-icon btn-sm"
+                  onClick={handleCopyApprovalLink}
+                  title="Copiar enlace"
+                  aria-label="Copiar enlace de aprobación"
+                >
                   {copiedLink ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                 <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={handleCopyApprovalLink}>
-                  <Link2 size={14} /> Copiar Enlace
+                  <Link2 size={14} /> Copiar enlace
                 </button>
                 <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={handleShareWhatsApp}>
                   <MessageSquare size={14} /> WhatsApp
@@ -638,14 +679,14 @@ export default function InvoiceDetailPage() {
 
           {/* Approval Response Card */}
           {approval && approval.status !== 'pending' && approvalItems.length > 0 && (
-            <div className="card" style={{
+            <div className="card detalle-aprobacion" style={{
               border: `1px solid ${approval.status === 'approved' ? 'rgba(16, 185, 129, 0.3)' : approval.status === 'rejected' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
               background: approval.status === 'approved' ? 'rgba(16, 185, 129, 0.06)' : approval.status === 'rejected' ? 'rgba(239, 68, 68, 0.06)' : 'rgba(245, 158, 11, 0.06)',
             }}>
               <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {approval.status === 'approved' && <><CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} /> Pedido Aprobado</>}
-                {approval.status === 'rejected' && <><XCircle size={16} style={{ color: 'var(--color-danger)' }} /> Pedido Rechazado</>}
-                {approval.status === 'partial' && <><AlertTriangle size={16} style={{ color: 'var(--color-warning)' }} /> Aprobado Parcialmente</>}
+                {approval.status === 'approved' && <><CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} /> Pedido aprobado</>}
+                {approval.status === 'rejected' && <><XCircle size={16} style={{ color: 'var(--color-danger)' }} /> Pedido rechazado</>}
+                {approval.status === 'partial' && <><AlertTriangle size={16} style={{ color: 'var(--color-warning)' }} /> Aprobado parcialmente</>}
               </h4>
 
               {approval.respondedAt && (
@@ -696,7 +737,7 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* Quick Actions */}
-          <div className="card">
+          <div className="card detalle-acciones">
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Acciones</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <BotonDescargarPdf
@@ -709,7 +750,7 @@ export default function InvoiceDetailPage() {
                 <Printer size={14} /> Imprimir / PDF
               </button>
               <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={handleDuplicate}>
-                <Copy size={14} /> Duplicar Factura
+                <Copy size={14} /> Duplicar factura
               </button>
             </div>
             <AvisoSinPlantilla />
