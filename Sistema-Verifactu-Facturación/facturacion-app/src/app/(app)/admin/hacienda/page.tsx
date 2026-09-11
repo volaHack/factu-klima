@@ -4,7 +4,7 @@ import { supabaseServicio } from '@/lib/supabase/servicio';
 import { proximoPlazo } from '@/lib/plataforma/plazos';
 import { eventosPendientes } from '@/lib/admin/datos';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { AlertCircle, ArrowUpRight, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, CheckCircle2, AlertTriangle, ShieldCheck, Landmark, FileText, Calendar } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,170 +75,187 @@ export default async function AdminHacienda() {
   const avisoUrgente = plazo.dias <= 10;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 className="page-title">Hacienda y Modelos Fiscales</h1>
-          <p className="page-subtitle">
-            Liquidación de impuestos de la plataforma FactuKlima · Trimestre actual: <strong>{etiqueta}</strong>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
+            <Landmark size={14} />
+            <span>Gestión Tributaria & Liquidaciones</span>
+          </div>
+          <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.03em', margin: 0 }}>
+            Hacienda y Modelos Fiscales
+          </h1>
+          <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
+            Liquidación fiscal de la plataforma FactuKlima · Periodo actual: <strong>{etiqueta}</strong>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Link href="/listados-fiscales/420" className="btn btn-secondary">
-            <span>Modelo 420 (ATC)</span>
-            <ArrowUpRight className="w-4 h-4 ml-1" />
+
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Link
+            href="/listados-fiscales/420"
+            className="admin-nav-link"
+            style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          >
+            <span>Generar Modelo 420 (ATC)</span>
+            <ArrowUpRight size={14} />
           </Link>
-          <Link href="/listados-fiscales/130" className="btn btn-secondary">
-            <span>Modelo 130 (AEAT)</span>
-            <ArrowUpRight className="w-4 h-4 ml-1" />
+          <Link
+            href="/listados-fiscales/130"
+            className="admin-nav-link"
+            style={{ background: '#111827', color: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+          >
+            <span>Generar Modelo 130 (AEAT)</span>
+            <ArrowUpRight size={14} />
           </Link>
         </div>
       </div>
 
-      {/* Banner de plazo */}
+      {/* Banner de plazo estilo Apple */}
       <div
-        className="card"
+        className="apple-card"
         style={{
           borderLeft: avisoUrgente ? '4px solid #f59e0b' : '4px solid #3b82f6',
-          backgroundColor: avisoUrgente ? 'rgba(245, 158, 11, 0.05)' : 'rgba(59, 130, 246, 0.05)',
+          background: avisoUrgente
+            ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.5) 0%, rgba(255, 255, 255, 0.9) 100%)'
+            : 'linear-gradient(135deg, rgba(239, 246, 255, 0.5) 0%, rgba(255, 255, 255, 0.9) 100%)',
+          padding: '1.25rem 1.5rem',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           {avisoUrgente ? (
-            <AlertTriangle className="w-6 h-6 text-amber-500" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', flexShrink: 0 }}>
+              <AlertTriangle size={22} />
+            </div>
           ) : (
-            <ShieldCheck className="w-6 h-6 text-blue-500" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+              <ShieldCheck size={22} />
+            </div>
           )}
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.25rem' }}>
-              Próximo plazo: Presentación {plazo.trimestre}T {plazo.anio}
+            <div style={{ fontWeight: 600, fontSize: '1.05rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+              Próximo vencimiento: Liquidación {plazo.trimestre}T {plazo.anio}
             </div>
-            <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
-              Límite de presentación: <strong>{formatDate(plazo.limite)}</strong> · Quedan{' '}
-              <strong>{plazo.dias} {plazo.dias === 1 ? 'día' : 'días'}</strong>.
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              Fecha límite oficial: <strong>{formatDate(plazo.limite)}</strong> · Quedan{' '}
+              <strong style={{ color: avisoUrgente ? '#d97706' : 'var(--text-primary)' }}>
+                {plazo.dias} {plazo.dias === 1 ? 'día' : 'días'}
+              </strong>.
             </p>
-            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-              El modelo 420 se presenta en la sede de la <strong>Agencia Tributaria Canaria (ATC)</strong>; el modelo 130,
-              importando el fichero en la sede de la <strong>AEAT</strong>. La aplicación calcula los modelos y genera los ficheros
-              oficiales, pero la firma y presentación se realiza en las respectivas sedes tributarias.
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-tertiary)' }}>
+              El modelo 420 se presenta telemáticamente en la sede de la <strong>Agencia Tributaria Canaria (ATC)</strong>; el modelo 130,
+              importando el fichero en la sede de la <strong>AEAT</strong>. FactuKlima genera el desglose oficial exacto pero no realiza la firma final en las sedes.
             </p>
           </div>
         </div>
       </div>
 
-      {/* KPIs del Trimestre */}
-      <div className="kpi-grid">
-        <div className="card">
-          <div className="card-subtitle">Total Facturado ({plazo.trimestre}T)</div>
-          <div className="page-meta-value">{formatCurrency(totalFacturado)}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            {facturas.length} {facturas.length === 1 ? 'factura emitida' : 'facturas emitidas'}
+      {/* Hero Analytics Cards */}
+      <div className="analytics-hero-grid">
+        <div className="analytics-hero-card">
+          <div className="analytics-hero-label">
+            <span>Total Facturado ({plazo.trimestre}T)</span>
+            <FileText size={16} className="text-gray-400" />
+          </div>
+          <div className="analytics-hero-value">{formatCurrency(totalFacturado)}</div>
+          <div className="analytics-hero-sub">
+            <span>{facturas.length} {facturas.length === 1 ? 'factura emitida' : 'facturas emitidas'}</span>
           </div>
         </div>
-        <div className="card">
-          <div className="card-subtitle">Base con IGIC (Canarias 7 %)</div>
-          <div className="page-meta-value">{formatCurrency(baseConIgic)}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            Cuota repercutida: <strong>{formatCurrency(igicTotal)}</strong>
+
+        <div className="analytics-hero-card">
+          <div className="analytics-hero-label">
+            <span>Base IGIC (Canarias 7 %)</span>
+            <span className="apple-pill apple-pill-emerald" style={{ padding: '1px 6px', fontSize: '0.7rem' }}>7%</span>
+          </div>
+          <div className="analytics-hero-value">{formatCurrency(baseConIgic)}</div>
+          <div className="analytics-hero-sub">
+            <span style={{ color: '#059669', fontWeight: 600 }}>Cuota IGIC: {formatCurrency(igicTotal)}</span>
           </div>
         </div>
-        <div className="card">
-          <div className="card-subtitle">Base sin IGIC (Península / N2)</div>
-          <div className="page-meta-value">{formatCurrency(baseSinIgic)}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            Inversión del sujeto pasivo (art. 84 LIVA)
+
+        <div className="analytics-hero-card">
+          <div className="analytics-hero-label">
+            <span>Base Península (N2)</span>
+            <span className="apple-pill apple-pill-blue" style={{ padding: '1px 6px', fontSize: '0.7rem' }}>Art. 84</span>
+          </div>
+          <div className="analytics-hero-value">{formatCurrency(baseSinIgic)}</div>
+          <div className="analytics-hero-sub">
+            <span>Inversión del sujeto pasivo LIVA</span>
           </div>
         </div>
-        <div className="card">
-          <div className="card-subtitle">Veri*Factu Pendientes</div>
-          <div className="page-meta-value" style={{ color: vfPendientes.length > 0 ? '#ef4444' : 'inherit' }}>
+
+        <div className="analytics-hero-card">
+          <div className="analytics-hero-label">
+            <span>Veri*Factu en Cola</span>
+            <ShieldCheck size={16} className={vfPendientes.length > 0 ? 'text-rose-500' : 'text-emerald-500'} />
+          </div>
+          <div className="analytics-hero-value" style={{ color: vfPendientes.length > 0 ? '#e11d48' : 'inherit' }}>
             {vfPendientes.length}
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            {vfPendientes.length > 0 ? 'Pendientes de envío a AEAT' : 'Todos los registros al día'}
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-subtitle">Stripe por Revisar</div>
-          <div className="page-meta-value" style={{ color: pendientes.length > 0 ? '#ef4444' : 'inherit' }}>
-            {pendientes.length}
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-            {pendientes.length > 0 ? 'Cobros sin factura o fallidos' : 'Sin incidencias'}
+          <div className="analytics-hero-sub">
+            <span>{vfPendientes.length > 0 ? 'Pendientes de envío a AEAT' : 'Todos los registros al día'}</span>
           </div>
         </div>
       </div>
 
-      {/* Alertas si hay registros de VeriFactu o eventos de Stripe pendientes */}
-      {vfPendientes.length > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid #ef4444' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <strong style={{ color: '#ef4444' }}>Registros Veri*Factu pendientes de resolver:</strong>
+      {/* Facturas Emitidas Table Card */}
+      <div className="apple-card" style={{ padding: 0 }}>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>
+              Facturas Emitidas por la Plataforma ({facturas.length})
+            </h2>
+            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-tertiary)' }}>
+              Series {cfg?.serie_suscripciones ?? 'SUS'} (planes recurrentes) y {cfg?.serie_propinas ?? 'PROP'} (aportaciones voluntarias)
+            </p>
           </div>
-          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.875rem' }}>
-            {vfPendientes.slice(0, 5).map(r => (
-              <li key={r.id}>
-                Factura <strong>{r.num_serie}</strong> · Estado: {r.estado} · {r.descripcion_error || 'Pendiente de envío'}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Listado de Facturas del Trimestre */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>
-            Facturas emitidas por la plataforma ({facturas.length})
-          </h2>
-          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-            Series {cfg?.serie_suscripciones ?? 'SUS'} (suscripciones) y {cfg?.serie_propinas ?? 'PROP'} (propinas)
-          </div>
+          <span className="apple-pill apple-pill-slate">Periodo {etiqueta}</span>
         </div>
 
         {facturas.length === 0 ? (
-          <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem 0' }}>
-            No hay facturas emitidas en este trimestre todavía.
-          </p>
+          <div style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+            <p style={{ fontSize: '1rem', fontWeight: 500, margin: 0 }}>No hay facturas emitidas en este trimestre todavía.</p>
+            <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>Los cobros de Stripe generarán automáticamente las facturas aquí.</p>
+          </div>
         ) : (
           <div className="table-responsive">
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="apple-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Número</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Fecha</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Cliente</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>NIF</th>
-                  <th style={{ textAlign: 'right', padding: '0.5rem' }}>Base</th>
-                  <th style={{ textAlign: 'right', padding: '0.5rem' }}>IGIC</th>
-                  <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total</th>
-                  <th style={{ textAlign: 'center', padding: '0.5rem' }}>Régimen / Tipo</th>
+                <tr>
+                  <th>Factura</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>NIF</th>
+                  <th style={{ textAlign: 'right' }}>Base Imponible</th>
+                  <th style={{ textAlign: 'right' }}>Cuota IGIC</th>
+                  <th style={{ textAlign: 'right' }}>Total</th>
+                  <th style={{ textAlign: 'center' }}>Tratamiento</th>
                 </tr>
               </thead>
               <tbody>
                 {facturas.map(f => {
                   const esSinIgic = (Number(f.total_tax) || 0) === 0;
                   return (
-                    <tr key={f.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.5rem', fontWeight: 500 }}>{f.number}</td>
-                      <td style={{ padding: '0.5rem' }}>{formatDate(f.issue_date)}</td>
-                      <td style={{ padding: '0.5rem' }}>{f.client_name || 'Sin identificar'}</td>
-                      <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{f.client_nif || '—'}</td>
-                      <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatCurrency(Number(f.subtotal) || 0)}</td>
-                      <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatCurrency(Number(f.total_tax) || 0)}</td>
-                      <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 600 }}>
+                    <tr key={f.id}>
+                      <td style={{ fontWeight: 600 }}>{f.number}</td>
+                      <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{formatDate(f.issue_date)}</td>
+                      <td>{f.client_name || 'Cliente sin identificar'}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{f.client_nif || '—'}</td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatCurrency(Number(f.subtotal) || 0)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: esSinIgic ? 'var(--text-tertiary)' : '#059669' }}>
+                        {formatCurrency(Number(f.total_tax) || 0)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                         {formatCurrency(Number(f.total) || 0)}
                       </td>
-                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center' }}>
                         {esSinIgic ? (
-                          <span className="badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
-                            N2 · Península
-                          </span>
+                          <span className="apple-pill apple-pill-blue">N2 · Península</span>
                         ) : (
-                          <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-                            IGIC 7% · Canarias
-                          </span>
+                          <span className="apple-pill apple-pill-emerald">IGIC 7%</span>
                         )}
                       </td>
                     </tr>
