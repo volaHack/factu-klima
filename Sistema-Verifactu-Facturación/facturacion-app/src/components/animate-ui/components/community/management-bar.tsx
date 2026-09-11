@@ -97,7 +97,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
       icon: Heart,
       action: () => setShowTipModal(true),
       badge: 'Tip',
-      highlightColor: '#e11d48',
+      highlightColor: 'var(--accent-500, #b02a5c)',
     },
   ];
 
@@ -126,7 +126,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
             WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid var(--border-color)',
             borderRadius: '9999px',
-            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 25px rgba(201, 64, 122, 0.15)',
+            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 25px var(--accent-glow, rgba(176, 42, 92, 0.2))',
             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
@@ -148,7 +148,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
               }}
               title="Expandir barra de gestión rápida"
             >
-              <Sparkles size={14} color="#e11d48" />
+              <Sparkles size={14} color="var(--accent-500, #b02a5c)" />
               <span>Gestión rápida</span>
               <ChevronUp size={14} />
             </button>
@@ -202,20 +202,20 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
                         gap: item.primary ? '6px' : '0',
                         borderRadius: '9999px',
                         backgroundColor: item.primary
-                          ? 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)'
+                          ? 'var(--accent-500)'
                           : isActive
                           ? 'var(--bg-card)'
                           : isHovered
                           ? 'var(--bg-card-hover)'
                           : 'transparent',
-                        background: item.primary ? 'linear-gradient(135deg, #c9407a 0%, #9c2856 100%)' : undefined,
-                        color: item.primary ? '#ffffff' : isActive ? 'var(--color-primary)' : 'var(--text-secondary)',
+                        background: item.primary ? 'var(--accent-gradient, linear-gradient(135deg, #c9407a 0%, #9c2856 100%))' : undefined,
+                        color: item.primary ? '#ffffff' : isActive ? 'var(--accent-500, #b02a5c)' : 'var(--text-secondary)',
                         border: item.primary
                           ? '1px solid transparent'
                           : isActive
-                          ? '1px solid var(--color-primary)'
+                          ? '1px solid var(--accent-500, #b02a5c)'
                           : '1px solid transparent',
-                        boxShadow: item.primary ? '0 4px 14px rgba(201, 64, 122, 0.45)' : 'none',
+                        boxShadow: item.primary ? '0 4px 14px var(--accent-glow, rgba(176, 42, 92, 0.35))' : 'none',
                         cursor: 'pointer',
                         transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
                         transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',

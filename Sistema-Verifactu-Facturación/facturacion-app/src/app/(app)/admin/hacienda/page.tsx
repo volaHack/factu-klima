@@ -94,16 +94,14 @@ export default async function AdminHacienda() {
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Link
             href="/listados-fiscales/420"
-            className="admin-nav-link"
-            style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+            className="apple-btn-secondary"
           >
             <span>Generar Modelo 420 (ATC)</span>
             <ArrowUpRight size={14} />
           </Link>
           <Link
             href="/listados-fiscales/130"
-            className="admin-nav-link"
-            style={{ background: '#111827', color: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+            className="apple-btn-primary"
           >
             <span>Generar Modelo 130 (AEAT)</span>
             <ArrowUpRight size={14} />

@@ -18,6 +18,9 @@ import {
   Zap,
   Calendar,
   Sparkles,
+  Download,
+  Sliders,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -66,12 +69,12 @@ export default async function AdminResumen() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Link href="/admin/cuentas" className="admin-nav-link" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Link href="/admin/cuentas" className="apple-btn-secondary">
             <Users size={16} />
             <span>Gestionar Cuentas</span>
           </Link>
-          <Link href="/admin/hacienda" className="admin-nav-link" style={{ background: '#111827', color: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+          <Link href="/admin/hacienda" className="apple-btn-primary">
             <Calendar size={16} />
             <span>Inspección Fiscal</span>
           </Link>
@@ -378,6 +381,70 @@ export default async function AdminResumen() {
                 <span>Revisar</span>
               </Link>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sección Ejecutiva: Exportación y Configuración del SaaS */}
+      <div className="apple-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <FileSpreadsheet size={14} className="text-emerald-500" />
+              <span>Gestión de Datos & Informes</span>
+            </div>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: '0.25rem 0 0 0', letterSpacing: '-0.02em' }}>
+              Exportación Oficial & Configuración del Software
+            </h3>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+              Descarga balances completos en formato CSV compatible con Microsoft Excel o ajusta la fiscalidad de la plataforma.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+            <a
+              href="/api/admin/exportar?tipo=cuentas"
+              download
+              className="apple-btn-secondary"
+              title="Descargar lista completa de usuarios registrados y actividad"
+            >
+              <Download size={16} />
+              <span>Exportar Cuentas (CSV)</span>
+            </a>
+
+            <a
+              href="/api/admin/exportar?tipo=suscripciones"
+              download
+              className="apple-btn-secondary"
+              title="Descargar detalle de suscripciones, MRR y planes activos"
+            >
+              <Download size={16} />
+              <span>Exportar Suscripciones (CSV)</span>
+            </a>
+
+            <Link
+              href="/admin/configuracion"
+              className="apple-btn-primary"
+              title="Ajustar series legales, IGIC y cobro en Stripe"
+            >
+              <Sliders size={16} />
+              <span>Configuración Fiscal</span>
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.875rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle, rgba(0,0,0,0.06))' }}>
+          <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Codificación de Exportación</div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>UTF-8 con BOM (Excel nativo)</div>
+          </div>
+          <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Separador de Columnas</div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>Punto y coma (;) estándar ES</div>
+          </div>
+          <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Seguridad & Auditoría</div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#059669', marginTop: '0.2rem' }}>AAL2 / TOTP Requerido</div>
           </div>
         </div>
       </div>

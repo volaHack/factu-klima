@@ -629,6 +629,23 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
     relacionadas: [{ ruta: '/admin', texto: 'Resumen' }],
   },
+  {
+    ruta: '/admin/configuracion',
+    titulo: 'Configuración fiscal y facturación de la plataforma',
+    paraQue: 'Ajustar las series legales de suscripciones y propinas, el régimen canario de IGIC y la pasarela de impuestos.',
+    pasos: [
+      'Define el prefijo de serie para las facturas emitidas por suscripciones o donaciones.',
+      'Selecciona si la plataforma tributa en régimen de pequeño empresario (REPE exento) o régimen general.',
+      'Indica un motivo justificado para guardar los cambios en el registro de auditoría.',
+    ],
+    saber: [
+      'Cualquier cambio de serie o régimen fiscal queda firmado en el registro inalterable para cumplimiento tributario.',
+    ],
+    relacionadas: [
+      { ruta: '/admin', texto: 'Resumen' },
+      { ruta: '/admin/hacienda', texto: 'Hacienda' },
+    ],
+  },
 ];
 
 /**

@@ -82,6 +82,7 @@
   --accent-800: #5c1735;
   --accent-glow: rgba(176, 42, 92, 0.16);
   --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+  --color-primary: var(--accent-500);
 
   /* Tono vino — bloques hero/destacados, no vive en la escala de acento
      porque no es interactivo (no hay estado hover/focus que lo necesite). */
@@ -236,6 +237,14 @@ body.theme-plum {
   --accent-glow: rgba(124, 58, 92, 0.16);
   --accent-gradient: linear-gradient(135deg, #954a71, #672f4a);
 }
+body.theme-rose {
+  --accent-50: #fdeef2; --accent-100: #fbd7e3; --accent-200: #f0a8c4;
+  --accent-300: #8f1f4f; --accent-400: #b8306a; --accent-500: #b02a5c;
+  --accent-600: #9c2856; --accent-700: #7a1f44; --accent-800: #5c1735;
+  --accent-glow: rgba(176, 42, 92, 0.16);
+  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+  --color-primary: var(--accent-500);
+}
 
 
 /* ============================================================
@@ -365,6 +374,14 @@ body.theme-plum {
   --accent-600: #bd5faa; --accent-700: #a0468e; --accent-800: #7f3271;
   --accent-glow: rgba(214, 127, 196, 0.20);
   --accent-gradient: linear-gradient(135deg, #e59ad4, #a0468e);
+}
+:root[data-theme="dark"] body.theme-rose {
+  --accent-50: #2a171f; --accent-100: #3a1e29; --accent-200: #5c2b3d;
+  --accent-300: #f5b3ca; --accent-400: #ef9ab9; --accent-500: #e87fa6;
+  --accent-600: #d95f8d; --accent-700: #c04674; --accent-800: #9c3159;
+  --accent-glow: rgba(232, 127, 166, 0.20);
+  --accent-gradient: linear-gradient(135deg, #ef9ab9 0%, #c04674 100%);
+  --color-primary: var(--accent-500);
 }
 
 /* El interruptor de la barra superior. */

@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Landmark, ShieldCheck, History } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, History, Sliders } from 'lucide-react';
 
 const tabs = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/cuentas', label: 'Cuentas', icon: Users },
   { href: '/admin/hacienda', label: 'Hacienda', icon: Landmark },
   { href: '/admin/registro', label: 'Auditoría', icon: History },
+  { href: '/admin/configuracion', label: 'Configuración', icon: Sliders },
 ];
 
 export default function AdminNavBar() {
@@ -33,10 +34,10 @@ export default function AdminNavBar() {
         })}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingRight: '0.5rem' }}>
+      <div className="admin-navbar-actions">
         <div className="admin-badge-pulse" title="Sesión validada con 2FA (AAL2)">
           <div className="admin-pulse-dot" />
-          <span>Admin 2FA Activo</span>
+          <span className="admin-badge-text">Admin 2FA Activo</span>
         </div>
       </div>
     </nav>

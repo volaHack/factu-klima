@@ -3,7 +3,7 @@ import { exigirAdminCon2fa } from '@/lib/admin/dal';
 import { listarCuentas } from '@/lib/admin/datos';
 import { getPlan } from '@/lib/plans';
 import { formatDate } from '@/lib/utils';
-import { Search, ChevronRight, UserCheck, Shield, Sparkles } from 'lucide-react';
+import { Search, ChevronRight, UserCheck, Shield, Sparkles, Download } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,25 +52,37 @@ export default async function AdminCuentas({
           </p>
         </div>
 
-        {/* Search Bar */}
-        <form style={{ minWidth: '280px', position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-          <input
-            className="form-input"
-            name="q"
-            defaultValue={q}
-            placeholder="Buscar por email, nombre o NIF..."
-            aria-label="Buscar cuenta"
-            style={{
-              paddingLeft: '2.5rem',
-              borderRadius: '9999px',
-              background: 'rgba(255, 255, 255, 0.85)',
-              border: '1px solid rgba(0, 0, 0, 0.08)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-            }}
-          />
-          {f !== 'todos' && <input type="hidden" name="f" value={f} />}
-        </form>
+        {/* Search & Export Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <form style={{ minWidth: '260px', position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+            <input
+              className="form-input"
+              name="q"
+              defaultValue={q}
+              placeholder="Buscar por email, nombre o NIF..."
+              aria-label="Buscar cuenta"
+              style={{
+                paddingLeft: '2.5rem',
+                borderRadius: '9999px',
+                background: 'rgba(255, 255, 255, 0.85)',
+                border: '1px solid var(--border-color, rgba(0, 0, 0, 0.08))',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+              }}
+            />
+            {f !== 'todos' && <input type="hidden" name="f" value={f} />}
+          </form>
+
+          <a
+            href="/api/admin/exportar?tipo=cuentas"
+            download
+            className="apple-btn-secondary"
+            title="Exportar todas las cuentas a CSV para Excel"
+          >
+            <Download size={15} />
+            <span>Exportar CSV</span>
+          </a>
+        </div>
       </div>
 
       {/* Filter Chips Bar */}
