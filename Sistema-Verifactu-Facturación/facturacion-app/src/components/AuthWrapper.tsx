@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import MobileNav from '@/components/layout/MobileNav';
@@ -15,6 +15,7 @@ import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
 import { ManagementBar } from '@/components/animate-ui/components/community/management-bar';
 import { isPublicRoute } from '@/lib/publicRoutes';
+import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 
 /**
  * Rutas que exigen sesión pero se dibujan a pantalla completa, sin sidebar,
@@ -30,6 +31,7 @@ const FULLSCREEN_ROUTES = ['/tpv'];
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -86,18 +88,42 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       });
     }
 
+    // Los atajos globales, todos por el mismo sitio. Qué tecla hace qué —y
+    // sobre todo cuándo NO debe hacer nada— está en `lib/atajos.ts`, que es
+    // de donde la barra de gestión rápida saca también sus rótulos: así no
+    // puede volver a anunciarse un atajo que no escucha nadie.
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCmdOpen(prev => !prev);
+      const accion = accionDeEventoDeTeclado(e);
+      if (!accion) return;
+      e.preventDefault();
+
+      if (accion === 'buscar') {
+        setCmdOpen(true);
+        return;
       }
+      if (accion === 'refrescar') {
+        // Lo recoge la barra, que es quien enseña el icono girando.
+        window.dispatchEvent(new CustomEvent(EVENTO_REFRESCAR));
+        return;
+      }
+      const destino = atajoDe(accion).href;
+      if (destino) router.push(destino);
     };
+    const abrirBuscador = () => setCmdOpen(true);
+
+    // Sólo dentro del programa. En el login o en la web pública no hay
+    // panel ni facturas donde ir: pulsar «n» ahí llevaba a una ruta
+    // privada y rebotaba de vuelta al login.
+    if (isPublic) return;
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener(EVENTO_BUSCAR, abrirBuscador);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener(EVENTO_BUSCAR, abrirBuscador);
     };
-  }, [isPublic]);
+  }, [isPublic, router]);
 
   if (isPublic) {
     return <main>{children}</main>;

@@ -2,56 +2,47 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Plus, Search, RefreshCw, Heart, ShieldCheck, ChevronUp, ChevronDown,
   LayoutDashboard, FileText, Users, Package, Sparkles, Zap
 } from 'lucide-react';
 import TipModal from '@/components/ui/TipModal';
 import { notifyDataUpdate } from '@/lib/storage';
+import { atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 
 export interface ManagementBarProps {
   className?: string;
 }
 
 export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) => {
-  const router = useRouter();
   const pathname = usePathname();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  // Escuchar atajos de teclado globales (ej: N para nueva factura, R para refrescar)
+  // El teclado lo escucha el armazón (`AuthWrapper`), que es quien conoce
+  // todas las pantallas. Aquí sólo se recoge el aviso de refrescar, porque
+  // el icono que gira se pinta en esta barra y en ningún otro sitio.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorar si el foco está en un input o textarea
-      const target = e.target as HTMLElement;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) return;
-
-      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        router.push('/facturas/nueva');
-      } else if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        triggerRefresh();
-      }
+    const alRefrescar = () => {
+      setIsRefreshing(true);
+      notifyDataUpdate('all');
+      setTimeout(() => setIsRefreshing(false), 500);
     };
+    window.addEventListener(EVENTO_REFRESCAR, alRefrescar);
+    return () => window.removeEventListener(EVENTO_REFRESCAR, alRefrescar);
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router]);
+  // Tanto el botón como la tecla pasan por el mismo sitio: si algún día
+  // refrescar hace algo más, lo hará igual con el ratón que con la R.
+  const triggerRefresh = () => window.dispatchEvent(new CustomEvent(EVENTO_REFRESCAR));
 
-  const triggerRefresh = () => {
-    setIsRefreshing(true);
-    notifyDataUpdate('all');
-    setTimeout(() => setIsRefreshing(false), 500);
-  };
-
-  const triggerSearch = () => {
-    // Disparar evento de apertura de CommandPalette
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-  };
+  // Antes se fingía una pulsación de Ctrl+K para que la escuchara el
+  // armazón. Además de frágil, alternaba: pulsar el botón con el buscador
+  // ya abierto lo cerraba.
+  const triggerSearch = () => window.dispatchEvent(new CustomEvent(EVENTO_BUSCAR));
 
   const navItems = [
     {
@@ -59,14 +50,14 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
       label: 'Panel',
       icon: LayoutDashboard,
       href: '/dashboard',
-      shortcut: 'D',
+      shortcut: atajoDe('panel').tecla,
     },
     {
       id: 'facturas',
       label: 'Facturas',
       icon: FileText,
       href: '/facturas',
-      shortcut: 'F',
+      shortcut: atajoDe('facturas').tecla,
     },
     {
       id: 'nueva_factura',
@@ -74,14 +65,14 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
       icon: Plus,
       href: '/facturas/nueva',
       primary: true,
-      shortcut: 'N',
+      shortcut: atajoDe('nueva-factura').tecla,
     },
     {
       id: 'search',
       label: 'Búsqueda rápida',
       icon: Search,
       action: triggerSearch,
-      shortcut: 'Ctrl+K',
+      shortcut: atajoDe('buscar').tecla,
     },
     {
       id: 'refresh',
@@ -89,7 +80,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
       icon: RefreshCw,
       action: triggerRefresh,
       spinning: isRefreshing,
-      shortcut: 'R',
+      shortcut: atajoDe('refrescar').tecla,
     },
     {
       id: 'tip',
