@@ -43,6 +43,13 @@
 
 - [ ] **Nadie se entera si algo falla.** Sigue sin haber monitorización
       de errores en producción.
+- [ ] **La ayuda con IA no funciona en producción.** En local sí: hay una
+      clave de Gemini en `.env.local` y está viva (comprobada). Lo que
+      falta es ponerla en Vercel (Settings → Environment Variables), o
+      apuntar `IA_BASE_URL` a un servidor de modelos accesible desde
+      internet. El modelo local que hay montado (Qwen 3 4B, ver
+      `docs/ia-local.md`) sirve para trabajar y para probar, pero Vercel
+      no puede llegar a un modelo que corre en una casa.
 - [ ] **No se envía ningún correo.** Ni la factura al cliente, ni aviso
       de cobro fallido, ni recordatorio de vencimiento.
 - [ ] **Certificado Veri\*Factu real** y datos del productor en
@@ -65,6 +72,16 @@
 ## Hecho
 
 ### En este repaso
+- **Los atajos de teclado, los cinco.** La barra de gestión rápida
+  anunciaba D y F y no los escuchaba nadie. Ahora la lista y la decisión
+  están en un solo sitio (`lib/atajos.ts`), de donde la barra saca sus
+  rótulos, y además dejan de dispararse donde no tocaba: en las páginas
+  públicas, con una modal abierta, escribiendo en texto enriquecido y con
+  acentos a medio componer.
+- **La IA deja de estar casada con Gemini.** Las dos rutas que usan un
+  modelo pasan por `lib/ia/cliente.ts`, que habla el dialecto de OpenAI:
+  vale un modelo local, uno de pago o Gemini, y se cambia con dos
+  variables de entorno. Detalles en `docs/ia-local.md`.
 - **Descuento a pie de factura.** Antes sólo se podía descontar línea a
   línea; ahora hay hasta tres descuentos sobre el total (comercial,
   pronto pago, especial), encadenados, en crear y editar facturas. Sale

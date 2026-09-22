@@ -6,17 +6,17 @@
  * ellas es `fusionarSugerencias`, y la última palabra la tiene el usuario en
  * el revisor.
  *
- * Vive en el servidor por una razón concreta: la clave de Gemini no puede
+ * Vive en el servidor por una razón concreta: la clave del modelo no puede
  * llegar al navegador. Una clave en el bundle del cliente es una clave
  * pública, y la factura la pagamos nosotros.
+ *
+ * Qué modelo contesta lo decide `lib/ia/cliente.ts`: puede ser uno local o
+ * uno de pago, y esta ruta no se entera.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
-
-/** Modelo pequeño y rápido: esto es clasificar etiquetas, no redactar. */
-const MODELO = 'gemini-3.6-flash';
-const URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
 
 interface Caja {
   id: string;
@@ -91,16 +91,15 @@ const ESQUEMA_RESPUESTA = {
 };
 
 export async function POST(request: NextRequest) {
-  const clave = process.env.GEMINI_API_KEY;
-  if (!clave) {
+  if (!configuracionIA()) {
     return NextResponse.json(
       { error: 'El reconocimiento con IA no está configurado en este servidor.' },
       { status: 501 },
     );
   }
 
-  // Cada llamada cuesta dinero: un tope por IP evita que un bucle en el
-  // navegador se coma la cuota de la cuenta.
+  // Cada llamada cuesta dinero, o tiempo de máquina si el modelo es local:
+  // un tope por IP evita que un bucle en el navegador se lo coma todo.
   const permitido = await checkRateLimit(`plantillas-ia:${clientIpFromRequest(request)}`, 30, 3600);
   if (!permitido) {
     return NextResponse.json(
@@ -123,50 +122,37 @@ export async function POST(request: NextRequest) {
   }
   peticion.cajas = peticion.cajas.slice(0, MAXIMO_CAJAS);
 
-  let respuesta: Response;
+  let texto: string;
   try {
-    respuesta = await fetch(`${URL_BASE}/${MODELO}:generateContent?key=${clave}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: instrucciones(peticion) }] }],
-        generationConfig: {
-          // Sin creatividad: se trata de clasificar, y queremos que la misma
-          // factura dé el mismo resultado dos veces seguidas.
-          temperature: 0,
-          responseMimeType: 'application/json',
-          responseSchema: ESQUEMA_RESPUESTA,
-        },
-      }),
-      signal: AbortSignal.timeout(45_000),
+    texto = await generarTexto({
+      instrucciones: instrucciones(peticion),
+      // Sin creatividad: se trata de clasificar, y queremos que la misma
+      // factura dé el mismo resultado dos veces seguidas.
+      temperatura: 0,
+      maximoTokens: 2048,
+      json: true,
+      esquemaJson: ESQUEMA_RESPUESTA,
+      // Más holgado que la ayuda del mostrador: aquí nadie espera de pie
+      // con un cliente delante, y son ochenta recuadros de una vez.
+      tiempoLimiteMs: 90_000,
     });
-  } catch {
-    return NextResponse.json(
-      { error: 'No se ha podido contactar con el servicio de IA. La plantilla sigue funcionando sin él.' },
-      { status: 502 },
-    );
-  }
-
-  if (!respuesta.ok) {
+  } catch (err) {
+    if (!(err instanceof FalloIA)) throw err;
     // El detalle del proveedor no se le enseña al usuario: puede llevar
     // trazas de la petición. Al registro sí, para poder diagnosticar.
-    console.error('[plantillas/reconocer] Gemini respondió', respuesta.status, await respuesta.text().catch(() => ''));
-    return NextResponse.json(
-      { error: 'El servicio de IA no ha podido analizar la plantilla. Inténtalo de nuevo más tarde.' },
-      { status: 502 },
-    );
+    console.error('[plantillas/reconocer] fallo de IA:', err.motivo, err.detalle ?? '');
+    const { estado, error } = respuestaDeFallo(err, 'La plantilla sigue funcionando sin él.');
+    return NextResponse.json({ error }, { status: estado });
   }
 
   try {
-    const cuerpo = await respuesta.json();
-    const texto = cuerpo?.candidates?.[0]?.content?.parts
-      ?.map((p: { text?: string }) => p?.text ?? '')
-      .join('') ?? '';
     const analisis = JSON.parse(texto);
     const sugerencias = Array.isArray(analisis?.sugerencias) ? analisis.sugerencias : [];
 
     // Se filtra aquí también, y no sólo al fusionar: el modelo se inventa
     // claves de vez en cuando y no tiene sentido pasearlas por el cliente.
+    // Con un modelo local esto pasa MÁS, no menos: el esquema que Gemini
+    // cumple al pie de la letra, un servidor local puede ignorarlo.
     const permitidas = new Set(peticion.clavesDisponibles);
     const validas = sugerencias
       .filter((s: { id?: unknown; clave?: unknown }) =>
@@ -179,6 +165,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ sugerencias: validas });
   } catch {
+    console.error('[plantillas/reconocer] respuesta ilegible:', texto.slice(0, 300));
     return NextResponse.json(
       { error: 'La respuesta del servicio de IA no se ha podido interpretar.' },
       { status: 502 },

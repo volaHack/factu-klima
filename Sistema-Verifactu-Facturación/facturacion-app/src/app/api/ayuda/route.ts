@@ -20,9 +20,16 @@
  *
  * POR QUÉ VIVE EN EL SERVIDOR
  * ---------------------------
- * Por lo mismo que `plantillas/reconocer`: la clave de Gemini no puede
+ * Por lo mismo que `plantillas/reconocer`: la clave del modelo no puede
  * llegar al navegador, porque una clave en el paquete del cliente es una
- * clave pública y la factura la pagamos nosotros.
+ * clave pública y la factura la pagamos nosotros. Con un modelo local no
+ * hay clave que proteger, pero sí una dirección de red que el navegador
+ * de un cliente no tiene por qué poder alcanzar.
+ *
+ * QUÉ MODELO CONTESTA
+ * -------------------
+ * El que diga `lib/ia/cliente.ts`. Aquí no se elige ni se sabe: puede ser
+ * uno local en la misma máquina o uno de pago, y esta ruta no cambia.
  *
  * LO QUE NO HACE
  * --------------
@@ -35,10 +42,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
-
-/** Rápido y barato: esto es responder dos frases, no redactar un informe. */
-const MODELO = 'gemini-3.6-flash';
-const URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
 
 /** Tope de la pregunta. Nadie escribe una novela detrás del mostrador. */
 const MAXIMO_PREGUNTA = 400;
@@ -208,16 +212,16 @@ function numero(valor: unknown): number {
 }
 
 export async function POST(request: NextRequest) {
-  const clave = process.env.GEMINI_API_KEY;
-  if (!clave) {
+  if (!configuracionIA()) {
     return NextResponse.json(
       { error: 'La ayuda con IA no está configurada en este servidor.' },
       { status: 501 },
     );
   }
 
-  // Cada respuesta cuesta dinero. Un cajero pregunta unas cuantas veces por
-  // turno; sesenta por hora es de sobra y corta cualquier bucle.
+  // Un modelo de pago cuesta dinero y uno local cuesta tiempo de máquina.
+  // Un cajero pregunta unas cuantas veces por turno; sesenta por hora es de
+  // sobra y corta cualquier bucle.
   const permitido = await checkRateLimit(`ayuda:${clientIpFromRequest(request)}`, 60, 3600);
   if (!permitido) {
     return NextResponse.json(
@@ -289,63 +293,24 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  let respuesta: Response;
   try {
-    respuesta = await fetch(`${URL_BASE}/${MODELO}:generateContent?key=${clave}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: instrucciones }] }],
-        generationConfig: {
-          // Poca creatividad: la misma duda dos veces tiene que dar la misma
-          // respuesta, que es lo que permite fiarse de ella.
-          temperature: 0.2,
-          // EL PRESUPUESTO INCLUYE LO QUE EL MODELO PIENSA, NO SÓLO LO QUE
-          // ESCRIBE. Con 400 la respuesta salía cortada a media frase —«El
-          // cliente debe pagar»— porque el razonamiento se comía el cupo
-          // antes de llegar al texto.
-          //
-          // Se probó a apagar el razonamiento con `thinkingConfig` y este
-          // modelo lo rechaza con un 400, así que la salida es dar holgura:
-          // se paga por lo que se gasta, y una respuesta de tres frases
-          // gasta poco aunque el tope esté alto.
-          maxOutputTokens: 2048,
-        },
-      }),
+    const texto = await generarTexto({
+      instrucciones,
+      // Poca creatividad: la misma duda dos veces tiene que dar la misma
+      // respuesta, que es lo que permite fiarse de ella.
+      temperatura: 0.2,
+      maximoTokens: 512,
       // Corto a propósito: hay un cliente esperando. Si tarda más, no sirve.
-      signal: AbortSignal.timeout(20_000),
+      // Con holgura para un modelo local, que arranca más lento la primera vez.
+      tiempoLimiteMs: 45_000,
     });
-  } catch {
-    return NextResponse.json(
-      { error: 'No se ha podido contactar con la ayuda. El TPV sigue funcionando igual.' },
-      { status: 502 },
-    );
-  }
-
-  if (!respuesta.ok) {
-    // El detalle del proveedor no se le enseña al usuario; al registro sí.
-    console.error('[ayuda] Gemini respondió', respuesta.status, await respuesta.text().catch(() => ''));
-    return NextResponse.json(
-      { error: 'La ayuda no está disponible ahora mismo. Inténtalo en un momento.' },
-      { status: 502 },
-    );
-  }
-
-  try {
-    const datos = await respuesta.json();
-    const texto = (datos?.candidates?.[0]?.content?.parts ?? [])
-      .map((p: { text?: string }) => p?.text ?? '')
-      .join('')
-      .trim();
-
-    if (!texto) {
-      return NextResponse.json({ error: 'La ayuda ha respondido en blanco.' }, { status: 502 });
-    }
     return NextResponse.json({ texto });
-  } catch {
-    return NextResponse.json(
-      { error: 'La respuesta de la ayuda no se ha podido interpretar.' },
-      { status: 502 },
-    );
+  } catch (err) {
+    if (!(err instanceof FalloIA)) throw err;
+    // El detalle puede llevar trazas de la petición: al registro sí, al
+    // usuario no.
+    console.error('[ayuda] fallo de IA:', err.motivo, err.detalle ?? '');
+    const { estado, error } = respuestaDeFallo(err, 'El TPV sigue funcionando igual.');
+    return NextResponse.json({ error }, { status: estado });
   }
 }
