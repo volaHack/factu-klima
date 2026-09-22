@@ -33,7 +33,7 @@ interface ChartCardProps {
  *
  * Resuelve tres cosas que antes fallaban:
  *  1. Sin datos se ve un mensaje, no una tarjeta vacía que parece rota.
- *  2. El alto es explícito y contiene ya el eje X, así que Recharts nunca
+ *  2. El alto es explícito y contiene ya el eje X, así que la medición de Nivo nunca
  *     mide 0px ni recorta las etiquetas inferiores.
  *  3. Todo gráfico tiene su vista en tabla, para que ningún valor dependa
  *     únicamente del color o del tooltip.
@@ -110,7 +110,7 @@ export default function ChartCard({
       ) : (
         <>
           {/* Alto fijo y NO flex: un contenedor flexible colapsa a 0px de
-              ancho y Recharts deja de pintar. */}
+              ancho y Nivo deja de pintar. */}
           <div className="chart-plot" style={{ height }}>
             {children}
           </div>

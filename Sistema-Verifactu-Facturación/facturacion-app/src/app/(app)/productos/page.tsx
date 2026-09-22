@@ -337,7 +337,7 @@ export default function ProductosPage() {
     return categories.find(c => c.value === catValue) || { label: catValue, icon: 'Package' };
   };
 
-  // Analytics Recharts Data with complete table support
+  // Datos de la analítica, con su vista en tabla
   const accent = useMemo(() => resolveAccent(), []);
 
   const categoryDistributionData = useMemo(() => {
@@ -432,7 +432,7 @@ export default function ProductosPage() {
       {/* TAB 1: PRODUCTOS */}
       {activeTab === 'products' && (
         <>
-          {/* Integrated Recharts Analytics Block */}
+          {/* Bloque de analítica */}
           {products.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
               <ChartCard

@@ -1663,14 +1663,13 @@ a:hover { color: var(--accent-300); }
 .chart-toggle[aria-pressed="true"] { color: var(--accent-400); border-color: var(--accent-500); background: var(--accent-glow); }
 
 /* El área de dibujo NO es flex: un hijo flexible colapsa a 0px de ancho
-   y Recharts deja de pintar. Alto explícito, ya con la banda del eje.
+   y Nivo deja de pintar. Alto explícito, ya con la banda del eje.
 
-   IMPORTANTE: NUNCA poner max-width sobre .recharts-wrapper. Cuando el
-   ResponsiveContainer usa ancho porcentual (99%), Recharts cuelga la
-   gráfica de un div interno de width:0 con overflow-x:visible; un
-   max-width:100% se resuelve contra ese div de 0px y aplasta la gráfica
-   (SVG de 0px de ancho = gráfica invisible). El ancho exacto lo calcula
-   Recharts desde el contenedor medido. */
+   IMPORTANTE: NUNCA poner max-width sobre el contenedor del SVG. Cuando el
+   componentes Responsive* de Nivo MIDEN este div y dibujan a ese tamaño:
+   si su ancho se resuelve contra una caja de 0 px, el SVG sale de 0 px
+   y la gráfica desaparece. El ancho lo decide la medición del
+   contenedor, nunca un tope escrito a mano. */
 .chart-plot { width: 100%; min-width: 0; }
 
 .chart-empty {

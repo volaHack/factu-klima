@@ -153,7 +153,7 @@ export default function ClientesPage() {
     return clientStats.get(clientId) ?? { count: 0, total: 0 };
   };
 
-  // Recharts Analytics Data
+  // Datos de la analítica
   const accent = useMemo(() => resolveAccent(), []);
 
   const topClientsData = useMemo(() => {

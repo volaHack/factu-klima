@@ -435,7 +435,7 @@ export default function FacturasPage() {
           </button>
           {invoices.length > 0 && (
             <button className={`btn ${showAnalytics ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setShowAnalytics(v => !v)}>
-              <BarChart3 size={16} /> {showAnalytics ? 'Ocultar analítica' : 'Analítica Recharts'}
+              <BarChart3 size={16} /> {showAnalytics ? 'Ocultar analítica' : 'Ver analítica'}
             </button>
           )}
           <Link href="/facturas/nueva" className="btn btn-primary">
@@ -445,7 +445,7 @@ export default function FacturasPage() {
         </div>
       </div>
 
-      {/* Recharts Analytics Panel */}
+      {/* Panel de analítica */}
       {showAnalytics && invoices.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
           <ChartCard

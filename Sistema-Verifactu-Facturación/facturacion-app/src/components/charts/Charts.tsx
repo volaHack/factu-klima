@@ -1,52 +1,146 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ResponsiveBar, type BarDatum, type BarItemProps, type BarCustomLayerProps } from '@nivo/bar';
+import { ResponsiveLine } from '@nivo/line';
+import { ResponsivePie } from '@nivo/pie';
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Area, AreaChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
-} from 'recharts';
-import { INK, SERIES, TOOLTIP_CURSOR, compactEuro, resolveAccent, resolveTooltipStyle } from './theme';
+  SERIES, compactEuro, modoGrafica, resolveAccent, resolveInk,
+  type TintaGrafica,
+} from './theme';
 import { formatCurrency } from '@/lib/utils';
 
+// ============================================================
+// GRÁFICAS — Nivo
+//
+// Se pasó de Recharts a Nivo porque sus capas son abiertas: aquí las
+// barras las dibuja esta casa (esquina redondeada SÓLO en el extremo
+// del dato, base cuadrada, grosor tope 24 px) en vez de aceptar el
+// rectángulo que traiga la librería. Los manejadores de ratón siguen
+// siendo los de Nivo, así que el tooltip y el resaltado son nativos.
+//
+// Las reglas de marca —grosores, hueco de 2 px entre barras, anillo de
+// superficie en los puntos, etiqueta selectiva— vienen de la guía de
+// visualización de datos; los colores salen de theme.ts, ya validados
+// contra las dos superficies reales de la tarjeta.
+// ============================================================
+
 /**
- * Acento del tema activo, leído una sola vez al montar.
+ * Acento, tinta y preferencia de movimiento, resueltos UNA vez al
+ * montar. Estos componentes sólo se montan en cliente, así que el
+ * valor está listo en el primer render y no hace falta un segundo.
+ */
+function useGrafica() {
+  const [valores] = useState(() => {
+    const modo = modoGrafica();
+    return {
+      accent: resolveAccent(),
+      ink: resolveInk(modo),
+      reducido:
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    };
+  });
+  return valores;
+}
+
+/** Cromo del gráfico: ejes finos, cuadrícula de un paso sobre el fondo. */
+function temaNivo(ink: TintaGrafica) {
+  return {
+    text: { fontSize: 11, fill: ink.muted, fontFamily: 'inherit' },
+    axis: {
+      domain: { line: { stroke: ink.axis, strokeWidth: 1 } },
+      ticks: {
+        line: { stroke: 'transparent', strokeWidth: 0 },
+        text: { fill: ink.muted, fontSize: 11, fontFamily: 'inherit' },
+      },
+    },
+    grid: { line: { stroke: ink.grid, strokeWidth: 1 } },
+  };
+}
+
+/** Grosor máximo de una barra. Nunca llena su banda: el aire es del gráfico. */
+const GROSOR_MAX = 24;
+const RADIO = 4;
+
+/** Columna: redondeada arriba (el dato), cuadrada abajo (la base). */
+function trazadoColumna(x: number, y: number, w: number, h: number): string {
+  const r = Math.max(0, Math.min(RADIO, w / 2, h));
+  return `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} `
+    + `L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h} Z`;
+}
+
+/** Barra horizontal: redondeada a la derecha, cuadrada contra el eje. */
+function trazadoBarra(x: number, y: number, w: number, h: number): string {
+  const r = Math.max(0, Math.min(RADIO, h / 2, w));
+  return `M${x},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} `
+    + `L${x + w},${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} L${x},${y + h} Z`;
+}
+
+/**
+ * La barra, dibujada a mano.
  *
- * Se resuelve en el inicializador perezoso de useState en vez de en un
- * efecto: los gráficos sólo se montan cuando la página ya está en
- * cliente, así que el valor está disponible en el primer render y no
- * hace falta provocar un segundo.
+ * Nivo pinta un <rect> con las cuatro esquinas iguales; la guía pide el
+ * redondeo sólo en el extremo del dato. El grosor se recorta aquí a
+ * GROSOR_MAX y la barra se recentra en su banda, así que ningún ajuste
+ * de `padding` puede engordarla.
+ *
+ * La animación de entrada la lleva el CSS (`.barra-dato` en globals),
+ * con retraso escalonado por posición: entra como una ola de izquierda
+ * a derecha en vez de todas a la vez. `prefers-reduced-motion` la anula
+ * allí mismo.
  */
-function useAccent(): string {
-  const [accent] = useState(() => resolveAccent());
-  return accent;
+function barraDe(orientacion: 'vertical' | 'horizontal') {
+  return function Barra({ bar, onMouseEnter, onMouseLeave, onClick }: BarItemProps<BarDatum>) {
+    let { x, y, width, height } = bar;
+    if (width <= 0 || height <= 0) return null;
+
+    if (orientacion === 'vertical' && width > GROSOR_MAX) {
+      x += (width - GROSOR_MAX) / 2;
+      width = GROSOR_MAX;
+    }
+    const grosorBarra = GROSOR_MAX - 4;
+    if (orientacion === 'horizontal' && height > grosorBarra) {
+      y += (height - grosorBarra) / 2;
+      height = grosorBarra;
+    }
+
+    type ManejadorNivo = ((datum: typeof bar, event: React.MouseEvent<SVGRectElement>) => void) | undefined;
+    const puente = (fn: ManejadorNivo) =>
+      fn
+        ? (event: React.MouseEvent<SVGPathElement>) =>
+            fn(bar, event as unknown as React.MouseEvent<SVGRectElement>)
+        : undefined;
+
+    return (
+      <path
+        d={orientacion === 'vertical'
+          ? trazadoColumna(x, y, width, height)
+          : trazadoBarra(x, y, width, height)}
+        fill={bar.color}
+        className={`barra-dato${orientacion === 'horizontal' ? ' barra-dato--horizontal' : ''}`}
+        style={{ animationDelay: `${Math.min(bar.index, 14) * 26}ms` }}
+        onMouseEnter={puente(onMouseEnter as ManejadorNivo)}
+        onMouseLeave={puente(onMouseLeave as ManejadorNivo)}
+        onClick={puente(onClick as ManejadorNivo)}
+      />
+    );
+  };
 }
 
-/** Estilo del tooltip, resuelto una sola vez al montar — igual que useAccent. */
-function useTooltipStyle() {
-  const [style] = useState(() => resolveTooltipStyle());
-  return style;
-}
+const BarraVertical = barraDe('vertical');
+const BarraHorizontal = barraDe('horizontal');
 
-/**
- * Recharts anima por defecto (1500ms) pero no consulta `prefers-reduced-
- * motion` por sí solo. Se resuelve una vez, igual que useAccent: estos
- * componentes sólo se montan en cliente, así que el valor ya está
- * disponible en el primer render.
- */
-function usePrefersReducedMotion(): boolean {
-  const [reduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+/** Tooltip: primero el número, después de qué es. El color va en una llave. */
+function Tip({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="chart-tip">
+      <span className="chart-tip-key" style={{ background: color }} aria-hidden="true" />
+      <span className="chart-tip-value">{value}</span>
+      <span className="chart-tip-label">{label}</span>
+    </div>
   );
-  return reduced;
 }
-
-// Entrada más ágil que el 1500ms/ease por defecto de Recharts — coherente
-// con --ease-settle del resto de la app — y desactivada por completo si
-// el usuario pide menos movimiento.
-const CHART_ANIM_MS = 700;
-
-const AXIS_TICK = { fill: INK.muted, fontSize: 11 } as const;
-const AXIS_LINE = { stroke: INK.axis } as const;
 
 // ============================================================
 // COLUMNAS — evolución mensual (una sola serie)
@@ -54,89 +148,144 @@ const AXIS_LINE = { stroke: INK.axis } as const;
 // ============================================================
 
 export function RevenueColumns({ data }: { data: { name: string; total: number }[] }) {
-  const accent = useAccent();
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
+  const { accent, ink } = useGrafica();
+  const plot = useMemo<BarDatum[]>(() => data.map(d => ({ name: d.name, total: d.total })), [data]);
   const max = Math.max(...data.map(d => d.total), 0);
 
+  /** Etiqueta directa sólo en el máximo, no en cada columna. */
+  const EtiquetaMaximo = ({ bars }: BarCustomLayerProps<BarDatum>) => (
+    <g>
+      {bars
+        .filter(b => max > 0 && Number(b.data.value) === max)
+        .map(b => (
+          <text
+            key={b.key}
+            x={b.x + b.width / 2}
+            y={b.y - 8}
+            textAnchor="middle"
+            style={{ fill: ink.secondary, fontSize: 11, fontFamily: 'inherit' }}
+          >
+            {compactEuro(Number(b.data.value))}
+          </text>
+        ))}
+    </g>
+  );
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 20, right: 8, left: 0, bottom: 0 }} barCategoryGap="28%">
-        <CartesianGrid vertical={false} stroke={INK.grid} />
-        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
-        <YAxis
-          tick={AXIS_TICK}
-          axisLine={false}
-          tickLine={false}
-          width={44}
-          tickFormatter={compactEuro}
-        />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          cursor={TOOLTIP_CURSOR}
-          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
-          formatter={(value) => [formatCurrency(Number(value)), 'Facturado']}
-        />
-        {/* maxBarSize evita bloques gruesos: la barra no llena la banda. */}
-        <Bar
-          dataKey="total" fill={accent} radius={[4, 4, 0, 0]} maxBarSize={24}
-          isAnimationActive={!reducedMotion} animationDuration={CHART_ANIM_MS} animationEasing="ease-out"
-        >
-          {/* Etiqueta directa sólo en el máximo, no en cada columna. */}
-          <LabelList
-            dataKey="total"
-            position="top"
-            fill={INK.secondary}
-            fontSize={11}
-            formatter={(v) => (Number(v) > 0 && Number(v) === max ? compactEuro(Number(v)) : '')}
-          />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ResponsiveBar
+      data={plot}
+      keys={['total']}
+      indexBy="name"
+      margin={{ top: 24, right: 8, bottom: 28, left: 48 }}
+      padding={0.42}
+      colors={[accent]}
+      theme={temaNivo(ink)}
+      animate={false}
+      barComponent={BarraVertical}
+      layers={['grid', 'axes', 'bars', EtiquetaMaximo]}
+      enableLabel={false}
+      enableGridX={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8 }}
+      axisLeft={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
+      tooltip={({ data: d, color }) => (
+        <Tip color={color} label={String(d.name)} value={formatCurrency(Number(d.total))} />
+      )}
+      role="img"
+      ariaLabel="Facturación por mes"
+    />
   );
 }
 
 // ============================================================
-// LÍNEAS — tendencia con dos series (total vs base imponible)
+// LÍNEAS Y ÁREA — tendencia con dos series (total vs base imponible)
 // Dos series ⇒ leyenda obligatoria (la pinta la tarjeta).
 // ============================================================
 
-export function TrendLines({ data }: { data: { name: string; total: number; base: number }[] }) {
-  const accent = useAccent();
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
+/** Un tooltip con TODAS las series de esa X: el puntero no tiene que acertar la línea. */
+function TipRebanada({ puntos }: { puntos: { serie: string; color: string; valor: number }[] }) {
+  return (
+    <div className="chart-tip chart-tip--lista">
+      {puntos.map(p => (
+        <div key={p.serie} className="chart-tip-fila">
+          <span className="chart-tip-key" style={{ background: p.color }} aria-hidden="true" />
+          <span className="chart-tip-value">{formatCurrency(p.valor)}</span>
+          <span className="chart-tip-label">{p.serie}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LineasBase({
+  data, label1, label2, area,
+}: {
+  data: { name: string; total: number; base: number }[];
+  label1: string;
+  label2: string;
+  area: boolean;
+}) {
+  const { accent, ink, reducido } = useGrafica();
+  const series = useMemo(
+    () => [
+      { id: label1, data: data.map(d => ({ x: d.name, y: d.total })) },
+      { id: label2, data: data.map(d => ({ x: d.name, y: d.base })) },
+    ],
+    [data, label1, label2],
+  );
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke={INK.grid} />
-        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
-        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
-          formatter={(value, name) => [
-            formatCurrency(Number(value)),
-            name === 'total' ? 'Total facturado' : 'Base imponible',
-          ]}
+    <ResponsiveLine
+      data={series}
+      margin={{ top: 16, right: 16, bottom: 28, left: 48 }}
+      xScale={{ type: 'point' }}
+      yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
+      curve="monotoneX"
+      colors={[accent, SERIES[0]]}
+      theme={temaNivo(ink)}
+      lineWidth={2}
+      enableArea={area}
+      areaOpacity={0.12}
+      enablePoints
+      pointSize={8}
+      pointColor={{ from: 'series.color' }}
+      pointBorderWidth={2}
+      pointBorderColor={ink.surface}
+      enableGridX={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8 }}
+      axisLeft={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
+      enableSlices="x"
+      enableCrosshair
+      crosshairType="x"
+      sliceTooltip={({ slice }) => (
+        <TipRebanada
+          puntos={slice.points.map(p => ({
+            serie: String(p.seriesId),
+            color: p.seriesColor,
+            valor: Number(p.data.y),
+          }))}
         />
-        <Line
-          type="monotone" dataKey="total" name="total"
-          stroke={accent} strokeWidth={2} strokeLinecap="round"
-          dot={{ r: 4, fill: accent, stroke: INK.surface, strokeWidth: 2 }}
-          activeDot={{ r: 6, stroke: INK.surface, strokeWidth: 2 }}
-          isAnimationActive={!reducedMotion} animationDuration={CHART_ANIM_MS} animationEasing="ease-out"
-        />
-        <Line
-          type="monotone" dataKey="base" name="base"
-          stroke={SERIES[0]} strokeWidth={2} strokeLinecap="round"
-          dot={{ r: 3, fill: SERIES[0], stroke: INK.surface, strokeWidth: 2 }}
-          activeDot={{ r: 5, stroke: INK.surface, strokeWidth: 2 }}
-          isAnimationActive={!reducedMotion} animationDuration={CHART_ANIM_MS} animationEasing="ease-out"
-        />
-      </LineChart>
-    </ResponsiveContainer>
+      )}
+      animate={!reducido}
+      motionConfig="gentle"
+    />
   );
+}
+
+export function TrendLines({ data }: { data: { name: string; total: number; base: number }[] }) {
+  return <LineasBase data={data} label1="Total facturado" label2="Base imponible" area={false} />;
+}
+
+/** Área: el relleno es un lavado al 12 %, no un bloque saturado. */
+export function AreaTrendChart({
+  data,
+  label1 = 'Total facturado',
+  label2 = 'Base imponible',
+}: {
+  data: { name: string; total: number; base: number }[];
+  label1?: string;
+  label2?: string;
+}) {
+  return <LineasBase data={data} label1={label1} label2={label2} area />;
 }
 
 // ============================================================
@@ -151,68 +300,58 @@ export function RankedBars({
   data: { name: string; total: number }[];
   color?: string;
 }) {
-  const accent = useAccent();
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
+  const { accent, ink } = useGrafica();
   const fill = color ?? accent;
 
-  // Recharts reparte las claves de cada entrada de datos sobre los elementos
-  // que dibuja, así que una entrada con una clave `ref` termina puesta como
-  // ref de un nodo del DOM — y React 19, que ya no admite refs de texto,
-  // aborta la página entera con el error #284.
-  //
-  // Pasó de verdad en el dashboard: los productos llevan su referencia de
-  // catálogo en `ref` ('PRD-001'), y TypeScript no lo detecta porque el
-  // control de propiedades sobrantes sólo se aplica a literales, no a una
-  // variable que se pasa como argumento.
-  //
-  // Por eso se proyecta aquí a los dos campos que el gráfico usa: así ningún
-  // llamante puede colar props reservadas, ni ahora ni más adelante.
-  const plotData = useMemo(
+  // Se proyecta a los dos campos que el gráfico usa: si un llamante pasa
+  // objetos con otras claves (los productos traen `ref`), ninguna acaba
+  // repartida sobre un nodo del DOM.
+  const plot = useMemo<BarDatum[]>(
     () => data.map(({ name, total }) => ({ name, total })),
-    [data]
+    [data],
+  );
+
+  /** El valor va FUERA del extremo: dentro se recortaría en las barras cortas. */
+  const EtiquetaValor = ({ bars }: BarCustomLayerProps<BarDatum>) => (
+    <g>
+      {bars.map(b => (
+        <text
+          key={b.key}
+          x={b.x + b.width + 8}
+          y={b.y + b.height / 2}
+          dominantBaseline="central"
+          style={{ fill: ink.secondary, fontSize: 11, fontFamily: 'inherit' }}
+        >
+          {compactEuro(Number(b.data.value))}
+        </text>
+      ))}
+    </g>
   );
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart
-        data={plotData}
-        layout="vertical"
-        margin={{ top: 4, right: 56, left: 0, bottom: 0 }}
-        barCategoryGap="26%"
-      >
-        <CartesianGrid horizontal={false} stroke={INK.grid} />
-        <XAxis type="number" tick={AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={compactEuro} />
-        <YAxis
-          type="category"
-          dataKey="name"
-          tick={AXIS_TICK}
-          axisLine={false}
-          tickLine={false}
-          width={132}
-        />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          cursor={TOOLTIP_CURSOR}
-          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
-          formatter={(value) => [formatCurrency(Number(value)), 'Facturado']}
-        />
-        <Bar
-          dataKey="total" fill={fill} radius={[0, 4, 4, 0]} maxBarSize={20}
-          isAnimationActive={!reducedMotion} animationDuration={CHART_ANIM_MS} animationEasing="ease-out"
-        >
-          {/* La etiqueta va FUERA del extremo de la barra: dentro se
-              recortaría en las barras cortas. */}
-          <LabelList
-            dataKey="total"
-            position="right"
-            fill={INK.secondary}
-            fontSize={11}
-            formatter={(v) => compactEuro(Number(v))}
-          />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ResponsiveBar
+      data={plot}
+      keys={['total']}
+      indexBy="name"
+      layout="horizontal"
+      margin={{ top: 4, right: 56, bottom: 24, left: 136 }}
+      padding={0.34}
+      colors={[fill]}
+      theme={temaNivo(ink)}
+      animate={false}
+      barComponent={BarraHorizontal}
+      layers={['grid', 'axes', 'bars', EtiquetaValor]}
+      enableLabel={false}
+      enableGridX
+      enableGridY={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
+      axisLeft={{ tickSize: 0, tickPadding: 8 }}
+      tooltip={({ data: d, color: c }) => (
+        <Tip color={c} label={String(d.name)} value={formatCurrency(Number(d.total))} />
+      )}
+      role="img"
+      ariaLabel="Ranking por importe facturado"
+    />
   );
 }
 
@@ -231,38 +370,39 @@ export function StatusDonut({ data, centerLabel, centerValue }: {
   centerLabel: string;
   centerValue: string;
 }) {
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
-  // El color va en el propio dato: <Cell> está obsoleto y desaparece en
-  // Recharts 4. Pie ya lee `fill` de cada entrada.
-  const slices = data.map(d => ({ ...d, fill: d.color }));
+  const { ink, reducido } = useGrafica();
+  const slices = useMemo(
+    () => data.map(d => ({ id: d.name, label: d.name, value: d.value, color: d.color })),
+    [data],
+  );
 
   return (
     <div className="donut-wrap">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={slices}
-            dataKey="value"
-            cx="50%"
-            cy="50%"
-            innerRadius="62%"
-            outerRadius="88%"
-            /* El hueco entre segmentos lo hace el color de fondo, no un
-               borde dibujado alrededor de cada porción. */
-            paddingAngle={2}
-            stroke={INK.surface}
-            strokeWidth={2}
-            isAnimationActive={!reducedMotion}
-            animationDuration={CHART_ANIM_MS}
-            animationEasing="ease-out"
+      <ResponsivePie
+        data={slices}
+        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        innerRadius={0.62}
+        padAngle={2}
+        cornerRadius={2}
+        activeOuterRadiusOffset={6}
+        colors={{ datum: 'data.color' }}
+        /* El hueco entre porciones lo hace el color de la superficie, no
+           un borde dibujado: separa el blanco, no la tinta. */
+        borderWidth={2}
+        borderColor={ink.surface}
+        theme={temaNivo(ink)}
+        enableArcLabels={false}
+        enableArcLinkLabels={false}
+        tooltip={({ datum }) => (
+          <Tip
+            color={datum.color}
+            label={String(datum.label)}
+            value={`${datum.value} ${datum.value === 1 ? 'factura' : 'facturas'}`}
           />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            formatter={(value, name) => [`${Number(value)} facturas`, String(name)]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+        )}
+        animate={!reducido}
+        motionConfig="gentle"
+      />
 
       <div className="donut-center" aria-hidden="true">
         <span className="donut-center-value">{centerValue}</span>
@@ -288,75 +428,9 @@ export function ChartLegend({ items }: { items: { name: string; value: string; c
 }
 
 // ============================================================
-// ÁREA / TENDENCIA — comparación de dos series temporales
-// ============================================================
-
-export function AreaTrendChart({
-  data,
-  label1 = 'Total facturado',
-  label2 = 'Base imponible',
-}: {
-  data: { name: string; total: number; base: number }[];
-  label1?: string;
-  label2?: string;
-}) {
-  const accent = useAccent();
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="areaTotal" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={accent} stopOpacity={0.25} />
-            <stop offset="95%" stopColor={accent} stopOpacity={0.0} />
-          </linearGradient>
-          <linearGradient id="areaBase" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={SERIES[0]} stopOpacity={0.2} />
-            <stop offset="95%" stopColor={SERIES[0]} stopOpacity={0.0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} stroke={INK.grid} />
-        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
-        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
-          formatter={(value, name) => [
-            formatCurrency(Number(value)),
-            name === 'total' ? label1 : label2,
-          ]}
-        />
-        <Area
-          type="monotone"
-          dataKey="total"
-          name="total"
-          stroke={accent}
-          strokeWidth={2}
-          fillOpacity={1}
-          fill="url(#areaTotal)"
-          isAnimationActive={!reducedMotion}
-          animationDuration={CHART_ANIM_MS}
-        />
-        <Area
-          type="monotone"
-          dataKey="base"
-          name="base"
-          stroke={SERIES[0]}
-          strokeWidth={2}
-          fillOpacity={1}
-          fill="url(#areaBase)"
-          isAnimationActive={!reducedMotion}
-          animationDuration={CHART_ANIM_MS}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ============================================================
 // BARRAS DE COMPARACIÓN — dos series por categoría
+// `innerPadding` son los 2 px de superficie que separan las dos barras
+// de un grupo: el hueco separa, no un borde alrededor.
 // ============================================================
 
 export function ComparisonBarChart({
@@ -368,44 +442,34 @@ export function ComparisonBarChart({
   name1?: string;
   name2?: string;
 }) {
-  const accent = useAccent();
-  const reducedMotion = usePrefersReducedMotion();
-  const tooltipStyle = useTooltipStyle();
+  const { accent, ink } = useGrafica();
+  const plot = useMemo<BarDatum[]>(
+    () => data.map(d => ({ name: d.name, [name1]: d.series1, [name2]: d.series2 })),
+    [data, name1, name2],
+  );
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="20%">
-        <CartesianGrid vertical={false} stroke={INK.grid} />
-        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
-        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} tickFormatter={compactEuro} />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          cursor={TOOLTIP_CURSOR}
-          labelStyle={{ color: INK.secondary, marginBottom: 4 }}
-          formatter={(value, name) => [
-            formatCurrency(Number(value)),
-            name === 'series1' ? name1 : name2,
-          ]}
-        />
-        <Bar
-          dataKey="series1"
-          name="series1"
-          fill={accent}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-          isAnimationActive={!reducedMotion}
-          animationDuration={CHART_ANIM_MS}
-        />
-        <Bar
-          dataKey="series2"
-          name="series2"
-          fill={SERIES[0]}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-          isAnimationActive={!reducedMotion}
-          animationDuration={CHART_ANIM_MS}
-        />
-      </BarChart>
-    </ResponsiveContainer>
+    <ResponsiveBar
+      data={plot}
+      keys={[name1, name2]}
+      indexBy="name"
+      groupMode="grouped"
+      margin={{ top: 16, right: 12, bottom: 28, left: 48 }}
+      padding={0.3}
+      innerPadding={2}
+      colors={[accent, SERIES[0]]}
+      theme={temaNivo(ink)}
+      animate={false}
+      barComponent={BarraVertical}
+      enableLabel={false}
+      enableGridX={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8 }}
+      axisLeft={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
+      tooltip={({ id, value, color, indexValue }) => (
+        <Tip color={color} label={`${indexValue} · ${id}`} value={formatCurrency(Number(value))} />
+      )}
+      role="img"
+      ariaLabel={`Comparación de ${name1} y ${name2}`}
+    />
   );
 }
