@@ -14,7 +14,7 @@
 import { descuentoEfectivo, unidadesTotales } from '../documentos';
 import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
-import { calculateInvoiceTotals, formatCurrency, formatDate } from '../utils';
+import { calculateInvoiceTotals, desgloseDescuentos, formatCurrency, formatDate } from '../utils';
 import { LEYENDA_LARGA } from '../verifactu/qrFactura';
 import { CAMPOS, RENGLONES_IMPUESTO, totalDeColumna } from './contrato';
 
@@ -413,6 +413,7 @@ export function construirDatos(
     // Importes
     total_base: formatCurrency(doc.subtotal),
     total_descuento: formatCurrency(doc.totalDiscount),
+    total_descuento_pie: formatCurrency(desgloseDescuentos(doc).alPie),
     total_impuestos: formatCurrency(doc.totalTax),
     total_general: formatCurrency(doc.total),
     total_impuesto_nombre: impuesto,

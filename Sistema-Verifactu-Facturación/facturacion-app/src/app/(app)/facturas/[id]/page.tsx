@@ -17,7 +17,7 @@ import {
   getApprovalByInvoiceId, getApprovalItems, issueInvoice, isSealed, getOnboardingStatus,
 } from '@/lib/storage';
 import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalItem } from '@/lib/types';
-import { formatCurrency, formatDate, generateId, getStatusInfo } from '@/lib/utils';
+import { formatCurrency, formatDate, generateId, getStatusInfo, desgloseDescuentos } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { descuentoEfectivo, unidadesTotales } from '@/lib/documentos';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
@@ -240,6 +240,7 @@ export default function InvoiceDetailPage() {
   // enseñaba como si fuera una firma fiscal: parecía que la factura
   // estaba sellada cuando no lo estaba.
   const chainedHash = invoice.verifactu?.chainedHash ?? null;
+  const descuentos = desgloseDescuentos(invoice);
   const sealed = isSealed(invoice);
 
   // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
@@ -458,10 +459,25 @@ export default function InvoiceDetailPage() {
                     <td style={{ color: '#64748b' }}>Base imponible</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(invoice.subtotal)}</td>
                   </tr>
-                  {invoice.totalDiscount > 0 && (
+                  {/* El descuento de pie va en su propio renglón: es una
+                      rebaja sobre el total, no parte del precio de una
+                      línea, y quien recibe la factura tiene que poder
+                      distinguirlos para cuadrar las líneas con el total. */}
+                  {descuentos.enLineas > 0.005 && (
                     <tr>
-                      <td style={{ color: '#64748b' }}>Descuentos</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(invoice.totalDiscount)}</td>
+                      <td style={{ color: '#64748b' }}>
+                        {descuentos.alPie > 0 ? 'Descuentos en líneas' : 'Descuentos'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.enLineas)}</td>
+                    </tr>
+                  )}
+                  {descuentos.alPie > 0 && (
+                    <tr>
+                      <td style={{ color: '#64748b' }}>
+                        Descuento a pie de factura
+                        {descuentos.porcentajesPie.length > 0 && ` (${descuentos.porcentajesPie.join(' % + ')} %)`}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.alPie)}</td>
                     </tr>
                   )}
                   {invoice.taxBreakdown.map(tb => (

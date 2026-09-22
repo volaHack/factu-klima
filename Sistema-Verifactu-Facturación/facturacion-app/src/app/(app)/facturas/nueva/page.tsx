@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Send, ArrowLeft } from 'lucide-react';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
@@ -17,7 +18,7 @@ import {
 } from '@/lib/types';
 import {
   generateId, generateInvoiceNumber, getToday, addDays,
-  formatCurrency, calculateInvoiceTotals, sequenceFromNumber
+  calculateInvoiceTotals, sequenceFromNumber
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
 import type { PlanId } from '@/lib/plans';
@@ -73,6 +74,7 @@ export default function NuevaFacturaPage() {
   const [dueDate, setDueDate] = useState(addDays(getToday(), 30));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
   const [notes, setNotes] = useState('');
+  const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([createEmptyLine()]);
   const [abonoSelection, setAbonoSelection] = useState<AbonoSelection | null>(null);
   const [clavesManuales, setClavesManuales] = useState<string[]>([]);
@@ -136,7 +138,13 @@ export default function NuevaFacturaPage() {
   };
 
   // Totals
-  const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
+  //
+  // Los descuentos de pie entran aquí, no en las líneas: son una rebaja
+  // sobre el total de la factura, encadenada igual que los de línea.
+  const totals = useMemo(
+    () => calculateInvoiceTotals(lineItems, globalDiscounts),
+    [lineItems, globalDiscounts],
+  );
 
   const selectedClient = clients.find(c => c.id === clientId);
 
@@ -203,6 +211,9 @@ export default function NuevaFacturaPage() {
       status,
       lineItems: validLines,
       ...totals,
+      globalDiscountPercent1: globalDiscounts[0] || 0,
+      globalDiscountPercent2: globalDiscounts[1] || 0,
+      globalDiscountPercent3: globalDiscounts[2] || 0,
       paymentMethod,
       notes,
       esIntracomunitaria: client ? esOperacionIntracomunitaria(client, settings) : false,
@@ -403,34 +414,18 @@ export default function NuevaFacturaPage() {
         )}
 
         {/* Totales y pago */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Totales y pago</h3>
-
-          <div className="invoice-totals">
-            <div className="invoice-totals-table">
-              <div className="invoice-totals-row">
-                <span className="label">Base imponible</span>
-                <span className="value">{formatCurrency(totals.subtotal)}</span>
-              </div>
-              {totals.totalDiscount > 0 && (
-                <div className="invoice-totals-row">
-                  <span className="label">Descuentos</span>
-                  <span className="value" style={{ color: 'var(--color-danger)' }}>-{formatCurrency(totals.totalDiscount)}</span>
-                </div>
-              )}
-              {totals.taxBreakdown.map(tb => (
-                <div className="invoice-totals-row" key={tb.rate}>
-                  <span className="label">IVA {tb.rate}% (base {formatCurrency(tb.base)})</span>
-                  <span className="value">{formatCurrency(tb.amount)}</span>
-                </div>
-              ))}
-              <div className="invoice-totals-row total">
-                <span className="label">TOTAL</span>
-                <span className="value">{formatCurrency(totals.total)}</span>
-              </div>
-            </div>
-          </div>
-
+        <TotalesDocumento
+          subtotal={totals.subtotal}
+          totalDiscount={totals.totalDiscount}
+          taxBreakdown={totals.taxBreakdown}
+          totalTax={totals.totalTax}
+          total={totals.total}
+          etiquetaImpuesto={ajustes?.igicEnabled ? 'IGIC' : 'IVA'}
+          descuentoAlPie={totals.globalDiscountAmount ?? 0}
+          porcentajesPie={globalDiscounts.filter(p => p > 0)}
+          globalDiscounts={globalDiscounts}
+          onGlobalDiscountsChange={setGlobalDiscounts}
+        >
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label">Forma de pago</label>
@@ -456,7 +451,7 @@ export default function NuevaFacturaPage() {
               <div className="field-message">Registra la fecha de cobro de hoy en el momento de emitir.</div>
             </div>
           </div>
-        </div>
+        </TotalesDocumento>
 
         {/* Notes */}
         <div className="card">

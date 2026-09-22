@@ -12,6 +12,13 @@ interface TotalesDocumentoProps {
   totalTax: number;
   total: number;
   etiquetaImpuesto?: string;
+  /**
+   * Cuánto de `totalDiscount` viene del descuento al pie, y con qué
+   * porcentajes. Si se pasa, el descuento se enseña en dos renglones en
+   * vez de uno: lo rebajado en las líneas y lo rebajado sobre el total.
+   */
+  descuentoAlPie?: number;
+  porcentajesPie?: number[];
   globalDiscounts?: [number, number, number];
   onGlobalDiscountsChange?: (discounts: [number, number, number]) => void;
   children?: React.ReactNode;
@@ -24,6 +31,8 @@ export default function TotalesDocumento({
   totalTax,
   total,
   etiquetaImpuesto = 'IVA',
+  descuentoAlPie = 0,
+  porcentajesPie = [],
   globalDiscounts = [0, 0, 0],
   onGlobalDiscountsChange,
   children,
@@ -115,11 +124,24 @@ export default function TotalesDocumento({
             <span className="label">Base imponible</span>
             <span className="value">{formatCurrency(subtotal)}</span>
           </div>
-          {totalDiscount > 0 && (
+          {totalDiscount - descuentoAlPie > 0.005 && (
             <div className="invoice-totals-row">
-              <span className="label">Descuentos acumulados</span>
+              <span className="label">
+                {descuentoAlPie > 0 ? 'Descuentos en líneas' : 'Descuentos acumulados'}
+              </span>
               <span className="value" style={{ color: 'var(--color-danger)' }}>
-                -{formatCurrency(totalDiscount)}
+                -{formatCurrency(descuentoAlPie > 0 ? totalDiscount - descuentoAlPie : totalDiscount)}
+              </span>
+            </div>
+          )}
+          {descuentoAlPie > 0 && (
+            <div className="invoice-totals-row">
+              <span className="label">
+                Descuento a pie de factura
+                {porcentajesPie.length > 0 && ` (${porcentajesPie.join(' % + ')} %)`}
+              </span>
+              <span className="value" style={{ color: 'var(--color-danger)' }}>
+                -{formatCurrency(descuentoAlPie)}
               </span>
             </div>
           )}

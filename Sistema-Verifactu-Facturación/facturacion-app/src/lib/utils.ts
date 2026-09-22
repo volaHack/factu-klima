@@ -335,3 +335,49 @@ export function processLogoFile(file: File, maxSize = 600): Promise<string> {
     img.src = objectUrl;
   });
 }
+
+/**
+ * Separa el descuento de un documento en sus dos naturalezas: lo que se
+ * rebajó línea a línea y lo que se rebajó al pie, sobre el total.
+ *
+ * Son dos cosas distintas y el cliente tiene derecho a verlas distintas.
+ * Un 3 % en la línea del producto es parte del precio de ESE producto; un
+ * 10 % al pie es una rebaja sobre toda la factura, y suele venir de un
+ * acuerdo comercial, de pronto pago o de una campaña. Sumados en un único
+ * renglón de «Descuentos», quien recibe la factura no puede reconstruir ni
+ * uno ni otro, y las líneas dejan de cuadrar con el total.
+ *
+ * El importe de pie se recalcula desde las líneas, pero el de línea se saca
+ * RESTANDO del `totalDiscount` guardado, no sumándolo aparte: así los dos
+ * renglones suman siempre exactamente el descuento que la factura dice
+ * tener, incluso en una factura sellada cuyos importes ya no se recalculan.
+ */
+export function desgloseDescuentos(doc: {
+  lineItems: InvoiceLineItem[];
+  totalDiscount: number;
+  globalDiscountPercent1?: number;
+  globalDiscountPercent2?: number;
+  globalDiscountPercent3?: number;
+}): { enLineas: number; alPie: number; porcentajesPie: number[] } {
+  const porcentajesPie = [
+    doc.globalDiscountPercent1 || 0,
+    doc.globalDiscountPercent2 || 0,
+    doc.globalDiscountPercent3 || 0,
+  ].filter(p => p > 0);
+
+  const total = doc.totalDiscount || 0;
+  if (porcentajesPie.length === 0) {
+    return { enLineas: total, alPie: 0, porcentajesPie };
+  }
+
+  const base = doc.lineItems.reduce(
+    (suma, l) => suma + calculateLineSubtotal(
+      l.quantity, l.unitPrice, l.discountPercent, l.discountPercent2, l.discountPercent3,
+    ),
+    0,
+  );
+  const factor = porcentajesPie.reduce((f, p) => f * (1 - p / 100), 1);
+  const alPie = Number((base - base * factor).toFixed(2));
+
+  return { enLineas: Number((total - alPie).toFixed(2)), alPie, porcentajesPie };
+}

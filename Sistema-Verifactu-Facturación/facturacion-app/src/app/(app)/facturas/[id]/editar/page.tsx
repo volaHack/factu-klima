@@ -13,12 +13,13 @@ import {
   Client, CompanySettings, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, TaxRate, UnitOfMeasure
 } from '@/lib/types';
-import { formatCurrency, calculateInvoiceTotals, generateId } from '@/lib/utils';
+import { calculateInvoiceTotals, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
 import AvisoPlantillaDeOtroOficio from '@/components/facturas/AvisoPlantillaDeOtroOficio';
@@ -69,6 +70,7 @@ export default function EditInvoicePage() {
   /** Con qué oficio se montó la plantilla activa, si se hizo desde cero. */
   const [oficioDeLaPlantilla, setOficioDeLaPlantilla] = useState<string | undefined>(undefined);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
+  const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
 
   useEffect(() => {
     (async () => {
@@ -92,6 +94,11 @@ export default function EditInvoicePage() {
         inv.datosExtras,
       ));
       setDatosExtras(inv.datosExtras ?? {});
+      setGlobalDiscounts([
+        inv.globalDiscountPercent1 || 0,
+        inv.globalDiscountPercent2 || 0,
+        inv.globalDiscountPercent3 || 0,
+      ]);
       const [clients, products, settings] = await Promise.all([
         getClients().then(c => c.filter(cl => cl.active)),
         getProducts().then(p => p.filter(pr => pr.active)),
@@ -114,7 +121,10 @@ export default function EditInvoicePage() {
     })();
   }, [params.id, router]);
 
-  const totals = useMemo(() => calculateInvoiceTotals(lineItems), [lineItems]);
+  const totals = useMemo(
+    () => calculateInvoiceTotals(lineItems, globalDiscounts),
+    [lineItems, globalDiscounts],
+  );
 
   const handleSave = async (status: InvoiceStatus) => {
     const esOcasional = clienteOcasional;
@@ -153,6 +163,9 @@ export default function EditInvoicePage() {
       clientAddress,
       issueDate, dueDate, status, lineItems: validLines,
       ...totals, paymentMethod, notes, datosExtras: datosExtrasFinal,
+      globalDiscountPercent1: globalDiscounts[0] || 0,
+      globalDiscountPercent2: globalDiscounts[1] || 0,
+      globalDiscountPercent3: globalDiscounts[2] || 0,
       esIntracomunitaria: client ? esOperacionIntracomunitaria(client, ajustes || undefined) : false,
       clientVatNumber: client?.vatNumber,
       updatedAt: new Date().toISOString(),
@@ -327,20 +340,18 @@ export default function EditInvoicePage() {
 
 
         {/* Totales y pago */}
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Totales y pago</h3>
-          <div className="invoice-totals">
-            <div className="invoice-totals-table">
-              <div className="invoice-totals-row"><span className="label">Base imponible</span><span className="value">{formatCurrency(totals.subtotal)}</span></div>
-              {totals.totalDiscount > 0 && (
-                <div className="invoice-totals-row"><span className="label">Descuentos</span><span className="value" style={{ color: 'var(--color-danger)' }}>-{formatCurrency(totals.totalDiscount)}</span></div>
-              )}
-              {totals.taxBreakdown.map(tb => (
-                <div className="invoice-totals-row" key={tb.rate}><span className="label">IVA {tb.rate}% (base {formatCurrency(tb.base)})</span><span className="value">{formatCurrency(tb.amount)}</span></div>
-              ))}
-              <div className="invoice-totals-row total"><span className="label">TOTAL</span><span className="value">{formatCurrency(totals.total)}</span></div>
-            </div>
-          </div>
+        <TotalesDocumento
+          subtotal={totals.subtotal}
+          totalDiscount={totals.totalDiscount}
+          taxBreakdown={totals.taxBreakdown}
+          totalTax={totals.totalTax}
+          total={totals.total}
+          etiquetaImpuesto={ajustes?.igicEnabled ? 'IGIC' : 'IVA'}
+          descuentoAlPie={totals.globalDiscountAmount ?? 0}
+          porcentajesPie={globalDiscounts.filter(p => p > 0)}
+          globalDiscounts={globalDiscounts}
+          onGlobalDiscountsChange={setGlobalDiscounts}
+        >
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label">Forma de pago</label>
@@ -360,7 +371,7 @@ export default function EditInvoicePage() {
               <div className="field-message">Registra la fecha de cobro de hoy en el momento de emitir.</div>
             </div>
           </div>
-        </div>
+        </TotalesDocumento>
 
         {/* Notes */}
         <div className="card">

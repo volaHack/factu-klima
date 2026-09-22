@@ -17,7 +17,7 @@ import {
 import {
   Invoice, InvoiceStatus, CompanySettings, TipoDocumento,
 } from '@/lib/types';
-import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
+import { formatCurrency, formatDate, getStatusInfo, desgloseDescuentos } from '@/lib/utils';
 import {
   etiquetaTipo, documentoConvertido, rectificar, actualizarContadorSerie, unidadesTotales,
 } from '@/lib/documentos';
@@ -74,6 +74,7 @@ export default function DocumentoDetallePage() {
   const sentido = documento.sentido ?? 'venta';
   const esCompra = sentido === 'compra';
   const statusInfo = getStatusInfo(documento.status);
+  const descuentos = desgloseDescuentos(documento);
 
   // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
   // unidades sólo sale si el oficio agrupa en bultos Y este documento
@@ -399,11 +400,24 @@ export default function DocumentoDetallePage() {
               <span className="label">Base imponible</span>
               <span className="value">{formatCurrency(documento.subtotal)}</span>
             </div>
-            {documento.totalDiscount > 0 && (
+            {descuentos.enLineas > 0.005 && (
               <div className="invoice-totals-row">
-                <span className="label">Descuentos</span>
+                <span className="label">
+                  {descuentos.alPie > 0 ? 'Descuentos en líneas' : 'Descuentos'}
+                </span>
                 <span className="value" style={{ color: 'var(--color-danger)' }}>
-                  -{formatCurrency(documento.totalDiscount)}
+                  -{formatCurrency(descuentos.enLineas)}
+                </span>
+              </div>
+            )}
+            {descuentos.alPie > 0 && (
+              <div className="invoice-totals-row">
+                <span className="label">
+                  Descuento al pie
+                  {` (${descuentos.porcentajesPie.join(' % + ')} %)`}
+                </span>
+                <span className="value" style={{ color: 'var(--color-danger)' }}>
+                  -{formatCurrency(descuentos.alPie)}
                 </span>
               </div>
             )}

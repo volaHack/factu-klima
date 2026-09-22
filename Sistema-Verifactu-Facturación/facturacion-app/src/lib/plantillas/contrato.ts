@@ -122,6 +122,7 @@ export const CAMPOS: CampoPlantilla[] = [
   // --- Importes (ya formateados con € y coma decimal) ---
   { clave: 'total_base', etiqueta: 'Base imponible', descripcion: 'Suma de las líneas sin impuestos', grupo: 'totales', tipo: 'texto', ejemplo: '1.250,00 €' },
   { clave: 'total_descuento', etiqueta: 'Descuento', descripcion: 'Descuento total aplicado', grupo: 'totales', tipo: 'texto', ejemplo: '0,00 €' },
+  { clave: 'total_descuento_pie', etiqueta: 'Descuento a pie', descripcion: 'La parte del descuento aplicada sobre el total del documento, no en las líneas', grupo: 'totales', tipo: 'texto', ejemplo: '0,00 €' },
   { clave: 'total_impuestos', etiqueta: 'Total impuestos', descripcion: 'Cuota total de IVA/IGIC', grupo: 'totales', tipo: 'texto', ejemplo: '262,50 €' },
   { clave: 'total_general', etiqueta: 'Total', descripcion: 'Total del documento', grupo: 'totales', tipo: 'texto', ejemplo: '1.512,50 €' },
   { clave: 'total_impuesto_nombre', etiqueta: 'Nombre del impuesto', descripcion: 'IVA o IGIC, según el régimen configurado', grupo: 'totales', tipo: 'texto', ejemplo: 'IVA' },
