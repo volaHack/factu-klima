@@ -138,6 +138,23 @@ function instruccionesDuda(pregunta: string, ctx: ContextoTpv): string {
     '',
     'PREGUNTA DEL CAJERO:',
     pregunta,
+    '',
+    // ESTE RECORDATORIO VA AL FINAL A PROPÓSITO
+    //
+    // La lista de lo que el TPV no puede hacer queda a media página de
+    // distancia de la pregunta, y un modelo pequeño pesa mucho más lo
+    // último que ha leído. Sin esto, a «el cliente quiere pagar mitad en
+    // efectivo y mitad con tarjeta» —que el TPV NO admite— contestaba con
+    // tres pasos inventados y muy convincentes: «pulsa F2, mete 12,25 €,
+    // vuelve a pulsar F2». Un cajero con un cliente delante se lo cree, lo
+    // intenta y se queda tirado en mitad de un cobro.
+    //
+    // Repetir la prohibición pegada a la pregunta lo arregla, y no le hace
+    // ningún daño a un modelo grande.
+    'ANTES DE RESPONDER: mira otra vez la lista «LO QUE NO PUEDE HACER».',
+    'Si lo que pide está ahí, tu respuesta empieza diciendo que ESTE TPV no',
+    'lo hace, y sigue con la alternativa más cercana de la lista de lo que',
+    'sí sabe hacer. No describas pasos para algo que no se puede hacer.',
   ].filter(Boolean).join('\n');
 }
 

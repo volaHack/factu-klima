@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
+import { normalizarSugerencias } from '@/lib/ia/sugerencias';
 
 interface Caja {
   id: string;
@@ -68,6 +69,19 @@ function instrucciones(peticion: Peticion): string {
     '',
     'Recuadros sin identificar:',
     JSON.stringify(peticion.cajas),
+    '',
+    // EL FORMATO, DICHO CON PALABRAS Y AL FINAL
+    //
+    // Esto sólo iba en el `responseSchema` que se le manda a Gemini, que
+    // lo cumple al pie de la letra. Un servidor local no siempre sabe
+    // imponer un esquema, y sin esta parte Qwen 3 4B contestaba con un
+    // mapa plano —{"c1":"doc_numero","c2":"cliente_nombre"}— en vez de la
+    // lista. La información era correcta; la forma, otra.
+    'FORMATO DE LA RESPUESTA. Devuelve SÓLO este objeto JSON, sin texto',
+    'alrededor y sin bloque de código. La única clave de primer nivel es',
+    '"sugerencias", y su valor es una LISTA con un objeto por recuadro:',
+    '{"sugerencias":[{"id":"<id del recuadro>","clave":"<clave o null>","motivo":"<menos de 10 palabras>"}]}',
+    'Un objeto por CADA recuadro de arriba, repitiendo su mismo "id".',
   ].join('\n');
 }
 
@@ -146,23 +160,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const analisis = JSON.parse(texto);
-    const sugerencias = Array.isArray(analisis?.sugerencias) ? analisis.sugerencias : [];
-
-    // Se filtra aquí también, y no sólo al fusionar: el modelo se inventa
-    // claves de vez en cuando y no tiene sentido pasearlas por el cliente.
-    // Con un modelo local esto pasa MÁS, no menos: el esquema que Gemini
-    // cumple al pie de la letra, un servidor local puede ignorarlo.
-    const permitidas = new Set(peticion.clavesDisponibles);
-    const validas = sugerencias
-      .filter((s: { id?: unknown; clave?: unknown }) =>
-        typeof s?.id === 'string' && (s.clave === null || (typeof s.clave === 'string' && permitidas.has(s.clave))))
-      .map((s: { id: string; clave: string | null; motivo?: unknown }) => ({
-        id: s.id,
-        clave: s.clave,
-        motivo: typeof s.motivo === 'string' ? s.motivo.slice(0, 120) : '',
-      }));
-
+    // Se filtra SIEMPRE por las claves que la plantilla admite de verdad:
+    // el modelo se inventa claves de vez en cuando, y una clave inventada
+    // acaba imprimiendo el NIF de un cliente donde va el total. Con un
+    // modelo local pasa más, no menos: el esquema que Gemini cumple al
+    // pie de la letra, un servidor local puede ignorarlo.
+    const validas = normalizarSugerencias(
+      JSON.parse(texto),
+      new Set(peticion.clavesDisponibles),
+    );
     return NextResponse.json({ sugerencias: validas });
   } catch {
     console.error('[plantillas/reconocer] respuesta ilegible:', texto.slice(0, 300));
