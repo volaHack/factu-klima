@@ -11,6 +11,7 @@ import { resolveAccent, SERIES } from '@/components/charts/theme';
 import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
 import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
+import { isFactura } from '@/lib/documentos';
 import { PAYMENT_METHODS, PROVINCES, PAISES_SELECTOR, esPaisUeNoEspana } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
@@ -79,11 +80,11 @@ export default function ClientesPage() {
     setTimeout(() => setRefreshing(false), 400);
   };
 
-  // Stats pre-calculados para poder ordenar por ellos
+  // Stats pre-calculados para poder ordenar por ellos (solo facturas de venta, no albaranes)
   const clientStats = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
     for (const client of clients) {
-      const clientInvs = invoices.filter(i => i.clientId === client.id && i.status !== 'anulada');
+      const clientInvs = invoices.filter(i => i.clientId === client.id && i.status !== 'anulada' && isFactura(i));
       map.set(client.id, {
         count: clientInvs.length,
         total: clientInvs.reduce((sum, i) => sum + i.total, 0),
@@ -395,24 +396,78 @@ export default function ClientesPage() {
         <table className="table table--sortable">
           <thead>
             <tr>
-              <th className={sortField === 'nif' ? 'sorted' : ''} onClick={() => handleSort('nif')} style={{ cursor: 'pointer' }}>
+              <th
+                className={sortField === 'nif' ? 'sorted' : ''}
+                onClick={() => handleSort('nif')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('nif'); } }}
+                aria-sort={sortField === 'nif' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ cursor: 'pointer' }}
+                title="Ordenar por NIF/CIF"
+              >
                 NIF/CIF {sortIcon('nif')}
               </th>
-              <th className={sortField === 'name' ? 'sorted' : ''} onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+              <th
+                className={sortField === 'name' ? 'sorted' : ''}
+                onClick={() => handleSort('name')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('name'); } }}
+                aria-sort={sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ cursor: 'pointer' }}
+                title="Ordenar por nombre comercial"
+              >
                 Nombre comercial {sortIcon('name')}
               </th>
               <th>Tipo</th>
               <th>Tarifa / Dtos.</th>
-              <th className={sortField === 'city' ? 'sorted' : ''} onClick={() => handleSort('city')} style={{ cursor: 'pointer' }}>
+              <th
+                className={sortField === 'city' ? 'sorted' : ''}
+                onClick={() => handleSort('city')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('city'); } }}
+                aria-sort={sortField === 'city' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ cursor: 'pointer' }}
+                title="Ordenar por ciudad"
+              >
                 Ciudad {sortIcon('city')}
               </th>
-              <th className={sortField === 'email' ? 'sorted' : ''} onClick={() => handleSort('email')} style={{ cursor: 'pointer' }}>
+              <th
+                className={sortField === 'email' ? 'sorted' : ''}
+                onClick={() => handleSort('email')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('email'); } }}
+                aria-sort={sortField === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ cursor: 'pointer' }}
+                title="Ordenar por contacto / email"
+              >
                 Contacto {sortIcon('email')}
               </th>
-              <th className={sortField === 'invoiceCount' ? 'sorted' : ''} onClick={() => handleSort('invoiceCount')} style={{ cursor: 'pointer' }}>
+              <th
+                className={sortField === 'invoiceCount' ? 'sorted' : ''}
+                onClick={() => handleSort('invoiceCount')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('invoiceCount'); } }}
+                aria-sort={sortField === 'invoiceCount' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ cursor: 'pointer' }}
+                title="Ordenar por número de facturas"
+              >
                 Facturas {sortIcon('invoiceCount')}
               </th>
-              <th className={sortField === 'total' ? 'sorted' : ''} onClick={() => handleSort('total')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+              <th
+                className={sortField === 'total' ? 'sorted' : ''}
+                onClick={() => handleSort('total')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
+                aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ textAlign: 'right', cursor: 'pointer' }}
+                title="Ordenar por total facturado"
+              >
                 Total facturado {sortIcon('total')}
               </th>
               <th>Estado</th>

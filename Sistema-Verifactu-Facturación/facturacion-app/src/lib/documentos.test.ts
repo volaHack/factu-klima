@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { esSellable, tipoDocumento } from './storage';
 import { addDays, calculateInvoiceTotals, calculateLineSubtotal } from './utils';
-import { descuentoEfectivo, lineaVacia, unidadesTotales, numeroDeDocumento, ESTADOS_POR_TIPO } from './documentos';
+import { descuentoEfectivo, lineaVacia, unidadesTotales, numeroDeDocumento, ESTADOS_POR_TIPO, isFactura } from './documentos';
 import { InvoiceStatus, type CompanySettings } from './types';
 
 describe('esSellable', () => {
@@ -464,3 +464,42 @@ describe('el vencimiento sigue a la fecha del documento', () => {
     expect(addDays('2026-01-31', 30)).toBe('2026-03-02');
   });
 });
+
+describe('isFactura · discriminación estricta de documentos en el listado de facturas', () => {
+  it('una factura ordinaria se reconoce como factura', () => {
+    expect(isFactura({ tipo: 'factura', number: 'FAC-2026-0065', sentido: 'venta' })).toBe(true);
+  });
+
+  it('un ticket TPV o factura simplificada se reconoce como factura', () => {
+    expect(isFactura({ tipo: 'factura', series: 'TPV', number: 'TPV-2026-0001', sentido: 'venta' })).toBe(true);
+  });
+
+  it('una factura rectificativa se reconoce como factura', () => {
+    expect(isFactura({ tipo: 'rectificativa', number: 'FAC-R-2026-0001', sentido: 'venta' })).toBe(true);
+  });
+
+  it('un registro legacy sin tipo pero con serie o número normal se reconoce como factura', () => {
+    expect(isFactura({ number: 'FAC-2026-0010' })).toBe(true);
+  });
+
+  it('un albarán NO se reconoce como factura aunque esté en la tabla invoices', () => {
+    expect(isFactura({ tipo: 'albaran', number: 'ALB-2026-0016', sentido: 'venta' })).toBe(false);
+    expect(isFactura({ number: 'ALB-2026-0017' })).toBe(false);
+    expect(isFactura({ series: 'ALB', number: '0017' })).toBe(false);
+  });
+
+  it('un pedido NO se reconoce como factura', () => {
+    expect(isFactura({ tipo: 'pedido', number: 'PED-2026-0002', sentido: 'venta' })).toBe(false);
+    expect(isFactura({ number: 'PED-2026-0002' })).toBe(false);
+  });
+
+  it('un presupuesto NO se reconoce como factura', () => {
+    expect(isFactura({ tipo: 'presupuesto', number: 'PRE-2026-0001', sentido: 'venta' })).toBe(false);
+    expect(isFactura({ number: 'PRE-2026-0001' })).toBe(false);
+  });
+
+  it('un documento de compra NO se reconoce como factura de venta', () => {
+    expect(isFactura({ tipo: 'factura', number: 'FAC-C-2026-0001', sentido: 'compra' })).toBe(false);
+  });
+});
+

@@ -8,6 +8,29 @@ import { serieDeTipo } from './storage';
 
 export interface TotalesDocumento { subtotal: number; totalDiscount: number; totalTax: number; total: number; }
 
+/**
+ * Determina si un documento es estrictamente una factura (ordinaria, simplificada/TPV o rectificativa)
+ * y no un documento previo o de almacén (presupuesto, pedido, albarán).
+ */
+export function isFactura(doc: { tipo?: string; sentido?: string; number?: string; series?: string }): boolean {
+  const tipo = doc.tipo;
+  const num = (doc.number || '').toUpperCase();
+  const series = (doc.series || '').toUpperCase();
+
+  // Si el tipo es explícitamente otro documento de gestión, no es factura
+  if (tipo && tipo !== 'factura' && tipo !== 'rectificativa') return false;
+
+  // Si el número o serie delata que es un albarán, pedido o presupuesto
+  if (num.startsWith('ALB-') || num.startsWith('PED-') || num.startsWith('PRE-')) return false;
+  if (series === 'ALB' || series === 'PED' || series === 'PRE') return false;
+
+  // Solo operaciones de venta (o sin sentido declarado, compatible con registros legacy)
+  const sentido = doc.sentido ?? 'venta';
+  if (sentido !== 'venta') return false;
+
+  return true;
+}
+
 export function lineaVacia(settings: CompanySettings): InvoiceLineItem {
   return {
     id: crypto.randomUUID(),

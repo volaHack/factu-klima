@@ -1,49 +1,29 @@
 'use client';
 
 /**
- * LA AYUDA, DENTRO DE LA PANTALLA EN LA QUE ESTÁS
+ * GUÍA INTERACTIVA Y AYUDA CONTEXTUAL (Apple Design)
  *
- * Un programa con cuarenta y siete pantallas no se explica con un manual: la
- * duda aparece delante del ordenador, con el cliente esperando, y nadie va a
- * abrir un PDF en ese momento. Así que el manual está aquí, partido en trozos
- * y pegado a la pantalla que lo necesita.
- *
- * Tres cosas y en este orden, que es el orden en que se pregunta:
- *
- *   1. ¿Para qué sirve esto? — una frase.
- *   2. ¿Cómo se usa? — los pasos, con el nombre de los botones.
- *   3. ¿Qué debería saber? — las trampas, antes de meter la pata.
- *
- * Y debajo, para lo que no esté escrito, la misma ayuda con IA del mostrador,
- * que aquí responde SABIENDO en qué pantalla estás: se le manda el texto de
- * arriba como base, así que contesta con lo que este programa hace de verdad
- * y no con lo que un modelo se imagine que hace un programa de facturación.
- *
- * DÓNDE VIVE
- * ----------
- * En la cabecera, que es el único sitio que aparece en las cuarenta y siete
- * pantallas. Se monta una vez y funciona en todas, en vez de tener que tocar
- * cuarenta y siete ficheros y acordarse del cuarenta y ocho.
+ * Pop-up flotante con diseño translúcido Apple WWDC, micro-animaciones fluidas,
+ * tarjetas estructuradas (Para qué sirve, Paso a paso, Pro-tips, Sigue por aquí)
+ * y asistente inteligente integrado para resolver dudas específicas de la pantalla.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CircleHelp, X, Sparkles, Loader2, CornerDownLeft, ArrowRight } from 'lucide-react';
+import {
+  CircleHelp, X, Sparkles, Loader2, CornerDownLeft, ArrowRight,
+  Compass, Lightbulb,
+} from 'lucide-react';
 import { ayudaDe } from '@/lib/ayuda/paginas';
 
 export default function AyudaContextual() {
   const pathname = usePathname() ?? '/';
   const ayuda = ayudaDe(pathname);
 
-  // Sin ayuda escrita para esta pantalla no se enseña el botón. Es mejor que
-  // no haya ayuda a que la haya y no diga nada.
+  // Sin ayuda escrita para esta pantalla no se enseña el botón
   if (!ayuda) return null;
 
-  // La `key` es la ruta: al navegar, React tira este componente y monta otro
-  // con el panel cerrado. Es lo que evita tener que apagarlo a mano desde un
-  // efecto —escribir estado en el cuerpo de un efecto encadena renders— y
-  // además garantiza que nunca se quede abierta la ayuda de la anterior.
   return <BotonAyuda key={pathname} ayuda={ayuda} />;
 }
 
@@ -52,7 +32,9 @@ function BotonAyuda({ ayuda }: { ayuda: NonNullable<ReturnType<typeof ayudaDe>> 
 
   useEffect(() => {
     if (!abierta) return;
-    const alPulsar = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierta(false); };
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAbierta(false);
+    };
     document.addEventListener('keydown', alPulsar);
     return () => document.removeEventListener('keydown', alPulsar);
   }, [abierta]);
@@ -61,20 +43,29 @@ function BotonAyuda({ ayuda }: { ayuda: NonNullable<ReturnType<typeof ayudaDe>> 
     <>
       <button
         type="button"
-        className="header-ayuda-btn"
+        className="apple-guide-trigger"
         onClick={() => setAbierta(true)}
-        aria-label={`Ayuda de ${ayuda.titulo}`}
-        title="¿Cómo se usa esta pantalla?"
+        aria-label={`¿Cómo se usa ${ayuda.titulo}?`}
+        title="¿Cómo se usa esta pantalla? Guía interactiva"
       >
-        <CircleHelp size={20} />
+        <span className="apple-guide-icon">
+          <CircleHelp size={16} />
+        </span>
+        <span className="apple-guide-text">¿Cómo se usa?</span>
       </button>
 
-      {abierta && <PanelAyuda ayuda={ayuda} onCerrar={() => setAbierta(false)} />}
+      {abierta && <ModalAyuda ayuda={ayuda} onCerrar={() => setAbierta(false)} />}
     </>
   );
 }
 
-function PanelAyuda({ ayuda, onCerrar }: { ayuda: NonNullable<ReturnType<typeof ayudaDe>>; onCerrar: () => void }) {
+function ModalAyuda({
+  ayuda,
+  onCerrar,
+}: {
+  ayuda: NonNullable<ReturnType<typeof ayudaDe>>;
+  onCerrar: () => void;
+}) {
   const [pregunta, setPregunta] = useState('');
   const [respuesta, setRespuesta] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -94,8 +85,6 @@ function PanelAyuda({ ayuda, onCerrar }: { ayuda: NonNullable<ReturnType<typeof 
         body: JSON.stringify({
           modo: 'pagina',
           pregunta: limpia,
-          // Se le manda la ayuda escrita como base: así responde con lo que
-          // esta pantalla hace de verdad, no con lo que un modelo suponga.
           pagina: {
             titulo: ayuda.titulo,
             paraQue: ayuda.paraQue,
@@ -115,73 +104,155 @@ function PanelAyuda({ ayuda, onCerrar }: { ayuda: NonNullable<ReturnType<typeof 
   };
 
   return (
-    <div className="modal-overlay" onClick={onCerrar}>
+    <div className="ayuda-apple-overlay" onClick={onCerrar} role="presentation">
       <aside
-        className="ayuda-panel"
+        className="ayuda-apple-modal"
         onClick={e => e.stopPropagation()}
         role="dialog"
-        aria-label={`Ayuda de ${ayuda.titulo}`}
+        aria-modal="true"
+        aria-label={`Guía de uso de ${ayuda.titulo}`}
       >
-        <div className="ayuda-panel-cabecera">
-          <div>
-            <span className="ayuda-panel-etiqueta">Cómo se usa</span>
-            <h2 className="ayuda-panel-titulo">{ayuda.titulo}</h2>
+        {/* Cabecera translúcida */}
+        <div className="ayuda-apple-header">
+          <div className="ayuda-apple-header-info">
+            <div className="ayuda-apple-pill">
+              <Sparkles size={12} className="ayuda-sparkle-anim" />
+              <span>Guía rápida</span>
+            </div>
+            <h2 className="ayuda-apple-title">{ayuda.titulo}</h2>
           </div>
-          <button className="modal-close" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button>
+          <div className="ayuda-apple-header-actions">
+            <kbd className="ayuda-apple-kbd" title="Presiona Esc para cerrar">ESC</kbd>
+            <button
+              type="button"
+              className="ayuda-apple-close-btn"
+              onClick={onCerrar}
+              aria-label="Cerrar guía"
+            >
+              <X size={17} />
+            </button>
+          </div>
         </div>
 
-        <div className="ayuda-panel-cuerpo">
-          <p className="ayuda-para-que">{ayuda.paraQue}</p>
+        {/* Cuerpo con scroll elástico */}
+        <div className="ayuda-apple-body">
+          {/* Tarjeta Hero: Para qué sirve */}
+          <div className="ayuda-hero-card">
+            <div className="ayuda-hero-icon-box">
+              <Compass size={18} />
+            </div>
+            <div className="ayuda-hero-content">
+              <span className="ayuda-hero-label">¿Para qué sirve?</span>
+              <p className="ayuda-hero-text">{ayuda.paraQue}</p>
+            </div>
+          </div>
 
-          <h3 className="ayuda-seccion">Paso a paso</h3>
-          <ol className="ayuda-pasos">
-            {ayuda.pasos.map((p, i) => <li key={i}>{p}</li>)}
-          </ol>
+          {/* Tarjeta Paso a Paso */}
+          <div className="ayuda-section">
+            <div className="ayuda-section-header">
+              <span className="ayuda-section-title">Paso a paso</span>
+              <span className="ayuda-section-counter">{ayuda.pasos.length} pasos</span>
+            </div>
+            <div className="ayuda-steps-list">
+              {ayuda.pasos.map((p, i) => (
+                <div key={i} className="ayuda-step-item">
+                  <span className="ayuda-step-num">{i + 1}</span>
+                  <div className="ayuda-step-content">
+                    <p className="ayuda-step-text">{p}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
+          {/* Tarjeta Pro-tips: Lo que conviene saber */}
           {ayuda.saber && ayuda.saber.length > 0 && (
-            <>
-              <h3 className="ayuda-seccion">Lo que conviene saber</h3>
-              <ul className="ayuda-saber">
-                {ayuda.saber.map((s, i) => <li key={i}>{s}</li>)}
+            <div className="ayuda-pro-tips">
+              <div className="ayuda-pro-tips-header">
+                <Lightbulb size={16} />
+                <span>Lo que conviene saber</span>
+              </div>
+              <ul className="ayuda-pro-tips-list">
+                {ayuda.saber.map((s, i) => (
+                  <li key={i} className="ayuda-pro-tip-item">
+                    <span className="ayuda-pro-tip-bullet" />
+                    <span>{s}</span>
+                  </li>
+                ))}
               </ul>
-            </>
+            </div>
           )}
 
+          {/* Rutas recomendadas / Sigue por aquí */}
           {ayuda.relacionadas && ayuda.relacionadas.length > 0 && (
-            <>
-              <h3 className="ayuda-seccion">Sigue por aquí</h3>
-              <div className="ayuda-enlaces">
+            <div className="ayuda-section">
+              <span className="ayuda-section-title">Sigue por aquí</span>
+              <div className="ayuda-relacionadas-grid">
                 {ayuda.relacionadas.map(r => (
-                  <Link key={r.ruta} href={r.ruta} className="ayuda-enlace" onClick={onCerrar}>
-                    {r.texto} <ArrowRight size={13} />
+                  <Link
+                    key={r.ruta}
+                    href={r.ruta}
+                    className="ayuda-relacionada-pill"
+                    onClick={onCerrar}
+                  >
+                    <span>{r.texto}</span>
+                    <ArrowRight size={13} className="ayuda-relacionada-arrow" />
                   </Link>
                 ))}
               </div>
-            </>
+            </div>
           )}
 
-          {/* --- Lo que no esté escrito, se pregunta --- */}
-          <div className="ayuda-ia">
-            <div className="ayuda-ia-titulo"><Sparkles size={14} /> ¿Otra duda de esta pantalla?</div>
+          {/* Asistente inteligente IA */}
+          <div className="ayuda-ai-card">
+            <div className="ayuda-ai-header">
+              <div className="ayuda-ai-badge">
+                <Sparkles size={13} />
+                <span>Asistente inteligente</span>
+              </div>
+              <span className="ayuda-ai-sub">¿Tienes otra duda sobre esta pantalla?</span>
+            </div>
 
-            {respuesta && <div className="ayuda-ia-respuesta">{respuesta}</div>}
-            {error && <div className="login-alert login-alert--error" role="alert">{error}</div>}
+            {respuesta && (
+              <div className="ayuda-ai-bubble">
+                <div className="ayuda-ai-bubble-tag">Respuesta</div>
+                <div className="ayuda-ai-bubble-text">{respuesta}</div>
+              </div>
+            )}
 
-            <div className="ayuda-ia-campo">
+            {error && (
+              <div className="ayuda-ai-error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <div className="ayuda-ai-input-wrap">
               <textarea
                 ref={campoRef}
-                className="form-textarea"
+                className="ayuda-ai-textarea"
                 rows={2}
-                placeholder="Escribe tu pregunta…"
+                placeholder={`Pregunta lo que no veas claro sobre ${ayuda.titulo}...`}
                 value={pregunta}
                 onChange={e => setPregunta(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void preguntar(); }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void preguntar();
+                  }
                 }}
               />
-              <button className="btn btn-primary btn-sm" onClick={() => void preguntar()} disabled={cargando || !pregunta.trim()}>
-                {cargando ? <Loader2 size={15} className="spin" /> : <CornerDownLeft size={15} />}
-              </button>
+              <div className="ayuda-ai-input-footer">
+                <span className="ayuda-ai-hint">Pulsa ↵ Enter para enviar</span>
+                <button
+                  type="button"
+                  className="ayuda-ai-submit-btn"
+                  onClick={() => void preguntar()}
+                  disabled={cargando || !pregunta.trim()}
+                  title="Enviar pregunta"
+                >
+                  {cargando ? <Loader2 size={14} className="spin" /> : <CornerDownLeft size={14} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>

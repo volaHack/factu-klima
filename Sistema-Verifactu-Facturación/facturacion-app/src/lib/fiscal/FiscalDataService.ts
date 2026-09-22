@@ -13,6 +13,7 @@
 
 import { getInvoices, getClients, getGastos, getCompanySettings } from '../storage';
 import type { Invoice, Gasto, Client, CompanySettings } from '../types';
+import { isFactura } from '../documentos';
 
 export interface DatosFiscales {
   facturas: Invoice[];
@@ -37,7 +38,7 @@ export async function cargarDatosFiscales(ejercicio: number): Promise<DatosFisca
   ]);
 
   return {
-    facturas: facturas.filter(f => f.issueDate?.slice(0, 4) === String(ejercicio)),
+    facturas: facturas.filter(f => f.issueDate?.slice(0, 4) === String(ejercicio) && isFactura(f)),
     gastos: gastos.filter(g => g.fecha?.slice(0, 4) === String(ejercicio)),
     clientes,
     empresa,

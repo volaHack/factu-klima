@@ -15,6 +15,7 @@ import { INVOICE_STATUS_COLOR } from '@/components/charts/theme';
 import { getInvoices, getClients, getCompanySettings, getProducts, getOnboardingStatus, completeOnboarding } from '@/lib/storage';
 import { Invoice, InvoiceStatus, Client, CompanySettings, Product } from '@/lib/types';
 import { formatCurrency, formatDate, getDaysUntilDue, getShortMonthName, getStatusInfo } from '@/lib/utils';
+import { isFactura } from '@/lib/documentos';
 import { BUSINESS_SECTORS } from '@/lib/constants';
 import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstStepsModal';
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
@@ -27,9 +28,10 @@ export default function DashboardPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const [showFirstSteps, setShowFirstSteps] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -40,7 +42,7 @@ export default function DashboardPage() {
         getProducts(),
         getOnboardingStatus(),
       ]);
-      setInvoices(invs);
+      setInvoices(invs.filter(isFactura));
       setClients(cls);
       setSettings(stg);
       setProducts(prods);

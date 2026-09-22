@@ -16,6 +16,7 @@ import { INVOICE_STATUS_COLOR } from '@/components/charts/theme';
 import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
+import { isFactura } from '@/lib/documentos';
 import { INVOICE_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -99,7 +100,11 @@ export default function FacturasPage() {
   }, [invoices]);
 
   useEffect(() => {
-    const load = async () => { setInvoices(await getInvoices()); setMounted(true); };
+    const load = async () => {
+      const all = await getInvoices();
+      setInvoices(all.filter(isFactura));
+      setMounted(true);
+    };
     load();
 
     const handleAutoRefresh = () => {
@@ -137,13 +142,15 @@ export default function FacturasPage() {
 
   const reload = async () => {
     setRefreshing(true);
-    setInvoices(await getInvoices());
+    const all = await getInvoices();
+    setInvoices(all.filter(isFactura));
     setTimeout(() => setRefreshing(false), 400);
   };
 
   // Filter + Sort
   const filtered = useMemo(() => {
-    let result = [...invoices];
+    // Filtrado de seguridad: solo facturas auténticas en la pantalla de Facturas
+    let result = invoices.filter(isFactura);
 
     if (search) {
       const q = search.toLowerCase();
@@ -165,11 +172,24 @@ export default function FacturasPage() {
     }
 
     result.sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
       let cmp = 0;
-      if (typeof aVal === 'string' && typeof bVal === 'string') cmp = aVal.localeCompare(bVal);
-      else if (typeof aVal === 'number' && typeof bVal === 'number') cmp = aVal - bVal;
+      if (sortField === 'total') {
+        cmp = Number(a.total || 0) - Number(b.total || 0);
+      } else if (sortField === 'issueDate' || sortField === 'dueDate') {
+        const timeA = a[sortField] ? new Date(a[sortField]).getTime() : 0;
+        const timeB = b[sortField] ? new Date(b[sortField]).getTime() : 0;
+        cmp = timeA - timeB;
+      } else if (sortField === 'number') {
+        cmp = (a.number || '').localeCompare(b.number || '', undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortField === 'clientName') {
+        cmp = (a.clientName || '').localeCompare(b.clientName || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'status') {
+        cmp = (a.status || '').localeCompare(b.status || '', 'es', { sensitivity: 'base' });
+      } else {
+        const aVal = String(a[sortField] ?? '');
+        const bVal = String(b[sortField] ?? '');
+        cmp = aVal.localeCompare(bVal, 'es', { sensitivity: 'base' });
+      }
       return sortDir === 'desc' ? -cmp : cmp;
     });
 
@@ -200,7 +220,8 @@ export default function FacturasPage() {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDir('desc');
+      // Por ergonomía: fechas y montos se ordenan de más reciente/mayor a menor por defecto; texto de la A a la Z
+      setSortDir(field === 'total' || field === 'issueDate' || field === 'dueDate' ? 'desc' : 'asc');
     }
   };
 
@@ -596,22 +617,71 @@ export default function FacturasPage() {
                   onChange={toggleSelectAll}
                 />
               </th>
-              <th className={sortField === 'number' ? 'sorted' : ''} onClick={() => handleSort('number')}>
+              <th
+                className={sortField === 'number' ? 'sorted' : ''}
+                onClick={() => handleSort('number')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('number'); } }}
+                aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title="Ordenar por número de factura"
+              >
                 Nº Factura {sortIcon('number')}
               </th>
-              <th className={sortField === 'clientName' ? 'sorted' : ''} onClick={() => handleSort('clientName')}>
+              <th
+                className={sortField === 'clientName' ? 'sorted' : ''}
+                onClick={() => handleSort('clientName')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('clientName'); } }}
+                aria-sort={sortField === 'clientName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title="Ordenar por cliente"
+              >
                 Cliente {sortIcon('clientName')}
               </th>
-              <th className={sortField === 'issueDate' ? 'sorted' : ''} onClick={() => handleSort('issueDate')}>
+              <th
+                className={sortField === 'issueDate' ? 'sorted' : ''}
+                onClick={() => handleSort('issueDate')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('issueDate'); } }}
+                aria-sort={sortField === 'issueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title="Ordenar por fecha de emisión"
+              >
                 Fecha {sortIcon('issueDate')}
               </th>
-              <th className={sortField === 'dueDate' ? 'sorted' : ''} onClick={() => handleSort('dueDate')}>
+              <th
+                className={sortField === 'dueDate' ? 'sorted' : ''}
+                onClick={() => handleSort('dueDate')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('dueDate'); } }}
+                aria-sort={sortField === 'dueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title="Ordenar por fecha de vencimiento"
+              >
                 Vencimiento {sortIcon('dueDate')}
               </th>
-              <th className={sortField === 'status' ? 'sorted' : ''} onClick={() => handleSort('status')}>
+              <th
+                className={sortField === 'status' ? 'sorted' : ''}
+                onClick={() => handleSort('status')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('status'); } }}
+                aria-sort={sortField === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title="Ordenar por estado"
+              >
                 Estado {sortIcon('status')}
               </th>
-              <th className={sortField === 'total' ? 'sorted' : ''} onClick={() => handleSort('total')} style={{ textAlign: 'right' }}>
+              <th
+                className={sortField === 'total' ? 'sorted' : ''}
+                onClick={() => handleSort('total')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
+                aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ textAlign: 'right' }}
+                title="Ordenar por importe total"
+              >
                 Total {sortIcon('total')}
               </th>
               <th style={{ width: 50 }}><span className="solo-lectores">Acciones</span></th>

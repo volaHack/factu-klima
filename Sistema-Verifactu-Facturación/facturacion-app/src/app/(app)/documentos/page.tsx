@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Plus, Search, Filter, Eye, Edit, Trash2, FileText, ArrowRight,
-  ChevronRight, RefreshCw,
+  ChevronRight, RefreshCw, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -14,6 +14,8 @@ import { Invoice, InvoiceStatus, TipoDocumento, SentidoDocumento } from '@/lib/t
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { etiquetaTipo, numeroOrigen } from '@/lib/documentos';
 import { useToast } from '@/hooks/useToast';
+
+type DocumentoSortField = 'number' | 'tipo' | 'sentido' | 'issueDate' | 'clientName' | 'documentoOrigenNumber' | 'total' | 'status';
 
 function DocumentosContent() {
   const searchParams = useSearchParams();
@@ -26,8 +28,26 @@ function DocumentosContent() {
   const [tipoFiltro, setTipoFiltro] = useState<string>(tipoParam || 'todos');
   const [sentidoFiltro, setSentidoFiltro] = useState<string>(sentidoParam || 'todos');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('todos');
+  const [sortField, setSortField] = useState<DocumentoSortField>('issueDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const { success, error: toastError } = useToast();
+
+  const handleSort = (field: DocumentoSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir(field === 'total' || field === 'issueDate' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortIcon = (field: DocumentoSortField) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc'
+      ? <ChevronUp size={13} className="sort-icon" />
+      : <ChevronDown size={13} className="sort-icon" />;
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -70,8 +90,30 @@ function DocumentosContent() {
         }
       }
       return true;
-    }).sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
-  }, [documentos, tipoFiltro, sentidoFiltro, estadoFiltro, search]);
+    }).sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'total') {
+        cmp = Number(a.total || 0) - Number(b.total || 0);
+      } else if (sortField === 'issueDate') {
+        const timeA = a.issueDate ? new Date(a.issueDate).getTime() : 0;
+        const timeB = b.issueDate ? new Date(b.issueDate).getTime() : 0;
+        cmp = timeA - timeB;
+      } else if (sortField === 'number') {
+        cmp = (a.number || '').localeCompare(b.number || '', undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortField === 'tipo') {
+        cmp = (a.tipo || '').localeCompare(b.tipo || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'sentido') {
+        cmp = (a.sentido || '').localeCompare(b.sentido || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'clientName') {
+        cmp = (a.clientName || '').localeCompare(b.clientName || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'documentoOrigenNumber') {
+        cmp = (a.documentoOrigenNumber || '').localeCompare(b.documentoOrigenNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+      } else if (sortField === 'status') {
+        cmp = (a.status || '').localeCompare(b.status || '', 'es', { sensitivity: 'base' });
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [documentos, tipoFiltro, sentidoFiltro, estadoFiltro, search, sortField, sortDir]);
 
   const handleDelete = async (id: string, number: string) => {
     if (!window.confirm(`¿Seguro que deseas eliminar el documento ${number}?`)) return;
@@ -174,18 +216,99 @@ function DocumentosContent() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="table">
+          <table className="table table--sortable">
             <thead>
               <tr>
-                <th>Número</th>
-                <th>Tipo</th>
-                <th>Sentido</th>
-                <th>Fecha</th>
-                <th>Cliente / Proveedor</th>
-                <th>Origen</th>
-                <th style={{ textAlign: 'right' }}>Total</th>
-                <th>Estado</th>
-                <th style={{ textAlign: 'right' }}>Acciones</th>
+                <th
+                  className={sortField === 'number' ? 'sorted' : ''}
+                  onClick={() => handleSort('number')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('number'); } }}
+                  aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por número"
+                >
+                  Número {sortIcon('number')}
+                </th>
+                <th
+                  className={sortField === 'tipo' ? 'sorted' : ''}
+                  onClick={() => handleSort('tipo')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('tipo'); } }}
+                  aria-sort={sortField === 'tipo' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por tipo de documento"
+                >
+                  Tipo {sortIcon('tipo')}
+                </th>
+                <th
+                  className={sortField === 'sentido' ? 'sorted' : ''}
+                  onClick={() => handleSort('sentido')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('sentido'); } }}
+                  aria-sort={sortField === 'sentido' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por sentido (venta o compra)"
+                >
+                  Sentido {sortIcon('sentido')}
+                </th>
+                <th
+                  className={sortField === 'issueDate' ? 'sorted' : ''}
+                  onClick={() => handleSort('issueDate')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('issueDate'); } }}
+                  aria-sort={sortField === 'issueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por fecha"
+                >
+                  Fecha {sortIcon('issueDate')}
+                </th>
+                <th
+                  className={sortField === 'clientName' ? 'sorted' : ''}
+                  onClick={() => handleSort('clientName')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('clientName'); } }}
+                  aria-sort={sortField === 'clientName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por cliente o proveedor"
+                >
+                  Cliente / Proveedor {sortIcon('clientName')}
+                </th>
+                <th
+                  className={sortField === 'documentoOrigenNumber' ? 'sorted' : ''}
+                  onClick={() => handleSort('documentoOrigenNumber')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('documentoOrigenNumber'); } }}
+                  aria-sort={sortField === 'documentoOrigenNumber' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por documento de origen"
+                >
+                  Origen {sortIcon('documentoOrigenNumber')}
+                </th>
+                <th
+                  className={sortField === 'total' ? 'sorted' : ''}
+                  onClick={() => handleSort('total')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
+                  aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  style={{ textAlign: 'right' }}
+                  title="Ordenar por total"
+                >
+                  Total {sortIcon('total')}
+                </th>
+                <th
+                  className={sortField === 'status' ? 'sorted' : ''}
+                  onClick={() => handleSort('status')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('status'); } }}
+                  aria-sort={sortField === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  title="Ordenar por estado"
+                >
+                  Estado {sortIcon('status')}
+                </th>
+                <th style={{ textAlign: 'right' }}><span className="solo-lectores">Acciones</span></th>
               </tr>
             </thead>
             <tbody>

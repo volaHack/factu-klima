@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Receipt, Car, Plus, Trash2, Edit2, X, AlertTriangle,
+  Receipt, Car, Plus, Trash2, Edit2, X, AlertTriangle, Layers, PieChart as PieChartIcon,
+  TrendingDown, Building, Truck, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -18,6 +19,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
 type Tab = 'gastos' | 'vehiculos';
+type GastoSortField = 'fecha' | 'concepto' | 'categoria' | 'proveedorNombre' | 'baseImponible' | 'total';
 
 export default function GastosPage() {
   const [mounted, setMounted] = useState(false);
@@ -34,6 +36,24 @@ export default function GastosPage() {
   const [filtroCategoria, setFiltroCategoria] = useState<GastoCategoria | ''>('');
   const [filtroDesde, setFiltroDesde] = useState('');
   const [filtroHasta, setFiltroHasta] = useState('');
+  const [sortField, setSortField] = useState<GastoSortField>('fecha');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: GastoSortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir(field === 'fecha' || field === 'baseImponible' || field === 'total' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortIcon = (field: GastoSortField) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc'
+      ? <ChevronUp size={13} className="sort-icon" />
+      : <ChevronDown size={13} className="sort-icon" />;
+  };
 
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editandoGasto, setEditandoGasto] = useState<Gasto | null>(null);
@@ -82,12 +102,34 @@ export default function GastosPage() {
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return gastos
+    const list = gastos
       .filter(g => !q || g.concepto.toLowerCase().includes(q) || (g.proveedorNombre ?? '').toLowerCase().includes(q))
       .filter(g => !filtroCategoria || g.categoria === filtroCategoria)
       .filter(g => !filtroDesde || g.fecha >= filtroDesde)
       .filter(g => !filtroHasta || g.fecha <= filtroHasta);
-  }, [gastos, busqueda, filtroCategoria, filtroDesde, filtroHasta]);
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'fecha') {
+        const timeA = a.fecha ? new Date(a.fecha).getTime() : 0;
+        const timeB = b.fecha ? new Date(b.fecha).getTime() : 0;
+        cmp = timeA - timeB;
+      } else if (sortField === 'baseImponible') {
+        cmp = Number(a.baseImponible || 0) - Number(b.baseImponible || 0);
+      } else if (sortField === 'total') {
+        cmp = Number(a.total || 0) - Number(b.total || 0);
+      } else if (sortField === 'concepto') {
+        cmp = (a.concepto || '').localeCompare(b.concepto || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'categoria') {
+        cmp = (a.categoria || '').localeCompare(b.categoria || '', 'es', { sensitivity: 'base' });
+      } else if (sortField === 'proveedorNombre') {
+        cmp = (a.proveedorNombre || '').localeCompare(b.proveedorNombre || '', 'es', { sensitivity: 'base' });
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+
+    return list;
+  }, [gastos, busqueda, filtroCategoria, filtroDesde, filtroHasta, sortField, sortDir]);
 
   const total = useMemo(() => totalGastos(visibles), [visibles]);
   const costesPorVehiculo = useMemo(() => costeDeVehiculos(gastos), [gastos]);
@@ -265,17 +307,79 @@ export default function GastosPage() {
 
           <div className="card">
             <div className="table-responsive">
-              <table className="table">
+              <table className="table table--sortable">
                 <thead>
                   <tr>
-                    <th>Fecha</th>
-                    <th>Concepto</th>
-                    <th>Categoría</th>
-                    <th>Proveedor</th>
+                    <th
+                      className={sortField === 'fecha' ? 'sorted' : ''}
+                      onClick={() => handleSort('fecha')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('fecha'); } }}
+                      aria-sort={sortField === 'fecha' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      title="Ordenar por fecha"
+                    >
+                      Fecha {sortIcon('fecha')}
+                    </th>
+                    <th
+                      className={sortField === 'concepto' ? 'sorted' : ''}
+                      onClick={() => handleSort('concepto')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('concepto'); } }}
+                      aria-sort={sortField === 'concepto' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      title="Ordenar por concepto"
+                    >
+                      Concepto {sortIcon('concepto')}
+                    </th>
+                    <th
+                      className={sortField === 'categoria' ? 'sorted' : ''}
+                      onClick={() => handleSort('categoria')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('categoria'); } }}
+                      aria-sort={sortField === 'categoria' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      title="Ordenar por categoría"
+                    >
+                      Categoría {sortIcon('categoria')}
+                    </th>
+                    <th
+                      className={sortField === 'proveedorNombre' ? 'sorted' : ''}
+                      onClick={() => handleSort('proveedorNombre')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('proveedorNombre'); } }}
+                      aria-sort={sortField === 'proveedorNombre' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      title="Ordenar por proveedor"
+                    >
+                      Proveedor {sortIcon('proveedorNombre')}
+                    </th>
                     {modoVehiculos && <th>Vehículo</th>}
-                    <th style={{ textAlign: 'right' }}>Base</th>
-                    <th style={{ textAlign: 'right' }}>Total</th>
-                    <th style={{ textAlign: 'right' }}>Acciones</th>
+                    <th
+                      className={sortField === 'baseImponible' ? 'sorted' : ''}
+                      onClick={() => handleSort('baseImponible')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('baseImponible'); } }}
+                      aria-sort={sortField === 'baseImponible' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      style={{ textAlign: 'right' }}
+                      title="Ordenar por base imponible"
+                    >
+                      Base {sortIcon('baseImponible')}
+                    </th>
+                    <th
+                      className={sortField === 'total' ? 'sorted' : ''}
+                      onClick={() => handleSort('total')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
+                      aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      style={{ textAlign: 'right' }}
+                      title="Ordenar por importe total"
+                    >
+                      Total {sortIcon('total')}
+                    </th>
+                    <th style={{ textAlign: 'right' }}><span className="solo-lectores">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>

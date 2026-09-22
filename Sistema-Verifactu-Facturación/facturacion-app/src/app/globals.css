@@ -1230,10 +1230,32 @@ a:hover { color: var(--accent-300); }
   position: sticky; top: 0; z-index: 2;
   transition: color var(--transition-fast);
 }
-.table--sortable th:not(.table-checkbox):not(:empty) { cursor: pointer; }
-.table--sortable th:not(.table-checkbox):hover { color: var(--accent-500); }
-.table th.sorted { color: var(--accent-500); font-weight: 800; }
-.table th .sort-icon { vertical-align: -2px; margin-left: 2px; }
+.table--sortable th:not(.table-checkbox):not(:empty) {
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.table--sortable th:not(.table-checkbox):not(:empty):hover {
+  color: var(--accent-500);
+  background: var(--bg-card-hover);
+}
+.table--sortable th:not(.table-checkbox):not(:empty):active {
+  background: var(--bg-tertiary);
+}
+.table th.sorted {
+  color: var(--accent-500);
+  font-weight: 800;
+  border-bottom-color: var(--accent-500);
+}
+.table th .sort-icon {
+  vertical-align: -2px;
+  margin-left: 5px;
+  display: inline-block;
+  color: var(--accent-500);
+}
 
 .table td {
   /* 14px de arriba y abajo, no los 12px de --space-3: con --space-3 el
@@ -6932,233 +6954,618 @@ a.stats-item:focus-visible {
    paso. Entrando por el lado, el trabajo sigue viéndose al lado del texto.
    ============================================================ */
 
-.header-ayuda-btn {
+/* ============================================================
+   GUÍA INTERACTIVA DE PANTALLA (APPLE WWDC DESIGN)
+   ============================================================ */
+
+.apple-guide-trigger {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  /* Sin esto se encogía. Es el primer hijo de `.header-actions` y el único
-     de la cabecera que no lo declaraba (el del menú y el de buscar sí), así
-     que en cuanto la pantalla se estrechaba era el que cedía sitio: el
-     interrogante se quedaba en una rendija y parecía roto. */
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
+  gap: 8px;
+  padding: 5px 12px 5px 7px;
+  border-radius: 9999px;
+  background: var(--bg-card);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    transform 140ms var(--ease-settle),
-    color 140ms var(--ease-settle),
-    background-color 140ms var(--ease-settle);
-  touch-action: manipulation;
-}
-.header-ayuda-btn:active { transform: scale(0.94); }
-@media (hover: hover) and (pointer: fine) {
-  .header-ayuda-btn:hover { color: var(--accent-500); background: var(--bg-card-hover); }
-}
-.header-ayuda-btn:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
-
-/* En el teléfono, a la medida del dedo como el resto de la barra: 36 px lo
-   dejaba como el objetivo más pequeño de la pantalla, justo para lo que más
-   se pulsa cuando uno no sabe qué hacer.
-   Va AQUÍ y no con las demás consultas de medios de la cabecera (línea
-   ~2500) por un motivo aburrido y decisivo: los estilos de la ayuda se
-   declaran mil líneas más abajo, y con la misma especificidad gana la
-   última regla del fichero. Puesto arriba, no se aplicaba nunca. */
-@media (max-width: 768px) {
-  .header-ayuda-btn { width: 44px; height: 44px; }
-}
-
-.ayuda-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(460px, 100vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border-color);
-  box-shadow: var(--shadow-xl);
-  /* Entra por donde va a quedarse: desde el borde derecho, con la curva de
-     salida de la casa y por debajo de los 300 ms que pide una animación de
-     interfaz. */
-  animation: ayudaEntra 240ms var(--ease-settle);
-}
-@keyframes ayudaEntra {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-
-.ayuda-panel-cabecera {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  transition:
+    transform 120ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+  touch-action: manipulation;
+  user-select: none;
 }
-.ayuda-panel-etiqueta {
-  display: block;
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--accent-500);
-  font-weight: 700;
+.apple-guide-trigger:hover {
+  border-color: var(--accent-500);
+  background: var(--bg-card-hover);
+  box-shadow: 0 4px 14px -2px rgba(var(--accent-rgb, 99, 102, 241), 0.2);
 }
-.ayuda-panel-titulo {
-  margin: 2px 0 0;
-  font-size: var(--text-xl);
-  font-weight: 800;
-  letter-spacing: var(--tracking-tight);
-  color: var(--text-primary);
+.apple-guide-trigger:active {
+  transform: scale(0.95);
 }
-
-.ayuda-panel-cuerpo {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-5);
-  overscroll-behavior: contain;
+.apple-guide-trigger:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
 }
-
-/* La frase que contesta «¿para qué sirve esto?». Es lo primero que se lee y
-   por eso va más grande que el resto. */
-.ayuda-para-que {
-  margin: 0 0 var(--space-5);
-  font-size: var(--text-md);
-  line-height: 1.6;
-  color: var(--text-primary);
-}
-
-.ayuda-seccion {
-  margin: var(--space-5) 0 var(--space-3);
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-muted);
-  font-weight: 700;
-}
-.ayuda-seccion:first-of-type { margin-top: 0; }
-
-/* Los pasos van numerados de verdad, no con puntos: el orden es la mitad de
-   la información. */
-.ayuda-pasos {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: paso;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.ayuda-pasos li {
-  counter-increment: paso;
-  position: relative;
-  padding-left: 32px;
-  font-size: var(--text-base);
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-.ayuda-pasos li::before {
-  content: counter(paso);
-  position: absolute;
-  left: 0;
-  top: 1px;
+.apple-guide-icon {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   background: var(--accent-glow);
   color: var(--accent-500);
-  font-size: var(--text-xs);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.apple-guide-text {
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .apple-guide-trigger {
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .apple-guide-text { display: none; }
+  .apple-guide-icon { width: 100%; height: 100%; background: transparent; }
+}
+
+/* Modal Overlay Translúcido Apple */
+.ayuda-apple-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(10, 14, 23, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: appleFadeIn 180ms ease-out;
+}
+
+@keyframes appleFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Modal Card Flotante Apple */
+.ayuda-apple-modal {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  max-height: min(88vh, 820px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 32px 84px -16px rgba(15, 23, 42, 0.28),
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  animation: appleModalSpring 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-theme="dark"] .ayuda-apple-modal {
+  background: rgba(20, 22, 28, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 32px 84px -16px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+@keyframes appleModalSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Cabecera translúcida */
+.ayuda-apple-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(var(--bg-secondary-rgb, 255, 255, 255), 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.ayuda-apple-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ayuda-apple-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--accent-glow);
+  color: var(--accent-500);
+  border: 1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.25);
+  width: fit-content;
+}
+
+.ayuda-sparkle-anim {
+  animation: applePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes applePulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; color: var(--accent-400); }
+}
+
+.ayuda-apple-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.ayuda-apple-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ayuda-apple-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ayuda-apple-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    transform 120ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.ayuda-apple-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+  transform: scale(1.06);
+}
+.ayuda-apple-close-btn:active {
+  transform: scale(0.92);
+}
+
+/* Cuerpo con contenido */
+.ayuda-apple-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 24px;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Tarjeta Hero Para Qué Sirve */
+.ayuda-hero-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb, 99, 102, 241), 0.08), rgba(var(--accent-rgb, 99, 102, 241), 0.02));
+  border: 1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2);
+}
+
+.ayuda-hero-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-500);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px -2px rgba(var(--accent-rgb, 99, 102, 241), 0.4);
+}
+
+.ayuda-hero-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ayuda-hero-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-500);
+  margin-bottom: 3px;
+}
+
+.ayuda-hero-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Secciones */
+.ayuda-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ayuda-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ayuda-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.ayuda-section-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-500);
+  background: var(--accent-glow);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+/* Lista de pasos */
+.ayuda-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ayuda-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 13px 15px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  transition:
+    transform 140ms var(--ease-settle),
+    border-color 140ms var(--ease-settle),
+    box-shadow 140ms var(--ease-settle);
+}
+.ayuda-step-item:hover {
+  border-color: rgba(var(--accent-rgb, 99, 102, 241), 0.35);
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ayuda-step-num {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-500), var(--accent-600, #4f46e5));
+  color: #fff;
+  font-size: 12px;
   font-weight: 800;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  box-shadow: 0 2px 6px rgba(var(--accent-rgb, 99, 102, 241), 0.35);
 }
 
-.ayuda-saber {
+.ayuda-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ayuda-step-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* Lo que conviene saber (Pro-tips) */
+.ayuda-pro-tips {
+  background: rgba(245, 158, 11, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ayuda-pro-tips-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #d97706;
+}
+
+[data-theme="dark"] .ayuda-pro-tips-header {
+  color: #fbbf24;
+}
+
+.ayuda-pro-tips-list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-.ayuda-saber li {
-  position: relative;
-  padding-left: 16px;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-/* Una raya, no un punto: esto son advertencias, no una lista de la compra. */
-.ayuda-saber li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  width: 8px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--color-warning);
+  gap: 8px;
 }
 
-.ayuda-enlaces { display: flex; flex-direction: column; gap: var(--space-2); }
-.ayuda-enlace {
+.ayuda-pro-tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ayuda-pro-tip-bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+/* Rutas relacionadas */
+.ayuda-relacionadas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.ayuda-relacionada-pill {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
   background: var(--bg-card);
+  border: 1px solid var(--border-color);
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: 13px;
   font-weight: 600;
-  transition: transform 140ms var(--ease-settle), border-color 140ms var(--ease-settle);
+  text-decoration: none;
+  transition:
+    transform 140ms var(--ease-settle),
+    border-color 140ms var(--ease-settle),
+    color 140ms var(--ease-settle);
 }
-.ayuda-enlace:active { transform: scale(0.99); }
-@media (hover: hover) and (pointer: fine) {
-  .ayuda-enlace:hover { border-color: var(--accent-500); color: var(--accent-500); }
+.ayuda-relacionada-pill:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-500);
+  transform: translateX(2px);
+}
+.ayuda-relacionada-pill:active {
+  transform: scale(0.98);
+}
+.ayuda-relacionada-arrow {
+  color: var(--text-muted);
+  transition: transform 140ms ease, color 140ms ease;
+}
+.ayuda-relacionada-pill:hover .ayuda-relacionada-arrow {
+  color: var(--accent-500);
+  transform: translateX(2px);
 }
 
-/* --- Lo que no está escrito, se pregunta --- */
-.ayuda-ia {
-  margin-top: var(--space-6);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--accent-500);
-  background: var(--accent-glow);
+/* Asistente IA (Apple Intelligence style) */
+.ayuda-ai-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(236, 72, 153, 0.05), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.ayuda-ia-titulo {
+
+.ayuda-ai-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  font-weight: 700;
-  color: var(--accent-500);
-  margin-bottom: var(--space-3);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.ayuda-ia-respuesta {
-  white-space: pre-wrap;
-  font-size: var(--text-sm);
-  line-height: 1.65;
-  color: var(--text-primary);
-  margin-bottom: var(--space-3);
-}
-.ayuda-ia-campo { display: flex; gap: var(--space-2); align-items: flex-end; }
-.ayuda-ia-campo .form-textarea { flex: 1; resize: none; min-height: 46px; }
 
-/* En el móvil ocupa la pantalla entera: 460 px de panel sobre 375 de
-   teléfono no dejaba nada del trabajo a la vista, que era el motivo de que
-   fuera un panel y no un modal. */
+.ayuda-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-500);
+}
+
+.ayuda-ai-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ayuda-ai-bubble {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: appleFadeIn 200ms ease-out;
+}
+
+.ayuda-ai-bubble-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-500);
+}
+
+.ayuda-ai-bubble-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.ayuda-ai-error {
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 12px;
+  color: #ef4444;
+  font-size: 12px;
+}
+
+.ayuda-ai-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 10px 12px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.ayuda-ai-input-wrap:focus-within {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.ayuda-ai-textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  min-height: 42px;
+}
+.ayuda-ai-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.ayuda-ai-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.ayuda-ai-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ayuda-ai-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-500);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), opacity 120ms ease;
+}
+.ayuda-ai-submit-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: scale(1.05);
+}
+.ayuda-ai-submit-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.ayuda-ai-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 @media (max-width: 560px) {
-  .ayuda-panel { width: 100vw; border-left: 0; }
+  .ayuda-apple-modal {
+    max-height: 92vh;
+    border-radius: 20px;
+  }
+  .ayuda-apple-header {
+    padding: 16px 18px 14px;
+  }
+  .ayuda-apple-body {
+    padding: 16px 18px;
+  }
 }
 
 /* ============================================================
@@ -11222,3 +11629,91 @@ body.nav-abierta { overflow: hidden; }
 }
 
 .lf-aviso a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ============================================================
+   GRÁFICAS (Nivo) — entrada de las barras y tooltip
+   ------------------------------------------------------------
+   Las barras las dibuja Charts.tsx como <path> propio, así que la
+   animación de entrada es de la casa y no de la librería: crecen desde
+   su base con la curva fuerte de /precios (arranca ya movida y frena al
+   final) y escalonadas por posición, que es lo que las hace leerse como
+   una ola en vez de como un parpadeo.
+
+   `transform-box: fill-box` es lo que hace que el origen del transform
+   sea la caja de la propia barra y no el lienzo entero del SVG; sin eso
+   cada barra crece desde la esquina del gráfico.
+   ============================================================ */
+
+.chart-plot .barra-dato {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: barra-crece 560ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  transition: filter var(--transition-fast);
+}
+.chart-plot .barra-dato--horizontal {
+  transform-origin: left center;
+  animation-name: barra-crece-horizontal;
+}
+@keyframes barra-crece {
+  from { transform: scaleY(0.04); opacity: 0.4; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+@keyframes barra-crece-horizontal {
+  from { transform: scaleX(0.04); opacity: 0.4; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* El acuse de recibo al pasar por encima: la barra se aclara un punto.
+   Sólo donde hay puntero de verdad; en táctil el navegador lo dispara
+   al tocar y se queda encendida. */
+@media (hover: hover) and (pointer: fine) {
+  .chart-plot .barra-dato:hover { filter: brightness(1.08); }
+}
+
+/* Quien pide menos movimiento ve las barras puestas, no creciendo. */
+@media (prefers-reduced-motion: reduce) {
+  .chart-plot .barra-dato {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* --- Tooltip ---------------------------------------------------------
+   Primero el número y después de qué es: quien ya sabe en qué serie
+   está lo que quiere es la cifra. La llave de color es un trazo corto,
+   no un cuadrado relleno — a esta densidad un bloque de color pesa más
+   que el dato. Usa los tokens de la app, así que el modo oscuro va solo. */
+.chart-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color-hover);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.chart-tip--lista {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.chart-tip-fila {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.chart-tip-key {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.chart-tip-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-label { color: var(--text-tertiary); }
