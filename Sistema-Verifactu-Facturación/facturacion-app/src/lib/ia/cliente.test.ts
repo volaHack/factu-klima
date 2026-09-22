@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import {
   configuracionIA,
+  generarTexto,
+  mereceOtroIntento,
   extraerTexto,
   FalloIA,
   IA_LOCAL_POR_DEFECTO,
@@ -10,7 +12,7 @@ import {
   respuestaDeFallo,
 } from './cliente';
 
-const VARIABLES = ['IA_BASE_URL', 'IA_MODELO', 'IA_API_KEY', 'GEMINI_API_KEY'];
+const VARIABLES = ['IA_BASE_URL', 'IA_MODELO', 'IA_API_KEY', 'GEMINI_API_KEY', 'GEMINI_MODELO'];
 
 let original: Record<string, string | undefined>;
 
@@ -36,6 +38,7 @@ describe('qué modelo se usa según lo que haya configurado', () => {
   it('con sólo el modelo, apunta al servidor local de esta máquina', () => {
     process.env.IA_MODELO = 'qwen3-4b-instruct';
     expect(configuracionIA()).toEqual({
+      proveedor: 'local',
       baseUrl: IA_LOCAL_POR_DEFECTO,
       modelo: 'qwen3-4b-instruct',
       clave: undefined,
@@ -62,20 +65,28 @@ describe('qué modelo se usa según lo que haya configurado', () => {
     expect(configuracionIA()?.clave).toBe('sk-lo-que-sea');
   });
 
-  it('una clave de Gemini suelta ya no configura nada', () => {
-    // Gemini se retiró a propósito: el modelo es Qwen. Que una clave
-    // olvidada en el entorno volviera a encender otro proveedor sería
-    // justo lo contrario de lo que se pidió.
+  it('el servidor local manda sobre Gemini', () => {
+    // Si alguien se ha molestado en levantar un modelo local, es el que
+    // quiere usar, aunque la clave de Gemini siga por ahí de antes.
+    process.env.IA_MODELO = 'qwen3-4b-instruct';
     process.env.GEMINI_API_KEY = 'una-clave';
-    expect(configuracionIA()).toBeNull();
+    expect(configuracionIA()?.proveedor).toBe('local');
+  });
+
+  it('sin local, sigue valiendo la clave de Gemini como antes', () => {
+    process.env.GEMINI_API_KEY = 'una-clave';
+    const config = configuracionIA();
+    expect(config?.proveedor).toBe('gemini');
+    expect(config?.modelo).toBe('gemini-3.6-flash');
   });
 
   it('una variable en blanco es como no ponerla', () => {
-    // Una variable vacía en el panel de Vercel es lo más fácil de
-    // dejarse, y apuntaría a un servidor inexistente sin decir nada.
+    // Una variable vacía en el panel de Vercel es lo más fácil de dejarse,
+    // y apuntaría a un servidor inexistente en vez de caer en Gemini.
     process.env.IA_BASE_URL = '   ';
     process.env.IA_MODELO = '';
-    expect(configuracionIA()).toBeNull();
+    process.env.GEMINI_API_KEY = 'una-clave';
+    expect(configuracionIA()?.proveedor).toBe('gemini');
   });
 });
 
@@ -102,23 +113,28 @@ describe('limpiar lo que añaden los modelos pequeños', () => {
   });
 });
 
-describe('de dónde se saca el texto de la respuesta', () => {
-  it('del formato de OpenAI, que es el único que se habla ya', () => {
+describe('de dónde se saca el texto de cada proveedor', () => {
+  it('del formato de OpenAI, que es el que hablan los locales', () => {
     const datos = { choices: [{ message: { role: 'assistant', content: 'Hola' } }] };
-    expect(extraerTexto(datos)).toBe('Hola');
+    expect(extraerTexto(datos, 'local')).toBe('Hola');
+  });
+
+  it('del formato de Gemini, juntando sus trozos', () => {
+    const datos = { candidates: [{ content: { parts: [{ text: 'Ho' }, { text: 'la' }] } }] };
+    expect(extraerTexto(datos, 'gemini')).toBe('Hola');
   });
 
   it('si sólo hay razonamiento y no respuesta, devuelve vacío', () => {
     // Algunos servidores dejan `content` vacío y ponen el discurso aparte.
     // Entregar el razonamiento como si fuera la respuesta sería mentir.
     const datos = { choices: [{ message: { reasoning_content: 'pensando...', content: null } }] };
-    expect(extraerTexto(datos)).toBe('');
+    expect(extraerTexto(datos, 'local')).toBe('');
   });
 
   it('una respuesta con forma rara no revienta', () => {
-    expect(extraerTexto({})).toBe('');
-    expect(extraerTexto(null)).toBe('');
-    expect(extraerTexto('texto suelto')).toBe('');
+    expect(extraerTexto({}, 'local')).toBe('');
+    expect(extraerTexto({}, 'gemini')).toBe('');
+    expect(extraerTexto(null, 'local')).toBe('');
   });
 });
 
@@ -141,5 +157,77 @@ describe('qué se le contesta al usuario cuando falla', () => {
     // El detalle puede llevar trozos de la petición del cliente.
     const fallo = new FalloIA('rechazado', '401 {"error":"clave sk-secreta invalida"}');
     expect(respuestaDeFallo(fallo, '').error).not.toContain('sk-secreta');
+  });
+});
+
+describe('un fallo pasajero del proveedor no gasta el intento del usuario', () => {
+  it('sabe qué estados merecen repetir y cuáles no', () => {
+    // Saturado o roto por dentro: vale la pena repetir.
+    for (const estado of [429, 500, 502, 503, 504]) {
+      expect(mereceOtroIntento(estado), `${estado} debería reintentarse`).toBe(true);
+    }
+    // La petición está mal o la clave no vale: repetirla da el mismo
+    // error, dos veces más lento.
+    for (const estado of [400, 401, 403, 404, 422, 501]) {
+      expect(mereceOtroIntento(estado), `${estado} NO debería reintentarse`).toBe(false);
+    }
+  });
+
+  it('repite tras un 503 y devuelve la respuesta buena', async () => {
+    // Esto pasó de verdad: Gemini contestó «This model is currently
+    // experiencing high demand» y al repetir acertó los cinco recuadros.
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    const llamadas: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      llamadas.push(String(url));
+      if (llamadas.length === 1) {
+        return new Response('{"error":"high demand"}', { status: 503 });
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'Pulsa F3.' } }] }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).resolves.toBe('Pulsa F3.');
+      expect(llamadas).toHaveLength(2);
+    } finally {
+      globalThis.fetch = original;
+    }
+  }, 10_000);
+
+  it('no repite un 401: la clave no se arregla insistiendo', async () => {
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      return new Response('{"error":"clave invalida"}', { status: 401 });
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).rejects.toThrow(FalloIA);
+      expect(llamadas).toBe(1);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('no repite cuando el servidor no está escuchando', async () => {
+    // Si no hay nadie al otro lado, no lo va a haber un segundo después,
+    // y la espera ya ha sido larga.
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      throw new Error('ECONNREFUSED');
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).rejects.toMatchObject({ motivo: 'sin-contacto' });
+      expect(llamadas).toBe(1);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

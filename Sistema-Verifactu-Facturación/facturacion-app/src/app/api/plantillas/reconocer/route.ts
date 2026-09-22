@@ -85,11 +85,24 @@ function instrucciones(peticion: Peticion): string {
   ].join('\n');
 }
 
-// El esquema de respuesta que se le mandaba a Gemini vivía aquí. Ya no
-// hay proveedor que sepa imponer uno, así que la forma se pide con
-// palabras al final del enunciado y se ordena después con
-// `normalizarSugerencias`, que admite las tres formas en que contestan
-// los modelos y filtra siempre contra las claves permitidas.
+const ESQUEMA_RESPUESTA = {
+  type: 'object',
+  properties: {
+    sugerencias: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          clave: { type: 'string', nullable: true },
+          motivo: { type: 'string' },
+        },
+        required: ['id', 'clave', 'motivo'],
+      },
+    },
+  },
+  required: ['sugerencias'],
+};
 
 export async function POST(request: NextRequest) {
   if (!configuracionIA()) {
@@ -132,6 +145,7 @@ export async function POST(request: NextRequest) {
       temperatura: 0,
       maximoTokens: 2048,
       json: true,
+      esquemaJson: ESQUEMA_RESPUESTA,
       // Más holgado que la ayuda del mostrador: aquí nadie espera de pie
       // con un cliente delante, y son ochenta recuadros de una vez.
       tiempoLimiteMs: 90_000,

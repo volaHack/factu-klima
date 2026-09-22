@@ -43,12 +43,15 @@
 
 - [ ] **Nadie se entera si algo falla.** Sigue sin haber monitorización
       de errores en producción.
-- [ ] **La ayuda con IA no funciona en producción.** En local sí, con el
-      Qwen 3 4B montado en esta máquina (ver `docs/ia-local.md`). Pero
-      Vercel no puede llegar a un modelo que corre en una casa, y Gemini
-      se ha retirado a propósito. Hace falta un Qwen alojado con API
-      compatible con OpenAI: darse de alta, y poner en Vercel
-      `IA_BASE_URL`, `IA_MODELO` y `IA_API_KEY`. No hay que tocar código.
+- [ ] **La ayuda con IA no funciona en producción: falta copiar una
+      variable a Vercel.** La clave de Gemini de `.env.local` está viva
+      (comprobada); ponerla en Vercel → Settings → Environment Variables
+      como `GEMINI_API_KEY` es todo lo que hace falta. Es la decisión de
+      mientras. El Qwen 3 4B montado en esta máquina (ver
+      `docs/ia-local.md`) atiende el trabajo local y manda sobre Gemini
+      cuando está en pie, pero Vercel no puede llegar a un modelo que
+      corre en una casa. Cuando haya un Qwen alojado, se cambian las tres
+      variables en Vercel y Gemini deja de usarse solo.
 - [ ] **No se envía ningún correo.** Ni la factura al cliente, ni aviso
       de cobro fallido, ni recordatorio de vencimiento.
 - [ ] **Certificado Veri\*Factu real** y datos del productor en
@@ -77,13 +80,10 @@
   rótulos, y además dejan de dispararse donde no tocaba: en las páginas
   públicas, con una modal abierta, escribiendo en texto enriquecido y con
   acentos a medio componer.
-- **La IA es Qwen, y sólo Qwen.** Las dos rutas que usan un modelo pasan
-  por `lib/ia/cliente.ts`, que habla el dialecto de OpenAI: vale el
-  modelo local de esta máquina o cualquier servicio alojado que hable ese
-  dialecto, y se cambia con tres variables de entorno. Gemini se retiró
-  entero —su URL, su formato de petición, su formato de respuesta y su
-  esquema— y una clave suya olvidada ya no enciende nada. Detalles en
-  `docs/ia-local.md`.
+- **La IA deja de estar casada con Gemini.** Las dos rutas que usan un
+  modelo pasan por `lib/ia/cliente.ts`, que habla el dialecto de OpenAI:
+  vale un modelo local, uno de pago o Gemini, y se cambia con dos
+  variables de entorno. Detalles en `docs/ia-local.md`.
 - **Descuento a pie de factura.** Antes sólo se podía descontar línea a
   línea; ahora hay hasta tres descuentos sobre el total (comercial,
   pronto pago, especial), encadenados, en crear y editar facturas. Sale
