@@ -17,17 +17,24 @@
  * -------------
  *   1. Si hay `IA_BASE_URL` o `IA_MODELO`, se usa ese servidor. Sin nada
  *      más puesto, el destino es el servidor local de esta misma máquina.
- *   2. Si no, y hay `GEMINI_API_KEY`, se sigue usando Gemini como antes.
- *   3. Si no hay nada, se dice claramente que no está configurada, que es
- *      lo que ya hacía y está bien: mejor eso que inventarse respuestas.
+ *   2. Si no hay nada, se dice claramente que no está configurada. Mejor
+ *      eso que inventarse respuestas.
+ *
+ * Aquí había además una rama para Gemini, con su URL, su formato de
+ * petición, su formato de respuesta y su esquema. Se ha quitado por
+ * decisión de la titular: el modelo es Qwen. Quitarla no cierra ninguna
+ * puerta —cualquier servicio que hable el dialecto de OpenAI entra por
+ * `IA_BASE_URL` sin tocar código— y quita de en medio el único proveedor
+ * que necesitaba un camino propio.
  *
  * OJO CON DÓNDE CORRE CADA COSA
  * -----------------------------
  * Un modelo local sirve a quien pueda abrir esa dirección. En el portátil
  * del que desarrolla, perfecto. En la web publicada, el servidor de Vercel
  * NO puede llegar a un modelo que corre en una casa: para producción hay
- * que apuntar `IA_BASE_URL` a algo accesible desde internet, o dejar la
- * clave de Gemini.
+ * que apuntar `IA_BASE_URL` a un servidor accesible desde internet que
+ * sirva el mismo Qwen. Mientras no lo haya, la ayuda con IA dirá que no
+ * está configurada, que es la verdad.
  */
 
 /** Dónde escucha el servidor de modelos local (llama.cpp) por defecto. */
@@ -47,10 +54,7 @@ export const IA_LOCAL_POR_DEFECTO = 'http://127.0.0.1:8080/v1';
  */
 export const MODELO_POR_DEFECTO = 'qwen3-4b-instruct';
 
-export type Proveedor = 'local' | 'gemini';
-
 export interface ConfiguracionIA {
-  proveedor: Proveedor;
   baseUrl: string;
   modelo: string;
   clave?: string;
@@ -75,27 +79,14 @@ export function configuracionIA(): ConfiguracionIA | null {
   const baseUrl = (process.env.IA_BASE_URL ?? '').trim();
   const modelo = (process.env.IA_MODELO ?? '').trim();
 
-  if (baseUrl || modelo) {
-    return {
-      proveedor: 'local',
-      baseUrl: (baseUrl || IA_LOCAL_POR_DEFECTO).replace(/\/+$/, ''),
-      modelo: modelo || MODELO_POR_DEFECTO,
-      // Un servidor local no pide clave; uno de pago sí. Vacía si no hace falta.
-      clave: (process.env.IA_API_KEY ?? '').trim() || undefined,
-    };
-  }
+  if (!baseUrl && !modelo) return null;
 
-  const claveGemini = (process.env.GEMINI_API_KEY ?? '').trim();
-  if (claveGemini) {
-    return {
-      proveedor: 'gemini',
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
-      modelo: (process.env.GEMINI_MODELO ?? '').trim() || 'gemini-3.6-flash',
-      clave: claveGemini,
-    };
-  }
-
-  return null;
+  return {
+    baseUrl: (baseUrl || IA_LOCAL_POR_DEFECTO).replace(/\/+$/, ''),
+    modelo: modelo || MODELO_POR_DEFECTO,
+    // Un servidor local no pide clave; uno alojado sí. Vacía si no hace falta.
+    clave: (process.env.IA_API_KEY ?? '').trim() || undefined,
+  };
 }
 
 export interface PeticionIA {
@@ -106,16 +97,6 @@ export interface PeticionIA {
   maximoTokens?: number;
   /** Exigir que la respuesta sea un objeto JSON. */
   json?: boolean;
-  /**
-   * Esquema de la respuesta, para los proveedores que sepan imponerlo.
-   *
-   * Gemini lo cumple palabra por palabra. Los servidores locales no
-   * siempre, así que quien lo use debe describir el formato TAMBIÉN en el
-   * enunciado y seguir filtrando lo que llegue: un esquema que el
-   * proveedor ignora en silencio es peor que no tenerlo, porque invita a
-   * fiarse de la forma de la respuesta.
-   */
-  esquemaJson?: unknown;
   tiempoLimiteMs?: number;
 }
 
@@ -155,40 +136,20 @@ function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
   };
 }
 
-function cuerpoGemini(p: PeticionIA) {
-  return {
-    contents: [{ parts: [{ text: p.instrucciones }] }],
-    generationConfig: {
-      temperature: p.temperatura ?? 0.2,
-      // El presupuesto de Gemini incluye lo que el modelo piensa, no sólo
-      // lo que escribe: con el tope justo la respuesta sale cortada a
-      // media frase. Se le da holgura, que se paga por lo gastado.
-      maxOutputTokens: Math.max(p.maximoTokens ?? 1024, 2048),
-      ...(p.json ? { responseMimeType: 'application/json' } : {}),
-      ...(p.esquemaJson ? { responseSchema: p.esquemaJson } : {}),
-    },
-  };
-}
-
-/** El texto que venga, del proveedor que sea, ya limpio. */
+/** El texto que conteste el modelo, ya limpio. */
 export async function generarTexto(p: PeticionIA): Promise<string> {
   const config = configuracionIA();
   if (!config) throw new FalloIA('sin-configurar');
 
-  const esGemini = config.proveedor === 'gemini';
-  const url = esGemini
-    ? `${config.baseUrl}/${config.modelo}:generateContent?key=${config.clave}`
-    : `${config.baseUrl}/chat/completions`;
-
   let respuesta: Response;
   try {
-    respuesta = await fetch(url, {
+    respuesta = await fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(config.clave && !esGemini ? { Authorization: `Bearer ${config.clave}` } : {}),
+        ...(config.clave ? { Authorization: `Bearer ${config.clave}` } : {}),
       },
-      body: JSON.stringify(esGemini ? cuerpoGemini(p) : cuerpoOpenAI(config, p)),
+      body: JSON.stringify(cuerpoOpenAI(config, p)),
       signal: AbortSignal.timeout(p.tiempoLimiteMs ?? 20_000),
     });
   } catch (err) {
@@ -207,25 +168,19 @@ export async function generarTexto(p: PeticionIA): Promise<string> {
     throw new FalloIA('vacio', 'la respuesta no era JSON');
   }
 
-  const texto = limpiarRespuesta(extraerTexto(datos, config.proveedor));
+  const texto = limpiarRespuesta(extraerTexto(datos));
   if (!texto) throw new FalloIA('vacio');
   return texto;
 }
 
-/** La forma de la respuesta de cada proveedor, sólo en lo que nos interesa. */
-interface RespuestaProveedor {
-  candidates?: { content?: { parts?: { text?: string }[] } }[];
+/** La forma de la respuesta, sólo en lo que nos interesa. */
+interface RespuestaModelo {
   choices?: { message?: { content?: unknown } }[];
 }
 
-/** Cada proveedor esconde el texto en un sitio distinto. */
-export function extraerTexto(datos: unknown, proveedor: Proveedor): string {
-  const d = (datos ?? {}) as RespuestaProveedor;
-  if (proveedor === 'gemini') {
-    return (d.candidates?.[0]?.content?.parts ?? [])
-      .map(parte => parte?.text ?? '')
-      .join('');
-  }
+/** Dónde viene el texto en una respuesta con el formato de OpenAI. */
+export function extraerTexto(datos: unknown): string {
+  const d = (datos ?? {}) as RespuestaModelo;
   const mensaje = d.choices?.[0]?.message;
   // Algunos servidores devuelven el razonamiento aparte y dejan `content`
   // vacío; en ese caso no hay respuesta que dar, y decirlo es mejor que

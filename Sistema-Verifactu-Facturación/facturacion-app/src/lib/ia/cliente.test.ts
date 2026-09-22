@@ -10,7 +10,7 @@ import {
   respuestaDeFallo,
 } from './cliente';
 
-const VARIABLES = ['IA_BASE_URL', 'IA_MODELO', 'IA_API_KEY', 'GEMINI_API_KEY', 'GEMINI_MODELO'];
+const VARIABLES = ['IA_BASE_URL', 'IA_MODELO', 'IA_API_KEY', 'GEMINI_API_KEY'];
 
 let original: Record<string, string | undefined>;
 
@@ -36,7 +36,6 @@ describe('qué modelo se usa según lo que haya configurado', () => {
   it('con sólo el modelo, apunta al servidor local de esta máquina', () => {
     process.env.IA_MODELO = 'qwen3-4b-instruct';
     expect(configuracionIA()).toEqual({
-      proveedor: 'local',
       baseUrl: IA_LOCAL_POR_DEFECTO,
       modelo: 'qwen3-4b-instruct',
       clave: undefined,
@@ -63,28 +62,20 @@ describe('qué modelo se usa según lo que haya configurado', () => {
     expect(configuracionIA()?.clave).toBe('sk-lo-que-sea');
   });
 
-  it('el servidor local manda sobre Gemini', () => {
-    // Si alguien se ha molestado en levantar un modelo local, es el que
-    // quiere usar, aunque la clave de Gemini siga por ahí de antes.
-    process.env.IA_MODELO = 'qwen3-4b-instruct';
+  it('una clave de Gemini suelta ya no configura nada', () => {
+    // Gemini se retiró a propósito: el modelo es Qwen. Que una clave
+    // olvidada en el entorno volviera a encender otro proveedor sería
+    // justo lo contrario de lo que se pidió.
     process.env.GEMINI_API_KEY = 'una-clave';
-    expect(configuracionIA()?.proveedor).toBe('local');
-  });
-
-  it('sin local, sigue valiendo la clave de Gemini como antes', () => {
-    process.env.GEMINI_API_KEY = 'una-clave';
-    const config = configuracionIA();
-    expect(config?.proveedor).toBe('gemini');
-    expect(config?.modelo).toBe('gemini-3.6-flash');
+    expect(configuracionIA()).toBeNull();
   });
 
   it('una variable en blanco es como no ponerla', () => {
-    // Una variable vacía en el panel de Vercel es lo más fácil de dejarse,
-    // y apuntaría a un servidor inexistente en vez de caer en Gemini.
+    // Una variable vacía en el panel de Vercel es lo más fácil de
+    // dejarse, y apuntaría a un servidor inexistente sin decir nada.
     process.env.IA_BASE_URL = '   ';
     process.env.IA_MODELO = '';
-    process.env.GEMINI_API_KEY = 'una-clave';
-    expect(configuracionIA()?.proveedor).toBe('gemini');
+    expect(configuracionIA()).toBeNull();
   });
 });
 
@@ -111,28 +102,23 @@ describe('limpiar lo que añaden los modelos pequeños', () => {
   });
 });
 
-describe('de dónde se saca el texto de cada proveedor', () => {
-  it('del formato de OpenAI, que es el que hablan los locales', () => {
+describe('de dónde se saca el texto de la respuesta', () => {
+  it('del formato de OpenAI, que es el único que se habla ya', () => {
     const datos = { choices: [{ message: { role: 'assistant', content: 'Hola' } }] };
-    expect(extraerTexto(datos, 'local')).toBe('Hola');
-  });
-
-  it('del formato de Gemini, juntando sus trozos', () => {
-    const datos = { candidates: [{ content: { parts: [{ text: 'Ho' }, { text: 'la' }] } }] };
-    expect(extraerTexto(datos, 'gemini')).toBe('Hola');
+    expect(extraerTexto(datos)).toBe('Hola');
   });
 
   it('si sólo hay razonamiento y no respuesta, devuelve vacío', () => {
     // Algunos servidores dejan `content` vacío y ponen el discurso aparte.
     // Entregar el razonamiento como si fuera la respuesta sería mentir.
     const datos = { choices: [{ message: { reasoning_content: 'pensando...', content: null } }] };
-    expect(extraerTexto(datos, 'local')).toBe('');
+    expect(extraerTexto(datos)).toBe('');
   });
 
   it('una respuesta con forma rara no revienta', () => {
-    expect(extraerTexto({}, 'local')).toBe('');
-    expect(extraerTexto({}, 'gemini')).toBe('');
-    expect(extraerTexto(null, 'local')).toBe('');
+    expect(extraerTexto({})).toBe('');
+    expect(extraerTexto(null)).toBe('');
+    expect(extraerTexto('texto suelto')).toBe('');
   });
 });
 

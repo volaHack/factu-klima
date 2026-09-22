@@ -7,10 +7,11 @@ Dos sitios del programa piden un modelo de lenguaje:
   muestra, adivinar qué dato va en cada recuadro.
 
 Antes los dos llamaban a Gemini con la dirección y el modelo escritos a
-fuego en el código. Ahora los dos pasan por `src/lib/ia/cliente.ts`, que
-habla el dialecto de OpenAI (`/chat/completions`) — el que entienden
-llama.cpp, LM Studio, vLLM, Ollama y casi cualquier servicio de pago.
-Cambiar de modelo son dos variables de entorno.
+fuego en el código. **Gemini se ha retirado**: el modelo es Qwen. Los dos
+pasan ahora por `src/lib/ia/cliente.ts`, que habla el dialecto de OpenAI
+(`/chat/completions`) — el que entienden llama.cpp, LM Studio, vLLM,
+Ollama y casi cualquier servicio alojado. Cambiar de servidor son dos
+variables de entorno, sin tocar código.
 
 ## Lo que hay montado en esta máquina
 
@@ -59,29 +60,41 @@ IA_MODELO=qwen3-4b-instruct
 IA_API_KEY=           # vacía: un servidor local no pide autenticación
 ```
 
+Para un Qwen alojado serían las mismas tres, con la dirección y la clave
+del servicio y el nombre del modelo que use ese servicio.
+
 El orden en que se decide:
 
 1. Si hay `IA_BASE_URL` **o** `IA_MODELO`, se usa ese servidor.
-2. Si no, y hay `GEMINI_API_KEY`, se usa Gemini como siempre.
-3. Si no hay nada, la ayuda contesta que no está configurada — que es
+2. Si no hay nada, la ayuda contesta que no está configurada — que es
    mejor que inventarse respuestas.
+
+**No hay proveedor de reserva.** Una clave de Gemini olvidada en el
+entorno ya no enciende nada, y hay un test que lo comprueba: volver a
+otro proveedor por descuido sería justo lo contrario de lo que se pidió.
 
 ## El aviso importante: esto NO arregla la web publicada
 
 Un modelo local sirve a quien pueda abrir `127.0.0.1`. El servidor de
 Vercel no puede llegar a un modelo que corre en una casa.
 
-El mensaje **«La ayuda con IA no está configurada en este servidor»** que
-se ve en `facturacion-app-mocha.vercel.app` viene de ahí: `.env.local`
-tiene una clave de Gemini válida (comprobado), pero esa variable no está
-puesta en Vercel. Para que la ayuda funcione también para los clientes hay
-que hacer una de estas dos cosas:
+De ahí viene el mensaje **«La ayuda con IA no está configurada en este
+servidor»** que se ve en `facturacion-app-mocha.vercel.app`.
 
-- **Copiar `GEMINI_API_KEY` al panel de Vercel** (Settings → Environment
-  Variables). Es lo inmediato, y cuesta lo que consuma.
-- **Apuntar `IA_BASE_URL` a un servidor accesible desde internet** que
-  sirva el mismo modelo. Sale más barato con volumen, pero hay que
-  mantenerlo.
+Para que la ayuda funcione también para los clientes hace falta un Qwen
+al que Vercel pueda llegar. Dos caminos:
 
-Mientras no se haga ninguna, en producción la ayuda con IA seguirá
-diciendo que no está configurada — con razón.
+- **Un servicio que sirva Qwen con API compatible con OpenAI.** Se da de
+  alta una cuenta, se copia la clave y se ponen en Vercel las tres
+  variables (`IA_BASE_URL`, `IA_MODELO`, `IA_API_KEY`). Sin tocar código:
+  el cliente ya habla ese dialecto. Es lo que menos mantenimiento tiene.
+- **Un servidor propio con el mismo `llama-server`** en una máquina con
+  GPU accesible desde internet. Más barato con volumen, pero hay que
+  mantenerlo, protegerlo con una clave y vigilar que esté en pie.
+
+Lo que NO sirve es un túnel desde este portátil: la web se cae en cuanto
+se apague el ordenador o cambie la red.
+
+Mientras no haya ninguno de los dos, en producción la ayuda con IA
+seguirá diciendo que no está configurada — con razón. En local funciona
+con el modelo de aquí.
