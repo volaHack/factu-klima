@@ -46,7 +46,7 @@ export function combinarCuentas(d: {
 }
 
 export function resumen(cuentas: Cuenta[], hoy: Date) {
-  const activasPorPlan: Record<PlanId, number> = { basico: 0, pro: 0, sin_limite: 0 };
+  const activasPorPlan: Record<PlanId, number> = { tpv: 0, basico: 0, pro: 0, sin_limite: 0 };
   let cortesias = 0, ingresosMensuales = 0, cobrosFallidos = 0, bajasMes = 0;
 
   for (const c of cuentas) {

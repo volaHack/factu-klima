@@ -36,7 +36,7 @@ describe('combinarCuentas', () => {
 describe('resumen', () => {
   const r = resumen(combinarCuentas({ usuarios, ajustes, suscripciones: [...suscripciones], facturasMes: [], admins: [], hoy }), hoy);
   it('cuenta activas por plan, cortesías aparte', () => {
-    expect(r.activasPorPlan).toEqual({ basico: 1, pro: 1, sin_limite: 0 });
+    expect(r.activasPorPlan).toEqual({ tpv: 0, basico: 1, pro: 1, sin_limite: 0 });
     expect(r.cortesias).toBe(1);
   });
   it('ingresos mensuales sólo de Stripe, el anual prorrateado', () => {

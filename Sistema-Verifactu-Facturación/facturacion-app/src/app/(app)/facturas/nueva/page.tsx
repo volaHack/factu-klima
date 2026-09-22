@@ -20,6 +20,7 @@ import {
   formatCurrency, calculateInvoiceTotals, sequenceFromNumber
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
+import type { PlanId } from '@/lib/plans';
 import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
 import { evaluatePlanLimit } from '@/lib/planLimits';
@@ -59,7 +60,7 @@ export default function NuevaFacturaPage() {
   const [saving, setSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
+  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: PlanId } | null>(null);
 
   // Form state
   const [clientId, setClientId] = useState('');

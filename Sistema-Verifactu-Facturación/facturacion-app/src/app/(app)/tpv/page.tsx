@@ -25,6 +25,7 @@ import {
   getOpenChecks, createOpenCheck, saveOpenCheck, deleteOpenCheck, addLineToCheck, OpenCheck,
 } from '@/lib/openChecks';
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
+import type { PlanId } from '@/lib/plans';
 import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
 import { nextOfflineNumber } from '@/lib/tpvOffline';
 import { aplicarOfertas } from '@/lib/ofertas';
@@ -89,7 +90,7 @@ export default function TpvPage() {
   // Cuenta que se está cobrando (abre TpvCheckout con sus líneas)
   const [checkoutCheck, setCheckoutCheck] = useState<OpenCheck | null>(null);
   const { toasts, removeToast, success, error: toastError } = useToast();
-  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: 'basico' | 'pro' | 'sin_limite' } | null>(null);
+  const [paywallState, setPaywallState] = useState<{ title: string; description: string; requiredPlan: PlanId } | null>(null);
 
   // Modo kiosk del instalador TPV (electron expone window.klimaDesktop.mode).
   // En él el cajero no puede salir del terminal: se oculta "Salir del TPV"

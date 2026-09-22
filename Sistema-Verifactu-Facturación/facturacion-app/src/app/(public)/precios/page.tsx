@@ -94,7 +94,15 @@ export default function PreciosPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(datosEstructurados()) }}
       />
       <Suspense>
-        <PricingContent />
+        {/* El plan TPV sólo enseña su botón de compra si Stripe tiene sus
+            dos precios configurados (mensual y anual). Se mira aquí, en
+            el servidor, porque las variables de entorno no llegan al
+            navegador. */}
+        <PricingContent
+          tpvDisponible={Boolean(
+            process.env.STRIPE_PRICE_TPV_MENSUAL && process.env.STRIPE_PRICE_TPV_ANUAL
+          )}
+        />
       </Suspense>
     </>
   );

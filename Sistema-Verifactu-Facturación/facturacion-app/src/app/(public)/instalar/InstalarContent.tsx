@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import {
-  Smartphone, Tablet, Monitor, Download, Printer, WifiOff, ArrowRight,
+  Smartphone, Tablet, Monitor, Printer, WifiOff, ArrowRight,
 } from 'lucide-react';
 
 import SiteNav from '@/components/public/SiteNav';
@@ -197,30 +197,22 @@ export default function InstalarContent() {
               <li>Elige <b>«Añadir a pantalla de inicio»</b>.</li>
             </ol>
           )}
+          {/* AQUÍ HABÍA DOS INSTALADORES .EXE DE 92 MB, Y DABAN 404.
+              Los ficheros nunca estuvieron en el repositorio, así que el
+              despliegue no los servía: el botón más visible de esta
+              pestaña bajaba una página de error. Y además se contradecía
+              con el argumento de la página —«no hace falta instalar
+              nada, es web»— justo debajo del titular que lo dice.
+              En Windows se instala como en el móvil: desde el navegador. */}
           {platform === 'windows' && (
-            <div className="instalar-panel-windows">
-              <p className="instalar-panel-note">
-                Descarga el instalador y ejecútalo. No hace falta pasar por ninguna tienda,
-                y si prefieres no instalar nada, Edge y Chrome también dejan anclar la web
-                como aplicación desde el icono de la barra de direcciones.
-              </p>
-              <div className="instalar-downloads">
-                <a className="instalar-download" href="/descargas/Klima-Facturacion-Setup-1.0.0.exe" download>
-                  <Download size={16} />
-                  <span className="instalar-download-copy">
-                    <strong>Klima Facturación</strong>
-                    <small>Instalador · .exe</small>
-                  </span>
-                </a>
-                <a className="instalar-download instalar-download--ghost" href="/descargas/Klima-TPV-Setup-1.0.0.exe" download>
-                  <Download size={16} />
-                  <span className="instalar-download-copy">
-                    <strong>Klima TPV</strong>
-                    <small>Instalador · .exe</small>
-                  </span>
-                </a>
-              </div>
-            </div>
+            <ol className="instalar-panel-steps">
+              <li>Abre esta página en <b>Edge</b> o <b>Chrome</b>.</li>
+              <li>Pulsa el icono de <b>instalar</b> que aparece a la derecha de la barra de direcciones.</li>
+              <li>
+                Confirma <b>«Instalar»</b>: Klima se queda con su icono en el escritorio y se abre
+                en su propia ventana, sin pestañas ni barra de direcciones.
+              </li>
+            </ol>
           )}
         </div>
       </section>

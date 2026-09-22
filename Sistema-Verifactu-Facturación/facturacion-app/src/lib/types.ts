@@ -1,4 +1,5 @@
 import type { ModuloId } from './modulos';
+import type { PlanId } from './plans';
 import type { FichaId } from './panel';
 // ============================================================
 // TIPOS DEL SISTEMA DE FACTURACIÓN (MULTI-SECTOR)
@@ -1093,7 +1094,7 @@ export interface CompanySettings {
   igicRates?: number[];
 
   // Suscripción y límites de plan
-  planId?: 'basico' | 'pro' | 'sin_limite';
+  planId?: PlanId;
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled';
 
   // Albaranes (documento de entrega/preparación)

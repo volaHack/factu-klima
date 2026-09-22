@@ -15,7 +15,7 @@ import {
   Fingerprint, QrCode, Palette, FileDown, WifiOff, CreditCard, ClipboardCheck, Send,
   type LucideIcon,
 } from 'lucide-react';
-import { PLANS, ANNUAL_MONTHS_FREE, type PlanId } from '@/lib/plans';
+import { PLANS, PLAN_MOSTRADOR, ANNUAL_MONTHS_FREE, type PlanId, type PlanFacturacionId } from '@/lib/plans';
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import TipModal from '@/components/ui/TipModal';
@@ -81,7 +81,7 @@ const FUNCIONES_COMUNES: FuncionComun[] = [
 // Sin `icon`/`iconBg`/`iconColor`: se quitó el cuadradito de icono de la
 // tarjeta hace tiempo y los tres campos se quedaron aquí rellenados sin
 // que nadie los pintara.
-const PLAN_DISPLAY: Record<PlanId, {
+const PLAN_DISPLAY: Record<PlanFacturacionId, {
   subtitle: string;
   popular?: boolean;
   /** El soporte dicho entero, como va en la tarjeta. */
@@ -193,7 +193,14 @@ const faqs = [
   },
 ];
 
-export default function PricingContent() {
+/**
+ * `tpvDisponible` lo calcula page.tsx mirando si existen los precios de
+ * Stripe del plan TPV. Sin ellos el checkout devuelve un 500 con un
+ * mensaje de configuración: antes que enseñar un botón que revienta, se
+ * enseña el plan sin botón. La página nunca ofrece cobrar algo que la
+ * pasarela todavía no sabe cobrar.
+ */
+export default function PricingContent({ tpvDisponible = false }: { tpvDisponible?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [billing, setBilling] = useState<BillingCycle>('monthly');
@@ -480,6 +487,84 @@ export default function PricingContent() {
             </div>
           );
         })}
+      </section>
+
+      {/* LOS DOS CASOS QUE NO SE MIDEN EN FACTURAS AL MES
+          Los tres planes de arriba se comparan entre sí porque se
+          diferencian en volumen. Estos dos no compiten con ellos ni
+          entre sí: uno es para quien sólo tiene mostrador y el otro para
+          quien lleva las cuentas de otros. Por eso van en su propia
+          banda, en un registro visual más tranquilo, y no como dos
+          columnas más de la tabla — cinco columnas no caben en un
+          teléfono y además mezclarían dos preguntas distintas. */}
+      <section className="pricing-otros" aria-labelledby="otros-titulo">
+        <h2 className="pricing-section-title" id="otros-titulo">¿Tu caso es otro?</h2>
+        <p className="pricing-section-lead">
+          Dos formas de usar Klima que no se miden en facturas al mes.
+        </p>
+
+        <div className="pricing-otros-grid">
+          <article className="pricing-otro">
+            <span className="pricing-otro-etiqueta">Solo mostrador</span>
+            <h3 className="pricing-otro-nombre">{PLAN_MOSTRADOR.name}</h3>
+            <p className="pricing-otro-pitch">
+              Para el bar, la tienda o la peluquería: cobras, sale el ticket y se acabó.
+              Cada ticket lleva su huella encadenada y su QR de cotejo, como cualquier factura.
+            </p>
+            <div className="pricing-otro-precio">
+              <span className="pricing-card-currency">€</span>
+              <span className="pricing-otro-cifra">
+                {billing === 'monthly'
+                  ? PLAN_MOSTRADOR.priceMonthly
+                  : (PLAN_MOSTRADOR.priceAnnual / 12).toFixed(2).replace('.', ',')}
+              </span>
+              <span className="pricing-card-period">/mes</span>
+            </div>
+            <ul className="pricing-otro-lista">
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Tickets ilimitados, también sin conexión</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> {PLAN_MOSTRADOR.invoiceLimit} facturas completas al mes, para quien te la pida</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Cierre de caja, arqueo e informes del día</li>
+            </ul>
+            {tpvDisponible ? (
+              <button
+                type="button"
+                className="pricing-otro-cta"
+                onClick={() => handleSelectPlan(PLAN_MOSTRADOR.id)}
+                disabled={loadingPlan !== null}
+                aria-busy={loadingPlan === PLAN_MOSTRADOR.id}
+              >
+                {loadingPlan === PLAN_MOSTRADOR.id
+                  ? <Loader2 size={16} className="spin" />
+                  : <>Empezar con el TPV<ArrowRight size={16} /></>}
+              </button>
+            ) : (
+              <p className="pricing-otro-nota">Disponible en cuanto terminemos de configurar el cobro.</p>
+            )}
+          </article>
+
+          <article className="pricing-otro pricing-otro--gestoria">
+            <span className="pricing-otro-etiqueta">Gestorías</span>
+            <h3 className="pricing-otro-nombre">Gestoría</h3>
+            <p className="pricing-otro-pitch">
+              Tus clientes te invitan y ves sus libros desde tu cuenta, sin pedirles claves
+              ni esperar a que te manden un ZIP a final de trimestre.
+            </p>
+            <div className="pricing-otro-precio">
+              <span className="pricing-card-currency">€</span>
+              <span className="pricing-otro-cifra">15</span>
+              <span className="pricing-card-period">/empresa al mes</span>
+            </div>
+            <ul className="pricing-otro-lista">
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Acceso de solo lectura a cada empresa que te invite</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Modelos 303, 420, 130 y 347 calculados, y exportación</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Mínimo 3 empresas · 12 € a partir de la décima</li>
+            </ul>
+            <p className="pricing-otro-nota">
+              En construcción. Se abrirá cuando el acceso para gestorías esté terminado, y
+              aquí aparecerá el botón para contratarlo.
+            </p>
+          </article>
+        </div>
       </section>
 
       {/* INCLUIDO EN TODOS LOS PLANES
