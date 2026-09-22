@@ -1,77 +1,81 @@
 # Qué falta para salir al mercado
 
-Repaso del 2026-09-22. Lo que bloquea el cobro va primero; dentro de cada
-bloque, lo más caro de arreglar al final.
+Última revisión: 2026-09-22. Lo que bloquea el cobro va primero.
 
-## Bloqueantes — sin esto no se puede cobrar
+## Bloqueantes — sólo quedan cosas que tienes que decidir tú
 
-- [ ] **Páginas legales.** No existe ninguna: privacidad, términos y
-      condiciones, aviso legal y política de cookies. Stripe las pide para
-      activar una cuenta de verdad y el RGPD las exige igual. Van en
-      `src/app/(public)/`, enlazadas desde `SiteFooter`.
-- [ ] **Identidad fiscal del vendedor.** El pie dice «© 2026 Klima
-      Solutions S.L.» y la titular es autónoma con domicilio en Canarias.
-      O se constituye la sociedad o el pie miente; los datos del vendedor
-      tienen que coincidir con los de las facturas que emite.
-- [ ] **Stripe en real.** Hoy la clave es de pruebas, no hay ningún
-      webhook dado de alta y «Sin límite» cuesta 110 € en Stripe y 119 €
-      en la web. Pasos concretos en
-      `2026-09-11-modo-admin-suscripciones-hacienda.md`, sección «Pasos
-      manuales de Elena».
-- [ ] **Régimen del IGIC confirmado por la gestoría.** Decide si se
-      repercute impuesto en el cobro y qué modelo se presenta. Mientras no
-      esté, `plataforma_config.cobrar_impuesto` sigue apagado.
+- [ ] **Rellenar los datos del titular** en `src/lib/legal/datos.ts`:
+      nombre o razón social, NIF, domicilio fiscal y email de contacto.
+      Las cuatro páginas legales ya existen y están enlazadas en el pie,
+      pero mientras esos campos estén vacíos cada una avisa arriba de que
+      el documento está sin completar. Son cuatro líneas.
+- [ ] **Decidir la identidad fiscal.** El pie ya no dice «S.L.» (decía
+      una forma jurídica que no existe); ahora sale el nombre que pongas
+      en esos datos. Tiene que coincidir con el de tu cuenta de Stripe y
+      con el de las facturas que emitas.
+- [ ] **Stripe en real.** Clave de producción, webhook dado de alta con
+      sus eventos, y los precios del plan TPV (29 € y 290 €) en
+      `STRIPE_PRICE_TPV_MENSUAL` y `STRIPE_PRICE_TPV_ANUAL`. Hasta que
+      existan, la tarjeta del TPV se ve sin botón de compra, a propósito.
+      También sigue pendiente alinear «Sin límite»: 119 € en la web,
+      110 € en Stripe.
+- [ ] **Régimen del IGIC confirmado por tu gestoría.** Decide si se
+      repercute impuesto en el cobro y qué modelo presentas.
 
-## Importantes — se puede vender sin ello, pero duele pronto
+## Importantes — el servicio funciona sin ello, pero se nota pronto
 
-- [ ] **Nadie se entera si algo falla.** No hay monitorización de errores
-      en producción. Un fallo al emitir una factura hoy sólo lo ve quien
-      lo sufre.
-- [ ] **No se envía ningún correo.** Ni la factura al cliente, ni aviso de
-      cobro fallido, ni recordatorio de vencimiento. En un programa de
-      facturación, mandar la factura por email es de las tres cosas que
-      más se piden.
-- [ ] **Certificado Veri\*Factu real.** Falta el certificado y los datos
-      del productor en `verifactu_config`; hasta entonces los registros se
-      quedan en cola sin enviarse a la AEAT.
-- [ ] **Sin integración continua.** Hay 1.318 tests y no los ejecuta nadie
-      al subir cambios. Un workflow de GitHub Actions con `npm test`,
-      `tsc --noEmit` y `eslint` evita que se rompa sin avisar.
-- [ ] **Soporte.** No hay ninguna dirección de contacto en el sitio. Los
-      planes prometen «soporte por email» y no hay email.
+- [ ] **Nadie se entera si algo falla.** Sigue sin haber monitorización
+      de errores en producción.
+- [ ] **No se envía ningún correo.** Ni la factura al cliente, ni aviso
+      de cobro fallido, ni recordatorio de vencimiento.
+- [ ] **Certificado Veri\*Factu real** y datos del productor en
+      `verifactu_config`. Sin eso los registros se quedan en cola.
+- [ ] **Acceso para gestorías.** El plan está anunciado a 15 €/empresa
+      pero no se puede contratar: falta construir la invitación desde la
+      cuenta del cliente, el permiso de sólo lectura y el panel de
+      empresas. Es la pieza grande que queda.
+- [ ] **60 errores de linter heredados** en `src`. La CI los enseña pero
+      no bloquea por ellos; cuando se limpien, quitar el
+      `continue-on-error` del paso «Linter» en `.github/workflows/ci.yml`.
 
-## Recomendable antes de anunciarlo
+## Recomendable
 
-- [ ] **SEO mínimo:** no hay `robots.txt` ni `sitemap`, en la única página
-      que tiene que posicionar.
-- [ ] **Copias de seguridad:** confirmar la política de backups del plan
-      de Supabase y probar una restauración. Son facturas selladas: no se
-      pueden volver a generar.
-- [ ] **Revisar el panel de administración en móvil.** Es lo único que no
-      se ha comprobado a 375 px, porque pide sesión y segundo factor.
-- [ ] **Deuda conocida:** un error de linter en `clientes/page.tsx:59`
-      (`reload` se usa antes de declararse) y un test visual de plantillas
-      que falla por una ruta temporal de otra sesión.
+- [ ] **Copias de seguridad:** confirmar la política del plan de Supabase
+      y probar una restauración. Son facturas selladas: no se regeneran.
+- [ ] **Revisar el panel de administración en móvil**, que es lo único
+      sin comprobar a 375 px (pide sesión y segundo factor).
 
-## Hecho en este repaso
+## Hecho
 
-- Plan **TPV** a 29 €/mes (290 €/año): tickets ilimitados y 10 facturas
-  completas al mes. El reparto lo aplica la base de datos
-  (`migration_043_plan_tpv.sql`), no la página.
-- De paso se arregló que **el límite de plan no se aplicaba** por el
-  camino normal: el trigger sólo miraba el `INSERT` de documentos que ya
-  nacían emitidos, y la aplicación siempre guarda un borrador y lo emite
-  con un `UPDATE`.
-- Plan **Gestoría** anunciado a 15 €/empresa (mínimo 3, 12 € a partir de
-  la décima), sin botón de compra hasta que exista el acceso para
-  gestorías: invitación del cliente, solo lectura y panel de empresas.
-- `/instalar` deja de ofrecer dos instaladores `.exe` de 92 MB que
-  **daban 404** —nunca estuvieron en el repositorio— y explica cómo se
-  instala desde el navegador, que es lo que la página defiende.
+### En este repaso
+- **Las cuatro páginas legales**: `/legal/privacidad`, `/legal/terminos`,
+  `/legal/aviso-legal` y `/legal/cookies`, enlazadas en el pie, con el
+  contenido real (responsable, encargados —Supabase, Vercel, Stripe,
+  Google—, bases jurídicas, plazos de conservación, derechos, condiciones
+  de contratación, cancelación prorrateada y cookies técnicas).
+- **`robots.txt` y `sitemap.xml`**, con las rutas de sesión excluidas y
+  `/aprobar/` fuera del índice (son enlaces con token).
+- **Integración continua** (`.github/workflows/ci.yml`): tipos, linter y
+  tests en cada push y cada pull request.
+- **El pop-up «¿Cómo se usa?» ya sale centrado.** Colgaba de la cabecera,
+  que lleva `backdrop-filter`, y eso reencuadra cualquier `position:
+  fixed` de dentro: el modal se medía contra una franja de 64 px. Ahora
+  se pinta con un portal en el `<body>`. Medido: antes 346 px descentrado,
+  ahora 0.
+- **Índices únicos que faltaban** en órdenes de trabajo y traspasos
+  (migración 044): ningún documento puede repetir número. Facturas,
+  albaranes, devoluciones y abonos ya lo tenían.
+- **Tres tests temporales retirados** (`__visual`, `__detect2`, `__diag`):
+  se declaraban temporales, dependían de un paquete no declarado y uno
+  llevaba escrita a fuego una ruta local. La batería queda en 1.316
+  pruebas, todas en verde.
+- **Un error de linter con riesgo real** en clientes (`reload` usado
+  antes de declararse: el escuchador se quedaba con la versión del primer
+  render).
 
-## Lo siguiente, si se quiere vender a gestorías
-
-Diseñar el acceso para gestorías antes de tocar código: invitación desde
-la cuenta del cliente, permiso de solo lectura (políticas RLS nuevas, no
-tocar las existentes), panel con la lista de empresas y facturación por
-número de empresas gestionadas en Stripe. Es la pieza grande que queda.
+### En el repaso anterior
+- Plan **TPV** a 29 €/mes con tickets ilimitados y 10 facturas completas,
+  aplicado por la base de datos (migración 043).
+- Se arregló que **el límite de plan no se aplicaba** por el camino
+  normal de emisión.
+- `/instalar` dejó de ofrecer dos instaladores `.exe` que daban 404.

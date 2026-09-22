@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 
+import { TITULAR } from '@/lib/legal/datos';
+
 const YEAR = 2026;
 
 export default function SiteFooter() {
@@ -37,6 +39,16 @@ export default function SiteFooter() {
             <a href="https://sede.agenciatributaria.gob.es/" target="_blank" rel="noreferrer noopener">Sede de la AEAT</a>
           </div>
         </nav>
+
+        {/* Obligatorios para vender: aviso legal, privacidad, condiciones
+            y cookies. Van en una línea discreta y no como una columna
+            más — son documentos que se buscan, no que se navegan. */}
+        <nav className="site-footer-legal" aria-label="Información legal">
+          <Link href="/legal/aviso-legal">Aviso legal</Link>
+          <Link href="/legal/privacidad">Privacidad</Link>
+          <Link href="/legal/terminos">Términos y condiciones</Link>
+          <Link href="/legal/cookies">Cookies</Link>
+        </nav>
       </div>
 
       {/* Antes aquí iba `.verifactu-badge`, que es dorado: el único color
@@ -47,7 +59,11 @@ export default function SiteFooter() {
         <span className="site-footer-seal">
           <ShieldCheck size={13} /> Registros encadenados con huella SHA-256
         </span>
-        <p>© {YEAR} Klima Solutions S.L.</p>
+        {/* Decía «S.L.» sin que exista tal sociedad: el titular sale de
+            los datos legales, y mientras no estén puestos se queda el
+            nombre comercial a secas en vez de una forma jurídica
+            inventada. */}
+        <p>© {YEAR} {TITULAR.titular || 'Klima Solutions'}</p>
       </div>
     </footer>
   );

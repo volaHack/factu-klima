@@ -11,7 +11,7 @@
  * públicas para AuthWrapper pero el proxy las mandaba a /login, así que
  * ningún visitante sin sesión llegaba a verlas. De ahí este módulo.
  */
-const PUBLIC_PREFIXES = ['/login', '/auth', '/aprobar', '/instalar', '/precios'];
+const PUBLIC_PREFIXES = ['/login', '/auth', '/aprobar', '/instalar', '/precios', '/legal'];
 
 export function isPublicRoute(pathname: string): boolean {
   // La landing se compara exacta: metida entre los prefijos, CUALQUIER ruta

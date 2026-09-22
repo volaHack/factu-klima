@@ -16,6 +16,7 @@ import {
   Compass, Lightbulb,
 } from 'lucide-react';
 import { ayudaDe } from '@/lib/ayuda/paginas';
+import Portal from '@/components/ui/Portal';
 
 export default function AyudaContextual() {
   const pathname = usePathname() ?? '/';
@@ -54,7 +55,15 @@ function BotonAyuda({ ayuda }: { ayuda: NonNullable<ReturnType<typeof ayudaDe>> 
         <span className="apple-guide-text">¿Cómo se usa?</span>
       </button>
 
-      {abierta && <ModalAyuda ayuda={ayuda} onCerrar={() => setAbierta(false)} />}
+      {/* Por el portal: este botón vive dentro de la cabecera, que lleva
+          `backdrop-filter`, y eso reencuadra cualquier `position: fixed`
+          de dentro. Sin el portal, el modal salía pegado a la cabecera
+          en vez de centrado en la pantalla. Ver Portal.tsx. */}
+      {abierta && (
+        <Portal>
+          <ModalAyuda ayuda={ayuda} onCerrar={() => setAbierta(false)} />
+        </Portal>
+      )}
     </>
   );
 }

@@ -11844,3 +11844,117 @@ body.nav-abierta { overflow: hidden; }
   }
   .pricing-otros-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   PÁGINAS LEGALES
+   Texto largo para leer, no para escanear: una columna estrecha,
+   interlineado holgado y jerarquía sobria. Sin adornos: lo que aquí
+   importa es que se entienda y que se pueda citar.
+   ============================================================ */
+
+.legal-doc {
+  position: relative;
+  z-index: 1;
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 72px) var(--space-5) 80px;
+}
+
+.legal-doc-header { margin-bottom: var(--space-8); }
+.legal-doc-title {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.12;
+  margin: 0 0 var(--space-3);
+}
+.legal-doc-lead {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--space-2);
+}
+.legal-doc-fecha {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* El aviso de documento incompleto. Ámbar, no rojo: no es un error de la
+   aplicación, es una tarea pendiente de quien la publica. */
+.legal-aviso {
+  margin-bottom: var(--space-8);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-warning);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.legal-aviso code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.legal-seccion { margin-bottom: var(--space-7); }
+.legal-seccion h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  margin: 0 0 var(--space-3);
+}
+.legal-seccion p {
+  font-size: var(--text-base);
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-3);
+}
+.legal-seccion p strong { color: var(--text-primary); }
+.legal-seccion a {
+  color: var(--accent-500);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-lista {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.legal-lista li {
+  position: relative;
+  padding-left: var(--space-5);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.legal-lista li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-500);
+  opacity: 0.55;
+}
+.legal-lista li strong { color: var(--text-primary); }
+
+/* Enlaces legales del pie: una línea discreta, no una columna más. */
+.site-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+}
+.site-footer-legal a { color: var(--text-muted); }
+@media (hover: hover) and (pointer: fine) {
+  .site-footer-legal a:hover { color: var(--text-primary); }
+}

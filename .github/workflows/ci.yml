@@ -1,0 +1,45 @@
+name: CI
+
+# Los 1.318 tests existían y no los ejecutaba nadie al subir cambios.
+# Ahora sí: tipos, linter y pruebas en cada push y en cada pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: "Sistema-Verifactu-Facturación/facturacion-app"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: "Sistema-Verifactu-Facturación/facturacion-app/package-lock.json"
+
+      # `npm ci` respeta el lock; `--ignore-scripts` no, porque el
+      # postinstall copia el worker de pdf.js y parchea pdfme, y sin eso
+      # la comprobación de tipos falla.
+      - run: npm ci
+
+      - name: Tipos
+        run: npx tsc --noEmit -p .
+
+      # Informativo, no bloqueante: hoy `eslint src` arrastra 60 errores
+      # heredados y una CI que nace en rojo no la mira nadie. Los tipos y
+      # los tests sí bloquean. Cuando se limpien esos 60, quitar el
+      # `continue-on-error` y que el linter bloquee también.
+      - name: Linter (informativo)
+        run: npx eslint src
+        continue-on-error: true
+
+      - name: Tests
+        run: npm test

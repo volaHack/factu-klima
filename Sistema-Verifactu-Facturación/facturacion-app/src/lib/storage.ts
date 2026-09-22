@@ -2750,6 +2750,21 @@ export async function getCompanySettings(): Promise<CompanySettings> {
       settings.planId = estado.planId ?? settings.planId;
       settings.subscriptionStatus = estado.activa ? 'active' : 'inactive';
     }
+
+    // EL PLAN TPV ES SÓLO EL MOSTRADOR
+    //
+    // Todas las pantallas deciden qué enseñar mirando `settings.modulos`
+    // (el menú lateral, el panel, los formularios), así que el plan se
+    // aplica aquí, en el único sitio por el que pasan todas. Si se
+    // filtrara en cada pantalla, la primera que se olvidara enseñaría de
+    // más — y lo que se vende a 29 € es la caja, no el programa entero.
+    //
+    // Lo que se cobra de verdad no depende de esto: el tope de facturas
+    // completas lo aplica la base de datos (migración 043), que es la
+    // que no se puede esquivar desde el navegador.
+    if (settings.planId === 'tpv') {
+      settings.modulos = ['tpv'];
+    }
   } catch {}
 
   return settings;

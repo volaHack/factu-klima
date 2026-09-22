@@ -67,7 +67,11 @@ export default function ClientesPage() {
     };
   }, []);
 
-  const reload = async () => {
+  // Declaración, no constante: el escuchador de eventos de arriba la usa
+  // antes de esta línea. Con `const` se quedaba con la versión del primer
+  // render —el linter lo marcaba como error— y una recarga automática
+  // podía trabajar con datos de hace varios renders.
+  async function reload() {
     setRefreshing(true);
     const [clientsData, allInvoices, vendData] = await Promise.all([
       getClients(),
@@ -78,7 +82,7 @@ export default function ClientesPage() {
     setInvoices(allInvoices);
     setVendedores(vendData);
     setTimeout(() => setRefreshing(false), 400);
-  };
+  }
 
   // Stats pre-calculados para poder ordenar por ellos (solo facturas de venta, no albaranes)
   const clientStats = useMemo(() => {
