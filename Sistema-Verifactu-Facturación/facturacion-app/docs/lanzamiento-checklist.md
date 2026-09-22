@@ -9,6 +9,16 @@
       Las cuatro páginas legales ya existen y están enlazadas en el pie,
       pero mientras esos campos estén vacíos cada una avisa arriba de que
       el documento está sin completar. Son cuatro líneas.
+
+      **Estos cuatro datos no se pueden sacar del programa.** Lo que hay
+      guardado en tu cuenta es la empresa de demostración —
+      «Distribuciones Alimentarias del Sur S.L.», con CIF B41567890 y
+      domicilio en Sevilla—, y copiarlo a unas páginas públicas sería
+      publicar una razón social y un CIF que no son los de quien firma.
+      Además contradice tu domicilio fiscal, que está en Canarias.
+      `src/lib/legal/datos.test.ts` rechaza ese relleno, comprueba la
+      letra del NIF y exige código postal en el domicilio: si se teclean
+      mal, la CI lo para antes de que salga a la web.
 - [ ] **Decidir la identidad fiscal.** El pie ya no dice «S.L.» (decía
       una forma jurídica que no existe); ahora sale el nombre que pongas
       en esos datos. Tiene que coincidir con el de tu cuenta de Stripe y
@@ -48,6 +58,19 @@
 ## Hecho
 
 ### En este repaso
+- **Descuento a pie de factura.** Antes sólo se podía descontar línea a
+  línea; ahora hay hasta tres descuentos sobre el total (comercial,
+  pronto pago, especial), encadenados, en crear y editar facturas. Sale
+  en su propio renglón, separado de lo descontado en las líneas, para
+  que quien reciba la factura pueda cuadrar las líneas con el total.
+- **El sellado contaba mal los descuentos** (migración 046). El
+  disparador que recalcula los importes al sellar aplicaba sólo el
+  primero de los tres descuentos de línea e ignoraba los de pie: una
+  factura con descuento se sellaba por un importe distinto del que se
+  veía en pantalla y del que salía impreso. Ahora replica exactamente el
+  cálculo de la aplicación. Comprobado contra la base de datos real:
+  base 19,89 · descuentos 5,11 · impuestos 3,68 · total 23,57, los
+  mismos números que la pantalla, y fijados en un test.
 - **Acceso para gestorías, funcionando.** La empresa invita por correo
   desde Ajustes → Tu gestoría; la gestoría entra con SU cuenta, acepta y
   ve los libros de esa empresa en solo lectura, con el reparto por

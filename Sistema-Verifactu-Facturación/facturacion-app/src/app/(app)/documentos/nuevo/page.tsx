@@ -516,6 +516,8 @@ function NuevoDocumentoContent() {
           taxBreakdown={totals.taxBreakdown}
           totalTax={totals.totalTax}
           total={totals.total}
+          descuentoAlPie={totals.globalDiscountAmount ?? 0}
+          porcentajesPie={globalDiscounts.filter(p => p > 0)}
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
