@@ -21,10 +21,15 @@
  *   hoja). Una autónoma lo deja vacío.
  */
 export const TITULAR = {
-  titular: '',
-  nif: '',
+  titular: 'Alexander Carmelo del Pino Pérez',
+  nif: '78837942Z',
+  // Falta el código postal y el municipio. Un domicilio fiscal sin ellos
+  // no identifica nada —«calle La Cuesta» la hay en media Canarias— y es
+  // además lo que dice en qué territorio se tributa. Hasta que estén, la
+  // página lo marca como pendiente en vez de publicar media dirección.
   domicilio: '',
-  email: '',
+  email: 'volitancrooss@gmail.com',
+  // Persona física dada de alta como autónoma: no hay registro mercantil.
   registro: '',
 } as const;
 

@@ -4,21 +4,28 @@
 
 ## Bloqueantes — sólo quedan cosas que tienes que decidir tú
 
-- [ ] **Rellenar los datos del titular** en `src/lib/legal/datos.ts`:
-      nombre o razón social, NIF, domicilio fiscal y email de contacto.
-      Las cuatro páginas legales ya existen y están enlazadas en el pie,
-      pero mientras esos campos estén vacíos cada una avisa arriba de que
-      el documento está sin completar. Son cuatro líneas.
+- [ ] **Falta el domicilio fiscal completo** en `src/lib/legal/datos.ts`.
+      El nombre (Alexander Carmelo del Pino Pérez), el NIF (78837942Z,
+      comprobada su letra de control) y el correo de contacto ya están.
+      Del domicilio sólo hay «calle La Cuesta, 10»: falta el **código
+      postal y el municipio**, sin los cuales no identifica nada —esa
+      calle la hay en media Canarias— y no se sabe en qué territorio se
+      tributa. Hasta que estén, las páginas lo enseñan como
+      «[pendiente: domicilio fiscal]» y siguen avisando de que el
+      documento está sin completar, que es preferible a publicar media
+      dirección.
 
-      **Estos cuatro datos no se pueden sacar del programa.** Lo que hay
-      guardado en tu cuenta es la empresa de demostración —
-      «Distribuciones Alimentarias del Sur S.L.», con CIF B41567890 y
-      domicilio en Sevilla—, y copiarlo a unas páginas públicas sería
-      publicar una razón social y un CIF que no son los de quien firma.
-      Además contradice tu domicilio fiscal, que está en Canarias.
-      `src/lib/legal/datos.test.ts` rechaza ese relleno, comprueba la
-      letra del NIF y exige código postal en el domicilio: si se teclean
-      mal, la CI lo para antes de que salga a la web.
+      `src/lib/legal/datos.test.ts` vigila estos campos: rechaza los
+      datos de la cuenta de demostración («Distribuciones Alimentarias
+      del Sur S.L.», CIF B41567890, Sevilla), comprueba la letra del NIF
+      y exige código postal en el domicilio. Si se teclean mal, la CI lo
+      para antes de que salga a la web.
+- [ ] **El nombre de las facturas y el de las páginas legales no
+      coinciden todavía.** Ajustes → Datos de empresa sigue con la
+      empresa de demostración, así que las facturas que emite el programa
+      salen a nombre de «Distribuciones Alimentarias del Sur S.L.»
+      mientras el pie de la web ya dice Alexander Carmelo del Pino Pérez.
+      Tienen que ser el mismo nombre, y el mismo que en Stripe.
 - [ ] **Decidir la identidad fiscal.** El pie ya no dice «S.L.» (decía
       una forma jurídica que no existe); ahora sale el nombre que pongas
       en esos datos. Tiene que coincidir con el de tu cuenta de Stripe y

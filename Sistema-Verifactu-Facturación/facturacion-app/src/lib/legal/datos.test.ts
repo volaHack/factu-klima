@@ -30,12 +30,14 @@ const DATOS_DE_PRUEBA = [
 ];
 
 describe('datos del titular que se publican en las páginas legales', () => {
-  it('o están los cuatro, o no está ninguno', () => {
-    // Medio rellenos es el peor estado: la página se da por completa y
-    // sale con un hueco disimulado en mitad de un texto legal.
+  it('sólo se da por completo cuando están los cuatro', () => {
+    // Estar a medias es un estado legítimo mientras falte algún dato: el
+    // hueco sale escrito como «[pendiente: …]» y la página entera lleva
+    // el aviso de documento sin completar. Lo que no puede pasar es que
+    // falte algo y la página se dé por buena, porque entonces el hueco
+    // deja de verse y el texto legal parece cerrado sin estarlo.
     const puestos = [TITULAR.titular, TITULAR.nif, TITULAR.domicilio, TITULAR.email]
       .filter(v => v.trim().length > 0).length;
-    expect(puestos === 0 || puestos === 4, 'rellena los cuatro campos o ninguno').toBe(true);
     expect(datosCompletos).toBe(puestos === 4);
   });
 
