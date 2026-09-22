@@ -30,10 +30,10 @@
       de cobro fallido, ni recordatorio de vencimiento.
 - [ ] **Certificado Veri\*Factu real** y datos del productor en
       `verifactu_config`. Sin eso los registros se quedan en cola.
-- [ ] **Acceso para gestorías.** El plan está anunciado a 15 €/empresa
-      pero no se puede contratar: falta construir la invitación desde la
-      cuenta del cliente, el permiso de sólo lectura y el panel de
-      empresas. Es la pieza grande que queda.
+- [ ] **Cobro del plan de gestorías.** El acceso YA funciona (invitación,
+      solo lectura y panel de empresas). Lo que falta es cobrarlo: un
+      precio por empresa en Stripe con cantidad variable, y el botón en
+      la página de precios.
 - [ ] **60 errores de linter heredados** en `src`. La CI los enseña pero
       no bloquea por ellos; cuando se limpien, quitar el
       `continue-on-error` del paso «Linter» en `.github/workflows/ci.yml`.
@@ -48,6 +48,14 @@
 ## Hecho
 
 ### En este repaso
+- **Acceso para gestorías, funcionando.** La empresa invita por correo
+  desde Ajustes → Tu gestoría; la gestoría entra con SU cuenta, acepta y
+  ve los libros de esa empresa en solo lectura, con el reparto por
+  trimestres. Los permisos los aplica la base de datos (migración 045),
+  no la pantalla, y están probados con dos cuentas reales: tras aceptar
+  ve 43 facturas y 48 líneas de esa empresa; no ve sus certificados ni
+  sus suscripciones, y un intento de escritura afecta a 0 filas. El
+  acceso se retira con un botón, con su fecha.
 - **Las cuatro páginas legales**: `/legal/privacidad`, `/legal/terminos`,
   `/legal/aviso-legal` y `/legal/cookies`, enlazadas en el pie, con el
   contenido real (responsable, encargados —Supabase, Vercel, Stripe,

@@ -555,13 +555,13 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               <span className="pricing-card-period">/empresa al mes</span>
             </div>
             <ul className="pricing-otro-lista">
-              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Acceso de solo lectura a cada empresa que te invite</li>
-              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Modelos 303, 420, 130 y 347 calculados, y exportación</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Cada empresa te invita por correo y te retira el acceso cuando quiera</li>
+              <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Sus libros en solo lectura: nunca emites ni modificas nada en su nombre</li>
               <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Mínimo 3 empresas · 12 € a partir de la décima</li>
             </ul>
             <p className="pricing-otro-nota">
-              En construcción. Se abrirá cuando el acceso para gestorías esté terminado, y
-              aquí aparecerá el botón para contratarlo.
+              El acceso ya funciona: tus clientes pueden invitarte hoy desde sus Ajustes.
+              Abrimos la contratación en cuanto terminemos de configurar el cobro por empresa.
             </p>
           </article>
         </div>

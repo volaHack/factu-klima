@@ -14,6 +14,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
+import { empresasQueLlevo, invitacionesPendientes } from '@/lib/gestoria';
 import type { CompanySettings } from '@/lib/types';
 
 interface SidebarProps {
@@ -103,6 +104,22 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const [sectorLabel, setSectorLabel] = useState('Distribución');
   const [tpvActive, setTpvActive] = useState(true);
   const [modulos, setModulos] = useState<ModuloId[] | null>(null);
+  // El menú de gestoría sólo sale si de verdad llevas empresas o te han
+  // invitado a una: a quien sólo factura lo suyo no le estorba una
+  // sección que no va a usar nunca.
+  const [tieneGestoria, setTieneGestoria] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [invitaciones, empresas] = await Promise.all([
+        invitacionesPendientes(),
+        empresasQueLlevo(),
+      ]);
+      setTieneGestoria(invitaciones.length > 0 || empresas.length > 0);
+    })().catch(() => {
+      // Sin acceso de gestoría no hay menú, y no hay nada que avisar.
+    });
+  }, []);
 
   useEffect(() => {
     const aplicar = (settings: CompanySettings) => {
@@ -215,6 +232,15 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           {controlItems.map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
+
+          {tieneGestoria && (
+            <SidebarLink
+              item={{ href: '/gestoria', label: 'Gestoría', icon: Briefcase }}
+              pathname={pathname}
+              onClose={onClose}
+              collapsed={collapsed}
+            />
+          )}
         </nav>
 
         {/* CTA */}

@@ -443,6 +443,22 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
   },
   {
+    ruta: '/gestoria',
+    titulo: 'Gestoría',
+    paraQue: 'Consultar los libros de las empresas que te han invitado, sin que nadie tenga que pasarte sus claves.',
+    pasos: [
+      'Tu cliente te invita desde sus Ajustes, con este mismo correo.',
+      'Aceptas la invitación aquí y su empresa aparece en tu lista.',
+      'Entras en una empresa y ves sus facturas selladas y el reparto por trimestres.',
+    ],
+    saber: [
+      'Es SOLO LECTURA: no puedes emitir, modificar ni borrar nada en nombre de tu cliente. Lo impide la base de datos, no esta pantalla.',
+      'Tu cliente te retira el acceso cuando quiera, y deja de verse al instante.',
+      'No ves sus certificados digitales ni sus datos de pago: para llevar los libros no hacen falta.',
+    ],
+    relacionadas: [{ ruta: '/listados-fiscales', texto: 'Modelos fiscales' }],
+  },
+  {
     ruta: '/integridad',
     titulo: 'Integridad',
     paraQue: 'Comprobar que ninguna factura se ha alterado: se recalcula la cadena de huellas entera.',

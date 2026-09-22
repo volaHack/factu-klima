@@ -11958,3 +11958,103 @@ body.nav-abierta { overflow: hidden; }
 @media (hover: hover) and (pointer: fine) {
   .site-footer-legal a:hover { color: var(--text-primary); }
 }
+
+/* ============================================================
+   ACCESO DE LA GESTORÍA
+   En Ajustes (invitar y retirar) y en su propio panel (empresas).
+   ============================================================ */
+
+.gestoria-invitar {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+  max-width: 460px;
+}
+.gestoria-invitar .form-input { flex: 1; min-width: 0; }
+
+.gestoria-lista {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.gestoria-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.gestoria-item-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gestoria-item-datos strong { word-break: break-all; }
+
+.gestoria-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.gestoria-estado--activo { background: var(--color-success-bg); color: var(--color-success); }
+.gestoria-estado--invitado { background: var(--color-warning-bg); color: var(--color-warning); }
+
+/* --- El panel de la gestoría --- */
+
+.gestoria-invitaciones { display: flex; flex-direction: column; gap: var(--space-2); }
+.gestoria-invitacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.gestoria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-4);
+}
+.gestoria-empresa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gestoria-empresa:hover { border-color: var(--accent-500); transform: translateY(-2px); }
+}
+.gestoria-empresa:active { transform: scale(0.995); }
+.gestoria-empresa-icono {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent-glow);
+  color: var(--accent-400);
+}
+.gestoria-empresa-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gestoria-empresa-datos strong { word-break: break-word; }
+.gestoria-empresa-flecha { color: var(--text-muted); flex-shrink: 0; }
+
+@media (max-width: 520px) {
+  .gestoria-invitar { flex-direction: column; max-width: none; }
+  .gestoria-item { flex-wrap: wrap; }
+  .gestoria-invitacion { flex-direction: column; align-items: stretch; }
+}
