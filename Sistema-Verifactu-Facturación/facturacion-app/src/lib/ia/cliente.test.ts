@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import {
   configuracionIA,
+  esCuotaAgotada,
   generarTexto,
   mereceOtroIntento,
   extraerTexto,
@@ -212,7 +213,7 @@ describe('un fallo pasajero del proveedor no gasta el intento del usuario', () =
     }
   });
 
-  it('no repite cuando el servidor no está escuchando', async () => {
+  it('no repite cuando la conexión se rechaza', async () => {
     // Si no hay nadie al otro lado, no lo va a haber un segundo después,
     // y la espera ya ha sido larga.
     process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
@@ -229,5 +230,121 @@ describe('un fallo pasajero del proveedor no gasta el intento del usuario', () =
     } finally {
       globalThis.fetch = original;
     }
+  });
+
+  it('pero SÍ repite cuando se acaba el tiempo', async () => {
+    // No es lo mismo. Un servicio alojado que va cargado acepta la
+    // conexión y se queda pensando: medido contra Gemini, la misma
+    // llamada tardó 4,6 s una vez y 28 s la siguiente. Ahí repetir sirve.
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      if (llamadas === 1) {
+        const err = new Error('The operation was aborted due to timeout');
+        err.name = 'TimeoutError';
+        throw err;
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'Aquí está.' } }] }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).resolves.toBe('Aquí está.');
+      expect(llamadas).toBe(2);
+    } finally {
+      globalThis.fetch = original;
+    }
+  }, 15_000);
+
+  it('si se acaba el tiempo en todos los intentos, se rinde y lo dice', async () => {
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      const err = new Error('timeout');
+      err.name = 'TimeoutError';
+      throw err;
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).rejects.toMatchObject({ motivo: 'sin-contacto' });
+      expect(llamadas).toBe(3);
+    } finally {
+      globalThis.fetch = original;
+    }
+  }, 20_000);
+});
+
+describe('quedarse sin cupo no es lo mismo que fallar', () => {
+  const CUOTA_DE_GEMINI = JSON.stringify({
+    error: {
+      code: 429,
+      message: 'You exceeded your current quota... Quota exceeded for metric: '
+        + 'generate_content_free_tier_requests, limit: 20. Please retry in 28.679062611s.',
+      status: 'RESOURCE_EXHAUSTED',
+    },
+  });
+
+  it('reconoce un cupo agotado por lo que dice el proveedor', () => {
+    expect(esCuotaAgotada(CUOTA_DE_GEMINI)).toBe(true);
+    expect(esCuotaAgotada('{"error":{"code":"insufficient_quota"}}')).toBe(true);
+  });
+
+  it('y también cuando pide esperar más de lo que estamos dispuestos', () => {
+    expect(esCuotaAgotada('slow down, please retry in 45s')).toBe(true);
+    // Cuatro segundos sí los esperamos: eso es una rafaga, no un cupo.
+    expect(esCuotaAgotada('slow down, please retry in 2s')).toBe(false);
+  });
+
+  it('una ráfaga cualquiera no se toma por cupo agotado', () => {
+    expect(esCuotaAgotada('{"error":"too many requests"}')).toBe(false);
+  });
+
+  it('con el cupo agotado NO insiste: gastaría más deprisa lo que queda', async () => {
+    // Y el usuario se comería la espera de tres intentos para acabar en
+    // el mismo error.
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      return new Response(CUOTA_DE_GEMINI, { status: 429 });
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).rejects.toMatchObject({ motivo: 'sin-cuota' });
+      expect(llamadas).toBe(1);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('pero un 429 de ráfaga sí se reintenta', async () => {
+    process.env.IA_BASE_URL = 'http://servidor.de.prueba/v1';
+    let llamadas = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      llamadas++;
+      if (llamadas === 1) return new Response('{"error":"too many requests"}', { status: 429 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'Ya está.' } }] }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      await expect(generarTexto({ instrucciones: 'da igual' })).resolves.toBe('Ya está.');
+      expect(llamadas).toBe(2);
+    } finally {
+      globalThis.fetch = original;
+    }
+  }, 15_000);
+
+  it('se le dice al usuario que es el cupo, no una avería', () => {
+    // «No se ha podido contactar» invita a volver a pulsar, que es justo
+    // lo que no hay que hacer.
+    const r = respuestaDeFallo(new FalloIA('sin-cuota'), 'El resto sigue igual.');
+    expect(r.estado).toBe(429);
+    expect(r.error).toMatch(/cupo/i);
+    expect(r.error).toMatch(/dentro de un rato/i);
   });
 });

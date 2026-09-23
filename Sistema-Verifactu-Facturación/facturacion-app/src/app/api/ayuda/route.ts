@@ -43,6 +43,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
+import { AYUDA_PAGINAS } from '@/lib/ayuda/paginas';
 
 /** Tope de la pregunta. Nadie escribe una novela detrás del mostrador. */
 const MAXIMO_PREGUNTA = 400;
@@ -224,6 +225,86 @@ function instruccionesPagina(pregunta: string, p: ContextoPagina): string {
   ].join('\n');
 }
 
+/**
+ * EL MAPA DEL PROGRAMA, SACADO DE SU PROPIA AYUDA
+ *
+ * Una línea por pantalla: su ruta, su nombre y para qué sirve. Sale de
+ * `lib/ayuda/paginas.ts`, que es la ayuda que ya se le enseña al usuario
+ * en cada pantalla, así que no hay una segunda lista que mantener ni
+ * riesgo de que el asistente mande a un sitio que no existe. Si mañana
+ * se añade una pantalla con su ayuda, el asistente la conoce sola.
+ */
+const PANTALLAS_DEL_PROGRAMA = AYUDA_PAGINAS.map(
+  p => `- ${p.ruta} «${p.titulo}»: ${p.paraQue}`,
+);
+
+/**
+ * ASISTENCIA: LA DUDA CON LA SITUACIÓN REAL DELANTE
+ *
+ * Los otros modos contestan con el manual. Éste contesta con el manual Y
+ * con el retrato de lo que esa empresa tiene ahora mismo —cuántas
+ * facturas vencidas, qué le falta por configurar—, que es lo que
+ * convierte una respuesta cierta e inútil («para cobrar una vencida,
+ * entra en Facturas y…») en una que sirve («tienes 3 vencidas por
+ * 1.240 €, la más vieja lleva 47 días»).
+ *
+ * El retrato llega ya contado y escrito en frases desde el cliente
+ * (`lib/asistencia/contexto.ts`): aquí no llegan listas de clientes ni
+ * importes uno a uno.
+ */
+function instruccionesAsistencia(
+  pregunta: string,
+  situacion: string[],
+  historial: { deQuien: 'persona' | 'asistente'; texto: string }[],
+): string {
+  return [
+    'Eres el asistente de un programa español de facturación. Hablas con la',
+    'persona que lo usa para su negocio, no con un informático.',
+    '',
+    'REGLAS:',
+    '- Responde en castellano, de tú, en 5 frases como mucho.',
+    '- USA LOS NÚMEROS DE SU SITUACIÓN. Si pregunta por cobros y tiene',
+    '  facturas vencidas, dile cuántas y cuáles. Responder en abstracto',
+    '  cuando tienes el dato delante no sirve de nada.',
+    '- Si hay que hacer algo, dilo en pasos cortos con el nombre exacto de',
+    '  la pantalla y del botón.',
+    '- No inventes pantallas, botones ni funciones. Si no lo sabes, dilo.',
+    '- Nada de saludos ni de despedidas.',
+    '',
+    // UNA PROHIBICIÓN SIN SALIDA SE CONVIERTE EN UN CALLEJÓN
+    //
+    // Antes esto era una línea suelta: «nada de impuestos ni de consejos
+    // fiscales». Medido contra Gemini, «¿cuánto pago de impuestos este
+    // trimestre?» agotaba los tres intentos —más de dos minutos— y
+    // acababa en «no se ha podido contactar». El modelo se quedaba
+    // deliberando entre calcularlo y negarse, sin saber qué decir.
+    //
+    // Se arregla dándole la respuesta hecha: una frase y a dónde ir. Así
+    // la negativa le cuesta lo mismo que cualquier otra contestación.
+    'SI TE PREGUNTAN POR IMPUESTOS (cuánto pagar, qué modelo presentar,',
+    'cómo declarar, si algo desgrava): no lo calcules ni lo razones.',
+    'Contesta exactamente esto, en una frase: que eso lo decide su',
+    'gestoría, y que en la pantalla «Listados fiscales» tiene los datos',
+    'que su gestoría necesita. Nada más.',
+    '',
+    'SU SITUACIÓN AHORA MISMO:',
+    ...situacion,
+    '',
+    'LAS PANTALLAS DEL PROGRAMA:',
+    ...PANTALLAS_DEL_PROGRAMA,
+    ...(historial.length > 0
+      ? ['', 'LO QUE YA OS HABÉIS DICHO:',
+        ...historial.map(m => `${m.deQuien === 'persona' ? 'Ella' : 'Tú'}: ${m.texto}`)]
+      : []),
+    '',
+    'PREGUNTA:',
+    pregunta,
+    '',
+    'ANTES DE RESPONDER: mira otra vez «SU SITUACIÓN AHORA MISMO». Si lo que',
+    'pregunta tiene un número ahí, ese número va en tu respuesta.',
+  ].join('\n');
+}
+
 function numero(valor: unknown): number {
   return typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
 }
@@ -253,6 +334,9 @@ export async function POST(request: NextRequest) {
     contexto?: Partial<ContextoTpv>;
     turno?: Partial<ResumenTurno>;
     pagina?: Partial<ContextoPagina>;
+    /** Modo asistencia: el retrato del panel, ya contado en el cliente. */
+    situacion?: unknown;
+    historial?: unknown;
   };
   try {
     cuerpo = await request.json();
@@ -278,6 +362,30 @@ export async function POST(request: NextRequest) {
             .map(p => ({ nombre: String(p?.nombre ?? '').slice(0, 60), unidades: numero(p?.unidades) }))
         : [],
     });
+  } else if (cuerpo.modo === 'asistencia') {
+    const pregunta = String(cuerpo.pregunta ?? '').trim().slice(0, MAXIMO_PREGUNTA);
+    if (!pregunta) {
+      return NextResponse.json({ error: 'Escribe o dicta tu pregunta.' }, { status: 400 });
+    }
+    // Se acota lo que llega del cliente: el texto viaja al modelo y no
+    // tiene sentido pagar por un retrato de diez folios que nadie escribió.
+    const situacion = (Array.isArray(cuerpo.situacion) ? cuerpo.situacion : [])
+      .slice(0, 20).map(x => String(x).slice(0, 300));
+    // La conversación previa, para que se pueda repreguntar sin repetirlo
+    // todo. Las últimas seis y nada más: lo de hace veinte mensajes ya no
+    // ayuda y se paga igual.
+    const historial = (Array.isArray(cuerpo.historial) ? cuerpo.historial : [])
+      .slice(-6)
+      .map((m: unknown) => {
+        const mensaje = m as { deQuien?: unknown; texto?: unknown };
+        return {
+          deQuien: mensaje?.deQuien === 'asistente' ? 'asistente' as const : 'persona' as const,
+          texto: String(mensaje?.texto ?? '').slice(0, 600),
+        };
+      })
+      .filter(m => m.texto);
+
+    instrucciones = instruccionesAsistencia(pregunta, situacion, historial);
   } else if (cuerpo.modo === 'pagina') {
     const pregunta = String(cuerpo.pregunta ?? '').trim().slice(0, MAXIMO_PREGUNTA);
     if (!pregunta) {
@@ -316,10 +424,21 @@ export async function POST(request: NextRequest) {
       // Poca creatividad: la misma duda dos veces tiene que dar la misma
       // respuesta, que es lo que permite fiarse de ella.
       temperatura: 0.2,
-      maximoTokens: 512,
-      // Corto a propósito: hay un cliente esperando. Si tarda más, no sirve.
-      // Con holgura para un modelo local, que arranca más lento la primera vez.
-      tiempoLimiteMs: 45_000,
+      // LA ASISTENCIA NECESITA MÁS AIRE QUE EL MOSTRADOR
+      //
+      // En el TPV hay un cliente esperando de pie: si tarda, no sirve. En
+      // la pantalla de asistencia no, y el enunciado es mucho mayor —lleva
+      // el mapa de las cuarenta pantallas del programa y la situación de
+      // la empresa—, así que el modelo tarda más en leerlo y en pensar.
+      //
+      // Con 45 s y 900 tokens se caían una de cada dos preguntas, y el
+      // usuario veía «no se ha podido contactar» cuando lo único que
+      // pasaba es que no le habíamos dado tiempo.
+      maximoTokens: cuerpo.modo === 'asistencia' ? 2_000 : 512,
+      // Por INTENTO, no en total: con tres intentos, el peor caso son
+      // unos 140 s. Más por intento y una mala racha del proveedor deja a
+      // alguien mirando un reloj durante minutos.
+      tiempoLimiteMs: cuerpo.modo === 'asistencia' ? 45_000 : 30_000,
     });
     return NextResponse.json({ texto });
   } catch (err) {
@@ -327,7 +446,13 @@ export async function POST(request: NextRequest) {
     // El detalle puede llevar trazas de la petición: al registro sí, al
     // usuario no.
     console.error('[ayuda] fallo de IA:', err.motivo, err.detalle ?? '');
-    const { estado, error } = respuestaDeFallo(err, 'El TPV sigue funcionando igual.');
+    // El consuelo tiene que pegar con dónde está la persona: «el TPV
+    // sigue funcionando igual» a quien está en la pantalla de asistencia
+    // no le dice nada.
+    const consuelo = cuerpo.modo === 'asistencia'
+      ? 'El resto del programa sigue funcionando igual.'
+      : 'El TPV sigue funcionando igual.';
+    const { estado, error } = respuestaDeFallo(err, consuelo);
     return NextResponse.json({ error }, { status: estado });
   }
 }

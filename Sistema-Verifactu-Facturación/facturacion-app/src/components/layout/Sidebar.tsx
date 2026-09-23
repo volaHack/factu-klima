@@ -8,7 +8,7 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe, ListOrdered, Landmark, Tag,
+  Send, Globe, ListOrdered, Landmark, Tag, Sparkles,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -59,6 +59,7 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
 // módulo que se pueda apagar.
 const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo?: ModuloId }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/asistencia', label: 'Asistencia IA', icon: Sparkles },
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/documentos', label: 'Documentos', icon: Files },
   { href: '/tesoreria', label: 'Tesorería y Cobros', icon: WalletCards },

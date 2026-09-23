@@ -551,6 +551,23 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
   },
   {
+    ruta: '/asistencia',
+    titulo: 'Asistencia IA',
+    paraQue: 'Preguntar dudas del programa —escribiendo o dictando— y que la respuesta venga con tus propios números: cuántas facturas tienes sin cobrar, qué te falta por configurar.',
+    pasos: [
+      'Escribe la pregunta con tus palabras, o pulsa «Dictar» y háblale.',
+      'Pulsa Enviar. Con Mayúsculas+Intro haces párrafo en vez de enviar.',
+      'Puedes repreguntar: se acuerda de lo que os habéis dicho en esta conversación.',
+    ],
+    saber: [
+      'No se envían tus facturas: sólo viaja un resumen de cuántas hay y en qué estado, y lo que escribes.',
+      'El audio se transcribe en tu propio navegador y no sale de tu ordenador. El micrófono necesita Chrome, Edge o Safari; en Firefox sólo se puede escribir.',
+      'No da consejos fiscales: para eso, tu gestoría.',
+      'Si el servicio de IA no está configurado en el servidor, lo dice en vez de inventarse la respuesta.',
+    ],
+    relacionadas: [{ ruta: '/dashboard', texto: 'Dashboard' }, { ruta: '/ajustes', texto: 'Ajustes' }],
+  },
+  {
     ruta: '/plantillas',
     titulo: 'Diseño de documentos',
     paraQue: 'Cómo son por fuera tus documentos en PDF —facturas, albaranes, presupuestos, pedidos y rectificativas—: tu membrete, tus columnas y tu pie.',

@@ -57,7 +57,7 @@ export interface ConfiguracionIA {
 }
 
 /** Por qué no se ha podido responder. Cada motivo tiene su código HTTP. */
-export type MotivoFalloIA = 'sin-configurar' | 'sin-contacto' | 'rechazado' | 'vacio';
+export type MotivoFalloIA = 'sin-configurar' | 'sin-contacto' | 'rechazado' | 'vacio' | 'sin-cuota';
 
 export class FalloIA extends Error {
   constructor(
@@ -187,8 +187,40 @@ export function mereceOtroIntento(estado: number): boolean {
   return ESTADOS_QUE_MERECEN_OTRO_INTENTO.has(estado);
 }
 
-/** Lo que se espera antes de repetir. Corto: hay alguien esperando. */
-export const ESPERA_ENTRE_INTENTOS_MS = 1_200;
+/**
+ * ¿ESTE 429 ES «VAS DEPRISA» O ES «SE TE ACABÓ EL CUPO»?
+ *
+ * No es lo mismo y no se arreglan igual. Una ráfaga se despeja sola en
+ * un segundo y repetir la resuelve. Un cupo agotado no: repetir sólo
+ * gasta más deprisa lo que queda, y el usuario se come la espera de tres
+ * intentos para acabar en el mismo error.
+ *
+ * Los proveedores lo dicen en el cuerpo, y además suelen decir cuánto
+ * hay que esperar. Si lo que piden es más de lo que estamos dispuestos a
+ * esperar, se deja de insistir y se dice la verdad: no es que falle, es
+ * que se ha agotado el cupo.
+ */
+export function esCuotaAgotada(detalle: string): boolean {
+  const texto = detalle.toLowerCase();
+  if (/resource_exhausted|quota|insufficient_quota|billing/.test(texto)) return true;
+  // «Please retry in 28.6s»: si hay que esperar más que nuestras esperas
+  // juntas, insistir es tirar el tiempo del usuario.
+  const espera = /retry in (\d+(?:\.\d+)?)s/.exec(texto);
+  if (espera) {
+    const totalQueEsperamos = ESPERAS_ENTRE_INTENTOS_MS.reduce((a, b) => a + b, 0) / 1000;
+    return Number(espera[1]) > totalQueEsperamos;
+  }
+  return false;
+}
+
+/**
+ * Lo que se espera antes de cada reintento, en milisegundos.
+ *
+ * Creciente y corta: un 503 de «high demand» rara vez se despeja en un
+ * segundo, pero tampoco se puede tener a alguien esperando medio minuto
+ * por si acaso. Con estas dos esperas, el peor caso añade 4,2 s.
+ */
+export const ESPERAS_ENTRE_INTENTOS_MS = [1_200, 3_000];
 
 /** El texto que venga, del proveedor que sea, ya limpio. */
 export async function generarTexto(p: PeticionIA): Promise<string> {
@@ -200,7 +232,7 @@ export async function generarTexto(p: PeticionIA): Promise<string> {
     ? `${config.baseUrl}/${config.modelo}:generateContent?key=${config.clave}`
     : `${config.baseUrl}/chat/completions`;
 
-  // DOS INTENTOS, NO UNO
+  // VARIOS INTENTOS, NO UNO
   //
   // Probando el reconocedor de plantillas contra Gemini salió un 503
   // «This model is currently experiencing high demand», y al usuario le
@@ -208,13 +240,14 @@ export async function generarTexto(p: PeticionIA): Promise<string> {
   // petición, acertó los cinco recuadros. Un fallo pasajero del proveedor
   // no debería gastarle el intento a quien está subiendo una plantilla.
   //
-  // Dos y no más: si el proveedor sigue saturado, insistir sólo alarga la
-  // espera de alguien que tiene un cliente delante.
+  // Tres y no más: si el proveedor sigue saturado al tercer intento,
+  // insistir sólo alarga la espera de alguien que ya lleva demasiado.
   let ultimoFallo: FalloIA | null = null;
+  const intentos = ESPERAS_ENTRE_INTENTOS_MS.length + 1;
 
-  for (let intento = 1; intento <= 2; intento++) {
+  for (let intento = 1; intento <= intentos; intento++) {
     if (intento > 1) {
-      await new Promise(listo => setTimeout(listo, ESPERA_ENTRE_INTENTOS_MS));
+      await new Promise(listo => setTimeout(listo, ESPERAS_ENTRE_INTENTOS_MS[intento - 2]));
     }
 
     let respuesta: Response;
@@ -229,15 +262,33 @@ export async function generarTexto(p: PeticionIA): Promise<string> {
         signal: AbortSignal.timeout(p.tiempoLimiteMs ?? 20_000),
       });
     } catch (err) {
-      // No se reintenta: si el servidor no está escuchando, no va a estar
-      // escuchando un segundo después, y la espera ya ha sido larga.
-      throw new FalloIA('sin-contacto', err instanceof Error ? err.message : String(err));
+      // SE ACABÓ EL TIEMPO NO ES LO MISMO QUE NO HAY NADIE
+      //
+      // Esto no reintentaba ningún fallo de conexión, con el argumento de
+      // que si el servidor no está escuchando no va a estarlo un segundo
+      // después. Vale para una conexión rechazada; no vale para un tiempo
+      // agotado. Un servicio alojado que va cargado acepta la conexión y
+      // se queda pensando: medido contra Gemini, la MISMA llamada tardó
+      // 4,6 s una vez y 28 s la siguiente. Ahí repetir sí sirve, y no
+      // hacerlo le enseñaba al usuario «no se ha podido contactar» cuando
+      // lo único que pasaba es que el otro lado iba lento.
+      const seAcaboElTiempo = err instanceof Error
+        && (err.name === 'TimeoutError' || err.name === 'AbortError');
+      const fallo = new FalloIA('sin-contacto', err instanceof Error ? err.message : String(err));
+      if (seAcaboElTiempo && intento < intentos) {
+        ultimoFallo = fallo;
+        continue;
+      }
+      throw fallo;
     }
 
     if (!respuesta.ok) {
       const detalle = await respuesta.text().catch(() => '');
+      if (respuesta.status === 429 && esCuotaAgotada(detalle)) {
+        throw new FalloIA('sin-cuota', `429 ${detalle.slice(0, 500)}`);
+      }
       ultimoFallo = new FalloIA('rechazado', `${respuesta.status} ${detalle.slice(0, 500)}`);
-      if (intento === 1 && mereceOtroIntento(respuesta.status)) continue;
+      if (intento < intentos && mereceOtroIntento(respuesta.status)) continue;
       throw ultimoFallo;
     }
 
@@ -287,6 +338,14 @@ export function respuestaDeFallo(fallo: FalloIA, contexto: string): {
       return {
         estado: 501,
         error: 'La ayuda con IA no está configurada en este servidor.',
+      };
+    case 'sin-cuota':
+      // Ni 502 ni 501: no falla nada y no falta configurarlo. Se ha
+      // gastado el cupo, y quien lo lea tiene que entender que esperar
+      // —o ampliar el plan— es la salida, no volver a pulsar.
+      return {
+        estado: 429,
+        error: `El servicio de IA ha agotado su cupo de uso. Vuelve a intentarlo dentro de un rato. ${contexto}`,
       };
     case 'sin-contacto':
       return {

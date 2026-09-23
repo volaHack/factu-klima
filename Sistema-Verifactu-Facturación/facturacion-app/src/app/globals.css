@@ -12094,3 +12094,125 @@ body.nav-abierta { overflow: hidden; }
   .gestoria-item { flex-wrap: wrap; }
   .gestoria-invitacion { flex-direction: column; align-items: stretch; }
 }
+
+/* ============================================================
+   ASISTENCIA IA
+   ------------------------------------------------------------
+   Una conversacion, no un formulario. Dos bloques: la charla, que
+   crece, y la caja de escribir, que se queda abajo y a mano.
+   ============================================================ */
+
+.asistencia-pagina { max-width: 860px; }
+
+.asistencia-conversacion {
+  min-height: 340px;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+/* --- Nada preguntado todavia --- */
+.asistencia-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-secondary);
+}
+.asistencia-vacio > svg { color: var(--accent-500); }
+.asistencia-vacio strong { font-size: var(--text-lg); color: var(--text-primary); }
+
+.asistencia-sugerencias {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* --- La charla --- */
+.asistencia-mensajes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.asistencia-mensaje {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.asistencia-mensaje-quien {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.asistencia-mensaje--asistente .asistencia-mensaje-quien {
+  background: var(--accent-500);
+  color: #fff;
+}
+
+.asistencia-mensaje-texto {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-primary);
+  /* Un numero de factura o un importe no se parte a mitad de linea. */
+  overflow-wrap: anywhere;
+}
+.asistencia-mensaje-texto p { margin: 0 0 var(--space-2); }
+.asistencia-mensaje-texto p:last-child { margin-bottom: 0; }
+
+/* Lo que dice la persona va mas apagado: lo que importa releer es la
+   respuesta, no la propia pregunta. */
+.asistencia-mensaje--persona .asistencia-mensaje-texto { color: var(--text-secondary); }
+
+.asistencia-pensando {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+
+/* --- Escribir o dictar --- */
+.asistencia-entrada {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.asistencia-entrada .form-textarea { resize: vertical; min-height: 58px; }
+
+.asistencia-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.asistencia-nota {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* En un movil la caja de escribir manda: la conversacion se encoge para
+   que el campo y los dos botones quepan sin hacer scroll. */
+@media (max-width: 640px) {
+  .asistencia-conversacion { max-height: 46vh; padding: var(--space-4); }
+  .asistencia-botones .btn { flex: 1; justify-content: center; }
+}
