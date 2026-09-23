@@ -293,15 +293,28 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     onCambiar(cambios);
   }, [campos, zonas, rejillas, tabla, pagina, onCambiar]);
 
+  /**
+   * Tocar la alineación a mano deja constancia de que la eligió el usuario.
+   *
+   * La detección automática vuelve a decidir al compilar —o sea, al
+   * previsualizar y al guardar—, y sin esta marca imponía la suya encima.
+   * El usuario centraba un campo, guardaba, volvía a entrar y estaba otra
+   * vez a la derecha, sin que nada lo hubiera avisado.
+   */
+  const conMarcaDeMano = (cambios: Partial<CampoDetectado>): Partial<CampoDetectado> =>
+    (cambios.alineacion !== undefined ? { ...cambios, alineacionManual: true } : cambios);
+
   const actualizarCampo = useCallback((id: string, cambios: Partial<CampoDetectado>) => {
-    onCambiar({ campos: campos.map(c => (c.id === id ? { ...c, ...cambios } : c)) });
+    const c2 = conMarcaDeMano(cambios);
+    onCambiar({ campos: campos.map(c => (c.id === id ? { ...c, ...c2 } : c)) });
   }, [campos, onCambiar]);
 
   const actualizarSeleccionados = useCallback((cambios: Partial<CampoDetectado>) => {
     const ids = new Set(seleccion.filter(r => r.startsWith('campo:')).map(r => r.slice(6)));
     if (ids.size === 0) return;
     marcar();
-    onCambiar({ campos: campos.map(c => (ids.has(c.id) ? { ...c, ...cambios } : c)) });
+    const c2 = conMarcaDeMano(cambios);
+    onCambiar({ campos: campos.map(c => (ids.has(c.id) ? { ...c, ...c2 } : c)) });
   }, [seleccion, campos, onCambiar, marcar]);
 
   const cambiarTabla = useCallback((nueva: TablaDetectada) => {

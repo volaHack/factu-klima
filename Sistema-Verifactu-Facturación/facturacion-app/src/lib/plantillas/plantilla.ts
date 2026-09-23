@@ -173,10 +173,23 @@ function estirarCaja(
  * Decide la alineación de cada campo. Los importes de una factura se alinean
  * a la derecha y comparten borde; cuando dos o más campos acaban en la misma
  * vertical es que están alineados a la derecha aunque su texto sea corto.
+ *
+ * NO TOCA LO QUE EL USUARIO HAYA ELEGIDO A MANO
+ *
+ * Esto adivinaba bien casi siempre y por eso el fallo tardó en verse: al
+ * compilar —o sea, al previsualizar y al guardar— volvía a imponer su
+ * criterio ENCIMA de lo que el usuario acabara de elegir en el editor, y
+ * como mutaba los mismos objetos que hay en pantalla, lo que se guardaba
+ * era la decisión del programa, no la de la persona. De ahí venía el
+ * «guardo, vuelvo a entrar y siempre hay algo que no se guardó».
+ *
+ * Muta los campos que recibe: quien la llame debe pasarle copias si no
+ * quiere que le cambien las suyas.
  */
 export function decidirAlineaciones(campos: CampoDetectado[], anchoPagina: number): void {
   const porBordeDerecho = new Map<number, CampoDetectado[]>();
   for (const campo of campos) {
+    if (campo.alineacionManual) continue;
     const borde = Math.round((campo.x + campo.ancho) * 2) / 2;
     const grupo = porBordeDerecho.get(borde) ?? [];
     grupo.push(campo);
@@ -189,13 +202,15 @@ export function decidirAlineaciones(campos: CampoDetectado[], anchoPagina: numbe
     // es una columna de importes, no una coincidencia.
     const izquierdas = new Set(grupo.map(c => Math.round(c.x)));
     if (izquierdas.size < 2) continue;
-    for (const campo of grupo) campo.alineacion = 'right';
+    for (const campo of grupo) {
+      if (!campo.alineacionManual) campo.alineacion = 'right';
+    }
   }
 
   // Un importe pegado al margen derecho está alineado a la derecha aunque
   // sea el único de su altura.
   for (const campo of campos) {
-    if (campo.alineacion !== 'left') continue;
+    if (campo.alineacionManual || campo.alineacion !== 'left') continue;
     const enElMargen = campo.x + campo.ancho > anchoPagina * 0.72;
     const esImporte = /€|\d,\d{2}$/.test(campo.valorOriginal.trim());
     if (enElMargen && esImporte) campo.alineacion = 'right';
@@ -531,7 +546,15 @@ export function compilarPlantilla(
   // Un campo marcado como fijo no genera nada: su texto sigue impreso en el
   // calco, que es exactamente como estaba en el PDF original. Y uno sin
   // clave asignada tampoco, porque no sabríamos con qué rellenarlo.
-  const campos = analisis.campos.filter(c => !c.fijo && c.clave);
+  //
+  // COPIAS, NO LOS ORIGINALES
+  //
+  // `decidirAlineaciones` muta lo que recibe, y compilar se llama al
+  // previsualizar y al guardar. Pasándole los objetos vivos del editor, el
+  // programa reescribía la alineación que el usuario acababa de elegir y
+  // ESO era lo que acababa guardado. Compilar es una lectura del diseño:
+  // no puede cambiarlo.
+  const campos = analisis.campos.filter(c => !c.fijo && c.clave).map(c => ({ ...c }));
   // Salvo los rótulos escritos a mano: ésos no están en el calco (nadie los
   // imprimió nunca) y hay que pintarlos.
   const rotulos = analisis.campos.filter(c => c.fijo && (c.texto ?? '').trim() !== '');

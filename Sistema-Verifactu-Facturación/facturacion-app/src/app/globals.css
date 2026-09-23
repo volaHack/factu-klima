@@ -2932,12 +2932,48 @@ a:hover { color: var(--accent-300); }
   }
 
   .sidebar, .header, .mobile-nav, .toast-container, .page-header-actions, .detail-sidebar { display: none !important; }
+  /* La barra flotante de gestion rapida y la de estado de red viven
+     fuera del armazon: no estaban en la lista y salian impresas encima
+     de la factura, en la primera hoja. */
+  .management-bar-container, .network-bar { display: none !important; }
   .app-main { margin-left: 0 !important; }
   .app-content { padding: 0 !important; }
   body { background: white; color: black; }
   .invoice-preview { box-shadow: none; padding: 0; max-width: 100%; }
   /* Nada debe quedar a mitad de una animación de entrada al imprimir. */
   * { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+
+  /* ----------------------------------------------------------------
+     UNA FACTURA LARGA IMPRESA DESDE EL NAVEGADOR
+     ----------------------------------------------------------------
+     El PDF con la plantilla propia ya reparte las lineas en tantas
+     hojas como haga falta. Esta otra via —el boton «Imprimir / PDF»,
+     que imprime el HTML— no tenia ni una regla de paginacion: las
+     filas se partian por la mitad entre dos hojas, la cabecera de la
+     tabla no volvia a salir en la segunda, y los totales podian
+     quedarse separados de su ultima linea.
+
+     No hace falta nada sofisticado: es lo que el CSS de impresion
+     lleva resolviendo desde siempre, sólo que aqui no estaba escrito.
+     ---------------------------------------------------------------- */
+  @page { size: A4 portrait; margin: 14mm; }
+
+  /* La cabecera de la tabla se repite en cada hoja. Sin esto, la
+     segunda pagina son columnas de numeros sin decir de que son. */
+  .invoice-preview-table thead { display: table-header-group; }
+  .invoice-preview-table tfoot { display: table-footer-group; }
+
+  /* Ninguna linea de producto se parte entre dos hojas. */
+  .invoice-preview-table tr { page-break-inside: avoid; break-inside: avoid; }
+
+  /* El bloque de totales y el de verificacion van enteros o pasan a la
+     hoja siguiente: un TOTAL separado de su base imponible se lee mal, y
+     un QR cortado no se escanea. */
+  .invoice-preview-totals,
+  .invoice-preview-totals table { page-break-inside: avoid; break-inside: avoid; }
+
+  /* El membrete no se queda solo al final de una hoja. */
+  .invoice-preview-header { page-break-after: avoid; break-after: avoid; }
 }
 
 /* ============================================================

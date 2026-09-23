@@ -127,6 +127,16 @@ export interface CampoDetectado {
   alto: number;
   tamano: number;
   alineacion: Alineacion;
+  /**
+   * El usuario ha elegido esta alineación a mano.
+   *
+   * La detección automática adivina bien casi siempre —una columna de
+   * importes va a la derecha aunque el texto sea corto— pero cuando se
+   * equivoca hay que poder llevarle la contraria. Sin esta marca, al
+   * compilar volvía a imponer la suya y la elección del usuario se perdía
+   * al guardar.
+   */
+  alineacionManual?: boolean;
   color: string;
   negrita: boolean;
   cursiva: boolean;
