@@ -80,6 +80,10 @@
   rótulos, y además dejan de dispararse donde no tocaba: en las páginas
   públicas, con una modal abierta, escribiendo en texto enriquecido y con
   acentos a medio componer.
+- **Fuera «Identificar con IA» del editor de plantillas.** Adivinaba qué
+  dato iba en cada recuadro, y en una plantilla un campo mal asignado
+  imprime el NIF de un cliente donde va el total. Las reglas de
+  detección, que no adivinan, se quedan.
 - **La IA deja de estar casada con Gemini.** Las dos rutas que usan un
   modelo pasan por `lib/ia/cliente.ts`, que habla el dialecto de OpenAI:
   vale un modelo local, uno de pago o Gemini, y se cambia con dos

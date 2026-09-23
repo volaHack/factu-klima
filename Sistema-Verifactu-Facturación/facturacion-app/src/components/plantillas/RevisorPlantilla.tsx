@@ -42,7 +42,6 @@ import {
   COLUMNAS_IMPUESTOS, COLUMNAS_VENCIMIENTOS, esColumnaPersonalizada, etiquetaDeClave, etiquetaDeColumnaPersonalizada, totalDeColumna,
   siguienteColumnaPersonalizada,
 } from '@/lib/plantillas/contrato';
-import { describirParaIa, fusionarSugerencias } from '@/lib/plantillas/ia';
 import {
   acotar, acotarCajaQr, alinear, anadirColumna, bloqueDeCampoQr, calcularImanes, campoNuevo,
   distribuir, duplicarCampo, ejemploDeColumna, escalarColumnas, esCampoQr, igualarColumnas,
@@ -140,6 +139,13 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const siguienteId = useRef(1);
   const portapapeles = useRef<CampoDetectado[]>([]);
 
+  /**
+   * Un aviso corto encima del papel, cuando una acción no se puede hacer.
+   *
+   * Vivía dentro del estado de la IA, que ya no existe. No tenía nada que
+   * ver con ella: lo usa «hacer sitio» cuando no queda hoja por debajo.
+   */
+  const [avisoEditor, setAvisoEditor] = useState<string | null>(null);
   const [seleccion, setSeleccion] = useState<Ref[]>([]);
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
   const [guias, setGuias] = useState<Guia[]>([]);
@@ -147,7 +153,6 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const [zoom, setZoom] = useState(1);
   const [pxPorMm, setPxPorMm] = useState(0);
   const [vistaPrevia, setVistaPrevia] = useState(false);
-  const [estadoIa, setEstadoIa] = useState<{ cargando: boolean; aviso: string | null }>({ cargando: false, aviso: null });
   const [verEtiquetas, setVerEtiquetas] = useState(true);
   const [filtro, setFiltro] = useState<'todos' | 'modificables' | 'fijos' | 'sin_asignar'>('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -180,50 +185,6 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       futuro: [],
     }));
   }, [instantanea]);
-
-  /**
-   * Le pregunta a la IA por los recuadros que las reglas no han sabido
-   * identificar. Es un gesto más del editor: entra en el historial, así que
-   * se deshace con Ctrl+Z como cualquier otro cambio.
-   *
-   * Si el servicio no está configurado o falla, se dice y ya está: la
-   * plantilla se sigue montando a mano, que es como se montaba antes.
-   */
-  const reconocerConIa = useCallback(async () => {
-    setEstadoIa({ cargando: true, aviso: null });
-    try {
-      const peticion = describirParaIa({ pagina, campos, tabla, rejillas, avisos: [], zonasExtra: zonas, familia: 'sans' });
-      if (peticion.cajas.length === 0) {
-        setEstadoIa({ cargando: false, aviso: 'No queda ningún recuadro sin identificar.' });
-        return;
-      }
-      const respuesta = await fetch('/api/plantillas/reconocer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(peticion),
-      });
-      const cuerpo = await respuesta.json().catch(() => ({}));
-      if (!respuesta.ok) {
-        setEstadoIa({ cargando: false, aviso: cuerpo?.error ?? 'No se ha podido usar la IA.' });
-        return;
-      }
-      const { campos: fusionados, aplicadas } = fusionarSugerencias(
-        campos, cuerpo.sugerencias ?? [], peticion.clavesDisponibles,
-      );
-      if (aplicadas === 0) {
-        setEstadoIa({ cargando: false, aviso: 'La IA no ha sabido identificar ninguno con seguridad.' });
-        return;
-      }
-      marcar();
-      onCambiar({ campos: fusionados, tabla, zonasExtra: zonas });
-      setEstadoIa({
-        cargando: false,
-        aviso: `${aplicadas} ${aplicadas === 1 ? 'recuadro identificado' : 'recuadros identificados'}. Revísalos: salen marcados «por confirmar».`,
-      });
-    } catch {
-      setEstadoIa({ cargando: false, aviso: 'No se ha podido usar la IA. La plantilla sigue funcionando sin ella.' });
-    }
-  }, [pagina, campos, tabla, rejillas, zonas, marcar, onCambiar]);
 
   const deshacer = useCallback(() => {
     if (historial.pasado.length === 0) return;
@@ -835,16 +796,13 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           puedeRehacer={historial.futuro.length > 0}
           onDeshacer={deshacer}
           onRehacer={rehacer}
-          cargandoIa={estadoIa.cargando}
-          onReconocerConIa={reconocerConIa}
-          sinIdentificar={campos.filter(c => !c.fijo && !c.clave).length}
         />
 
-        {estadoIa.aviso && (
+        {avisoEditor && (
           <div className="callout callout-info plantilla-callout-compacto animate-fade-in">
-            <Sparkles size={15} />
-            <div><p>{estadoIa.aviso}</p></div>
-            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEstadoIa(e => ({ ...e, aviso: null }))}>
+            <Info size={15} />
+            <div><p>{avisoEditor}</p></div>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setAvisoEditor(null)}>
               Entendido
             </button>
           </div>
@@ -1260,7 +1218,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             onHacerSitio={(mm) => {
               const hecho = hacerSitio(mm, tabla, campos, rejillas, pagina.alto);
               if (!hecho) {
-                setEstadoIa({ cargando: false, aviso: 'No queda sitio en la hoja para bajar más lo de abajo.' });
+                setAvisoEditor('No queda sitio en la hoja para bajar más lo de abajo.');
                 return;
               }
               marcar();
@@ -1374,10 +1332,6 @@ interface PropsBarra {
   puedeRehacer: boolean;
   onDeshacer: () => void;
   onRehacer: () => void;
-  cargandoIa: boolean;
-  onReconocerConIa: () => void;
-  /** Cuántos recuadros quedan sin saber qué dato llevan. */
-  sinIdentificar: number;
 }
 
 function BarraHerramientas(p: PropsBarra) {
@@ -1436,22 +1390,6 @@ function BarraHerramientas(p: PropsBarra) {
             <Table2 size={14} /> Tabla
           </button>
         )}
-      </div>
-
-      <div className="plantilla-toolbar-grupo">
-        {/* Sólo tiene sentido si queda algo por identificar. */}
-        <button
-          type="button"
-          className="btn btn-sm btn-secondary"
-          onClick={p.onReconocerConIa}
-          disabled={p.cargandoIa || p.sinIdentificar === 0}
-          title={p.sinIdentificar === 0
-            ? 'Todos los recuadros tienen ya un dato asignado'
-            : `Pregunta a la IA qué dato va en los ${p.sinIdentificar} recuadros sin identificar`}
-        >
-          <Sparkles size={14} />
-          {p.cargandoIa ? 'Analizando…' : `Identificar con IA (${p.sinIdentificar})`}
-        </button>
       </div>
 
       <div className="plantilla-toolbar-grupo">

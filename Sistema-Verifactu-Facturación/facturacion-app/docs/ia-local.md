@@ -1,12 +1,15 @@
 # La IA del programa, con un modelo en tu propio ordenador
 
-Dos sitios del programa piden un modelo de lenguaje:
+Un sitio del programa pide un modelo de lenguaje: **la ayuda con IA**, el
+«¿cómo se hace?» del TPV y de cada pantalla.
 
-- **La ayuda con IA** — el «¿cómo se hace?» del TPV y de cada pantalla.
-- **El reconocimiento de plantillas** — cuando subes una factura de
-  muestra, adivinar qué dato va en cada recuadro.
+Hubo un segundo, **«Identificar con IA»** en el editor de plantillas, que
+adivinaba qué dato iba en cada recuadro de una factura de muestra. Se ha
+quitado: en una plantilla un campo mal asignado imprime el NIF de un
+cliente donde va el total, y eso no se arregla acertando la mayoría de
+las veces. Las reglas de detección, que no adivinan, siguen ahí.
 
-Antes los dos llamaban a Gemini con la dirección y el modelo escritos a
+Antes llamaba a Gemini con la dirección y el modelo escritos a
 fuego en el código. Ahora los dos pasan por `src/lib/ia/cliente.ts`, que
 habla el dialecto de OpenAI (`/chat/completions`) — el que entienden
 llama.cpp, LM Studio, vLLM, Ollama y casi cualquier servicio de pago.
