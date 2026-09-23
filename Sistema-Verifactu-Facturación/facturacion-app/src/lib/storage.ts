@@ -27,6 +27,9 @@ import {
   Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie, Escandallo,
 } from './types';
 import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
+import {
+  agruparPendientes, lineasDelGrupo, notaDelGrupo, type GrupoAFacturar, type Periodo,
+} from './albaranes/facturacionPeriodo';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
@@ -2081,44 +2084,34 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
   if (albaranIds.length === 0) return [];
 
   const all = await getAlbaranes();
-  const seleccionados = all.filter(a => albaranIds.includes(a.id) && a.status === 'expedido');
+  const grupos = agruparPendientes(all.filter(a => albaranIds.includes(a.id)));
 
-  if (seleccionados.length === 0) {
+  if (grupos.length === 0) {
     throw new Error('No hay albaranes expedidos en la selección.');
   }
+  return facturarGruposDeAlbaranes(grupos);
+}
 
-  const settings = await getCompanySettings();
-  const porCliente = new Map<string, Albaran[]>();
-  for (const a of seleccionados) {
-    const list = porCliente.get(a.clientId) || [];
-    list.push(a);
-    porCliente.set(a.clientId, list);
+/**
+ * Factura todos los albaranes expedidos de un periodo: una factura por
+ * cliente. Con `claves`, sólo los de esos clientes (ver `claveCliente`).
+ */
+export async function facturarAlbaranesDelPeriodo(periodo: Periodo, claves?: string[]): Promise<Invoice[]> {
+  const grupos = agruparPendientes(await getAlbaranes(), periodo)
+    .filter(g => !claves || claves.includes(g.clave));
+  if (grupos.length === 0) {
+    throw new Error('No hay albaranes expedidos pendientes de facturar en esas fechas.');
   }
+  return facturarGruposDeAlbaranes(grupos);
+}
 
+async function facturarGruposDeAlbaranes(grupos: GrupoAFacturar[]): Promise<Invoice[]> {
+  const settings = await getCompanySettings();
   const invoices: Invoice[] = [];
 
-  for (const [, grupo] of porCliente) {
+  for (const grupo of grupos) {
     const numero = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
-    const primero = grupo[0];
-    const lineItems: InvoiceLineItem[] = grupo.flatMap(a => (a.lineItems || []).map(li => ({
-      id: generateId(),
-      productId: li.productId,
-      productName: li.productName,
-      productRef: li.productRef,
-      quantity: li.quantity,
-      unitPrice: li.unitPrice,
-      unit: li.unit,
-      taxRate: li.taxRate,
-      // Los tres descuentos, no sólo el primero: copiando a mano se quedaban
-      // por el camino y la factura que salía del albarán cobraba de más.
-      discountPercent: li.discountPercent,
-      discountPercent2: li.discountPercent2 ?? 0,
-      discountPercent3: li.discountPercent3 ?? 0,
-      subtotal: li.subtotal,
-      taxAmount: li.taxAmount,
-      total: li.total,
-    })));
-
+    const lineItems = lineasDelGrupo(grupo, generateId);
     const totals = calculateInvoiceTotals(lineItems);
     const issueDate = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
@@ -2127,17 +2120,17 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
       id: generateId(),
       number: numero,
       series: settings.invoiceSeries,
-      clientId: primero.clientId,
-      clientName: primero.clientName,
-      clientNif: primero.clientNif,
-      clientAddress: primero.clientAddress,
+      clientId: grupo.clientId,
+      clientName: grupo.clientName,
+      clientNif: grupo.clientNif,
+      clientAddress: grupo.clientAddress,
       issueDate,
       dueDate: addDays(issueDate, settings.defaultPaymentDays),
       status: InvoiceStatus.BORRADOR,
       lineItems,
       ...totals,
       paymentMethod: settings.defaultPaymentMethod,
-      notes: `Factura de albaranes: ${grupo.map(a => a.number).join(', ')}`,
+      notes: notaDelGrupo(grupo),
       createdAt: now,
       updatedAt: now,
     };
@@ -2146,7 +2139,7 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
     settings.nextInvoiceNumber = sequenceFromNumber(savedInvoice.number) + 1;
     invoices.push(savedInvoice);
 
-    for (const a of grupo) {
+    for (const a of grupo.albaranes) {
       await saveAlbaran({
         ...a,
         status: 'facturado',
@@ -2157,6 +2150,8 @@ export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<
   }
 
   await saveCompanySettings(settings);
+  notifyDataUpdate('albaranes');
+  notifyDataUpdate('invoices');
   return invoices;
 }
 

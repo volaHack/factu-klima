@@ -12783,3 +12783,34 @@ body.nav-abierta { overflow: hidden; }
   .asis *::before { animation: none !important; transition-duration: 0ms !important; }
   .asis-pensando-texto { color: var(--text-muted); background: none; }
 }
+
+/* ============================================================
+   FACTURAR EL MES (albaranes)
+   ============================================================ */
+.facturar-periodo { margin-bottom: var(--space-4); padding: var(--space-5); }
+.facturar-periodo-cabeza { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.facturar-periodo-titulo { display: flex; align-items: center; gap: 8px; font-size: var(--text-lg); font-weight: 650; color: var(--text-primary); }
+.facturar-periodo-titulo svg { color: var(--accent-500); }
+.facturar-periodo-sub { margin-top: 2px; font-size: var(--text-sm); color: var(--text-secondary); }
+.facturar-periodo-mes { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); }
+.facturar-periodo-mes .form-input { min-width: 180px; }
+.facturar-periodo-vacio { font-size: var(--text-sm); color: var(--text-secondary); }
+.facturar-periodo-lista { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.facturar-periodo-fila {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 10px 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle); background: var(--bg-tertiary);
+  cursor: pointer; transition: opacity 160ms ease, border-color 160ms ease;
+}
+.facturar-periodo-fila:hover { border-color: var(--border-color-hover); }
+.facturar-periodo-fila.is-fuera { opacity: 0.5; }
+.facturar-periodo-fila input { width: 16px; height: 16px; accent-color: var(--accent-500); flex-shrink: 0; }
+.facturar-periodo-cliente { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.facturar-periodo-cliente strong { font-size: var(--text-sm); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.facturar-periodo-cliente span { font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.facturar-periodo-importe { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.facturar-periodo-error { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-danger); }
+.facturar-periodo-pie { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); font-size: var(--text-sm); color: var(--text-secondary); }
+@media (max-width: 520px) {
+  .facturar-periodo-pie .btn { width: 100%; justify-content: center; }
+}

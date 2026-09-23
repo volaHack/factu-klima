@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
+import FacturarPeriodo from '@/components/albaranes/FacturarPeriodo';
 import {
   getAlbaranes, expedirAlbaran, anularAlbaran, deleteAlbaran, convertirAlbaranesAFactura
 } from '@/lib/storage';
@@ -258,6 +259,17 @@ export default function AlbaranesPage() {
         </div>
       </div>
 
+      {counts.porFacturar > 0 && (
+        <FacturarPeriodo
+          albaranes={albaranes}
+          onFacturado={async (facturas) => {
+            await reload();
+            success('Facturas creadas', `${facturas.length} ${facturas.length === 1 ? 'factura borrador' : 'facturas borrador'}: revísalas y emítelas.`);
+            router.push(facturas.length === 1 ? `/facturas/${facturas[0].id}` : '/facturas');
+          }}
+        />
+      )}
+
       {/* Filters */}
       <div className="filters-bar">
         <div className="search-bar" style={{ maxWidth: 300 }}>
@@ -486,8 +498,8 @@ export default function AlbaranesPage() {
           <div>
             <strong>{counts.porFacturar} {counts.porFacturar === 1 ? 'albarán pendiente' : 'albaranes pendientes'} de facturar</strong>
             <p>
-              Selecciona los albaranes expedidos y pulsa «Convertir a factura». Se agrupan por cliente
-              en una sola factura, lista para revisar y emitir.
+              Usa «Facturar el mes» de arriba para hacerlo de una vez, o selecciona albaranes sueltos
+              y pulsa «Convertir a factura». Se agrupan por cliente en una sola factura.
             </p>
           </div>
         </div>
