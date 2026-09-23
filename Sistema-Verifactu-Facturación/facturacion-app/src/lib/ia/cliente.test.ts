@@ -348,3 +348,18 @@ describe('quedarse sin cupo no es lo mismo que fallar', () => {
     expect(r.error).toMatch(/dentro de un rato/i);
   });
 });
+
+describe('lo que se le pide al modelo', () => {
+  it('va siempre con el razonamiento apagado', async () => {
+    // Medido con qwen/qwen3.8-27b en OpenRouter: con el razonamiento
+    // encendido gastó los 2.000 tokens pensando y devolvió la respuesta
+    // vacía, a los 81 s. Apagado, 3,7 s y la respuesta buena. Si alguien
+    // quita esta línea, la Asistencia deja de contestar en producción.
+    const { cuerpoOpenAI } = await import('./cliente');
+    const cuerpo = cuerpoOpenAI(
+      { proveedor: 'local', baseUrl: 'https://openrouter.ai/api/v1', modelo: 'qwen/qwen3.8-27b' },
+      { instrucciones: 'hola' },
+    );
+    expect(cuerpo.reasoning).toEqual({ enabled: false });
+  });
+});

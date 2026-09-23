@@ -67,6 +67,34 @@ enseguida —y por eso los fallos que se veían eran 429 y tiempos
 agotados, no averías—. Para que funcione de verdad para los clientes hay
 que activar facturación en Google AI Studio o poner un Qwen alojado.
 
+## En producción: Qwen 3.8 27B por OpenRouter
+
+La web publicada no puede llegar al Qwen de esta máquina, así que en
+producción contesta `qwen/qwen3.8-27b` a través de OpenRouter, que habla
+el mismo dialecto que el cliente. No hay que tocar código: son tres
+variables en Vercel → Settings → Environment Variables (entorno
+**Production**):
+
+```bash
+IA_BASE_URL=https://openrouter.ai/api/v1
+IA_MODELO=qwen/qwen3.8-27b
+IA_API_KEY=sk-or-v1-...     # la clave de OpenRouter; NUNCA en el repositorio
+```
+
+Mandan sobre `GEMINI_API_KEY`, así que no hace falta quitarla.
+
+**El razonamiento va apagado, y tiene que seguir así.** Medido con este
+modelo y una pregunta de la Asistencia: con el razonamiento encendido
+tardó 81 s, gastó los 2.000 tokens pensando y devolvió la respuesta
+vacía. Apagado: 3,7 s, la respuesta buena y quince veces más barata. Lo
+hace `cuerpoOpenAI` con `reasoning: { enabled: false }`, y hay un test
+que falla si alguien lo quita.
+
+**Coste.** Unos 0,0003 $ por pregunta. La clave lleva un tope de 5 $ a
+la semana puesto en OpenRouter, que da para miles de preguntas y hace de
+freno si algo se descontrola: al llegar al tope, la Asistencia dice que
+se ha agotado el cupo en vez de seguir gastando.
+
 ## Las variables
 
 ```bash

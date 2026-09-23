@@ -144,13 +144,27 @@ export function limpiarRespuesta(texto: string): string {
 }
 
 /** El cuerpo que espera un servidor que hable como OpenAI. */
-function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
+export function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
   return {
     model: config.modelo,
     messages: [{ role: 'user', content: p.instrucciones }],
     temperature: p.temperatura ?? 0.2,
     max_tokens: p.maximoTokens ?? 1024,
     stream: false,
+    // SIN RAZONAR EN VOZ ALTA
+    //
+    // Los Qwen actuales piensan antes de contestar si no se les dice lo
+    // contrario, y ese pensamiento sale del mismo cupo que la respuesta.
+    // Medido con qwen/qwen3.8-27b en OpenRouter y una pregunta de la
+    // Asistencia: 81 s, los 2.000 tokens gastados en pensar y la respuesta
+    // VACÍA, que el usuario habría visto como «no ha podido responder» en
+    // todas las preguntas. Con esto apagado: 3,7 s, la respuesta buena y
+    // quince veces más barata.
+    //
+    // Todo lo que se le pide aquí son tres frases con datos que ya van en
+    // el enunciado: no hay nada que razonar. Los servidores que no conocen
+    // el campo lo ignoran —comprobado con llama.cpp—, así que va siempre.
+    reasoning: { enabled: false },
     ...(p.json ? { response_format: { type: 'json_object' } } : {}),
   };
 }
