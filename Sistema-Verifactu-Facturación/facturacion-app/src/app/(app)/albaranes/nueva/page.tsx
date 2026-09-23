@@ -8,8 +8,10 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import {
   getClients, getProducts, getCompanySettings, saveAlbaran, expedirAlbaran,
-  saveCompanySettings, getLotes,
+  saveCompanySettings, getLotes, getAlbaranes,
 } from '@/lib/storage';
+import { getDeviceSuffix } from '@/lib/offlineDb';
+import { numeroSinConexion } from '@/lib/tpvOffline';
 import {
   Client, Product, Albaran, AlbaranLineItem, CompanySettings, Lote,
 } from '@/lib/types';
@@ -65,13 +67,22 @@ export default function NuevoAlbaranPage() {
     }
 
     const settings = await getCompanySettings();
-    const number = generateInvoiceNumber(settings.albaranSeries || 'ALB', settings.nextAlbaranNumber || 1);
+    // Sin conexión, en la serie propia de este equipo: dos equipos sin
+    // conexión cogían el mismo número y el servidor rechazaba el segundo
+    // albarán al sincronizar (ver `serieDelDispositivo`).
+    const offline = !navigator.onLine;
+    const serieBase = settings.albaranSeries || 'ALB';
+    const { serie, numero: number } = offline
+      ? numeroSinConexion(
+          (await getAlbaranes()).map(a => a.number), serieBase, await getDeviceSuffix(), new Date(issueDate).getFullYear(),
+        )
+      : { serie: serieBase, numero: generateInvoiceNumber(serieBase, settings.nextAlbaranNumber || 1) };
     const client = clients.find(c => c.id === clientId)!;
 
     const albaran: Albaran = {
       id: generateId(),
       number,
-      series: settings.albaranSeries || 'ALB',
+      series: serie,
       clientId: client.id,
       clientName: client.tradeName || client.businessName,
       clientNif: client.nif,
@@ -90,8 +101,10 @@ export default function NuevoAlbaranPage() {
       // saveAlbaran devuelve el albarán con el número final: si el número
       // propuesto ya existía (contador desincronizado), se re-numera solo.
       const saved = await saveAlbaran(albaran);
-      settings.nextAlbaranNumber = sequenceFromNumber(saved.number) + 1;
-      await saveCompanySettings(settings);
+      if (!offline) {
+        settings.nextAlbaranNumber = sequenceFromNumber(saved.number) + 1;
+        await saveCompanySettings(settings);
+      }
 
       if (expedir) {
         await expedirAlbaran(albaran.id);

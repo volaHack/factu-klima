@@ -27,9 +27,10 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
    *
    * No hace falta ninguna conexión con la AEAT para tenerlo: se compone con
    * los cuatro datos que el propio ticket ya enseña. Si a la empresa le falta
-   * el NIF —o el ticket todavía va con número provisional por estar sin
-   * conexión— no se pinta nada en vez de imprimir un código que llevaría a
-   * ninguna parte.
+   * el NIF no se pinta nada en vez de imprimir un código que llevaría a
+   * ninguna parte. Sin conexión SÍ lleva QR: el ticket va en la serie propia
+   * de la caja con su número definitivo (`serieDelDispositivo`), el mismo
+   * que se registrará al sincronizar.
    */
   const datosQr = useMemo(() => ({
     nifEmisor: settings.nif || '',

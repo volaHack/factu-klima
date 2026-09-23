@@ -27,7 +27,7 @@ import {
 import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
 import type { PlanId } from '@/lib/plans';
 import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
-import { nextOfflineNumber } from '@/lib/tpvOffline';
+import { nextOfflineNumber, numeroSinConexion } from '@/lib/tpvOffline';
 import { aplicarOfertas } from '@/lib/ofertas';
 import { lotesFrenadosEnLineas } from '@/lib/lotes';
 import { getDeviceSuffix } from '@/lib/offlineDb';
@@ -654,24 +654,32 @@ export default function TpvPage() {
 
     const totals = calculateInvoiceTotals(lineItems);
 
-    // Calcular el número real de ticket TPV para evitar duplicados o errores.
-    // Offline se genera como SERIE-AÑO-0000-SUFIJO (sufijo por dispositivo):
-    // dos cajas pueden coincidir en el correlativo pero el servidor renumerá
-    // al sincronizar si hay colisión — nunca se descarta el ticket.
+    // El número del ticket. Con conexión, el correlativo de la serie del
+    // TPV. Sin conexión, el de la serie propia de esta caja
+    // («TPVK3F9-2026-0001», ver `serieDelDispositivo`): es definitivo, así
+    // que el número impreso y el del QR son los que acaban registrados.
     const offline = !navigator.onLine;
-    const deviceSuffix = offline ? await getDeviceSuffix() : undefined;
-    const tpvSeriesInvoices = (await getInvoices()).filter(i => i.series === settings.tpvSeries);
-    const seedNumbers = tpvSeriesInvoices.map(i => i.number);
-    if (settings.nextTpvNumber && settings.nextTpvNumber > 1) {
-      seedNumbers.push(generateInvoiceNumber(settings.tpvSeries, settings.nextTpvNumber));
+    const ano = new Date().getFullYear();
+    const todas = await getInvoices();
+    let series = settings.tpvSeries;
+    let number: string;
+    if (offline) {
+      const propia = numeroSinConexion(todas.map(i => i.number), settings.tpvSeries, await getDeviceSuffix(), ano);
+      series = propia.serie;
+      number = propia.numero;
+    } else {
+      const seedNumbers = todas.filter(i => i.series === settings.tpvSeries).map(i => i.number);
+      if (settings.nextTpvNumber && settings.nextTpvNumber > 1) {
+        seedNumbers.push(generateInvoiceNumber(settings.tpvSeries, settings.nextTpvNumber));
+      }
+      number = nextOfflineNumber(seedNumbers, settings.tpvSeries, ano);
     }
-    const number = nextOfflineNumber(seedNumbers, settings.tpvSeries, new Date().getFullYear(), deviceSuffix);
     const nextTpvNum = parseInt(number.split('-')[2], 10);
 
     const invoice: Invoice = {
       id: generateId(),
       number,
-      series: settings.tpvSeries,
+      series,
       clientId: client.id,
       clientName: client.businessName,
       clientNif: client.nif,
@@ -691,12 +699,17 @@ export default function TpvPage() {
 
     const issued = await issueInvoice(invoice);
 
-    const updatedSettings = { ...settings, nextTpvNumber: nextTpvNum + 1 };
-    setSettings(updatedSettings);
-    try {
-      await saveCompanySettings(updatedSettings);
-    } catch {
-      console.warn('Could not update nextTpvNumber in backend, but invoice was emitted.');
+    // El contador de la serie principal sólo avanza con ventas de esa
+    // serie: una venta sin conexión va en la serie de la caja y no debe
+    // moverlo.
+    if (!offline) {
+      const updatedSettings = { ...settings, nextTpvNumber: nextTpvNum + 1 };
+      setSettings(updatedSettings);
+      try {
+        await saveCompanySettings(updatedSettings);
+      } catch {
+        console.warn('Could not update nextTpvNumber in backend, but invoice was emitted.');
+      }
     }
 
     for (const line of lines) {

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { User, Settings, LogOut, ChevronDown, Save, X, Shield } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
-import { clearOfflineCache } from '@/lib/offlineDb';
+import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
+import { processSyncQueue } from '@/lib/syncEngine';
 import { UserProfile } from '@/lib/types';
 
 function initialsFrom(name: string, email: string): string {
@@ -45,6 +46,32 @@ export default function AccountMenu() {
     // `currentTarget` se vacía en cuanto este manejador cede el control, así
     // que el formulario se coge de la ref, que sí sobrevive al await.
     const formulario = formSalir.current;
+
+    // LO QUE AÚN NO HA SUBIDO NO SE TIRA SIN AVISAR
+    //
+    // Salir vacía la caché del dispositivo, y en ella está la cola de lo
+    // hecho sin conexión. Un ticket cobrado sin internet que no ha llegado
+    // al servidor se perdía entero al cerrar sesión: ni en la base de
+    // datos ni en Hacienda. Primero se intenta subir; si no se puede, se
+    // pregunta.
+    try {
+      let pendientes = await getSyncQueueCount();
+      if (pendientes > 0 && navigator.onLine) {
+        await Promise.race([processSyncQueue(), new Promise(listo => setTimeout(listo, 8000))]);
+        pendientes = await getSyncQueueCount();
+      }
+      if (pendientes > 0) {
+        const salir = confirm(
+          `Hay ${pendientes} ${pendientes === 1 ? 'cambio hecho' : 'cambios hechos'} sin conexión que todavía no ` +
+          `${pendientes === 1 ? 'se ha' : 'se han'} subido (ventas, albaranes o fichas).\n\n` +
+          'Si sales ahora se perderán. Lo seguro es esperar a tener conexión y salir después.\n\n¿Salir igualmente?',
+        );
+        if (!salir) { setCerrando(false); return; }
+      }
+    } catch {
+      // Si ni siquiera se puede mirar la cola, se sigue: el botón de salir
+      // no puede quedarse sin hacer nada.
+    }
     try {
       await createClient().auth.signOut();
     } catch {

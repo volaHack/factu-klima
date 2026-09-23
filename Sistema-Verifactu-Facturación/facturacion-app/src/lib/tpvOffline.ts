@@ -25,6 +25,43 @@ export function nextOfflineNumber(
 }
 
 /**
+ * LA SERIE PROPIA DE CADA DISPOSITIVO, PARA VENDER SIN CONEXIÓN
+ *
+ * Sin conexión, el ticket salía con un número provisional
+ * («TPV-2026-0012-K3F9») y el servidor lo cambiaba al sincronizar. Pero
+ * el cliente ya se había llevado el ticket impreso con ese número y con
+ * un QR que apunta a él: al escanearlo, la AEAT no lo encuentra, porque
+ * lo registrado es otro número. Y con los albaranes era peor: dos equipos
+ * sin conexión cogían el mismo número, el servidor rechazaba el segundo
+ * por duplicado y ese albarán nunca llegaba a la base de datos.
+ *
+ * Ahora cada equipo numera lo que hace sin conexión en SU serie
+ * («TPVK3F9-2026-0001»). Ningún otro equipo usa esa serie, así que no
+ * puede chocar y nadie tiene que cambiar el número después: lo impreso,
+ * el QR y lo registrado son lo mismo. Tener una serie por caja o por
+ * establecimiento es legal (art. 6.1.a del Reglamento de facturación) y
+ * es lo habitual en los TPV.
+ *
+ * El número va en el formato de siempre, SERIE-AÑO-0000, que es el que
+ * entiende la base de datos; por eso la serie no lleva guiones.
+ */
+export function serieDelDispositivo(serieBase: string, sufijo: string): string {
+  const limpia = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return `${limpia(serieBase) || 'DOC'}${limpia(sufijo)}`.slice(0, 20);
+}
+
+/** Serie y número definitivos para un documento hecho sin conexión. */
+export function numeroSinConexion(
+  numerosExistentes: string[],
+  serieBase: string,
+  sufijo: string,
+  ano: number,
+): { serie: string; numero: string } {
+  const serie = serieDelDispositivo(serieBase, sufijo);
+  return { serie, numero: nextOfflineNumber(numerosExistentes, serie, ano) };
+}
+
+/**
  * Total de caja esperado al cierre de sesión: fondo inicial más las ventas
  * en efectivo no anuladas, redondeado a 2 decimales.
  */

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   nextOfflineNumber, expectedCashForSession, pluToKg, pluKgToPrice,
-  sortByUnitsSold, daysUntilOutOfStock,
+  sortByUnitsSold, daysUntilOutOfStock, serieDelDispositivo, numeroSinConexion,
 } from './tpvOffline';
 
 describe('nextOfflineNumber', () => {
@@ -71,3 +71,28 @@ describe('daysUntilOutOfStock', () => {
     expect(daysUntilOutOfStock(10, 8, 5)).toBe(2);
   });
 });
+
+describe('serie propia del dispositivo, sin conexión', () => {
+  it('el número es definitivo: sin sufijo que el servidor tenga que quitar', () => {
+    const r = numeroSinConexion([], 'TPV', 'k3f9', 2026);
+    expect(r).toEqual({ serie: 'TPVK3F9', numero: 'TPVK3F9-2026-0001' });
+    // SERIE-AÑO-0000: el formato que la base de datos sabe leer.
+    expect(r.numero.split('-')).toHaveLength(3);
+  });
+
+  it('dos equipos sin conexión nunca comparten número', () => {
+    const a = numeroSinConexion(['TPV-2026-0040'], 'TPV', 'AAAA', 2026).numero;
+    const b = numeroSinConexion(['TPV-2026-0040'], 'TPV', 'BBBB', 2026).numero;
+    expect(a).not.toBe(b);
+  });
+
+  it('sigue el correlativo de SU serie, sin mirar la principal', () => {
+    const existentes = ['TPV-2026-0040', 'TPVK3F9-2026-0001', 'TPVK3F9-2026-0002', 'TPVZZZZ-2026-0009'];
+    expect(numeroSinConexion(existentes, 'TPV', 'K3F9', 2026).numero).toBe('TPVK3F9-2026-0003');
+  });
+
+  it('la serie no lleva guiones ni símbolos, que romperían el formato', () => {
+    expect(serieDelDispositivo('ALB-1', 'x/9')).toBe('ALB1X9');
+  });
+});
+
