@@ -563,7 +563,8 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
     saber: [
       'El QR tributario sólo sale en facturas y rectificativas: son los únicos documentos que se declaran. Un albarán o un presupuesto con QR estaría diciéndole al cliente que está declarado cuando no lo está.',
-      'En una factura, el QR se estampa arriba a 35 mm aunque no le reserves sitio: lo exige la AEAT y no se puede desactivar.',
+      'El recuadro del QR nace donde manda la AEAT —arriba y centrado, o arriba a la izquierda si la hoja es apaisada— pero lo puedes arrastrar como cualquier otro campo. La propia norma lo permite: si esa posición tiene obstáculos, vale otra, siempre que el código se vea claramente.',
+      'Lo que no se puede es quitarlo ni hacerlo más pequeño de 30 mm: eso sí lo fija la ley, y el PDF se niega a salir antes que imprimir una factura que no cumple.',
       'Cada tipo sale con su propia advertencia impresa: el albarán dice que no tiene valor fiscal, el presupuesto que vale 30 días.',
       'Una misma plantilla puede valer para varios tipos. Si uno de ellos es factura, se previsualiza con el QR puesto, para que veas si le falta sitio.',
       'Puedes tener varias plantillas y cambiar de una a otra.',

@@ -107,8 +107,8 @@ export const PERSONALIDADES: Record<TipoDocumentoPlantilla, PersonalidadDocument
     paraQue: 'El documento que se cobra y se declara a Hacienda.',
     llevaQr: true,
     notaQr:
-      'Lleva el QR de cotejo de la AEAT, obligatorio en Veri*Factu. Si no le '
-      + 'reservas sitio en el diseño, se estampa solo en una esquina.',
+      'Lleva el QR de cotejo de la AEAT, obligatorio en Veri*Factu. Su recuadro '
+      + 'está en el diseño: arrástralo donde quieras si tapa algo.',
     avisoLegal: '',
     palabras: ['factura simplificada', 'factura', 'ticket', 'recibo'],
   },
@@ -119,7 +119,7 @@ export const PERSONALIDADES: Record<TipoDocumentoPlantilla, PersonalidadDocument
     tituloImpreso: 'FACTURA RECTIFICATIVA',
     paraQue: 'Corrige una factura ya emitida. Se declara igual que ella.',
     llevaQr: true,
-    notaQr: 'Lleva el QR de cotejo de la AEAT, igual que la factura que corrige.',
+    notaQr: 'Lleva el QR de cotejo de la AEAT, igual que la factura que corrige. Su recuadro se puede mover.',
     avisoLegal: '',
     palabras: ['factura rectificativa', 'rectificativa', 'abono', 'nota de credito'],
   },

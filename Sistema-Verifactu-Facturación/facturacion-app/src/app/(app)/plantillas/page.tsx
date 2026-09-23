@@ -43,6 +43,8 @@ import {
   algunoLlevaQr, personalidadDe, reconocerTipo, TIPOS_PLANTILLA, tipoDominante,
   type TipoDocumentoPlantilla,
 } from '@/lib/plantillas/tiposDocumento';
+import { asegurarHuecoQr } from '@/lib/plantillas/huecoQr';
+import { generateId } from '@/lib/utils';
 import type { BusinessSector, CompanySettings, Invoice } from '@/lib/types';
 
 export default function PlantillasPage() {
@@ -153,7 +155,19 @@ export default function PlantillasPage() {
       setAplicaA([tipo]);
       setTipoReconocido(detectado ? { palabra: detectado.palabra, seguro } : null);
 
-      setSesion(nueva);
+      // Si es de los que llevan QR, el recuadro entra ya con el análisis:
+      // así se ve desde el primer momento dónde va a caer el código y se
+      // puede mover antes de que tape nada.
+      setSesion({
+        ...nueva,
+        analisis: {
+          ...nueva.analisis,
+          campos: asegurarHuecoQr(
+            nueva.analisis.campos, nueva.analisis.pagina,
+            algunoLlevaQr([tipo]), generateId,
+          ),
+        },
+      });
       const personalidad = personalidadDe(tipo);
       setNombre(
         archivo.name.replace(/\.pdf$/i, '').slice(0, 60) || `Mi ${personalidad.etiqueta.toLowerCase()}`,
@@ -181,6 +195,31 @@ export default function PlantillasPage() {
   }, []);
 
   /**
+   * Marcar o desmarcar un tipo pone o quita el recuadro del QR.
+   *
+   * El código ya se estampaba donde dijera la plantilla, pero una calcada
+   * de un PDF no traía ese recuadro: no había nada que mover y el QR caía
+   * en la posición por defecto, encima de lo que hubiera. Ahora existe
+   * desde el primer momento, nace donde manda la AEAT y se arrastra a
+   * donde no estorbe, que es lo que la propia norma contempla cuando la
+   * posición preferente tiene obstáculos.
+   */
+  const cambiarTipos = useCallback((siguiente: TipoDocumentoPlantilla[]) => {
+    setAplicaA(siguiente);
+    setSesion(actual => {
+      if (!actual) return actual;
+      const campos = asegurarHuecoQr(
+        actual.analisis.campos,
+        actual.analisis.pagina,
+        algunoLlevaQr(siguiente),
+        generateId,
+      );
+      if (campos === actual.analisis.campos) return actual;
+      return { ...actual, analisis: { ...actual.analisis, campos } };
+    });
+  }, []);
+
+  /**
    * Reabre una plantilla guardada en el editor. Se puede porque al guardarla
    * se conservó el análisis completo, mapa de bits original incluido.
    */
@@ -188,7 +227,18 @@ export default function PlantillasPage() {
     setAnalizando(true);
     try {
       const recuperada = await abrirPlantillaGuardada(plantilla);
-      setSesion(recuperada);
+      // Las plantillas guardadas antes de esto no tienen recuadro de QR:
+      // se les pone al abrirlas, para que se pueda mover como en las nuevas.
+      setSesion({
+        ...recuperada,
+        analisis: {
+          ...recuperada.analisis,
+          campos: asegurarHuecoQr(
+            recuperada.analisis.campos, recuperada.analisis.pagina,
+            algunoLlevaQr(plantilla.aplicaA), generateId,
+          ),
+        },
+      });
       setEditando(comoCopia ? null : plantilla);
       setNombre(comoCopia ? `${plantilla.nombre} (copia)`.slice(0, 60) : plantilla.nombre);
       setAplicaA(plantilla.aplicaA);
@@ -414,11 +464,9 @@ export default function PlantillasPage() {
                       type="checkbox"
                       checked={aplicaA.includes(tipo)}
                       onChange={(evento) => {
-                        setAplicaA(actual =>
-                          evento.target.checked
-                            ? [...actual, tipo]
-                            : actual.filter(t => t !== tipo),
-                        );
+                        cambiarTipos(evento.target.checked
+                          ? [...aplicaA, tipo]
+                          : aplicaA.filter(t => t !== tipo));
                       }}
                     />
                     {personalidad.plural}

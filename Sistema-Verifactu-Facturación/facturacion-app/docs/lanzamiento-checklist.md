@@ -85,6 +85,19 @@
   pedido, albarán, factura y rectificativa—, cada uno con su título
   impreso, su advertencia legal y su regla sobre el QR, todo en una sola
   tabla (`lib/plantillas/tiposDocumento.ts`).
+- **El QR de la factura ya se puede mover.** Estaba clavado en la
+  esquina superior por un motivo tonto: el código se colocaba donde
+  dijera el recuadro `verifactu_qr` de la plantilla, pero una plantilla
+  calcada de un PDF no traía ese recuadro, así que no había nada que
+  arrastrar y caía en la posición por defecto, encima de lo que hubiera.
+  Ahora el recuadro existe siempre que el documento lleve QR —nace donde
+  manda la AEAT y desaparece si se desmarca «Facturas»— y se arrastra
+  como cualquier campo. Es lo que la propia norma contempla: «Si existen
+  obstáculos que hagan inconveniente esa ubicación, puede utilizarse otra
+  ubicación, siempre que el código "QR" sea claramente visible». Lo que
+  sigue sin negociarse es el tamaño (30–40 mm), el aire alrededor y que
+  quepa entero. Comprobado sobre el PDF: arrastrado al pie derecho, se
+  imprime en el pie derecho, con tamaño legal y legible por un lector.
 - **El QR fantasma en «Ver cómo queda», arreglado.** La pantalla montaba
   todo como si fuera una factura y le pasaba siempre el QR tributario;
   como el generador lo estampa en una esquina cuando no hay hueco

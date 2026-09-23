@@ -31,6 +31,7 @@ import { facturaDesdeCero } from './desdeCero';
 import { generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
 import { algunoLlevaQr, tipoDominante, type TipoDocumentoPlantilla } from './tiposDocumento';
+import { QR_MIN_MM } from '../verifactu/qrFactura';
 
 const PX_POR_MM = 6;
 
@@ -55,8 +56,16 @@ beforeAll(() => {
   }) as typeof fetch;
 });
 
-/** ¿Hay algún QR legible en esta hoja? */
-async function hayQrEnLaHoja(bytes: Uint8Array): Promise<string | null> {
+interface QrEnPapel {
+  contenido: string;
+  /** Centro del código, en milímetros de papel. */
+  centroX: number;
+  centroY: number;
+  lado: number;
+}
+
+/** ¿Hay algún QR legible en esta hoja, y dónde cae? */
+async function localizarQr(bytes: Uint8Array): Promise<QrEnPapel | null> {
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes), isEvalSupported: false }).promise;
@@ -70,7 +79,25 @@ async function hayQrEnLaHoja(bytes: Uint8Array): Promise<string | null> {
   await pagina.render({ canvasContext: ctx as any, viewport: vista }).promise;
   const imagen = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
   const leido = jsQR(imagen.data as unknown as Uint8ClampedArray, lienzo.width, lienzo.height);
-  return leido ? leido.data : null;
+  if (!leido) return null;
+
+  const esquinas = [
+    leido.location.topLeftCorner, leido.location.topRightCorner,
+    leido.location.bottomLeftCorner, leido.location.bottomRightCorner,
+  ];
+  const xs = esquinas.map(p => p.x / PX_POR_MM);
+  const ys = esquinas.map(p => p.y / PX_POR_MM);
+  return {
+    contenido: leido.data,
+    centroX: (Math.min(...xs) + Math.max(...xs)) / 2,
+    centroY: (Math.min(...ys) + Math.max(...ys)) / 2,
+    lado: Math.max(...xs) - Math.min(...xs),
+  };
+}
+
+/** ¿Hay algún QR legible en esta hoja? */
+async function hayQrEnLaHoja(bytes: Uint8Array): Promise<string | null> {
+  return (await localizarQr(bytes))?.contenido ?? null;
 }
 
 /**
@@ -128,5 +155,61 @@ describe('el QR sobre el papel, según el tipo de documento', () => {
     // Se previsualiza con el caso más comprometido, para que se vea si al
     // diseño le falta sitio justo cuando el código es obligatorio.
     expect(await hayQrEnLaHoja(await comoLaVistaPrevia(['albaran', 'factura']))).not.toBeNull();
+  }, 60000);
+});
+
+describe('el QR se puede mover, que es lo que permite la norma', () => {
+  /**
+   * El documento técnico de la AEAT pide la esquina superior, pero cierra
+   * con la salida: «Si existen obstáculos que hagan inconveniente esa
+   * ubicación, puede utilizarse otra ubicación, siempre que el código
+   * "QR" sea claramente visible y se distinga de otros códigos "QR"».
+   *
+   * Aquí se comprueba que esa salida existe de verdad sobre el papel:
+   * que arrastrar el recuadro en el editor mueve el código impreso.
+   */
+  async function facturaConElQrEn(x: number, y: number): Promise<Uint8Array> {
+    const analisis = facturaDesdeCero('generico', AJUSTES);
+    const hueco = analisis.campos.find(c => c.clave === 'verifactu_qr');
+    expect(hueco, 'la factura desde cero tiene que traer su recuadro de QR').toBeDefined();
+    hueco!.x = x;
+    hueco!.y = y;
+
+    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+    const documento = facturaDeMuestra();
+    const datos = construirDatos({ tipo: 'factura', documento }, AJUSTES);
+    return generarPdf(plantilla, datos, {
+      titulo: 'Vista previa',
+      qr: {
+        exigido: false,
+        datos: {
+          nifEmisor: AJUSTES.nif,
+          numeroFactura: documento.number,
+          fechaEmision: documento.issueDate,
+          importeTotal: documento.total,
+        },
+      },
+    });
+  }
+
+  it('arrastrado al pie derecho, se imprime en el pie derecho', async () => {
+    // Que es el caso de uso: arriba tapaba el membrete.
+    const qr = await localizarQr(await facturaConElQrEn(160, 235));
+    expect(qr).not.toBeNull();
+    expect(qr!.centroX).toBeGreaterThan(210 / 2);
+    expect(qr!.centroY).toBeGreaterThan(297 * 0.66);
+  }, 60000);
+
+  it('arrastrado a la izquierda, se imprime a la izquierda', async () => {
+    const qr = await localizarQr(await facturaConElQrEn(12, 20));
+    expect(qr).not.toBeNull();
+    expect(qr!.centroX).toBeLessThan(210 / 3);
+  }, 60000);
+
+  it('siga donde siga, se imprime con tamaño legal y se lee', async () => {
+    // Moverlo no puede costarle al usuario que el código deje de cumplir.
+    const qr = await localizarQr(await facturaConElQrEn(160, 235));
+    expect(qr!.lado).toBeGreaterThanOrEqual(QR_MIN_MM - 1);
+    expect(qr!.contenido).toContain('agenciatributaria');
   }, 60000);
 });
