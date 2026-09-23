@@ -1,312 +1,474 @@
 'use client';
 
 /**
- * ASISTENCIA CON IA
+ * ASISTENCIA CON IA — CON PESTAÑAS DE SESIONES
  *
- * Un sitio donde preguntar —escribiendo o hablando— y que la respuesta
- * venga con los números de esta empresa delante, no con los del manual.
- *
- * La diferencia está en el retrato: antes de mandar la pregunta se cuenta
- * lo que hay (facturas vencidas, borradores sin emitir, lo que falta por
- * configurar) y viaja con ella. Así «¿por qué no me cuadra el cobro?» se
- * contesta con «tienes 3 vencidas por 1.240 €, la más vieja lleva 47
- * días» en vez de con la teoría.
- *
- * EL AUDIO NO SALE DE AQUÍ
- * Se usa el dictado del propio navegador: lo que viaja es el texto ya
- * transcrito. Ver `lib/asistencia/dictado.ts`.
+ * Un chat inteligente que recuerda las conversaciones anteriores
+ * como pestañas horizontales. Inspirado en el diseño minimalista
+ * de Emil Kowalski: transiciones suaves, espaciado generoso,
+ * micro-interacciones con propósito.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Mic, MicOff, Send, Sparkles, Trash2, User } from 'lucide-react';
+import {
+  Loader2, Mic, MicOff, Plus, Send,
+  Sparkles, X, User, ChevronRight, Shield,
+} from 'lucide-react';
 
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useToast } from '@/hooks/useToast';
-import { getClients, getCompanySettings, getInvoices } from '@/lib/storage';
+import {
+  getClients, getCompanySettings, getInvoices, getProducts,
+  getAlbaranes, getDevoluciones, getAbonos, getAlmacenes,
+  getVendedores, getObras, getGastos, getVehiculos, getLotes,
+} from '@/lib/storage';
 import { getPlantillas } from '@/lib/plantillas/almacen';
 import { retratoDelPanel, retratoEnPalabras, type RetratoDelPanel } from '@/lib/asistencia/contexto';
 import { dictadoDisponible, empezarDictado, type Dictado } from '@/lib/asistencia/dictado';
+
+/* ---------------------------------------------------------------
+   TIPOS Y PERSISTENCIA
+   --------------------------------------------------------------- */
 
 interface Mensaje {
   id: string;
   deQuien: 'persona' | 'asistente';
   texto: string;
+  hora: number;
 }
 
-/** Lo que casi todo el mundo pregunta el primer día. */
+interface Sesion {
+  id: string;
+  titulo: string;
+  mensajes: Mensaje[];
+  creadaEn: number;
+  ultimoMensaje: number;
+}
+
+const CLAVE_MEMORIA = 'asistencia-sesiones';
+const MAX_SESIONES = 15;
+
+function cargarSesiones(): Sesion[] {
+  try {
+    const g = localStorage.getItem(CLAVE_MEMORIA);
+    return g ? JSON.parse(g) : [];
+  } catch { return []; }
+}
+
+function guardarSesiones(ss: Sesion[]) {
+  try {
+    localStorage.setItem(CLAVE_MEMORIA, JSON.stringify(ss.slice(0, MAX_SESIONES)));
+  } catch { /* sin espacio, no pasa nada */ }
+}
+
+function tituloCorto(texto: string): string {
+  const l = texto.replace(/[¿?¡!]/g, '').trim();
+  return l.length > 28 ? l.slice(0, 25) + '…' : l;
+}
+
+/* ---------------------------------------------------------------
+   SUGERENCIAS
+   --------------------------------------------------------------- */
+
 const SUGERENCIAS = [
-  '¿Qué me falta por configurar?',
-  '¿Tengo facturas sin cobrar?',
-  '¿Cómo corrijo una factura que ya he emitido?',
-  '¿Cómo pongo mi logotipo en las facturas?',
+  { texto: '¿Cuánto dinero tengo en facturas?', emoji: '💰' },
+  { texto: '¿Qué facturas tengo registradas?', emoji: '📄' },
+  { texto: '¿Tengo cobros pendientes o vencidos?', emoji: '⏰' },
+  { texto: '¿Qué me falta por configurar?', emoji: '⚙️' },
 ];
+
+/* ---------------------------------------------------------------
+   COMPONENTE
+   --------------------------------------------------------------- */
 
 export default function AsistenciaPage() {
   const { error: avisarError } = useToast();
   const [montado, setMontado] = useState(false);
   const [retrato, setRetrato] = useState<RetratoDelPanel | null>(null);
-  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
+
+  const [sesiones, setSesiones] = useState<Sesion[]>([]);
+  const [sesionActiva, setSesionActiva] = useState<string | null>(null);
+
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
   const [escuchando, setEscuchando] = useState(false);
-  const [hayMicrofono, setHayMicrofono] = useState(false);
-
-  /**
-   * A los ocho segundos, la espera cambia de texto.
-   *
-   * Una respuesta tarda entre diez y treinta segundos. Medio minuto
-   * mirando el mismo «Mirando tus datos…» parece que se ha colgado, y
-   * quien lo cree recarga la página y pierde la pregunta. Reconocer la
-   * tardanza cuesta una frase y evita eso.
-   */
+  const [hayMicro, setHayMicro] = useState(false);
   const [tardando, setTardando] = useState(false);
 
-  const dictado = useRef<Dictado | null>(null);
-  const finDeLaLista = useRef<HTMLDivElement>(null);
-  const cajaConversacion = useRef<HTMLDivElement>(null);
-  const campo = useRef<HTMLTextAreaElement>(null);
+  const dictadoRef = useRef<Dictado | null>(null);
+  const finRef = useRef<HTMLDivElement>(null);
+  const cajaRef = useRef<HTMLDivElement>(null);
+  const campoRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    (async () => {
-      const [facturas, clientes, ajustes, plantillas] = await Promise.all([
-        getInvoices(), getClients(), getCompanySettings(), getPlantillas(),
+  const sesion = sesiones.find(s => s.id === sesionActiva) ?? null;
+  const mensajes = sesion?.mensajes ?? [];
+  const sinChat = !sesionActiva || mensajes.length === 0;
+
+  // --- Recarga fresca de todos los documentos y datos del negocio ---
+  const refrescarDatos = useCallback(async () => {
+    try {
+      const [
+        facturas,
+        albaranes,
+        clientes,
+        ajustes,
+        plantillas,
+        productos,
+        almacenes,
+        vendedores,
+        obras,
+        gastos,
+        vehiculos,
+        lotes,
+        devoluciones,
+        abonos,
+      ] = await Promise.all([
+        getInvoices(),
+        getAlbaranes(),
+        getClients(),
+        getCompanySettings(),
+        getPlantillas(),
+        getProducts(),
+        getAlmacenes().catch(() => []),
+        getVendedores().catch(() => []),
+        getObras().catch(() => []),
+        getGastos().catch(() => []),
+        getVehiculos().catch(() => []),
+        getLotes().catch(() => []),
+        getDevoluciones().catch(() => []),
+        getAbonos().catch(() => []),
       ]);
-      setRetrato(retratoDelPanel({
-        facturas, clientes, ajustes,
+      const nuevoRetrato = retratoDelPanel({
+        facturas,
+        albaranes,
+        devoluciones,
+        abonos,
+        clientes,
+        ajustes,
+        productos,
+        almacenes,
+        vendedores,
+        obras,
+        vehiculos,
+        gastos,
+        lotes,
         tienePlantillaPropia: plantillas.length > 0,
-      }));
-      setHayMicrofono(dictadoDisponible());
-      setMontado(true);
-    })();
+      });
+      setRetrato(nuevoRetrato);
+      return nuevoRetrato;
+    } catch {
+      return null;
+    }
   }, []);
 
-  /**
-   * La conversación crece hacia abajo, y hay que seguirla... salvo que
-   * la persona esté leyendo algo de más arriba. Arrastrarla al final en
-   * mitad de una lectura es de las cosas que más molestan de un chat, y
-   * pasa justo cuando llega una respuesta larga.
-   */
+  // --- Montaje inicial y sincronización con foco de ventana ---
   useEffect(() => {
-    const caja = cajaConversacion.current;
-    if (!caja) return;
-    const alFinal = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 120;
-    if (alFinal) finDeLaLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    (async () => {
+      await refrescarDatos();
+      setHayMicro(dictadoDisponible());
+      const guardadas = cargarSesiones();
+      setSesiones(guardadas);
+      if (guardadas.length > 0) setSesionActiva(guardadas[0].id);
+      setMontado(true);
+    })();
+  }, [refrescarDatos]);
+
+  // Si el usuario crea facturas, pedidos o presupuestos en otra pestaña y vuelve, se actualiza solo
+  useEffect(() => {
+    const alCambiar = () => { refrescarDatos(); };
+    window.addEventListener('focus', alCambiar);
+    window.addEventListener('storage', alCambiar);
+    return () => {
+      window.removeEventListener('focus', alCambiar);
+      window.removeEventListener('storage', alCambiar);
+    };
+  }, [refrescarDatos]);
+
+  // Persistir
+  useEffect(() => { if (montado) guardarSesiones(sesiones); }, [sesiones, montado]);
+
+  // Auto-scroll
+  useEffect(() => {
+    const c = cajaRef.current;
+    if (!c) return;
+    const cerca = c.scrollHeight - c.scrollTop - c.clientHeight < 120;
+    if (cerca) finRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [mensajes, pensando]);
 
-  // El aviso de que está tardando. Sólo se enciende, y desde el reloj:
-  // apagarlo aquí en el cuerpo del efecto es un cambio de estado en
-  // cascada que el compilador de React rechaza, y además no hace falta
-  // —se apaga donde termina la pregunta, que es donde se sabe.
+  // Tardanza
   useEffect(() => {
     if (!pensando) return;
-    const reloj = setTimeout(() => setTardando(true), 8_000);
-    return () => clearTimeout(reloj);
+    const t = setTimeout(() => setTardando(true), 8_000);
+    return () => clearTimeout(t);
   }, [pensando]);
 
-  /**
-   * El campo crece con lo escrito, hasta el tope que pone el CSS.
-   *
-   * Dictando se escriben párrafos enteros sin darse cuenta: con un alto
-   * fijo de dos líneas, lo dicho se va hacia arriba y no se puede
-   * repasar antes de enviarlo.
-   */
+  // Auto-resize textarea
   useEffect(() => {
-    const caja = campo.current;
-    if (!caja) return;
-    caja.style.height = 'auto';
-    caja.style.height = `${caja.scrollHeight}px`;
+    const c = campoRef.current;
+    if (!c) return;
+    c.style.height = 'auto';
+    c.style.height = `${c.scrollHeight}px`;
   }, [texto]);
 
-  // Si se sale de la pantalla con el micrófono abierto, se cierra: dejarlo
-  // escuchando de fondo no lo espera nadie.
-  useEffect(() => () => dictado.current?.parar(), []);
+  // Limpiar micrófono al salir
+  useEffect(() => () => dictadoRef.current?.parar(), []);
 
+  // --- Crear pestaña nueva ---
+  const crearSesion = useCallback(() => {
+    const nueva: Sesion = {
+      id: crypto.randomUUID(),
+      titulo: 'Nueva conversación',
+      mensajes: [],
+      creadaEn: Date.now(),
+      ultimoMensaje: Date.now(),
+    };
+    setSesiones(prev => [nueva, ...prev]);
+    setSesionActiva(nueva.id);
+    setTexto('');
+  }, []);
+
+  // --- Cerrar pestaña ---
+  const cerrarSesion = useCallback((id: string) => {
+    setSesiones(prev => {
+      const nuevas = prev.filter(s => s.id !== id);
+      if (sesionActiva === id) {
+        setSesionActiva(nuevas.length > 0 ? nuevas[0].id : null);
+      }
+      return nuevas;
+    });
+  }, [sesionActiva]);
+
+  // --- Preguntar ---
   const preguntar = useCallback(async (pregunta: string) => {
     const limpia = pregunta.trim();
     if (!limpia || pensando || !retrato) return;
 
-    dictado.current?.parar();
-    const mia: Mensaje = { id: crypto.randomUUID(), deQuien: 'persona', texto: limpia };
-    const conversacion = [...mensajes, mia];
-    setMensajes(conversacion);
+    dictadoRef.current?.parar();
+    const ahora = Date.now();
+    const msg: Mensaje = { id: crypto.randomUUID(), deQuien: 'persona', texto: limpia, hora: ahora };
+
+    let id = sesionActiva;
+    if (!id) {
+      // Crear sesión al primer mensaje
+      id = crypto.randomUUID();
+      const nueva: Sesion = {
+        id,
+        titulo: tituloCorto(limpia),
+        mensajes: [msg],
+        creadaEn: ahora,
+        ultimoMensaje: ahora,
+      };
+      setSesiones(prev => [nueva, ...prev]);
+      setSesionActiva(id);
+    } else {
+      setSesiones(prev => prev.map(s =>
+        s.id === id
+          ? { ...s, mensajes: [...s.mensajes, msg], ultimoMensaje: ahora,
+              titulo: s.mensajes.length === 0 ? tituloCorto(limpia) : s.titulo }
+          : s
+      ));
+    }
+
+    const historial = mensajes.map(m => ({ deQuien: m.deQuien, texto: m.texto }));
     setTexto('');
     setPensando(true);
 
+    // Refrescar en vivo para que siempre tenga las últimas facturas, presupuestos, pedidos y cifras
+    const retratoActual = (await refrescarDatos()) || retrato;
+
     try {
-      const respuesta = await fetch('/api/ayuda', {
+      const res = await fetch('/api/ayuda', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modo: 'asistencia',
           pregunta: limpia,
-          situacion: retratoEnPalabras(retrato),
-          historial: mensajes.map(m => ({ deQuien: m.deQuien, texto: m.texto })),
+          situacion: retratoActual ? retratoEnPalabras(retratoActual) : [],
+          historial,
         }),
       });
-      const cuerpo = await respuesta.json().catch(() => ({}));
-
-      if (!respuesta.ok) {
-        // El error se cuenta en la conversación, no en un aviso que se va
-        // solo: así queda claro a qué pregunta no se pudo contestar.
-        setMensajes([...conversacion, {
-          id: crypto.randomUUID(),
-          deQuien: 'asistente',
-          texto: cuerpo?.error ?? 'No se ha podido responder ahora mismo.',
-        }]);
-        return;
-      }
-
-      setMensajes([...conversacion, {
-        id: crypto.randomUUID(), deQuien: 'asistente', texto: String(cuerpo.texto ?? ''),
-      }]);
-    } catch {
-      setMensajes([...conversacion, {
+      const body = await res.json().catch(() => ({}));
+      const respMsg: Mensaje = {
         id: crypto.randomUUID(),
         deQuien: 'asistente',
-        texto: 'No se ha podido contactar con la asistencia. El resto del programa sigue funcionando igual.',
-      }]);
+        texto: res.ok ? String(body.texto ?? '') : (body?.error ?? 'No he podido responder.'),
+        hora: Date.now(),
+      };
+      setSesiones(prev => prev.map(s =>
+        s.id === id ? { ...s, mensajes: [...s.mensajes, respMsg], ultimoMensaje: Date.now() } : s
+      ));
+    } catch {
+      const errMsg: Mensaje = {
+        id: crypto.randomUUID(), deQuien: 'asistente', hora: Date.now(),
+        texto: 'No he podido contactar con la asistencia. El programa sigue funcionando.',
+      };
+      setSesiones(prev => prev.map(s =>
+        s.id === id ? { ...s, mensajes: [...s.mensajes, errMsg], ultimoMensaje: Date.now() } : s
+      ));
     } finally {
       setPensando(false);
       setTardando(false);
     }
-  }, [mensajes, pensando, retrato]);
+  }, [mensajes, pensando, retrato, sesionActiva]);
 
-  const alternarMicrofono = () => {
-    if (escuchando) {
-      dictado.current?.parar();
-      return;
-    }
-    const sesion = empezarDictado({
-      alOir: (oido) => setTexto(oido),
-      alFallar: (mensaje) => { avisarError('Micrófono', mensaje); setEscuchando(false); },
+  // --- Micrófono ---
+  const toggleMic = () => {
+    if (escuchando) { dictadoRef.current?.parar(); return; }
+    const s = empezarDictado({
+      alOir: (t) => setTexto(t),
+      alFallar: (m) => { avisarError('Micrófono', m); setEscuchando(false); },
       alTerminar: () => setEscuchando(false),
     });
-    if (!sesion) {
-      avisarError('Este navegador no dicta', 'Prueba con Chrome o Edge, o escribe la pregunta.');
-      return;
-    }
-    dictado.current = sesion;
+    if (!s) { avisarError('Sin dictado', 'Usa Chrome o Edge.'); return; }
+    dictadoRef.current = s;
     setEscuchando(true);
   };
 
   if (!montado) return <PageSkeleton variant="report" label="Preparando la asistencia" />;
 
-  const vacio = mensajes.length === 0;
-
   return (
     <div className="animate-fade-in asistencia-pagina">
+
+      {/* ─── HEADER ─── */}
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Sparkles /> Asistencia</p>
-          <h1 className="page-title">Pregunta lo que necesites</h1>
+          <p className="page-eyebrow"><Sparkles /> Asistencia IA</p>
+          <h1 className="page-title">Tu compañero de facturación</h1>
           <p className="page-subtitle">
-            Escribe o dicta tu duda. La respuesta viene con tus números delante:
-            sabe cuántas facturas tienes sin cobrar y qué te queda por configurar.
+            Pregunta lo que necesites. Conoce tus facturas, clientes y configuración.
           </p>
         </div>
-        {!vacio && (
-          <div className="page-header-actions">
-            <button className="btn btn-secondary" onClick={() => setMensajes([])}>
-              <Trash2 size={16} /> Empezar de nuevo
-            </button>
-          </div>
-        )}
       </div>
 
-      <div className="card asistencia-conversacion" ref={cajaConversacion}>
-        {vacio ? (
-          <div className="asistencia-vacio">
-            <Sparkles size={26} />
-            <strong>¿En qué te echo una mano?</strong>
-            <p className="card-subtitle">
-              Pregunta con tus palabras. Si algo no lo hace el programa, te lo digo.
-            </p>
-            <div className="asistencia-sugerencias">
-              {SUGERENCIAS.map(s => (
-                <button key={s} type="button" className="btn btn-secondary btn-sm" onClick={() => preguntar(s)}>
-                  {s}
-                </button>
+      {/* ─── PESTAÑAS DE SESIONES ─── */}
+      <div className="sesiones-bar">
+        <div className="sesiones-tabs">
+          {sesiones.map(s => (
+            <button
+              key={s.id}
+              className={`sesion-tab ${s.id === sesionActiva ? 'sesion-tab--activa' : ''}`}
+              onClick={() => setSesionActiva(s.id)}
+            >
+              <Sparkles size={12} className="sesion-tab-icono" />
+              <span className="sesion-tab-titulo">{s.titulo}</span>
+              <span
+                className="sesion-tab-cerrar"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); cerrarSesion(s.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); cerrarSesion(s.id); } }}
+                aria-label="Cerrar sesión"
+              >
+                <X size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+        <button className="sesion-nueva" onClick={crearSesion} title="Nueva conversación">
+          <Plus size={16} />
+        </button>
+      </div>
+
+      {/* ─── CHAT ─── */}
+      <div className="asistencia-ventana">
+        <div className="asistencia-conversacion" ref={cajaRef}>
+          {sinChat ? (
+            <div className="asistencia-vacio">
+              <div className="asistencia-vacio-icono">
+                <Sparkles size={28} />
+              </div>
+              <strong>¿En qué te echo una mano?</strong>
+              <p className="asistencia-vacio-sub">
+                Pregunta con tus palabras. Conozco tu situación.
+              </p>
+              <div className="asistencia-sugerencias">
+                {SUGERENCIAS.map(s => (
+                  <button
+                    key={s.texto}
+                    type="button"
+                    className="asistencia-chip"
+                    onClick={() => preguntar(s.texto)}
+                  >
+                    <span className="asistencia-chip-emoji">{s.emoji}</span>
+                    <span>{s.texto}</span>
+                    <ChevronRight size={14} className="asistencia-chip-flecha" />
+                  </button>
+                ))}
+              </div>
+              <div className="asistencia-privacidad">
+                <Shield size={12} />
+                <span>Tus datos no salen de aquí. Solo viaja un resumen anónimo.</span>
+              </div>
+            </div>
+          ) : (
+            <ul className="asistencia-mensajes">
+              {mensajes.map(m => (
+                <li key={m.id} className={`msg msg--${m.deQuien}`}>
+                  <span className="msg-avatar" aria-hidden="true">
+                    {m.deQuien === 'persona' ? <User size={14} /> : <Sparkles size={14} />}
+                  </span>
+                  <div className="msg-burbuja">
+                    {m.texto.split('\n').filter(Boolean).map((l, i) => <p key={i}>{l}</p>)}
+                  </div>
+                </li>
               ))}
+              {pensando && (
+                <li className="msg msg--asistente">
+                  <span className="msg-avatar" aria-hidden="true"><Sparkles size={14} /></span>
+                  <div className="msg-burbuja msg-pensando" role="status" aria-live="polite">
+                    <span className="msg-dots"><i /><i /><i /></span>
+                    {tardando ? 'Un momento…' : 'Pensando…'}
+                  </div>
+                </li>
+              )}
+            </ul>
+          )}
+          <div ref={finRef} />
+        </div>
+
+        {/* ─── INPUT ─── */}
+        <form
+          className="asistencia-input"
+          onSubmit={(e) => { e.preventDefault(); preguntar(texto); }}
+        >
+          <div className="asistencia-input-inner">
+            <textarea
+              ref={campoRef}
+              className="asistencia-campo"
+              rows={1}
+              autoFocus
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntar(texto); }
+              }}
+              placeholder={escuchando ? 'Te escucho…' : 'Escribe tu pregunta…'}
+              disabled={pensando}
+            />
+            <div className="asistencia-input-btns">
+              {escuchando && <span className="asistencia-mic-on">Escuchando…</span>}
+              {hayMicro && (
+                <button
+                  type="button"
+                  className={`asistencia-btn-round ${escuchando ? 'asistencia-btn-round--rojo' : ''}`}
+                  onClick={toggleMic}
+                  disabled={pensando}
+                  title={escuchando ? 'Parar' : 'Dictar'}
+                >
+                  {escuchando ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
+              )}
+              <button
+                type="submit"
+                className="asistencia-btn-enviar"
+                disabled={pensando || !texto.trim()}
+              >
+                {pensando ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+              </button>
             </div>
           </div>
-        ) : (
-          <ul className="asistencia-mensajes">
-            {mensajes.map(m => (
-              <li key={m.id} className={`asistencia-mensaje asistencia-mensaje--${m.deQuien}`}>
-                <span className="asistencia-mensaje-quien" aria-hidden="true">
-                  {m.deQuien === 'persona' ? <User size={14} /> : <Sparkles size={14} />}
-                </span>
-                <div className="asistencia-mensaje-texto">
-                  {m.texto.split('\n').filter(Boolean).map((linea, i) => <p key={i}>{linea}</p>)}
-                </div>
-              </li>
-            ))}
-            {pensando && (
-              <li className="asistencia-mensaje asistencia-mensaje--asistente">
-                <span className="asistencia-mensaje-quien" aria-hidden="true"><Sparkles size={14} /></span>
-                <div
-                  className="asistencia-mensaje-texto asistencia-pensando"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className="asistencia-puntos" aria-hidden="true"><i /><i /><i /></span>
-                  {tardando ? 'Sigo en ello, está tardando más de lo normal…' : 'Mirando tus datos…'}
-                </div>
-              </li>
-            )}
-          </ul>
-        )}
-        <div ref={finDeLaLista} />
+        </form>
       </div>
-
-      <form
-        className="card asistencia-entrada"
-        onSubmit={(e) => { e.preventDefault(); preguntar(texto); }}
-      >
-        <textarea
-          ref={campo}
-          className="form-textarea"
-          rows={2}
-          autoFocus
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            // Intro envía, Mayús+Intro hace párrafo: lo que espera
-            // cualquiera que haya usado un chat.
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntar(texto); }
-          }}
-          placeholder={escuchando ? 'Te escucho…' : 'Escribe tu pregunta, o pulsa el micrófono y háblame'}
-          aria-label="Tu pregunta"
-          disabled={pensando}
-        />
-        <div className="asistencia-botones">
-          {/* Un botón rojo dice que se puede parar; no dice que ahora
-              mismo te está oyendo. El punto que late sí. */}
-          {escuchando && <span className="asistencia-escuchando">Escuchando…</span>}
-          {hayMicrofono && (
-            <button
-              type="button"
-              className={`btn ${escuchando ? 'btn-danger' : 'btn-secondary'}`}
-              onClick={alternarMicrofono}
-              disabled={pensando}
-              title={escuchando ? 'Dejar de escuchar' : 'Dictar la pregunta'}
-              aria-pressed={escuchando}
-            >
-              {escuchando ? <MicOff size={16} /> : <Mic size={16} />}
-              {escuchando ? 'Parar' : 'Dictar'}
-            </button>
-          )}
-          <button className="btn btn-primary" disabled={pensando || !texto.trim()}>
-            {pensando ? <Loader2 size={16} className="spin" /> : <Send size={16} />} Enviar
-          </button>
-        </div>
-      </form>
-
-      <p className="asistencia-nota">
-        Tus facturas no se envían: sólo viaja un resumen con cuántas hay y en qué
-        estado, y lo que escribes o dictas. El audio se transcribe en tu propio
-        navegador y no sale de aquí.
-      </p>
     </div>
   );
 }

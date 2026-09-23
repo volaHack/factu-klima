@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "node scripts/copiar-worker-pdfjs.mjs && node scripts/parchear-pdfme.mjs",
-    "predev": "node scripts/copiar-worker-pdfjs.mjs && node scripts/parchear-pdfme.mjs",
+    "predev": "node scripts/copiar-worker-pdfjs.mjs && node scripts/parchear-pdfme.mjs && node scripts/arrancar-ia.mjs",
     "dev": "next dev",
     "prebuild": "node scripts/copiar-worker-pdfjs.mjs && node scripts/parchear-pdfme.mjs",
     "build": "next build --webpack",

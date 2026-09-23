@@ -21,6 +21,9 @@ export interface ThemeTogglerButtonProps {
   showLabel?: boolean;
 }
 
+/** «Montado» no cambia nunca después de hidratar: no hay nada a lo que suscribirse. */
+const sinSuscripcion = () => () => {};
+
 export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
   variant = 'default',
   size = 'md',
@@ -38,8 +41,19 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
     leerTemaEnServidor
   );
 
-  const temaGuardadoActual = typeof window !== 'undefined' ? temaGuardado() : 'auto';
-  const esOscuro = temaEfectivoActual === 'oscuro';
+  // En el servidor no hay tema guardado: se pinta el de por defecto y el
+  // del usuario entra al hidratar. Con useSyncExternalStore y no con un
+  // useState + useEffect, que es un cambio de estado en cascada que el
+  // compilador de React rechaza; es el mismo patrón que `ui/Portal.tsx`.
+  const mounted = React.useSyncExternalStore(
+    sinSuscripcion,
+    () => true,
+    () => false,
+  );
+
+  const modoDefecto: Tema = modes.includes('system') ? 'auto' : 'claro';
+  const temaGuardadoActual: Tema = mounted ? temaGuardado() : modoDefecto;
+  const esOscuro = mounted ? temaEfectivoActual === 'oscuro' : false;
 
   const executeThemeTransition = async (nuevoTema: Tema) => {
     if (isTransitioningRef.current) return;
@@ -172,6 +186,7 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
   return (
     <button
       type="button"
+      suppressHydrationWarning
       className={`tema-boton ${className}`}
       onClick={handleToggle}
       aria-label={

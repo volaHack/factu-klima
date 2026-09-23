@@ -12106,83 +12106,270 @@ body.nav-abierta { overflow: hidden; }
 }
 
 /* ============================================================
-   ASISTENCIA IA
-   ------------------------------------------------------------
-   Una conversacion, no un formulario. Dos bloques: la charla, que
-   crece, y la caja de escribir, que se queda abajo y a mano.
-
-   EL DATO QUE MANDA AQUI ES LA ESPERA
-   Una respuesta tarda entre 10 y 30 segundos. Eso cambia las
-   decisiones: un spinner quieto medio minuto parece una averia, asi
-   que el estado de espera respira, y el resto del movimiento es corto
-   y se quita de en medio. Lo que se ve muchas veces al dia no se
-   anima; lo que se ve de vez en cuando —un mensaje que llega, las
-   sugerencias del principio— si.
+   ASISTENCIA IA — DISEÑO EMIL KOWALSKI INSPIRED (TABS + FLUID UI)
    ============================================================ */
 
 .asistencia-pagina {
-  max-width: 860px;
+  max-width: 980px;
+  margin: 0 auto;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  /* Las curvas de la casa (`ease` de toda la vida) valen para un
-     cambio de color, pero arrancan despacio justo cuando el usuario
-     esta mirando. Esta sale disparada y frena al final, que es lo que
-     hace que 200 ms se sientan como 120. Va en la pagina, no en
-     :root, por el mismo motivo que en .pricing-page: esto no es una
-     reforma del sistema de diseno. */
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+/* ─── BARRA DE PESTAÑAS (SESIONES) ─── */
+.sesiones-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl, 16px);
+  position: relative;
+  overflow: hidden;
+}
+
+.sesiones-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+  min-width: 0;
+  padding: 2px;
+}
+.sesiones-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.sesion-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 180ms var(--ease-spring);
+  position: relative;
+  user-select: none;
+  max-width: 220px;
+}
+
+.sesion-tab:hover {
+  color: var(--text-primary);
+  background: rgba(125, 125, 125, 0.08);
+}
+
+.sesion-tab--activa {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.sesion-tab-icono {
+  flex-shrink: 0;
+  color: var(--accent-500);
+  opacity: 0.85;
+}
+
+.sesion-tab-titulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sesion-tab-cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-left: 2px;
+  transition: all 140ms ease;
+  flex-shrink: 0;
+}
+
+.sesion-tab:hover .sesion-tab-cerrar {
+  opacity: 0.8;
+}
+
+.sesion-tab-cerrar:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger, #ef4444);
+  transform: scale(1.1);
+}
+
+.sesion-nueva {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 180ms var(--ease-spring);
+}
+
+.sesion-nueva:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-500);
+  color: var(--accent-500);
+  transform: scale(1.05);
+}
+
+/* ─── VENTANA PRINCIPAL DEL CHAT ─── */
+.asistencia-ventana {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-2xl, 20px);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: calc(100vh - 280px);
+  min-height: 520px;
+  position: relative;
 }
 
 .asistencia-conversacion {
-  min-height: 340px;
-  max-height: 58vh;
+  flex: 1;
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
   scroll-behavior: smooth;
 }
 
-/* ------------------------------------------------------------
-   NADA PREGUNTADO TODAVIA
-   ------------------------------------------------------------ */
+/* ─── ESTADO VACÍO / BIENVENIDA ─── */
 .asistencia-vacio {
+  margin: auto;
+  max-width: 580px;
+  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: var(--space-2);
   padding: var(--space-6) var(--space-4);
-  color: var(--text-secondary);
+  animation: fadeIn 300ms var(--ease-spring);
 }
-.asistencia-vacio > svg { color: var(--accent-500); }
-.asistencia-vacio strong { font-size: var(--text-lg); color: var(--text-primary); }
 
-.asistencia-sugerencias {
+.asistencia-vacio-icono {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb, 176, 42, 92), 0.12), rgba(var(--accent-rgb, 176, 42, 92), 0.04));
+  border: 1px solid rgba(var(--accent-rgb, 176, 42, 92), 0.2);
+  color: var(--accent-500);
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+  box-shadow: 0 8px 16px -4px rgba(var(--accent-rgb, 176, 42, 92), 0.15);
+  animation: iconoFloat 4s ease-in-out infinite;
 }
 
-/* Entran escalonadas: se ven una sola vez, al abrir la pantalla, asi
-   que aqui la cascada suma en vez de estorbar. 45 ms entre una y otra;
-   mas y la pantalla se siente lenta. */
-.asistencia-sugerencias .btn {
-  opacity: 0;
-  transform: translateY(6px);
-  animation: asistencia-entra 260ms var(--ease-out) forwards;
-}
-.asistencia-sugerencias .btn:nth-child(1) { animation-delay: 40ms; }
-.asistencia-sugerencias .btn:nth-child(2) { animation-delay: 85ms; }
-.asistencia-sugerencias .btn:nth-child(3) { animation-delay: 130ms; }
-.asistencia-sugerencias .btn:nth-child(4) { animation-delay: 175ms; }
-
-@keyframes asistencia-entra {
-  to { opacity: 1; transform: translateY(0); }
+@keyframes iconoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-/* ------------------------------------------------------------
-   LA CHARLA
-   ------------------------------------------------------------ */
+.asistencia-vacio strong {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.asistencia-vacio-sub {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: var(--space-6);
+}
+
+/* ─── SUGERENCIAS INTERACTIVAS ─── */
+.asistencia-sugerencias {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  margin-bottom: var(--space-6);
+}
+
+.asistencia-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-xl, 14px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 180ms var(--ease-spring);
+  line-height: 1.4;
+}
+
+.asistencia-chip:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-400, #b02a5c);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.asistencia-chip-emoji {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.asistencia-chip-flecha {
+  margin-left: auto;
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: transform 180ms ease, opacity 180ms ease;
+  flex-shrink: 0;
+}
+
+.asistencia-chip:hover .asistencia-chip-flecha {
+  opacity: 1;
+  transform: translateX(3px);
+  color: var(--accent-500);
+}
+
+.asistencia-privacidad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(125, 125, 125, 0.05);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(125, 125, 125, 0.1);
+}
+
+/* ─── MENSAJES DE CONVERSACIÓN ─── */
 .asistencia-mensajes {
   list-style: none;
   margin: 0;
@@ -12192,181 +12379,251 @@ body.nav-abierta { overflow: hidden; }
   gap: var(--space-4);
 }
 
-.asistencia-mensaje {
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  gap: var(--space-3);
-  align-items: start;
-  /* Nada aparece de la nada: sube 6 px mientras entra. Corto, porque
-     esto se ve una vez por mensaje y no hay que celebrarlo. */
-  opacity: 0;
-  transform: translateY(6px);
-  animation: asistencia-entra 220ms var(--ease-out) forwards;
+.msg {
+  display: flex;
+  gap: 12px;
+  max-width: 82%;
+  animation: msgAparecer 240ms var(--ease-spring);
 }
 
-.asistencia-mensaje-quien {
+@keyframes msgAparecer {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.msg--persona {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msg--asistente {
+  align-self: flex-start;
+}
+
+.msg-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
   flex-shrink: 0;
-}
-.asistencia-mensaje--asistente .asistencia-mensaje-quien {
-  background: var(--accent-500);
-  color: #fff;
+  margin-top: 2px;
 }
 
-.asistencia-mensaje-texto {
+.msg--persona .msg-avatar {
+  background: var(--accent-100, rgba(176, 42, 92, 0.1));
+  color: var(--accent-600, #b02a5c);
+  border: 1px solid rgba(var(--accent-rgb, 176, 42, 92), 0.2);
+}
+
+.msg--asistente .msg-avatar {
+  background: var(--bg-secondary);
+  color: var(--accent-500);
+  border: 1px solid var(--border-color);
+}
+
+.msg-burbuja {
+  padding: 12px 16px;
+  border-radius: 18px;
   font-size: var(--text-sm);
   line-height: 1.6;
+  position: relative;
+  word-break: break-word;
+}
+
+.msg--persona .msg-burbuja {
+  background: var(--accent-500);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(176, 42, 92, 0.25);
+}
+
+.msg--persona .msg-burbuja p {
+  margin: 0 0 6px 0;
+  color: #ffffff;
+}
+.msg--persona .msg-burbuja p:last-child {
+  margin-bottom: 0;
+}
+
+.msg--asistente .msg-burbuja {
+  background: var(--bg-secondary);
   color: var(--text-primary);
-  /* Un numero de factura o un importe no se parte a mitad de linea. */
-  overflow-wrap: anywhere;
+  border: 1px solid var(--border-color);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
-.asistencia-mensaje-texto p { margin: 0 0 var(--space-2); }
-.asistencia-mensaje-texto p:last-child { margin-bottom: 0; }
 
-/* Lo que dice la persona va mas apagado: lo que importa releer es la
-   respuesta, no la propia pregunta. */
-.asistencia-mensaje--persona .asistencia-mensaje-texto { color: var(--text-secondary); }
+.msg--asistente .msg-burbuja p {
+  margin: 0 0 8px 0;
+}
+.msg--asistente .msg-burbuja p:last-child {
+  margin-bottom: 0;
+}
 
-/* ------------------------------------------------------------
-   LA ESPERA
-   ------------------------------------------------------------
-   Diez o treinta segundos son muchos mirando un icono quieto. Tres
-   puntos que respiran dicen "sigo aqui" sin prometer que falta poco, y
-   el texto cambia a los ocho segundos para reconocer la tardanza en
-   vez de fingir que no pasa.
-   ------------------------------------------------------------ */
-.asistencia-pensando {
-  display: flex;
+/* Indicador de pensamiento con pulso */
+.msg-pensando {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
 
-.asistencia-puntos { display: inline-flex; gap: 3px; }
-.asistencia-puntos i {
+.msg-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.msg-dots i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--accent-500);
-  animation: asistencia-respira 1.3s ease-in-out infinite;
-}
-.asistencia-puntos i:nth-child(2) { animation-delay: 0.18s; }
-.asistencia-puntos i:nth-child(3) { animation-delay: 0.36s; }
-
-@keyframes asistencia-respira {
-  0%, 100% { opacity: 0.25; transform: scale(0.85); }
-  45%      { opacity: 1;    transform: scale(1); }
+  animation: dotPulse 1.4s infinite both;
 }
 
-/* ------------------------------------------------------------
-   ESCRIBIR O DICTAR
-   ------------------------------------------------------------ */
-.asistencia-entrada {
-  margin-top: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.msg-dots i:nth-child(2) { animation-delay: 0.2s; }
+.msg-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40% { transform: scale(1.1); opacity: 1; }
+}
+
+/* ─── BARRA DE ENTRADA / INPUT FLOTANTE TIPO DOCK ─── */
+.asistencia-input {
   padding: var(--space-4);
-  /* El borde se enciende al escribir dentro: dice donde esta el foco
-     sin sacar un anillo del navegador por encima de la tarjeta. */
-  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
-}
-.asistencia-entrada:focus-within {
-  border-color: var(--accent-500);
-  box-shadow: 0 0 0 3px var(--accent-glow, rgba(176, 42, 92, 0.18));
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
 }
 
-.asistencia-entrada .form-textarea {
-  resize: none;
-  min-height: 58px;
-  max-height: 180px;
-  overflow-y: auto;
+.asistencia-input-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl, 16px);
+  padding: 8px 12px;
+  transition: all 200ms var(--ease-spring);
 }
-/* Dentro de la tarjeta, el campo no repite marco ni anillo de foco. */
-.asistencia-entrada .form-textarea,
-.asistencia-entrada .form-textarea:focus {
-  border-color: transparent;
-  box-shadow: none;
+
+.asistencia-input-inner:focus-within {
+  border-color: var(--accent-400, #b02a5c);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 176, 42, 92), 0.12), 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.asistencia-campo {
+  flex: 1;
+  min-height: 24px;
+  max-height: 120px;
   background: transparent;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.asistencia-botones {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-/* Todo lo que se pulsa aqui responde al dedo. 160 ms y un 3 %: no se
-   ve, se siente. */
-.asistencia-pagina .btn {
-  transition: transform 160ms var(--ease-out), background-color 160ms ease,
-              border-color 160ms ease, color 160ms ease;
-}
-.asistencia-pagina .btn:active:not(:disabled) { transform: scale(0.97); }
-
-/* --- El microfono escuchando --- */
-.asistencia-escuchando {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-right: auto;
-  font-size: var(--text-xs);
-  color: var(--color-danger);
-  font-weight: 600;
-}
-.asistencia-escuchando::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: asistencia-latido 1.2s ease-in-out infinite;
-}
-@keyframes asistencia-latido {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%      { opacity: 0.4; transform: scale(0.78); }
-}
-
-.asistencia-nota {
-  margin-top: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
   line-height: 1.5;
+  color: var(--text-primary);
+  padding: 4px 4px 4px 0;
 }
 
-/* En un movil la caja de escribir manda: la conversacion se encoge para
-   que el campo y los botones quepan sin hacer scroll. */
-@media (max-width: 640px) {
-  .asistencia-conversacion { max-height: 46vh; padding: var(--space-4); }
-  .asistencia-botones .btn { flex: 1; justify-content: center; }
-  .asistencia-escuchando { width: 100%; margin-bottom: var(--space-1); }
+.asistencia-campo::placeholder {
+  color: var(--text-muted);
 }
 
-/* Menos movimiento no es ningun movimiento: lo que desaparece es el
-   desplazamiento, no el aviso de que algo esta pasando. Los puntos de
-   la espera siguen latiendo, porque son la unica senal de que el
-   programa no se ha quedado colgado. */
-@media (prefers-reduced-motion: reduce) {
-  .asistencia-mensaje,
-  .asistencia-sugerencias .btn {
-    animation: none;
-    opacity: 1;
-    transform: none;
+.asistencia-input-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.asistencia-mic-on {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-danger, #ef4444);
+  animation: pulse 1.2s infinite ease-in-out;
+  margin-right: 4px;
+}
+
+.asistencia-btn-round {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.asistencia-btn-round:hover {
+  background: rgba(125, 125, 125, 0.1);
+  color: var(--text-primary);
+}
+
+.asistencia-btn-round--rojo {
+  color: var(--color-danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+  animation: pulse 1.5s infinite;
+}
+
+.asistencia-btn-enviar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent-500);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 180ms var(--ease-spring);
+  box-shadow: 0 2px 6px rgba(176, 42, 92, 0.3);
+}
+
+.asistencia-btn-enviar:hover:not(:disabled) {
+  background: var(--accent-600, #9c2856);
+  transform: scale(1.06);
+}
+
+.asistencia-btn-enviar:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.asistencia-btn-enviar:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 680px) {
+  .asistencia-sugerencias {
+    grid-template-columns: 1fr;
   }
-  .asistencia-conversacion { scroll-behavior: auto; }
-  .asistencia-pagina .btn:active:not(:disabled) { transform: none; }
-  .asistencia-puntos i,
-  .asistencia-escuchando::before { animation-duration: 2.4s; }
+  .asistencia-ventana {
+    height: calc(100vh - 220px);
+    border-radius: var(--radius-xl, 16px);
+  }
+  .msg {
+    max-width: 92%;
+  }
 }

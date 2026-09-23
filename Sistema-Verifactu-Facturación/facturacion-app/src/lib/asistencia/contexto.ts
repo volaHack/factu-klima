@@ -1,43 +1,181 @@
-import { InvoiceStatus, type Client, type CompanySettings, type Invoice } from '../types';
+import {
+  InvoiceStatus,
+  type Client,
+  type CompanySettings,
+  type Invoice,
+  type Product,
+  type Albaran,
+  type Devolucion,
+  type Abono,
+  type Almacen,
+  type Vendedor,
+  type Obra,
+  type Vehiculo,
+  type Gasto,
+  type Lote,
+  type TipoDocumento,
+  type SentidoDocumento,
+} from '../types';
 
 /**
- * LO QUE EL ASISTENTE SABE DE LA SITUACIÓN DEL CLIENTE
+ * RETRATO INTEGRAL DE TODOS LOS DATOS DEL SISTEMA PARA LA ASISTENCIA IA
  *
- * Un asistente que sólo conoce el manual contesta cosas ciertas e
- * inútiles: «para cobrar una factura vencida, entra en Facturas y…».
- * El que sabe que HAY tres vencidas, y cuáles, contesta lo que hace
- * falta: «tienes 3 vencidas por 1.240 € — la más vieja es la FAC-0012
- * de hace 47 días».
- *
- * Esto arma ese retrato, y lo arma CONTANDO, no mandando los datos: al
- * modelo le va un resumen de números y estados, nunca la lista de
- * clientes ni sus importes uno a uno. Dos razones, y las dos importan:
- * los datos de facturación de una empresa no tienen por qué pasearse por
- * un servicio de terceros, y una lista de doscientas facturas no cabe —y
- * no ayuda— en un enunciado.
- *
- * Lo que sí viaja son los números de las facturas que el asistente puede
- * necesitar nombrar («la FAC-2026-0012 lleva 47 días vencida»), y como
- * mucho unas pocas. Un número de factura no dice cuánto factura nadie.
+ * Proporciona a la IA acceso total y estructurado a los datos del negocio:
+ * - Almacenes e inventario: todos los almacenes registrados (central, secundarios, etc.).
+ * - Documentos creados: Facturas, Albaranes, Presupuestos, Pedidos, Rectificativas, Devoluciones y Abonos.
+ * - Destinatario (a quién fue: cliente o proveedor, nombre y NIF).
+ * - Importes exactos (cuánto dinero fue: total con IVA, base imponible e impuestos).
+ * - Fechas de emisión, vencimiento y estado de aprobación/cobro/facturación.
+ * - Catálogo de productos, stock por artículo, referencias y precios.
+ * - Clientes y proveedores con su actividad comercial.
+ * - Obras y proyectos, órdenes de trabajo, vehículos y flota.
+ * - Gastos del negocio y balance.
+ * - Vendedores y comisiones.
+ * - Lotes y trazabilidad / caducidades.
  */
 
+export interface AlmacenDetalleIA {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion?: string;
+  principal: boolean;
+  activo: boolean;
+}
+
+export interface DocumentoDetalleIA {
+  id: string;
+  tipo: string; // "Factura", "Albarán", "Presupuesto", "Pedido", "Factura rectificativa", "Devolución", "Abono"
+  tipoRaw: string;
+  sentido: SentidoDocumento;
+  numero: string;
+  destinatario: string;
+  destinatarioNif?: string;
+  fechaEmision: string;
+  fechaVencimiento: string;
+  estado: string;
+  total: number;
+  subtotal: number;
+  impuestos: number;
+  lineasResumen: string;
+}
+
+export interface ClienteDetalleIA {
+  nombre: string;
+  nif?: string;
+  totalFacturado: number;
+  totalFacturas: number;
+  totalAlbaranes: number;
+  totalPresupuestos: number;
+  totalPedidos: number;
+  esProveedor: boolean;
+  activo: boolean;
+}
+
+export interface ProductoDetalleIA {
+  nombre: string;
+  precio: number;
+  referencia?: string;
+  stock?: number;
+  categoria?: string;
+}
+
+export interface ObraDetalleIA {
+  numero: string;
+  nombre: string;
+  cliente?: string;
+  estado: string;
+  presupuesto?: number;
+}
+
+export interface VendedorDetalleIA {
+  nombre: string;
+  comisionPct?: number;
+  activo: boolean;
+}
+
+export interface VehiculoDetalleIA {
+  matricula: string;
+  nombre?: string;
+  activo: boolean;
+}
+
+export interface GastoDetalleIA {
+  concepto: string;
+  total: number;
+  fecha: string;
+  categoria: string;
+  proveedor?: string;
+}
+
+export interface LoteDetalleIA {
+  numeroLote: string;
+  productoNombre: string;
+  fechaCaducidad?: string;
+  stockActual: number;
+}
+
 export interface RetratoDelPanel {
-  /** Facturas emitidas en total, sin contar anuladas. */
-  facturas: number;
-  borradores: number;
-  vencidas: number;
-  /** Importe de lo vencido, redondeado a euros. */
-  importeVencido: number;
-  pendientesDeCobro: number;
-  importePendiente: number;
-  /** Las vencidas más viejas, para poder nombrarlas. */
-  vencidasMasViejas: { numero: string; dias: number }[];
-  clientesActivos: number;
-  /** Facturas emitidas este mes natural. */
+  // --- Almacenes y logística ---
+  almacenes: AlmacenDetalleIA[];
+  totalAlmacenes: number;
+  almacenPrincipalNombre?: string;
+
+  // --- Resumen Económico Global de Facturas ---
+  totalFacturado: number;
+  totalCobradoOAprobado: number;
+  totalPendiente: number;
+  totalVencido: number;
+  totalBorradores: number;
+
+  // --- Facturas por estado ---
+  facturasTotales: number;
+  facturasCobradasOAprobadas: number;
+  facturasPendientes: number;
+  facturasVencidas: number;
+  facturasBorradores: number;
+  facturasAnuladas: number;
+
+  // --- Albaranes (tabla albaranes + documentos albarán) ---
+  albaranesTotales: number;
+  albaranesImporte: number;
+  albaranesPendientesFacturar: number;
+  albaranesPendientesImporte: number;
+  albaranesFacturados: number;
+
+  // --- Otros documentos ---
+  presupuestosTotales: number;
+  presupuestosImporte: number;
+  pedidosTotales: number;
+  pedidosImporte: number;
+  rectificativasTotales: number;
+  rectificativasImporte: number;
+  devolucionesTotales: number;
+  abonosTotales: number;
+
+  // --- Temporal ---
+  facturasDelAno: number;
+  importeDelAno: number;
   facturasDelMes: number;
   importeDelMes: number;
 
-  // --- Lo que puede estar sin terminar de configurar ---
+  // --- Listado completo de documentos (ordenados por fecha descendente) ---
+  todosLosDocumentos: DocumentoDetalleIA[];
+  clientes: ClienteDetalleIA[];
+  productos: ProductoDetalleIA[];
+  obras: ObraDetalleIA[];
+  vendedores: VendedorDetalleIA[];
+  vehiculos: VehiculoDetalleIA[];
+  gastos: GastoDetalleIA[];
+  totalGastos: number;
+  lotes: LoteDetalleIA[];
+
+  // --- Vencidas destacadas ---
+  vencidasMasViejas: { numero: string; dias: number; importe: number; cliente: string }[];
+
+  // --- Configuración y Fiscal ---
+  nombreEmpresa: string;
+  nifEmpresa: string;
   tieneNif: boolean;
   tieneDireccion: boolean;
   tieneLogotipo: boolean;
@@ -48,97 +186,632 @@ export interface RetratoDelPanel {
 }
 
 function dias(desde: string): number {
+  if (!desde) return 0;
   const ms = Date.now() - new Date(desde).getTime();
   return Math.max(0, Math.round(ms / 86_400_000));
 }
 
-function euros(importe: number): number {
-  return Math.round(importe);
+function redondearEuros(n: number): number {
+  return Number((Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2));
+}
+
+export function nombreTipoDocumento(tipo?: TipoDocumento | string): string {
+  switch (tipo) {
+    case 'albaran':
+      return 'Albarán';
+    case 'presupuesto':
+      return 'Presupuesto';
+    case 'pedido':
+      return 'Pedido';
+    case 'rectificativa':
+      return 'Factura rectificativa';
+    case 'devolucion':
+      return 'Devolución';
+    case 'abono':
+      return 'Abono';
+    case 'factura':
+    default:
+      return 'Factura';
+  }
+}
+
+export function estadoEnEspanol(status: InvoiceStatus | string): string {
+  switch (status) {
+    case InvoiceStatus.APROBADO:
+      return 'Aprobada';
+    case InvoiceStatus.APROBADO_PARCIAL:
+      return 'Aprobada parcial';
+    case InvoiceStatus.PAGADA:
+      return 'Pagada / Cobrada';
+    case InvoiceStatus.EMITIDA:
+      return 'Emitida';
+    case InvoiceStatus.PENDIENTE:
+      return 'Pendiente de cobro';
+    case InvoiceStatus.PARCIAL:
+      return 'Cobro parcial';
+    case InvoiceStatus.VENCIDA:
+      return 'Vencida';
+    case InvoiceStatus.BORRADOR:
+    case 'borrador':
+      return 'Borrador';
+    case InvoiceStatus.PRE_APROBACION:
+      return 'Pre-aprobación';
+    case InvoiceStatus.RECHAZADO:
+      return 'Rechazada';
+    case InvoiceStatus.ANULADA:
+    case 'anulado':
+      return 'Anulada';
+    case InvoiceStatus.EXPEDIDO:
+    case 'expedido':
+      return 'Expedido (sin facturar)';
+    case InvoiceStatus.FACTURADO:
+    case 'facturado':
+      return 'Facturado';
+    default:
+      return status;
+  }
 }
 
 export function retratoDelPanel(entrada: {
   facturas: Invoice[];
+  albaranes?: Albaran[];
+  devoluciones?: Devolucion[];
+  abonos?: Abono[];
   clientes: Client[];
   ajustes: CompanySettings | null;
+  productos?: Product[];
+  almacenes?: Almacen[];
+  vendedores?: Vendedor[];
+  obras?: Obra[];
+  vehiculos?: Vehiculo[];
+  gastos?: Gasto[];
+  lotes?: Lote[];
   tienePlantillaPropia: boolean;
 }): RetratoDelPanel {
-  const { ajustes } = entrada;
-  const vivas = entrada.facturas.filter(f => f.status !== InvoiceStatus.ANULADA);
+  const {
+    ajustes,
+    facturas = [],
+    albaranes = [],
+    devoluciones = [],
+    abonos = [],
+    clientes = [],
+    productos = [],
+    almacenes = [],
+    vendedores = [],
+    obras = [],
+    vehiculos = [],
+    gastos = [],
+    lotes = [],
+  } = entrada;
 
-  const borradores = vivas.filter(f => f.status === InvoiceStatus.BORRADOR);
-  const vencidas = vivas.filter(f => f.status === InvoiceStatus.VENCIDA);
-  const pendientes = vivas.filter(
-    f => f.status === InvoiceStatus.PENDIENTE || f.status === InvoiceStatus.EMITIDA,
-  );
+  // --- Almacenes ---
+  const almacenesDetalle: AlmacenDetalleIA[] = almacenes.map(a => ({
+    id: a.id,
+    codigo: a.codigo,
+    nombre: a.nombre,
+    direccion: a.direccion,
+    principal: Boolean(a.principal),
+    activo: Boolean(a.activo),
+  }));
+  const almPrincipal = almacenesDetalle.find(a => a.principal)?.nombre || almacenesDetalle[0]?.nombre;
 
-  const ahora = new Date();
-  const delMes = vivas.filter(f => {
-    const d = new Date(f.issueDate);
-    return d.getMonth() === ahora.getMonth() && d.getFullYear() === ahora.getFullYear();
+  // --- Lista unificada de documentos ---
+  const docMap = new Map<string, DocumentoDetalleIA>();
+
+  // 1. Mapear facturas, presupuestos, pedidos y rectificativas desde invoices
+  facturas.forEach(d => {
+    const lineas = (d.lineItems || []).map(li => {
+      const q = li.quantity ?? 1;
+      const desc = li.productName || 'Concepto';
+      return `${desc} (${q} ud)`;
+    }).slice(0, 3).join(', ');
+
+    const tipoDoc = nombreTipoDocumento(d.tipo);
+    docMap.set(d.id, {
+      id: d.id,
+      tipo: tipoDoc,
+      tipoRaw: d.tipo ?? 'factura',
+      sentido: d.sentido ?? 'venta',
+      numero: d.number || '(sin número)',
+      destinatario: d.clientName || 'Sin destinatario',
+      destinatarioNif: d.clientNif || '',
+      fechaEmision: d.issueDate || '',
+      fechaVencimiento: d.dueDate || '',
+      estado: estadoEnEspanol(d.status),
+      total: redondearEuros(d.total || 0),
+      subtotal: redondearEuros(d.subtotal || 0),
+      impuestos: redondearEuros(d.totalTax || 0),
+      lineasResumen: lineas ? `[${lineas}]` : '',
+    });
   });
 
-  return {
-    facturas: vivas.length,
-    borradores: borradores.length,
-    vencidas: vencidas.length,
-    importeVencido: euros(vencidas.reduce((s, f) => s + f.total, 0)),
-    pendientesDeCobro: pendientes.length,
-    importePendiente: euros(pendientes.reduce((s, f) => s + f.total, 0)),
-    vencidasMasViejas: [...vencidas]
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-      .slice(0, 3)
-      .map(f => ({ numero: f.number, dias: dias(f.dueDate) })),
-    clientesActivos: entrada.clientes.filter(c => c.active).length,
-    facturasDelMes: delMes.length,
-    importeDelMes: euros(delMes.reduce((s, f) => s + f.total, 0)),
+  // 2. Mapear albaranes específicos desde la colección albaranes
+  albaranes.forEach(a => {
+    const lineas = (a.lineItems || []).map(li => {
+      const q = li.quantity ?? 1;
+      const desc = li.productName || 'Concepto';
+      return `${desc} (${q} ud)`;
+    }).slice(0, 3).join(', ');
 
+    let estadoStr = 'Borrador (pendiente de facturar)';
+    if (a.status === 'facturado') estadoStr = 'Facturado';
+    else if (a.status === 'expedido') estadoStr = 'Expedido (pendiente de facturar)';
+    else if (a.status === 'anulado') estadoStr = 'Anulado';
+
+    docMap.set(a.id, {
+      id: a.id,
+      tipo: 'Albarán',
+      tipoRaw: 'albaran',
+      sentido: 'venta',
+      numero: a.number || '(sin número)',
+      destinatario: a.clientName || 'Sin destinatario',
+      destinatarioNif: a.clientNif || '',
+      fechaEmision: a.issueDate || '',
+      fechaVencimiento: '',
+      estado: estadoStr,
+      total: redondearEuros(a.total || 0),
+      subtotal: redondearEuros(a.subtotal || 0),
+      impuestos: redondearEuros(a.totalTax || 0),
+      lineasResumen: lineas ? `[${lineas}]` : '',
+    });
+  });
+
+  // 3. Mapear devoluciones
+  devoluciones.forEach(dev => {
+    docMap.set(dev.id, {
+      id: dev.id,
+      tipo: 'Devolución',
+      tipoRaw: 'devolucion',
+      sentido: 'venta',
+      numero: dev.number || '(sin número)',
+      destinatario: dev.clientName || 'Sin destinatario',
+      destinatarioNif: dev.clientNif || '',
+      fechaEmision: dev.issueDate || '',
+      fechaVencimiento: '',
+      estado: 'Registrada',
+      total: redondearEuros(dev.total || 0),
+      subtotal: redondearEuros(dev.total || 0),
+      impuestos: 0,
+      lineasResumen: '',
+    });
+  });
+
+  // 4. Mapear abonos
+  abonos.forEach(ab => {
+    docMap.set(ab.id, {
+      id: ab.id,
+      tipo: 'Abono',
+      tipoRaw: 'abono',
+      sentido: 'venta',
+      numero: ab.number || '(sin número)',
+      destinatario: ab.clientName || 'Sin destinatario',
+      destinatarioNif: ab.clientNif || '',
+      fechaEmision: ab.issueDate || '',
+      fechaVencimiento: '',
+      estado: ab.status || 'Emitido',
+      total: redondearEuros(ab.total || 0),
+      subtotal: redondearEuros(ab.total || 0),
+      impuestos: 0,
+      lineasResumen: ab.reason ? `[Motivo: ${ab.reason}]` : '',
+    });
+  });
+
+  // Lista ordenada por fecha más reciente
+  const todosLosDocumentos: DocumentoDetalleIA[] = Array.from(docMap.values()).sort(
+    (a, b) => new Date(b.fechaEmision || 0).getTime() - new Date(a.fechaEmision || 0).getTime()
+  );
+
+  // Clasificación de facturas
+  const facturasDocs = facturas.filter(d => (d.tipo ?? 'factura') === 'factura');
+  const facturasVivas = facturasDocs.filter(f => f.status !== InvoiceStatus.ANULADA);
+  const facturasEmitidas = facturasVivas.filter(f => f.status !== InvoiceStatus.BORRADOR);
+
+  const cobradasOAprobadas = facturasVivas.filter(
+    f => f.status === InvoiceStatus.PAGADA ||
+         f.status === InvoiceStatus.APROBADO ||
+         f.status === InvoiceStatus.APROBADO_PARCIAL
+  );
+
+  const pendientes = facturasVivas.filter(
+    f => f.status === InvoiceStatus.PENDIENTE ||
+         f.status === InvoiceStatus.EMITIDA ||
+         f.status === InvoiceStatus.PARCIAL ||
+         f.status === InvoiceStatus.PRE_APROBACION
+  );
+
+  const vencidas = facturasVivas.filter(f => f.status === InvoiceStatus.VENCIDA);
+  const borradores = facturasDocs.filter(f => f.status === InvoiceStatus.BORRADOR);
+  const anuladas = facturasDocs.filter(f => f.status === InvoiceStatus.ANULADA);
+
+  // Fechas y temporales para facturas
+  const ahora = new Date();
+  const mesActual = ahora.getMonth();
+  const anoActual = ahora.getFullYear();
+
+  const delAno = facturasEmitidas.filter(f => {
+    const d = new Date(f.issueDate);
+    return d.getFullYear() === anoActual;
+  });
+
+  const delMes = facturasEmitidas.filter(f => {
+    const d = new Date(f.issueDate);
+    return d.getMonth() === mesActual && d.getFullYear() === anoActual;
+  });
+
+  // Totales económicos de facturas
+  const totalFacturado = redondearEuros(facturasEmitidas.reduce((s, f) => s + (f.total || 0), 0));
+  const totalCobradoOAprobado = redondearEuros(cobradasOAprobadas.reduce((s, f) => s + (f.total || 0), 0));
+  const totalPendiente = redondearEuros(pendientes.reduce((s, f) => s + (f.total || 0), 0));
+  const totalVencido = redondearEuros(vencidas.reduce((s, f) => s + (f.total || 0), 0));
+  const totalBorradores = redondearEuros(borradores.reduce((s, f) => s + (f.total || 0), 0));
+  const importeDelAno = redondearEuros(delAno.reduce((s, f) => s + (f.total || 0), 0));
+  const importeDelMes = redondearEuros(delMes.reduce((s, f) => s + (f.total || 0), 0));
+
+  // Totales de albaranes
+  const todosAlbaranes = todosLosDocumentos.filter(d => d.tipoRaw === 'albaran');
+  const albaranesNoAnulados = todosAlbaranes.filter(a => !a.estado.toLowerCase().includes('anulado'));
+  const albaranesTotales = todosAlbaranes.length;
+  const albaranesImporte = redondearEuros(albaranesNoAnulados.reduce((s, a) => s + a.total, 0));
+
+  const albaranesPendientes = albaranesNoAnulados.filter(a =>
+    a.estado.toLowerCase().includes('pendiente') || a.estado.toLowerCase().includes('borrador') || a.estado.toLowerCase().includes('expedido')
+  );
+  const albaranesPendientesFacturar = albaranesPendientes.length;
+  const albaranesPendientesImporte = redondearEuros(albaranesPendientes.reduce((s, a) => s + a.total, 0));
+  const albaranesFacturados = albaranesNoAnulados.filter(a => a.estado.toLowerCase().includes('facturado')).length;
+
+  // Otros documentos
+  const presupuestosDocs = facturas.filter(d => d.tipo === 'presupuesto');
+  const presupuestosImporte = redondearEuros(
+    presupuestosDocs.filter(p => p.status !== InvoiceStatus.ANULADA).reduce((s, p) => s + (p.total || 0), 0)
+  );
+
+  const pedidosDocs = facturas.filter(d => d.tipo === 'pedido');
+  const pedidosImporte = redondearEuros(
+    pedidosDocs.filter(p => p.status !== InvoiceStatus.ANULADA).reduce((s, p) => s + (p.total || 0), 0)
+  );
+
+  const rectificativasDocs = facturas.filter(d => d.tipo === 'rectificativa');
+  const rectificativasImporte = redondearEuros(
+    rectificativasDocs.filter(r => r.status !== InvoiceStatus.ANULADA).reduce((s, r) => s + (r.total || 0), 0)
+  );
+
+  // Clientes y proveedores
+  const mapaClientes = new Map<string, {
+    total: number;
+    facturas: number;
+    albaranes: number;
+    presupuestos: number;
+    pedidos: number;
+    nombre: string;
+    nif?: string;
+    esProveedor: boolean;
+    activo: boolean;
+  }>();
+  
+  clientes.forEach(c => {
+    const nombreCliente = c.tradeName || c.businessName || 'Cliente';
+    mapaClientes.set(c.id, {
+      nombre: nombreCliente,
+      nif: c.nif,
+      total: 0,
+      facturas: 0,
+      albaranes: 0,
+      presupuestos: 0,
+      pedidos: 0,
+      esProveedor: Boolean(c.esProveedor),
+      activo: Boolean(c.active),
+    });
+  });
+
+  todosLosDocumentos.forEach(doc => {
+    const key = doc.destinatario;
+    const existente = mapaClientes.get(key) || {
+      nombre: doc.destinatario,
+      nif: doc.destinatarioNif,
+      total: 0,
+      facturas: 0,
+      albaranes: 0,
+      presupuestos: 0,
+      pedidos: 0,
+      esProveedor: false,
+      activo: true,
+    };
+
+    if (doc.tipoRaw === 'factura' && !doc.estado.toLowerCase().includes('borrador') && !doc.estado.toLowerCase().includes('anulad')) {
+      existente.total += doc.total || 0;
+      existente.facturas += 1;
+    } else if (doc.tipoRaw === 'albaran') {
+      existente.albaranes += 1;
+    } else if (doc.tipoRaw === 'presupuesto') {
+      existente.presupuestos += 1;
+    } else if (doc.tipoRaw === 'pedido') {
+      existente.pedidos += 1;
+    }
+
+    mapaClientes.set(key, existente);
+  });
+
+  const clientesDetalle: ClienteDetalleIA[] = Array.from(mapaClientes.values())
+    .map(c => ({
+      nombre: c.nombre,
+      nif: c.nif,
+      totalFacturado: redondearEuros(c.total),
+      totalFacturas: c.facturas,
+      totalAlbaranes: c.albaranes,
+      totalPresupuestos: c.presupuestos,
+      totalPedidos: c.pedidos,
+      esProveedor: c.esProveedor,
+      activo: c.activo,
+    }))
+    .sort((a, b) => b.totalFacturado - a.totalFacturado);
+
+  // Vencidas más antiguas
+  const vencidasMasViejas = [...vencidas]
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(a.dueDate).getTime())
+    .slice(0, 5)
+    .map(f => ({
+      numero: f.number,
+      cliente: f.clientName,
+      dias: dias(f.dueDate),
+      importe: redondearEuros(f.total || 0),
+    }));
+
+  // Gastos
+  const totalGastos = redondearEuros(gastos.reduce((s, g) => s + (g.total || 0), 0));
+  const gastosDetalle: GastoDetalleIA[] = gastos.slice(0, 15).map(g => ({
+    concepto: g.concepto,
+    total: redondearEuros(g.total || 0),
+    fecha: g.fecha,
+    categoria: g.categoria,
+    proveedor: g.proveedorNombre,
+  }));
+
+  // Obras
+  const obrasDetalle: ObraDetalleIA[] = obras.map(o => ({
+    numero: o.numero,
+    nombre: o.nombre,
+    cliente: o.clienteNombre,
+    estado: o.estado,
+    presupuesto: o.presupuesto ? redondearEuros(o.presupuesto) : undefined,
+  }));
+
+  // Vendedores
+  const vendedoresDetalle: VendedorDetalleIA[] = vendedores.map(v => ({
+    nombre: v.nombre,
+    comisionPct: v.comisionPct,
+    activo: v.activo,
+  }));
+
+  // Vehículos
+  const vehiculosDetalle: VehiculoDetalleIA[] = vehiculos.map(v => ({
+    matricula: v.matricula,
+    nombre: v.nombre,
+    activo: v.activo,
+  }));
+
+  // Lotes
+  // Los nombres de la izquierda son los que lee el asistente; los de la
+  // derecha, los que tiene de verdad un `Lote`. Se leían con nombres que
+  // `Lote` no tiene —numeroLote, productoNombre, stockActual— y todo
+  // salía `undefined`: el asistente habría visto lotes sin código, sin
+  // producto y sin existencias.
+  const lotesDetalle: LoteDetalleIA[] = lotes.slice(0, 15).map(l => ({
+    numeroLote: l.codigo,
+    productoNombre: l.productName,
+    fechaCaducidad: l.fechaCaducidad,
+    stockActual: l.cantidadDisponible,
+  }));
+
+  // Productos
+  const productosDetalle: ProductoDetalleIA[] = productos.slice(0, 30).map(p => ({
+    nombre: p.name,
+    precio: redondearEuros(p.unitPrice || 0),
+    referencia: p.ref,
+    stock: p.stockQuantity,
+    categoria: p.category,
+  }));
+
+  const nombreEmpresa = ajustes?.tradeName || ajustes?.businessName || 'Tu empresa';
+
+  return {
+    almacenes: almacenesDetalle,
+    totalAlmacenes: almacenesDetalle.length,
+    almacenPrincipalNombre: almPrincipal,
+
+    totalFacturado,
+    totalCobradoOAprobado,
+    totalPendiente,
+    totalVencido,
+    totalBorradores,
+
+    facturasTotales: facturasEmitidas.length,
+    facturasCobradasOAprobadas: cobradasOAprobadas.length,
+    facturasPendientes: pendientes.length,
+    facturasVencidas: vencidas.length,
+    facturasBorradores: borradores.length,
+    facturasAnuladas: anuladas.length,
+
+    albaranesTotales,
+    albaranesImporte,
+    albaranesPendientesFacturar,
+    albaranesPendientesImporte,
+    albaranesFacturados,
+
+    presupuestosTotales: presupuestosDocs.length,
+    presupuestosImporte,
+    pedidosTotales: pedidosDocs.length,
+    pedidosImporte,
+    rectificativasTotales: rectificativasDocs.length,
+    rectificativasImporte,
+    devolucionesTotales: devoluciones.length,
+    abonosTotales: abonos.length,
+
+    facturasDelAno: delAno.length,
+    importeDelAno,
+    facturasDelMes: delMes.length,
+    importeDelMes,
+
+    todosLosDocumentos,
+    clientes: clientesDetalle,
+    productos: productosDetalle,
+    obras: obrasDetalle,
+    vendedores: vendedoresDetalle,
+    vehiculos: vehiculosDetalle,
+    gastos: gastosDetalle,
+    totalGastos,
+    lotes: lotesDetalle,
+
+    vencidasMasViejas,
+
+    nombreEmpresa,
+    nifEmpresa: ajustes?.nif || '',
     tieneNif: Boolean(ajustes?.nif?.trim()),
     tieneDireccion: Boolean(ajustes?.address?.trim()),
     tieneLogotipo: Boolean(ajustes?.logoUrl?.trim()),
     tienePlantillaPropia: entrada.tienePlantillaPropia,
     verifactuActivo: Boolean(ajustes?.verifactuEnabled),
     impuesto: ajustes?.igicEnabled ? 'IGIC' : 'IVA',
-    plan: ajustes?.planId ?? 'sin plan',
+    plan: ajustes?.planId ?? 'estándar',
   };
 }
 
+/** Formateador a euros en texto con formato español: 1.452,00 € */
+function formatoEuros(num: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+  }).format(num);
+}
+
 /**
- * El retrato, escrito en frases.
- *
- * Se le manda al modelo tal cual. En castellano y no en JSON porque un
- * modelo pequeño lee mucho mejor «tienes 3 facturas vencidas por 1.240 €»
- * que `{"vencidas":3,"importeVencido":1240}`, y porque así lo que se
- * envía se puede leer de un vistazo y comprobar que no lleva nada que no
- * deba salir de aquí.
+ * Traduce el retrato completo a un conjunto de frases ricas y estructuradas
+ * para que el modelo de IA tenga a la vista todos los datos del sistema.
  */
 export function retratoEnPalabras(r: RetratoDelPanel): string[] {
   const lineas: string[] = [
-    `- Facturas emitidas: ${r.facturas}. Este mes: ${r.facturasDelMes}, por ${r.importeDelMes} €.`,
-    `- Borradores sin emitir: ${r.borradores}.`,
-    `- Pendientes de cobro: ${r.pendientesDeCobro}, por ${r.importePendiente} €.`,
-    `- Vencidas: ${r.vencidas}, por ${r.importeVencido} €.`,
+    `=== ALMACENES Y LOGÍSTICA (${r.totalAlmacenes} almacenes registrados) ===`,
   ];
+
+  if (r.almacenes.length > 0) {
+    r.almacenes.forEach(a => {
+      const etiquetaPrincipal = a.principal ? ' [ALMACÉN PRINCIPAL]' : '';
+      const dirStr = a.direccion ? ` | Ubicación: ${a.direccion}` : '';
+      const estadoStr = a.activo ? 'Activo' : 'Inactivo';
+      lineas.push(
+        `*${etiquetaPrincipal} "${a.nombre}" (Código: ${a.codigo}${dirStr} | Estado: ${estadoStr})`
+      );
+    });
+  } else {
+    lineas.push('- No hay almacenes registrados en el sistema actualmente.');
+  }
+
+  lineas.push(
+    `\n=== RESUMEN FINANCIERO Y DOCUMENTOS ===`,
+    `- FACTURACIÓN REAL ACUMULADA: ${formatoEuros(r.totalFacturado)} (${r.facturasTotales} facturas emitidas).`,
+    `- Total cobrado / aprobado: ${formatoEuros(r.totalCobradoOAprobado)} (${r.facturasCobradasOAprobadas} facturas).`,
+    `- Total pendiente de cobro: ${formatoEuros(r.totalPendiente)} (${r.facturasPendientes} facturas).`,
+    `- Total vencido impagado: ${formatoEuros(r.totalVencido)} (${r.facturasVencidas} facturas).`,
+    `- ALBARANES DE ENTREGA: ${r.albaranesTotales} albaranes en total por valor de ${formatoEuros(r.albaranesImporte)}. De ellos, ${r.albaranesPendientesFacturar} están pendientes de facturar (${formatoEuros(r.albaranesPendientesImporte)}) y ${r.albaranesFacturados} ya están facturados.`,
+    `- Presupuestos emitidos: ${r.presupuestosTotales} por valor de ${formatoEuros(r.presupuestosImporte)}.`,
+    `- Pedidos registrados: ${r.pedidosTotales} por valor de ${formatoEuros(r.pedidosImporte)}.`,
+    `- Rectificativas: ${r.rectificativasTotales} (${formatoEuros(r.rectificativasImporte)}). Devoluciones: ${r.devolucionesTotales}. Abonos: ${r.abonosTotales}.`,
+    `- Gastos del negocio acumulados: ${formatoEuros(r.totalGastos)} (${r.gastos.length} gastos).`,
+    `- Facturación este año (${new Date().getFullYear()}): ${formatoEuros(r.importeDelAno)} (${r.facturasDelAno} facturas).`,
+    `- Facturación este mes: ${formatoEuros(r.importeDelMes)} (${r.facturasDelMes} facturas).`,
+  );
 
   if (r.vencidasMasViejas.length > 0) {
     lineas.push(
-      '- Las vencidas más antiguas: '
-      + r.vencidasMasViejas.map(v => `${v.numero} (${v.dias} días)`).join(', ') + '.',
+      '- Facturas vencidas a reclamar: ' +
+      r.vencidasMasViejas.map(v => `${v.numero} de ${v.cliente} (${formatoEuros(v.importe)}, vencida hace ${v.dias} días)`).join('; ') + '.'
     );
   }
 
-  lineas.push(`- Clientes activos: ${r.clientesActivos}.`);
-  lineas.push(`- Impuesto configurado: ${r.impuesto}. Plan: ${r.plan}.`);
+  // Listado completo de TODOS los documentos creados (facturas, albaranes, presupuestos, pedidos)
+  if (r.todosLosDocumentos.length > 0) {
+    lineas.push(`\n=== REGISTRO DETALLADO DE TODOS LOS DOCUMENTOS CREADOS (${r.todosLosDocumentos.length}) ===`);
+    r.todosLosDocumentos.forEach(d => {
+      const sentidoStr = d.sentido === 'compra' ? ' [COMPRA]' : '';
+      const nifStr = d.destinatarioNif ? ` (${d.destinatarioNif})` : '';
+      const conceptosStr = d.lineasResumen ? ` | Conceptos: ${d.lineasResumen}` : '';
+      lineas.push(
+        `* [${d.tipo.toUpperCase()}${sentidoStr}] ${d.numero} | Destinatario: ${d.destinatario}${nifStr} | Fecha: ${d.fechaEmision}${d.fechaVencimiento ? ` (Vto: ${d.fechaVencimiento})` : ''} | Estado: ${d.estado} | Total: ${formatoEuros(d.total)} (Base: ${formatoEuros(d.subtotal)} + Impuestos: ${formatoEuros(d.impuestos)})${conceptosStr}`
+      );
+    });
+  } else {
+    lineas.push('- No hay documentos registrados en el sistema todavía.');
+  }
 
-  // Lo que está a medias. Se dice sólo cuando falta: una lista de cosas
-  // que ya están bien no ayuda a nadie y gasta enunciado.
-  const pendiente: string[] = [];
-  if (!r.tieneNif) pendiente.push('el NIF de la empresa');
-  if (!r.tieneDireccion) pendiente.push('la dirección de la empresa');
-  if (!r.tieneLogotipo) pendiente.push('el logotipo');
-  if (!r.tienePlantillaPropia) pendiente.push('un diseño de documento propio');
-  if (!r.verifactuActivo) pendiente.push('activar Veri*Factu');
-  if (pendiente.length > 0) {
-    lineas.push(`- SIN CONFIGURAR TODAVÍA: ${pendiente.join(', ')}.`);
+  // Clientes y proveedores
+  if (r.clientes.length > 0) {
+    lineas.push(`\n=== CLIENTES Y PROVEEDORES (${r.clientes.length}) ===`);
+    r.clientes.slice(0, 15).forEach(c => {
+      const rol = c.esProveedor ? ' [PROVEEDOR]' : ' [CLIENTE]';
+      const extraDocs: string[] = [];
+      if (c.totalAlbaranes > 0) extraDocs.push(`${c.totalAlbaranes} albaranes`);
+      if (c.totalPresupuestos > 0) extraDocs.push(`${c.totalPresupuestos} presupuestos`);
+      if (c.totalPedidos > 0) extraDocs.push(`${c.totalPedidos} pedidos`);
+      const extraStr = extraDocs.length > 0 ? ` + ${extraDocs.join(', ')}` : '';
+
+      lineas.push(
+        `*${rol} ${c.nombre}${c.nif ? ` [${c.nif}]` : ''}: ${formatoEuros(c.totalFacturado)} facturados (${c.totalFacturas} facturas${extraStr})${c.activo ? '' : ' [inactivo]'}`
+      );
+    });
+  }
+
+  // Catálogo de productos y stock
+  if (r.productos && r.productos.length > 0) {
+    lineas.push(`\n=== PRODUCTOS Y STOCK EN CATÁLOGO (${r.productos.length}) ===`);
+    r.productos.slice(0, 15).forEach(p => {
+      const stockStr = p.stock !== undefined ? ` | Stock: ${p.stock} ud` : '';
+      const refStr = p.referencia ? ` (Ref: ${p.referencia})` : '';
+      lineas.push(`* ${p.nombre}${refStr}: ${formatoEuros(p.precio)}${stockStr}`);
+    });
+  }
+
+  // Obras y Proyectos
+  if (r.obras.length > 0) {
+    lineas.push(`\n=== OBRAS Y PROYECTOS (${r.obras.length}) ===`);
+    r.obras.forEach(o => {
+      const cliStr = o.cliente ? ` | Cliente: ${o.cliente}` : '';
+      const pptoStr = o.presupuesto ? ` | Presupuesto: ${formatoEuros(o.presupuesto)}` : '';
+      lineas.push(`* [${o.numero}] "${o.nombre}" (Estado: ${o.estado}${cliStr}${pptoStr})`);
+    });
+  }
+
+  // Vendedores y comerciales
+  if (r.vendedores.length > 0) {
+    lineas.push(`\n=== EQUIPO COMERCIAL Y VENDEDORES (${r.vendedores.length}) ===`);
+    r.vendedores.forEach(v => {
+      const comStr = v.comisionPct !== undefined ? ` | Comisión: ${v.comisionPct}%` : '';
+      lineas.push(`* ${v.nombre}${comStr} (${v.activo ? 'Activo' : 'Inactivo'})`);
+    });
+  }
+
+  // Flota de Vehículos
+  if (r.vehiculos.length > 0) {
+    lineas.push(`\n=== VEHÍCULOS DE EMPRESA (${r.vehiculos.length}) ===`);
+    r.vehiculos.forEach(v => {
+      lineas.push(`* Matrícula ${v.matricula}${v.nombre ? ` (${v.nombre})` : ''} - ${v.activo ? 'En servicio' : 'Baja'}`);
+    });
+  }
+
+  // Configuración de la empresa
+  lineas.push(`\n=== DATOS DE LA EMPRESA Y CONFIGURACIÓN ===`);
+  lineas.push(`- Empresa: ${r.nombreEmpresa}${r.nifEmpresa ? ` (NIF: ${r.nifEmpresa})` : ''}.`);
+  lineas.push(`- Impuesto: ${r.impuesto}. Plan contratado: ${r.plan}. Veri*Factu: ${r.verifactuActivo ? 'ACTIVO' : 'Desactivado'}.`);
+
+  const pendienteConfig: string[] = [];
+  if (!r.tieneNif) pendienteConfig.push('el NIF de la empresa');
+  if (!r.tieneDireccion) pendienteConfig.push('la dirección fiscal');
+  if (!r.tieneLogotipo) pendienteConfig.push('el logotipo');
+  if (!r.tienePlantillaPropia) pendienteConfig.push('un diseño de documento personalizado');
+  if (!r.verifactuActivo) pendienteConfig.push('activar la emisión Veri*Factu');
+
+  if (pendienteConfig.length > 0) {
+    lineas.push(`- PENDIENTE DE CONFIGURAR: ${pendienteConfig.join(', ')}.`);
   }
 
   return lineas;

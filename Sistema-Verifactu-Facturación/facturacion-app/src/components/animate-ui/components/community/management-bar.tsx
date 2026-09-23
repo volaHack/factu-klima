@@ -192,14 +192,13 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
                         padding: item.primary ? '0 14px' : '0',
                         gap: item.primary ? '6px' : '0',
                         borderRadius: '9999px',
-                        backgroundColor: item.primary
-                          ? 'var(--accent-500)'
+                        background: item.primary
+                          ? 'var(--accent-gradient, linear-gradient(135deg, #c9407a 0%, #9c2856 100%))'
                           : isActive
                           ? 'var(--bg-card)'
                           : isHovered
                           ? 'var(--bg-card-hover)'
                           : 'transparent',
-                        background: item.primary ? 'var(--accent-gradient, linear-gradient(135deg, #c9407a 0%, #9c2856 100%))' : undefined,
                         color: item.primary ? '#ffffff' : isActive ? 'var(--accent-500, #b02a5c)' : 'var(--text-secondary)',
                         border: item.primary
                           ? '1px solid transparent'
