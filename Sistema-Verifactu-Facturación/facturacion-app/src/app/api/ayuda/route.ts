@@ -235,7 +235,15 @@ function instruccionesPagina(pregunta: string, p: ContextoPagina): string {
  * se añade una pantalla con su ayuda, el asistente la conoce sola.
  */
 const PANTALLAS_DEL_PROGRAMA = AYUDA_PAGINAS.map(
-  p => `- ${p.ruta} «${p.titulo}»: ${p.paraQue}`,
+  // SIN LA RUTA A PROPÓSITO
+  //
+  // Antes cada línea empezaba por «/facturas». Un modelo pequeño copia
+  // lo que ve, y las respuestas salían con «entra en /ajustes» — una
+  // dirección de programador en la cara de quien sólo quiere facturar.
+  // Pedirle que no las use no bastaba; dejar de dárselas, sí. Y no las
+  // necesita: sabe el nombre de la pantalla, que es lo que hay escrito
+  // en el menú y lo único que el usuario puede buscar.
+  p => `- «${p.titulo}»: ${p.paraQue}`,
 );
 
 /**
@@ -261,36 +269,26 @@ function instruccionesAsistencia(
     'Eres el asistente de un programa español de facturación. Hablas con la',
     'persona que lo usa para su negocio, no con un informático.',
     '',
-    'REGLAS:',
-    '- Responde en castellano, de tú, en 5 frases como mucho.',
-    '- USA LOS NÚMEROS DE SU SITUACIÓN. Si pregunta por cobros y tiene',
-    '  facturas vencidas, dile cuántas y cuáles. Responder en abstracto',
-    '  cuando tienes el dato delante no sirve de nada.',
-    '- Si hay que hacer algo, dilo en pasos cortos con el nombre exacto de',
-    '  la pantalla y del botón.',
-    '- No inventes pantallas, botones ni funciones. Si no lo sabes, dilo.',
-    '- Nada de saludos ni de despedidas.',
-    '',
-    // UNA PROHIBICIÓN SIN SALIDA SE CONVIERTE EN UN CALLEJÓN
-    //
-    // Antes esto era una línea suelta: «nada de impuestos ni de consejos
-    // fiscales». Medido contra Gemini, «¿cuánto pago de impuestos este
-    // trimestre?» agotaba los tres intentos —más de dos minutos— y
-    // acababa en «no se ha podido contactar». El modelo se quedaba
-    // deliberando entre calcularlo y negarse, sin saber qué decir.
-    //
-    // Se arregla dándole la respuesta hecha: una frase y a dónde ir. Así
-    // la negativa le cuesta lo mismo que cualquier otra contestación.
-    'SI TE PREGUNTAN POR IMPUESTOS (cuánto pagar, qué modelo presentar,',
-    'cómo declarar, si algo desgrava): no lo calcules ni lo razones.',
-    'Contesta exactamente esto, en una frase: que eso lo decide su',
-    'gestoría, y que en la pantalla «Listados fiscales» tiene los datos',
-    'que su gestoría necesita. Nada más.',
+    'CÓMO CONTESTAS:',
+    '- En castellano, de tú, en 4 frases como mucho. Sin saludos ni',
+    '  despedidas. Empiezas por la respuesta.',
+    '- Si lo que pregunta tiene un número en su situación, ese número va en',
+    '  la primera frase.',
+    '- Para mandarle a un sitio, terminas con una frase con esta forma',
+    '  exacta: «Lo tienes en Facturas.» — el nombre, tal cual está en la',
+    '  lista de pantallas, y nada más. No digas qué hay dentro de una',
+    '  pantalla: sólo sabes para qué sirve, no cómo está repartida.',
+    '- Si te preguntan por impuestos —cuánto pagar, qué modelo presentar,',
+    '  si algo desgrava— tu respuesta entera es esta, y sólo esta:',
+    '  «Eso lo decide tu gestoría. Lo tienes en Listados fiscales.»',
+    '- Si el programa no hace lo que pregunta, lo dices, y añades en una',
+    '  frase qué se hace en su lugar. Un «no» a secas deja a la persona',
+    '  igual de atascada que antes.',
     '',
     'SU SITUACIÓN AHORA MISMO:',
     ...situacion,
     '',
-    'LAS PANTALLAS DEL PROGRAMA:',
+    'LAS PANTALLAS QUE EXISTEN:',
     ...PANTALLAS_DEL_PROGRAMA,
     ...(historial.length > 0
       ? ['', 'LO QUE YA OS HABÉIS DICHO:',
@@ -299,9 +297,6 @@ function instruccionesAsistencia(
     '',
     'PREGUNTA:',
     pregunta,
-    '',
-    'ANTES DE RESPONDER: mira otra vez «SU SITUACIÓN AHORA MISMO». Si lo que',
-    'pregunta tiene un número ahí, ese número va en tu respuesta.',
   ].join('\n');
 }
 

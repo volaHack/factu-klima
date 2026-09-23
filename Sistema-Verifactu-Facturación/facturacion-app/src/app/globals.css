@@ -12100,18 +12100,39 @@ body.nav-abierta { overflow: hidden; }
    ------------------------------------------------------------
    Una conversacion, no un formulario. Dos bloques: la charla, que
    crece, y la caja de escribir, que se queda abajo y a mano.
+
+   EL DATO QUE MANDA AQUI ES LA ESPERA
+   Una respuesta tarda entre 10 y 30 segundos. Eso cambia las
+   decisiones: un spinner quieto medio minuto parece una averia, asi
+   que el estado de espera respira, y el resto del movimiento es corto
+   y se quita de en medio. Lo que se ve muchas veces al dia no se
+   anima; lo que se ve de vez en cuando —un mensaje que llega, las
+   sugerencias del principio— si.
    ============================================================ */
 
-.asistencia-pagina { max-width: 860px; }
+.asistencia-pagina {
+  max-width: 860px;
+
+  /* Las curvas de la casa (`ease` de toda la vida) valen para un
+     cambio de color, pero arrancan despacio justo cuando el usuario
+     esta mirando. Esta sale disparada y frena al final, que es lo que
+     hace que 200 ms se sientan como 120. Va en la pagina, no en
+     :root, por el mismo motivo que en .pricing-page: esto no es una
+     reforma del sistema de diseno. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
 
 .asistencia-conversacion {
   min-height: 340px;
   max-height: 58vh;
   overflow-y: auto;
   padding: var(--space-5);
+  scroll-behavior: smooth;
 }
 
-/* --- Nada preguntado todavia --- */
+/* ------------------------------------------------------------
+   NADA PREGUNTADO TODAVIA
+   ------------------------------------------------------------ */
 .asistencia-vacio {
   display: flex;
   flex-direction: column;
@@ -12132,7 +12153,26 @@ body.nav-abierta { overflow: hidden; }
   margin-top: var(--space-4);
 }
 
-/* --- La charla --- */
+/* Entran escalonadas: se ven una sola vez, al abrir la pantalla, asi
+   que aqui la cascada suma en vez de estorbar. 45 ms entre una y otra;
+   mas y la pantalla se siente lenta. */
+.asistencia-sugerencias .btn {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: asistencia-entra 260ms var(--ease-out) forwards;
+}
+.asistencia-sugerencias .btn:nth-child(1) { animation-delay: 40ms; }
+.asistencia-sugerencias .btn:nth-child(2) { animation-delay: 85ms; }
+.asistencia-sugerencias .btn:nth-child(3) { animation-delay: 130ms; }
+.asistencia-sugerencias .btn:nth-child(4) { animation-delay: 175ms; }
+
+@keyframes asistencia-entra {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------
+   LA CHARLA
+   ------------------------------------------------------------ */
 .asistencia-mensajes {
   list-style: none;
   margin: 0;
@@ -12147,6 +12187,11 @@ body.nav-abierta { overflow: hidden; }
   grid-template-columns: 26px 1fr;
   gap: var(--space-3);
   align-items: start;
+  /* Nada aparece de la nada: sube 6 px mientras entra. Corto, porque
+     esto se ve una vez por mensaje y no hay que celebrarlo. */
+  opacity: 0;
+  transform: translateY(6px);
+  animation: asistencia-entra 220ms var(--ease-out) forwards;
 }
 
 .asistencia-mensaje-quien {
@@ -12179,28 +12224,109 @@ body.nav-abierta { overflow: hidden; }
    respuesta, no la propia pregunta. */
 .asistencia-mensaje--persona .asistencia-mensaje-texto { color: var(--text-secondary); }
 
+/* ------------------------------------------------------------
+   LA ESPERA
+   ------------------------------------------------------------
+   Diez o treinta segundos son muchos mirando un icono quieto. Tres
+   puntos que respiran dicen "sigo aqui" sin prometer que falta poco, y
+   el texto cambia a los ocho segundos para reconocer la tardanza en
+   vez de fingir que no pasa.
+   ------------------------------------------------------------ */
 .asistencia-pensando {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
-/* --- Escribir o dictar --- */
+.asistencia-puntos { display: inline-flex; gap: 3px; }
+.asistencia-puntos i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-500);
+  animation: asistencia-respira 1.3s ease-in-out infinite;
+}
+.asistencia-puntos i:nth-child(2) { animation-delay: 0.18s; }
+.asistencia-puntos i:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes asistencia-respira {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  45%      { opacity: 1;    transform: scale(1); }
+}
+
+/* ------------------------------------------------------------
+   ESCRIBIR O DICTAR
+   ------------------------------------------------------------ */
 .asistencia-entrada {
   margin-top: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
+  /* El borde se enciende al escribir dentro: dice donde esta el foco
+     sin sacar un anillo del navegador por encima de la tarjeta. */
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
 }
-.asistencia-entrada .form-textarea { resize: vertical; min-height: 58px; }
+.asistencia-entrada:focus-within {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px var(--accent-glow, rgba(176, 42, 92, 0.18));
+}
+
+.asistencia-entrada .form-textarea {
+  resize: none;
+  min-height: 58px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+/* Dentro de la tarjeta, el campo no repite marco ni anillo de foco. */
+.asistencia-entrada .form-textarea,
+.asistencia-entrada .form-textarea:focus {
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
 
 .asistencia-botones {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* Todo lo que se pulsa aqui responde al dedo. 160 ms y un 3 %: no se
+   ve, se siente. */
+.asistencia-pagina .btn {
+  transition: transform 160ms var(--ease-out), background-color 160ms ease,
+              border-color 160ms ease, color 160ms ease;
+}
+.asistencia-pagina .btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* --- El microfono escuchando --- */
+.asistencia-escuchando {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.asistencia-escuchando::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: asistencia-latido 1.2s ease-in-out infinite;
+}
+@keyframes asistencia-latido {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.78); }
 }
 
 .asistencia-nota {
@@ -12211,8 +12337,26 @@ body.nav-abierta { overflow: hidden; }
 }
 
 /* En un movil la caja de escribir manda: la conversacion se encoge para
-   que el campo y los dos botones quepan sin hacer scroll. */
+   que el campo y los botones quepan sin hacer scroll. */
 @media (max-width: 640px) {
   .asistencia-conversacion { max-height: 46vh; padding: var(--space-4); }
   .asistencia-botones .btn { flex: 1; justify-content: center; }
+  .asistencia-escuchando { width: 100%; margin-bottom: var(--space-1); }
+}
+
+/* Menos movimiento no es ningun movimiento: lo que desaparece es el
+   desplazamiento, no el aviso de que algo esta pasando. Los puntos de
+   la espera siguen latiendo, porque son la unica senal de que el
+   programa no se ha quedado colgado. */
+@media (prefers-reduced-motion: reduce) {
+  .asistencia-mensaje,
+  .asistencia-sugerencias .btn {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .asistencia-conversacion { scroll-behavior: auto; }
+  .asistencia-pagina .btn:active:not(:disabled) { transform: none; }
+  .asistencia-puntos i,
+  .asistencia-escuchando::before { animation-duration: 2.4s; }
 }

@@ -54,6 +54,19 @@ respuestas cortadas a media frase porque el cupo se gastó pensando. Aun
 así, `limpiarRespuesta()` recorta los bloques `<think>` por si algún día
 se cambia a un modelo que los emita.
 
+## En esta máquina manda el modelo local
+
+`.env.local` tiene puestas `IA_BASE_URL` e `IA_MODELO`, así que en
+desarrollo contesta el Qwen de aquí y no Gemini. Arranca el servidor con
+`arrancar.ps1` antes de usar la ayuda o la Asistencia IA; si no está en
+pie, el programa dice que no ha podido contactar, no se cae.
+
+**Ojo con el cupo de Gemini.** La clave que hay guardada es de capa
+gratuita: 20 peticiones. Por eso en producción la ayuda con IA se agota
+enseguida —y por eso los fallos que se veían eran 429 y tiempos
+agotados, no averías—. Para que funcione de verdad para los clientes hay
+que activar facturación en Google AI Studio o poner un Qwen alojado.
+
 ## Las variables
 
 ```bash

@@ -51,8 +51,20 @@ export default function AsistenciaPage() {
   const [escuchando, setEscuchando] = useState(false);
   const [hayMicrofono, setHayMicrofono] = useState(false);
 
+  /**
+   * A los ocho segundos, la espera cambia de texto.
+   *
+   * Una respuesta tarda entre diez y treinta segundos. Medio minuto
+   * mirando el mismo «Mirando tus datos…» parece que se ha colgado, y
+   * quien lo cree recarga la página y pierde la pregunta. Reconocer la
+   * tardanza cuesta una frase y evita eso.
+   */
+  const [tardando, setTardando] = useState(false);
+
   const dictado = useRef<Dictado | null>(null);
   const finDeLaLista = useRef<HTMLDivElement>(null);
+  const cajaConversacion = useRef<HTMLDivElement>(null);
+  const campo = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,11 +80,42 @@ export default function AsistenciaPage() {
     })();
   }, []);
 
-  // La conversación crece hacia abajo: sin esto hay que bajar a mano para
-  // leer lo que acaba de contestar.
+  /**
+   * La conversación crece hacia abajo, y hay que seguirla... salvo que
+   * la persona esté leyendo algo de más arriba. Arrastrarla al final en
+   * mitad de una lectura es de las cosas que más molestan de un chat, y
+   * pasa justo cuando llega una respuesta larga.
+   */
   useEffect(() => {
-    finDeLaLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    const caja = cajaConversacion.current;
+    if (!caja) return;
+    const alFinal = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 120;
+    if (alFinal) finDeLaLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [mensajes, pensando]);
+
+  // El aviso de que está tardando. Sólo se enciende, y desde el reloj:
+  // apagarlo aquí en el cuerpo del efecto es un cambio de estado en
+  // cascada que el compilador de React rechaza, y además no hace falta
+  // —se apaga donde termina la pregunta, que es donde se sabe.
+  useEffect(() => {
+    if (!pensando) return;
+    const reloj = setTimeout(() => setTardando(true), 8_000);
+    return () => clearTimeout(reloj);
+  }, [pensando]);
+
+  /**
+   * El campo crece con lo escrito, hasta el tope que pone el CSS.
+   *
+   * Dictando se escriben párrafos enteros sin darse cuenta: con un alto
+   * fijo de dos líneas, lo dicho se va hacia arriba y no se puede
+   * repasar antes de enviarlo.
+   */
+  useEffect(() => {
+    const caja = campo.current;
+    if (!caja) return;
+    caja.style.height = 'auto';
+    caja.style.height = `${caja.scrollHeight}px`;
+  }, [texto]);
 
   // Si se sale de la pantalla con el micrófono abierto, se cierra: dejarlo
   // escuchando de fondo no lo espera nadie.
@@ -124,6 +167,7 @@ export default function AsistenciaPage() {
       }]);
     } finally {
       setPensando(false);
+      setTardando(false);
     }
   }, [mensajes, pensando, retrato]);
 
@@ -169,7 +213,7 @@ export default function AsistenciaPage() {
         )}
       </div>
 
-      <div className="card asistencia-conversacion">
+      <div className="card asistencia-conversacion" ref={cajaConversacion}>
         {vacio ? (
           <div className="asistencia-vacio">
             <Sparkles size={26} />
@@ -200,8 +244,13 @@ export default function AsistenciaPage() {
             {pensando && (
               <li className="asistencia-mensaje asistencia-mensaje--asistente">
                 <span className="asistencia-mensaje-quien" aria-hidden="true"><Sparkles size={14} /></span>
-                <div className="asistencia-mensaje-texto asistencia-pensando">
-                  <Loader2 size={15} className="spin" /> Mirando tus datos…
+                <div
+                  className="asistencia-mensaje-texto asistencia-pensando"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="asistencia-puntos" aria-hidden="true"><i /><i /><i /></span>
+                  {tardando ? 'Sigo en ello, está tardando más de lo normal…' : 'Mirando tus datos…'}
                 </div>
               </li>
             )}
@@ -215,8 +264,10 @@ export default function AsistenciaPage() {
         onSubmit={(e) => { e.preventDefault(); preguntar(texto); }}
       >
         <textarea
+          ref={campo}
           className="form-textarea"
           rows={2}
+          autoFocus
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => {
@@ -229,6 +280,9 @@ export default function AsistenciaPage() {
           disabled={pensando}
         />
         <div className="asistencia-botones">
+          {/* Un botón rojo dice que se puede parar; no dice que ahora
+              mismo te está oyendo. El punto que late sí. */}
+          {escuchando && <span className="asistencia-escuchando">Escuchando…</span>}
           {hayMicrofono && (
             <button
               type="button"
