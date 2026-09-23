@@ -109,7 +109,7 @@ export default function NuevaFacturaPage() {
         if (ajuste.cambiada) {
           success(
             `Tu factura pasa a la de ${ajuste.oficio}`,
-            'Las líneas te piden ahora lo de tu oficio. La anterior sigue guardada en Diseño de facturas.',
+            'Las líneas te piden ahora lo de tu oficio. La anterior sigue guardada en Diseño de documentos.',
           );
         }
         const plantilla = await getPlantillaActiva('factura');

@@ -90,7 +90,7 @@ const controlItems = [
   // toda la vida—. Van seguidos a propósito, pero con nombres distintos.
   { href: '/listados-fiscales', label: 'Listados fiscales', icon: Landmark },
   { href: '/listados', label: 'Listados', icon: ListOrdered },
-  { href: '/plantillas', label: 'Diseño de facturas', icon: LayoutTemplate },
+  { href: '/plantillas', label: 'Diseño de documentos', icon: LayoutTemplate },
   { href: '/integridad', label: 'Integridad', icon: ShieldCheck },
   { href: '/verifactu', label: 'Verifactu', icon: Plug },
   { href: '/ajustes', label: 'Ajustes', icon: Settings },

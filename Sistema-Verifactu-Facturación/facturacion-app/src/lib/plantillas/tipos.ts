@@ -12,6 +12,7 @@
  */
 
 import type { Template } from '@pdfme/common';
+import type { TipoDocumentoPlantilla } from './tiposDocumento';
 
 // ============================================================
 // EXTRACCIÓN
@@ -339,7 +340,10 @@ export interface AnalisisPdf {
 // PLANTILLA GUARDADA
 // ============================================================
 
-export type TipoDocumentoPlantilla = 'factura' | 'albaran';
+// Los tipos y su personalidad —cómo se llaman, si llevan QR, por qué
+// palabras se les reconoce— viven en `tiposDocumento.ts`. Se reexporta
+// desde aquí para no obligar a cambiar todos los imports que ya existen.
+export type { TipoDocumentoPlantilla };
 
 export interface DiagnosticoPlantilla {
   avisos: AvisoAnalisis[];

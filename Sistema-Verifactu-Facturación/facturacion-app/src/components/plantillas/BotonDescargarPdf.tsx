@@ -14,14 +14,27 @@ import { Download, Eye, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getClientById, getCompanySettings } from '@/lib/storage';
 import type { Albaran, Invoice } from '@/lib/types';
+import { personalidadDe, type TipoDocumentoPlantilla } from '@/lib/plantillas/tiposDocumento';
+
+/**
+ * Se puede llamar de dos maneras: con el tipo aparte, o con un documento
+ * que ya lleva dentro de qué tipo es.
+ *
+ * Antes esto eran seis variantes copiadas, una por tipo, cada una con su
+ * `settings?: any`. Los tipos había que listarlos a mano dos veces y esa
+ * lista ya se había quedado corta respecto a la de `tiposDocumento.ts`.
+ * `settings` no lo leía nadie: entraba por la propiedad y se quedaba ahí.
+ */
+interface PropsComunes {
+  className?: string;
+  etiqueta?: string;
+}
 
 type Props =
-  | { tipo: 'factura'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
-  | { tipo: 'albaran'; documento: Albaran; className?: string; etiqueta?: string; settings?: any }
-  | { tipo: 'presupuesto'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
-  | { tipo: 'pedido'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
-  | { tipo: 'rectificativa'; documento: Invoice; className?: string; etiqueta?: string; settings?: any }
-  | { documento: { tipo: 'factura' | 'albaran' | 'presupuesto' | 'pedido' | 'rectificativa'; documento: Invoice | Albaran }; className?: string; etiqueta?: string; settings?: any };
+  | (PropsComunes & { tipo: TipoDocumentoPlantilla; documento: Invoice | Albaran })
+  | (PropsComunes & {
+    documento: { tipo: TipoDocumentoPlantilla; documento: Invoice | Albaran };
+  });
 
 
 /**
@@ -36,7 +49,7 @@ type Props =
  * avisar: no es un fallo, es que todavía no ha subido nada.
  */
 async function componerPdf(
-  tipo: string,
+  tipo: TipoDocumentoPlantilla,
   documento: Invoice | Albaran,
   avisar: (titulo: string, texto: string) => void,
 ): Promise<{ blob: Blob; nombre: string } | null> {
@@ -46,12 +59,11 @@ async function componerPdf(
     import('@/lib/plantillas/generar'),
   ]);
 
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const plantilla = (await getPlantillaActiva(tipo as any)) ?? (await getPlantillaActiva('factura'));
+  const plantilla = (await getPlantillaActiva(tipo)) ?? (await getPlantillaActiva('factura'));
   if (!plantilla) {
     avisar(
       'Todavía no tienes un diseño propio',
-      'Sube tu factura en PDF desde Plantillas, o empieza una desde cero, y el documento saldrá con tu aspecto.',
+      'Sube un documento tuyo en PDF desde Diseño de documentos, o empieza uno desde cero, y saldrá con tu aspecto.',
     );
     return null;
   }
@@ -75,7 +87,10 @@ async function componerPdf(
   // Aquí sólo se dice DE QUÉ factura es y si es de las que obligan. Dónde va,
   // cuánto mide, qué rótulo lleva y qué se comprueba antes de imprimir sale
   // todo de `qrFactura.ts`, que es el único sitio donde eso se decide.
-  const esFacturaEmitida = (tipo === 'factura' || tipo === 'rectificativa')
+  // Qué tipos llevan QR lo dice `tiposDocumento.ts`, no una lista escrita
+  // aquí otra vez: esa duplicación es la que deja un albarán con código el
+  // día que alguien añade un tipo nuevo.
+  const esFacturaEmitida = personalidadDe(tipo).llevaQr
     && !['borrador', 'anulada'].includes(String((documento as Invoice).status));
 
   const datos = construirDatos(
@@ -86,7 +101,7 @@ async function componerPdf(
   );
 
   const blob = await generarPdfBlob(plantilla.plantilla, datos, {
-    titulo: `${tipo.toUpperCase()} ${documento.number}`,
+    titulo: `${personalidadDe(tipo).tituloImpreso} ${documento.number}`,
     autor: ajustes.businessName || '',
     qr: esFacturaEmitida
       ? {

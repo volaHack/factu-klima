@@ -80,6 +80,24 @@
   rótulos, y además dejan de dispararse donde no tocaba: en las páginas
   públicas, con una modal abierta, escribiendo en texto enriquecido y con
   acentos a medio componer.
+- **«Diseño de facturas» pasa a ser «Diseño de documentos»**, y de verdad:
+  ya no son dos tipos sino los cinco que el programa emite —presupuesto,
+  pedido, albarán, factura y rectificativa—, cada uno con su título
+  impreso, su advertencia legal y su regla sobre el QR, todo en una sola
+  tabla (`lib/plantillas/tiposDocumento.ts`).
+- **El QR fantasma en «Ver cómo queda», arreglado.** La pantalla montaba
+  todo como si fuera una factura y le pasaba siempre el QR tributario;
+  como el generador lo estampa en una esquina cuando no hay hueco
+  reservado, diseñar un albarán terminaba con un código que nadie había
+  puesto —y que le dice al cliente que ese papel está declarado a
+  Hacienda. Comprobado sobre el PDF rasterizado con un lector de QR:
+  albarán, presupuesto y pedido salen limpios; factura y rectificativa lo
+  llevan y apunta a la sede de la AEAT.
+- **Al subir un PDF se reconoce qué documento es.** Se lee del titular
+  —pesa más la letra grande de arriba que una mención en el pie, que es
+  lo que hacía pasar por factura cualquier albarán con «pendiente de
+  factura» en las condiciones— y se preselecciona el tipo, diciendo qué
+  palabra se ha leído. Si no está claro, lo dice y elige el usuario.
 - **Fuera «Identificar con IA» del editor de plantillas.** Adivinaba qué
   dato iba en cada recuadro, y en una plantilla un campo mal asignado
   imprime el NIF de un cliente donde va el total. Las reglas de

@@ -1,11 +1,20 @@
 'use client';
 
 /**
- * PANTALLA DE PLANTILLAS DE FACTURA
+ * PANTALLA DE DISEÑO DE DOCUMENTOS
  *
- * El usuario sube una factura suya en PDF, el sistema la analiza, le enseña
- * lo que ha entendido para que lo confirme y guarda una plantilla con la que
- * a partir de ahí se imprimen todas sus facturas con su mismo diseño.
+ * El usuario sube un documento suyo en PDF —una factura, un albarán, un
+ * presupuesto—, el sistema lo analiza, le enseña lo que ha entendido para
+ * que lo confirme y guarda una plantilla con la que a partir de ahí se
+ * imprimen todos los suyos con ese mismo diseño.
+ *
+ * NO TODO DOCUMENTO ES UNA FACTURA
+ * --------------------------------
+ * Esta pantalla trataba todo lo que pasaba por ella como si lo fuera: se
+ * previsualizaba con datos de factura, con el título «FACTURA» y con el QR
+ * tributario estampado encima, aunque se estuviera diseñando un albarán.
+ * De ahí salía un código QR que el usuario no había colocado. Quién es
+ * cada tipo —y si lleva QR— está en `lib/plantillas/tiposDocumento.ts`.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,7 +38,11 @@ import { construirDatos, facturaDeMuestra } from '@/lib/plantillas/datos';
 import { generarPdfBlob } from '@/lib/plantillas/generar';
 import { calcoDePlantilla } from '@/lib/plantillas/plantilla';
 import { facturaDesdeCero, OFICIOS, oficioPorId, oficioParaSector } from '@/lib/plantillas/desdeCero';
-import type { PlantillaDocumento, TipoDocumentoPlantilla } from '@/lib/plantillas/tipos';
+import type { PlantillaDocumento } from '@/lib/plantillas/tipos';
+import {
+  algunoLlevaQr, personalidadDe, reconocerTipo, TIPOS_PLANTILLA, tipoDominante,
+  type TipoDocumentoPlantilla,
+} from '@/lib/plantillas/tiposDocumento';
 import type { BusinessSector, CompanySettings, Invoice } from '@/lib/types';
 
 export default function PlantillasPage() {
@@ -46,6 +59,8 @@ export default function PlantillasPage() {
 
   const [nombre, setNombre] = useState('');
   const [aplicaA, setAplicaA] = useState<TipoDocumentoPlantilla[]>(['factura']);
+  /** Qué tipo se reconoció en el PDF subido, para poder explicarlo. */
+  const [tipoReconocido, setTipoReconocido] = useState<{ palabra: string; seguro: boolean } | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
@@ -82,6 +97,7 @@ export default function PlantillasPage() {
       const nueva = await sesionDesdeCero(facturaDesdeCero(oficioId, ajustes), oficioId);
       setEditando(null);
       setAplicaA(['factura']);
+      setTipoReconocido(null);
       setSesion(nueva);
       setNombre(`Mi factura · ${oficioPorId(oficioId).nombre}`);
       info('Factura nueva', 'Ya está todo lo obligatorio puesto. Mueve lo que quieras y guárdala.');
@@ -113,7 +129,7 @@ export default function PlantillasPage() {
     if (!archivo) return;
 
     if (!archivo.name.toLowerCase().endsWith('.pdf') && archivo.type !== 'application/pdf') {
-      avisarError('Eso no es un PDF', 'Sube la factura en PDF, tal cual la envías a tus clientes.');
+      avisarError('Eso no es un PDF', 'Sube el documento en PDF, tal cual se lo envías a tus clientes.');
       return;
     }
 
@@ -121,19 +137,39 @@ export default function PlantillasPage() {
     try {
       const nueva = await analizarPdf(archivo, ajustes);
       setEditando(null);
-      setAplicaA(['factura']);
+
+      // QUÉ CLASE DE DOCUMENTO ES, ANTES DE NADA
+      //
+      // Se daba por hecho que toda subida era una factura, y de ahí salía
+      // todo lo demás torcido: el título impreso, los datos de muestra y
+      // un QR tributario en un albarán. Un impreso español dice lo que es
+      // en su titular, así que se lee de ahí.
+      const detectado = reconocerTipo(
+        nueva.analisis.pagina.items.map(i => ({ texto: i.texto, tamano: i.tamano, y: i.y })),
+        nueva.analisis.pagina.alto,
+      );
+      const tipo = detectado?.tipo ?? 'factura';
+      const seguro = (detectado?.confianza ?? 0) >= 0.5;
+      setAplicaA([tipo]);
+      setTipoReconocido(detectado ? { palabra: detectado.palabra, seguro } : null);
+
       setSesion(nueva);
-      setNombre(archivo.name.replace(/\.pdf$/i, '').slice(0, 60) || 'Mi factura');
+      const personalidad = personalidadDe(tipo);
+      setNombre(
+        archivo.name.replace(/\.pdf$/i, '').slice(0, 60) || `Mi ${personalidad.etiqueta.toLowerCase()}`,
+      );
       const reconocidos = nueva.analisis.campos.filter(c => c.clave).length;
       info(
-        'Factura analizada',
-        `Se han reconocido ${reconocidos} datos y ${nueva.analisis.tabla ? 'la tabla de líneas' : 'ninguna tabla'}. Revísalo antes de guardar.`,
+        detectado && seguro ? `${personalidad.etiqueta} analizada` : 'Documento analizado',
+        `${detectado && seguro ? `Parece ${personalidad.etiqueta.toLowerCase()}. ` : ''}`
+        + `Se han reconocido ${reconocidos} datos y ${nueva.analisis.tabla ? 'la tabla de líneas' : 'ninguna tabla'}. `
+        + 'Revísalo antes de guardar.',
       );
     } catch (err) {
       const mensaje = err instanceof ErrorPdf || err instanceof ErrorArchivo
         ? err.message
         : 'No se ha podido analizar el PDF. Prueba con otro archivo.';
-      avisarError('No se ha podido leer la factura', mensaje);
+      avisarError('No se ha podido leer el documento', mensaje);
     } finally {
       setAnalizando(false);
     }
@@ -156,6 +192,7 @@ export default function PlantillasPage() {
       setEditando(comoCopia ? null : plantilla);
       setNombre(comoCopia ? `${plantilla.nombre} (copia)`.slice(0, 60) : plantilla.nombre);
       setAplicaA(plantilla.aplicaA);
+      setTipoReconocido(null);
     } catch (err) {
       const mensaje = err instanceof PlantillaNoEditable
         ? err.message
@@ -171,28 +208,42 @@ export default function PlantillasPage() {
   // ============================================================
 
   /**
-   * Datos con los que se previsualiza: la última factura real, si la hay.
+   * Datos con los que se previsualiza.
    *
-   * Lleva el mismo QR tributario que llevará la factura de verdad al
-   * descargarla —mismo tamaño, mismo sitio, misma leyenda—, para que la vista
-   * previa no mienta sobre cómo va a quedar la hoja. `exigido: false` porque
-   * esto es una prueba: si a la empresa todavía le falta el NIF, la vista
-   * previa sale sin QR en vez de negarse a salir.
+   * EL QR SÓLO SALE SI EL DOCUMENTO LO LLEVA
+   *
+   * Antes se montaba siempre como factura y se le pasaba siempre el QR
+   * tributario. Como `generarPdf` estampa el código en una esquina cuando
+   * la plantilla no le reserva sitio, diseñar un albarán terminaba con un
+   * QR que el usuario no había puesto en ninguna parte —y que, peor, le
+   * decía al cliente que ese papel estaba declarado a Hacienda.
+   *
+   * Ahora manda el tipo marcado en «¿Para qué documentos?». Si vale para
+   * varios se previsualiza con el más comprometido: enseñar sin QR una
+   * plantilla que también sirve de factura escondería justo el problema
+   * de que al diseño le falte sitio para el código.
+   *
+   * `exigido: false` porque esto es una prueba: si a la empresa todavía
+   * le falta el NIF, la vista previa sale sin QR en vez de negarse a salir.
    */
-  const datosDePrueba = async () => {
+  const datosDePrueba = async (tipos: TipoDocumentoPlantilla[]) => {
     const documento = ultimaFactura ?? facturaDeMuestra();
     const configuracion = ajustes ?? ({} as CompanySettings);
-    const datos = construirDatos({ tipo: 'factura', documento }, configuracion);
-    const qr = {
-      exigido: false,
-      datos: {
-        nifEmisor: configuracion.nif || '',
-        numeroFactura: documento.number,
-        fechaEmision: documento.issueDate,
-        importeTotal: documento.total,
+    const tipo = tipoDominante(tipos);
+    const datos = construirDatos({ tipo, documento } as Parameters<typeof construirDatos>[0], configuracion);
+    if (!algunoLlevaQr(tipos)) return { datos, qr: undefined };
+    return {
+      datos,
+      qr: {
+        exigido: false,
+        datos: {
+          nifEmisor: configuracion.nif || '',
+          numeroFactura: documento.number,
+          fechaEmision: documento.issueDate,
+          importeTotal: documento.total,
+        },
       },
     };
-    return { datos, qr };
   };
 
   const verComoQueda = async () => {
@@ -200,7 +251,7 @@ export default function PlantillasPage() {
     setGenerandoVista(true);
     try {
       const { plantilla } = compilar(sesion);
-      const { datos, qr } = await datosDePrueba();
+      const { datos, qr } = await datosDePrueba(aplicaA);
       const blob = await generarPdfBlob(plantilla, datos, { titulo: 'Vista previa', qr });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
@@ -214,7 +265,7 @@ export default function PlantillasPage() {
   const probarPlantillaGuardada = async (plantilla: PlantillaDocumento) => {
     setGenerandoVista(true);
     try {
-      const { datos, qr } = await datosDePrueba();
+      const { datos, qr } = await datosDePrueba(plantilla.aplicaA);
       const blob = await generarPdfBlob(plantilla.plantilla, datos, { titulo: plantilla.nombre, qr });
       if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
       setVistaPrevia(URL.createObjectURL(blob));
@@ -256,7 +307,7 @@ export default function PlantillasPage() {
       setEditando(null);
       success(
         editando ? 'Cambios guardados' : 'Plantilla guardada',
-        'Tus facturas ya se descargan con este diseño.',
+        'Tus documentos ya se descargan con este diseño.',
       );
     } catch (err) {
       const mensaje = err instanceof PlantillaInvalida
@@ -269,7 +320,7 @@ export default function PlantillasPage() {
   };
 
   const eliminar = async (plantilla: PlantillaDocumento) => {
-    if (!confirm(`¿Eliminar la plantilla «${plantilla.nombre}»? Las facturas volverán a imprimirse con el diseño estándar.`)) return;
+    if (!confirm(`¿Eliminar la plantilla «${plantilla.nombre}»? Esos documentos volverán a imprimirse con el diseño estándar.`)) return;
     try {
       await borrarPlantilla(plantilla.id);
       await cargar();
@@ -283,7 +334,7 @@ export default function PlantillasPage() {
     try {
       await marcarPredeterminada(plantilla.id);
       await cargar();
-      success('Plantilla predeterminada', `Las facturas se imprimirán con «${plantilla.nombre}».`);
+      success('Plantilla predeterminada', `Se imprimirán con «${plantilla.nombre}».`);
     } catch (err) {
       avisarError('No se ha podido cambiar', err instanceof Error ? err.message : '');
     }
@@ -304,12 +355,17 @@ export default function PlantillasPage() {
       <div className="animate-fade-in">
         <div className="page-header">
           <div className="page-header-left">
-            <p className="page-eyebrow"><LayoutTemplate /> Plantillas</p>
+            {/* El tipo, en la cejilla y en cuanto se entra: es lo que
+                decide el título impreso, la advertencia legal y el QR, y
+                antes no se veía por ninguna parte hasta bajar al pie. */}
+            <p className="page-eyebrow">
+              <LayoutTemplate /> Diseño de {personalidadDe(tipoDominante(aplicaA)).plural.toLowerCase()}
+            </p>
             <h1 className="page-title">
               {editando ? `Editando «${editando.nombre}»` : 'Revisa lo que se ha detectado'}
             </h1>
             <p className="page-subtitle">
-              Cada recuadro es un dato que se rellenará solo en cada factura. Todo lo demás —
+              Cada recuadro es un dato que se rellenará solo en cada documento. Todo lo demás —
               tu logotipo, los colores, los rótulos y el pie — se conserva exactamente como está.
               Mueve, estira y reordena lo que quieras: el diseño se adapta a lo que pida cada cliente.
             </p>
@@ -336,30 +392,43 @@ export default function PlantillasPage() {
               className="form-input"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
-              placeholder="Factura de la empresa"
+              placeholder="El diseño de la empresa"
               maxLength={60}
             />
           </div>
           <div className="form-group">
             <span className="form-label">¿Para qué documentos?</span>
+            {tipoReconocido && (
+              <p className="field-message">
+                {tipoReconocido.seguro
+                  ? <>Leído del documento: pone <strong>«{tipoReconocido.palabra}»</strong>. Cámbialo si no es eso.</>
+                  : <>No está claro qué documento es. Dice <strong>«{tipoReconocido.palabra}»</strong>, pero en letra pequeña: confírmalo tú.</>}
+              </p>
+            )}
             <div className="plantilla-tipos">
-              {(['factura', 'albaran'] as TipoDocumentoPlantilla[]).map(tipo => (
-                <label key={tipo} className="plantilla-tipo">
-                  <input
-                    type="checkbox"
-                    checked={aplicaA.includes(tipo)}
-                    onChange={(evento) => {
-                      setAplicaA(actual =>
-                        evento.target.checked
-                          ? [...actual, tipo]
-                          : actual.filter(t => t !== tipo),
-                      );
-                    }}
-                  />
-                  {tipo === 'factura' ? 'Facturas' : 'Albaranes'}
-                </label>
-              ))}
+              {TIPOS_PLANTILLA.map(tipo => {
+                const personalidad = personalidadDe(tipo);
+                return (
+                  <label key={tipo} className="plantilla-tipo" title={personalidad.paraQue}>
+                    <input
+                      type="checkbox"
+                      checked={aplicaA.includes(tipo)}
+                      onChange={(evento) => {
+                        setAplicaA(actual =>
+                          evento.target.checked
+                            ? [...actual, tipo]
+                            : actual.filter(t => t !== tipo),
+                        );
+                      }}
+                    />
+                    {personalidad.plural}
+                  </label>
+                );
+              })}
             </div>
+            {/* El QR no es decoración: decirlo aquí evita la sorpresa de
+                verlo aparecer —o no— en la vista previa. */}
+            <p className="field-message">{personalidadDe(tipoDominante(aplicaA)).notaQr}</p>
           </div>
           {sinAsignar > 0 && (
             <div className="callout callout-warning plantilla-callout-compacto">
@@ -388,12 +457,14 @@ export default function PlantillasPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><LayoutTemplate /> Plantillas</p>
-          <h1 className="page-title">El diseño de tus facturas</h1>
+          <p className="page-eyebrow"><LayoutTemplate /> Diseño de documentos</p>
+          <h1 className="page-title">El diseño de tus documentos</h1>
           <p className="page-subtitle">
-            Sube una factura tuya en PDF y el sistema copia su diseño: logotipo, colores,
-            tipografía y disposición. A partir de ahí, todas tus facturas se descargan con
-            ese mismo aspecto y los datos rellenados solos.
+            Sube en PDF un documento tuyo —una factura, un albarán, un presupuesto— y el
+            sistema copia su diseño: logotipo, colores, tipografía y disposición. A partir
+            de ahí, los tuyos se descargan con ese mismo aspecto y los datos rellenados
+            solos. Cada tipo sale como debe: el albarán con su advertencia de que no tiene
+            valor fiscal, la factura con el QR de la AEAT.
           </p>
         </div>
         <div className="page-header-actions">
@@ -410,7 +481,7 @@ export default function PlantillasPage() {
             disabled={analizando}
           >
             {analizando ? <Loader2 size={16} className="spin" /> : <FileUp size={16} />}
-            {analizando ? 'Analizando la factura…' : 'Subir factura en PDF'}
+            {analizando ? 'Analizando el documento…' : 'Subir documento en PDF'}
           </button>
           <button className="btn btn-secondary" onClick={() => setEligiendoOficio(true)} disabled={analizando}>
             <Sparkles size={16} /> Empezar desde cero
@@ -456,7 +527,7 @@ export default function PlantillasPage() {
                     {plantilla.predeterminada && <span className="badge badge-activo"><i className="badge-dot" /> En uso</span>}
                   </div>
                   <p className="plantilla-tarjeta-detalle">
-                    {plantilla.aplicaA.map(t => (t === 'factura' ? 'Facturas' : 'Albaranes')).join(' y ')}
+                    {plantilla.aplicaA.map(t => personalidadDe(t).plural).join(' y ')}
                     {plantilla.diagnostico.archivoOrigen ? ` · de ${plantilla.diagnostico.archivoOrigen}` : ''}
                   </p>
                   <div className="plantilla-tarjeta-acciones">

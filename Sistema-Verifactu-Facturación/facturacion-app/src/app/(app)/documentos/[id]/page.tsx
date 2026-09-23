@@ -178,11 +178,7 @@ export default function DocumentoDetallePage() {
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           {/* Botón Descargar PDF */}
           <BotonDescargarPdf
-            documento={{
-              tipo: tipo as any,
-              documento: documento as any,
-            }}
-            settings={settings}
+            documento={{ tipo, documento }}
           />
 
           {/* Botón Editar si está en borrador */}

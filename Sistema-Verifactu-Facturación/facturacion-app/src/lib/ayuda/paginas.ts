@@ -552,20 +552,24 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   },
   {
     ruta: '/plantillas',
-    titulo: 'Diseño de facturas',
-    paraQue: 'Cómo son por fuera tus facturas en PDF: tu membrete, tus columnas y tu pie.',
+    titulo: 'Diseño de documentos',
+    paraQue: 'Cómo son por fuera tus documentos en PDF —facturas, albaranes, presupuestos, pedidos y rectificativas—: tu membrete, tus columnas y tu pie.',
     pasos: [
-      'Sube un PDF de una factura tuya y el programa la calca, o empieza una desde cero eligiendo tu oficio.',
+      'Sube el PDF de un documento tuyo y el programa lo calca, o empieza uno desde cero eligiendo tu oficio.',
+      'Comprueba en «¿Para qué documentos?» que el tipo es el correcto: se lee del titular del PDF, pero puedes cambiarlo.',
       'En el editor, mueve los campos donde quieras y di qué dato va en cada recuadro.',
       'Pulsa «Ver cómo queda» para sacar un PDF de prueba con datos de verdad.',
       'Guárdala y márcala como predeterminada.',
     ],
     saber: [
-      'El QR tributario se estampa siempre arriba, a 35 mm, lo pongas donde lo pongas dentro de lo permitido: es lo que exige la AEAT y no se puede desactivar.',
+      'El QR tributario sólo sale en facturas y rectificativas: son los únicos documentos que se declaran. Un albarán o un presupuesto con QR estaría diciéndole al cliente que está declarado cuando no lo está.',
+      'En una factura, el QR se estampa arriba a 35 mm aunque no le reserves sitio: lo exige la AEAT y no se puede desactivar.',
+      'Cada tipo sale con su propia advertencia impresa: el albarán dice que no tiene valor fiscal, el presupuesto que vale 30 días.',
+      'Una misma plantilla puede valer para varios tipos. Si uno de ellos es factura, se previsualiza con el QR puesto, para que veas si le falta sitio.',
       'Puedes tener varias plantillas y cambiar de una a otra.',
       'Cambiar de sector cambia la plantilla predeterminada, pero no borra la anterior.',
     ],
-    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
+    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }, { ruta: '/albaranes', texto: 'Albaranes' }],
   },
   // ============================================================
   // ADMINISTRACIÓN DEL SISTEMA

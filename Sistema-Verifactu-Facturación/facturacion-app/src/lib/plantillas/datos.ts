@@ -17,6 +17,7 @@ import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constant
 import { calculateInvoiceTotals, desgloseDescuentos, formatCurrency, formatDate } from '../utils';
 import { LEYENDA_LARGA } from '../verifactu/qrFactura';
 import { CAMPOS, RENGLONES_IMPUESTO, totalDeColumna } from './contrato';
+import { personalidadDe } from './tiposDocumento';
 
 /** Documento imprimible: factura, albarán, presupuesto, pedido o rectificativa. */
 export type DocumentoImprimible =
@@ -339,14 +340,12 @@ export function construirDatos(
     .join('\n');
 
   // --- Campos sueltos ---
-  const etiquetasTipoMap: Record<string, string> = {
-    factura: 'FACTURA',
-    albaran: 'ALBARÁN',
-    presupuesto: 'PRESUPUESTO',
-    pedido: 'PEDIDO',
-    rectificativa: 'FACTURA RECTIFICATIVA',
-  };
-  const tipoDocumento = etiquetasTipoMap[entrada.tipo] || 'DOCUMENTO';
+  // Cómo se titula el impreso y qué advertencia lleva salen de la misma
+  // tabla que usa la pantalla de diseño (`tiposDocumento.ts`). Estaban
+  // aquí a mano y allí otra vez: dos listas del mismo hecho que sólo se
+  // enteran de que no coinciden cuando alguien imprime.
+  const personalidad = personalidadDe(entrada.tipo);
+  const tipoDocumento = personalidad.tituloImpreso;
   // El cliente ocasional no tiene ficha: su nombre, NIF y dirección quedan en
   // la propia factura y el resto (CP, ciudad, provincia, email, teléfono) en
   // `datosExtras.__cliente`. Cuando la factura tiene ficha, la ficha manda y
@@ -402,9 +401,7 @@ export function construirDatos(
       ? (PAYMENT_METHODS.find(p => p.value === factura.paymentMethod)?.label ?? '')
       : '',
     doc_notas: doc.notes || '',
-    doc_aviso_legal: entrada.tipo === 'albaran'
-      ? 'Este albarán acredita la entrega de la mercancía y no tiene valor fiscal como factura.'
-      : (entrada.tipo === 'presupuesto' ? 'Este presupuesto tiene una validez de 30 días.' : ''),
+    doc_aviso_legal: personalidad.avisoLegal,
     // La cabecera y el pie que se repiten en todas las páginas resuelven este
     // campo con los contadores reales de pdfme; aquí sólo queda el valor de
     // reserva para una previsualización de una sola página.
