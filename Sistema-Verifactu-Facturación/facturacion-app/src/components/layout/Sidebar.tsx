@@ -99,7 +99,7 @@ const controlItems = [
 
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const [brandName, setBrandName] = useState('DistAlSur');
+  const [brandName, setBrandName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [sectorIcon, setSectorIcon] = useState('Apple');
   const [sectorLabel, setSectorLabel] = useState('Distribución');
@@ -197,10 +197,10 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             {logoUrl
               ? /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={logoUrl} alt="" />
-              : brandName.charAt(0).toUpperCase()}
+              : (brandName.charAt(0).toUpperCase() || 'K')}
           </div>
           <div className="sidebar-logo-text">
-            <h1>{brandName}</h1>
+            <h1>{brandName || 'Tu empresa'}</h1>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <CategoryIcon name={sectorIcon} size={13} style={{ opacity: 0.7 }} />
               {sectorLabel}

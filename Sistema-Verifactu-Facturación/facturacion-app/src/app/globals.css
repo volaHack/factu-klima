@@ -618,8 +618,12 @@ a:hover { color: var(--accent-300); }
   flex-direction: column;
   z-index: 100;
   transition: all var(--transition-slow);
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* El logotipo arriba y «Nueva factura» abajo se quedan quietos: sólo
+     se desplaza la lista de secciones (.sidebar-nav). Antes se movía el
+     panel entero, y con muchos módulos activos el botón de crear factura
+     quedaba fuera de la pantalla. */
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar-logo {
@@ -629,6 +633,7 @@ a:hover { color: var(--accent-300); }
   align-items: center;
   gap: var(--space-3);
   min-height: var(--header-height);
+  flex-shrink: 0;
 }
 
 .sidebar-logo-icon {
@@ -680,11 +685,20 @@ a:hover { color: var(--accent-300); }
 
 .sidebar-nav {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   padding: var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
+/* Sin esto, al haber scroll los enlaces se encogen en vez de desbordar. */
+.sidebar-nav > * { flex-shrink: 0; }
 
 .sidebar-section-label {
   font-size: 10px; font-weight: 600;
@@ -725,7 +739,7 @@ a:hover { color: var(--accent-300); }
 .sidebar-link svg { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.7; }
 .sidebar-link.active svg { opacity: 1; }
 
-.sidebar-cta { padding: var(--space-4); border-top: 1px solid var(--border-color); }
+.sidebar-cta { flex-shrink: 0; padding: var(--space-4); padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color); background: var(--bg-secondary); }
 .sidebar-cta .btn { width: 100%; justify-content: center; }
 
 /* --- Sidebar plegable ---

@@ -803,28 +803,40 @@ export const DEFAULT_SERIES_DOCUMENTOS: Record<string, { serie: string; nextNumb
 };
 
 // --- Default company settings ---
+//
+// LA EMPRESA NUEVA EMPIEZA EN BLANCO
+//
+// Esto llevaba los datos de la cuenta de demostración: «Distribuciones
+// Alimentarias del Sur S.L.», su NIF, su dirección en Sevilla, SU IBAN y la
+// numeración empezando en la factura 21. `seedInitialData` lo guarda tal
+// cual en la primera entrada de cada cuenta nueva, así que cualquier
+// empresa que se diera de alta y facturase sin pasar por Ajustes emitía
+// facturas con la razón social y el NIF de otra, pidiendo que le pagaran
+// en una cuenta bancaria ajena, y con un salto de 20 números en la serie.
+// Vacío obliga a rellenarlo, y la numeración de una serie nueva empieza
+// en 1.
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
-  businessName: 'Distribuciones Alimentarias del Sur S.L.',
-  nif: 'B41567890',
-  tradeName: 'DistAlSur',
+  businessName: '',
+  nif: '',
+  tradeName: '',
   sector: 'alimentacion',
   accentTheme: 'rose',
-  email: 'facturacion@distalsur.es',
-  phone: '+34 954 123 456',
-  website: 'www.distalsur.es',
-  address: 'Polígono Industrial Calonge, Nave 24',
-  city: 'Sevilla',
-  postalCode: '41007',
-  province: 'Sevilla',
+  email: '',
+  phone: '',
+  website: '',
+  address: '',
+  city: '',
+  postalCode: '',
+  province: '',
   invoiceSeries: 'FAC',
-  nextInvoiceNumber: 21,
+  nextInvoiceNumber: 1,
   tpvSeries: 'TPV',
   nextTpvNumber: 1,
   defaultPaymentDays: 30,
   defaultPaymentMethod: PaymentMethod.TRANSFERENCIA,
   invoiceFooterText: 'Factura con registro sellado mediante huella SHA-256 encadenada.',
-  iban: 'ES91 2100 0418 4502 0005 1332',
-  bankName: 'CaixaBank',
+  iban: '',
+  bankName: '',
   verifactuEnabled: true,
   logoUrl: '',
   stripeEnabled: false,
