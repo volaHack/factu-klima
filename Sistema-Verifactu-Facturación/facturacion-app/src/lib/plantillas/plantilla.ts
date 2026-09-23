@@ -131,18 +131,40 @@ function estirarCaja(
   const solapaEnVertical = (otro: { y: number; alto: number }) =>
     otro.y < campo.y + campo.alto - 0.4 && otro.y + otro.alto > campo.y + 0.4;
 
+  const topeIzquierdo = vecinos
+    .filter(v => solapaEnVertical(v) && v.x + v.ancho <= campo.x + 0.5)
+    .reduce((max, v) => Math.max(max, v.x + v.ancho), 0);
+  const topeDerecho = vecinos
+    .filter(v => solapaEnVertical(v) && v.x >= campo.x + campo.ancho - 0.5)
+    .reduce((min, v) => Math.min(min, v.x), anchoPagina);
+
   if (campo.alineacion === 'right') {
     const derechaFija = campo.x + campo.ancho;
-    const topeIzquierdo = vecinos
-      .filter(v => solapaEnVertical(v) && v.x + v.ancho <= campo.x + 0.5)
-      .reduce((max, v) => Math.max(max, v.x + v.ancho), 0);
     const x = Math.min(campo.x, topeIzquierdo + HOLGURA);
     return { x: Math.max(0, x), ancho: Math.max(campo.ancho, derechaFija - Math.max(0, x)) };
   }
 
-  const topeDerecho = vecinos
-    .filter(v => solapaEnVertical(v) && v.x >= campo.x + campo.ancho - 0.5)
-    .reduce((min, v) => Math.min(min, v.x), anchoPagina);
+  // CENTRADO: LA CAJA CRECE POR LOS DOS LADOS, NO POR UNO
+  //
+  // Un campo centrado se trataba como uno alineado a la izquierda: la caja
+  // se estiraba sólo hacia la derecha y el texto se centraba dentro de la
+  // caja YA ESTIRADA, que es otro sitio. Un dato puesto a 80 mm en una caja
+  // de 50 acababa impreso a 143 mm —63 mm más a la derecha—, así que desde
+  // el editor parecía que al centrarlo desaparecía.
+  //
+  // Lo que hay que mantener quieto es el CENTRO, que es lo que el usuario
+  // ha colocado. Así que crece lo mismo por los dos lados: lo que quepa por
+  // el lado más estrecho, porque si creciera más por uno el centro se
+  // movería igual que antes.
+  if (campo.alineacion === 'center') {
+    const centro = campo.x + campo.ancho / 2;
+    const holguraIzquierda = centro - (topeIzquierdo + HOLGURA);
+    const holguraDerecha = Math.min(topeDerecho - HOLGURA, anchoPagina - 2) - centro;
+    const medio = Math.max(campo.ancho / 2, Math.min(holguraIzquierda, holguraDerecha));
+    const x = Math.max(0, centro - medio);
+    return { x, ancho: Math.min(medio * 2, anchoPagina - x) };
+  }
+
   const ancho = Math.max(campo.ancho, Math.min(topeDerecho - HOLGURA, anchoPagina - 4) - campo.x);
   return { x: campo.x, ancho: Math.max(campo.ancho, ancho) };
 }

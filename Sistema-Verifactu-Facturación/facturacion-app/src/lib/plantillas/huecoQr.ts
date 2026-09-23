@@ -1,4 +1,4 @@
-import { campoNuevo } from './editor';
+import { campoNuevo, CLAVE_QR, esCampoQr } from './editor';
 import type { CampoDetectado, PaginaExtraida } from './tipos';
 import { componerBloqueQr } from '../verifactu/qrFactura';
 
@@ -32,12 +32,10 @@ import { componerBloqueQr } from '../verifactu/qrFactura';
  * la hoja. Eso lo comprueba `validarBloqueQr` antes de imprimir.
  */
 
-/** El nombre del campo, tal y como lo busca el generador del PDF. */
-export const CLAVE_QR = 'verifactu_qr';
-
-export function esCampoQr(campo: { clave: string | null }): boolean {
-  return campo.clave === CLAVE_QR;
-}
+// La clave y el reconocedor ya viven en `editor.ts`, que es quien acota el
+// recuadro al arrastrarlo. Se reexportan para que quien use este módulo no
+// tenga que importar de dos sitios.
+export { CLAVE_QR, esCampoQr };
 
 /**
  * Deja los campos con recuadro de QR, o sin él, según toque.

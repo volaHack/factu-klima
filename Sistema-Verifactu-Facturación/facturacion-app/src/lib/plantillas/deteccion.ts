@@ -88,10 +88,55 @@ export function pareceTelefono(t: string): boolean {
 export function pareceWeb(t: string): boolean { return RE_WEB.test(t.trim()); }
 export function pareceCpCiudad(t: string): boolean { return RE_CP_CIUDAD.test(t.trim()); }
 export function parecePorcentaje(t: string): boolean { return RE_PORCENTAJE.test(t.trim()); }
+/**
+ * PAGINACIÓN: «Página 1 de 2», «Pág. 3/4», «Hoja 1 de 2»
+ *
+ * Una factura larga ocupa varias hojas y casi todos los impresos llevan el
+ * contador al pie. Sin reconocerlo, ese texto se calcaba como parte del
+ * diseño: la factura de cinco páginas salía con «Página 1 de 1» impreso en
+ * las cinco, porque era el número que traía el PDF de muestra.
+ *
+ * Se admiten dos formas, y la segunda con cuidado:
+ *
+ *  - Con palabra: «página», «pág», «pag», «hoja» o «page» seguidas de un
+ *    número. Aquí no hay duda posible.
+ *  - Sin palabra: «1 de 2» o «1/2» a secas. Esto SÍ se puede confundir con
+ *    una cantidad o una fracción, así que quien lo use debe además exigir
+ *    que esté en el borde superior o inferior de la hoja, que es donde va
+ *    la paginación y no una cantidad.
+ */
+const RE_PAGINA_CON_PALABRA = /^(?:p[aá]g(?:ina)?\.?|hoja|page)\s*:?\s*\d{1,3}(?:\s*(?:de|\/|of)\s*\d{1,3})?$/i;
+const RE_PAGINA_SUELTA = /^\d{1,3}\s*(?:de|\/)\s*\d{1,3}$/i;
+
+export function pareceNumeroDePagina(t: string): boolean {
+  const limpio = t.trim();
+  return RE_PAGINA_CON_PALABRA.test(limpio) || RE_PAGINA_SUELTA.test(limpio);
+}
+
+/** Sólo la forma inequívoca, la que lleva la palabra escrita. */
+export function pareceNumeroDePaginaSinDuda(t: string): boolean {
+  return RE_PAGINA_CON_PALABRA.test(t.trim());
+}
+
 export function pareceNumeroDocumento(t: string): boolean {
   const limpio = t.trim();
   if (pareceFecha(limpio) || pareceNif(limpio)) return false;
   return RE_NUMERO_DOC.test(limpio) && /\d/.test(limpio);
+}
+
+/**
+ * ¿Esto es la paginación del documento?
+ *
+ * Con la palabra escrita («Página 3 de 4») vale en cualquier sitio. Sin
+ * ella («3/4») sólo se acepta en el borde superior o inferior de la hoja:
+ * en el cuerpo, «3/4» es mucho más probable que sea una cantidad o una
+ * medida, y confundirlas convertiría un dato de la línea en un contador de
+ * páginas.
+ */
+function esPaginacion(texto: string, y: number, altoPagina: number): boolean {
+  if (pareceNumeroDePaginaSinDuda(texto)) return true;
+  if (!pareceNumeroDePagina(texto)) return false;
+  return y < altoPagina * 0.12 || y > altoPagina * 0.88;
 }
 
 /** ¿Este texto es un dato de esta factura y no una etiqueta del diseño? */
@@ -101,7 +146,8 @@ export function pareceDato(t: string): boolean {
   return (
     pareceImporte(limpio) || pareceFecha(limpio) || pareceNif(limpio) || pareceIban(limpio) ||
     pareceEmail(limpio) || pareceWeb(limpio) || pareceCpCiudad(limpio) ||
-    pareceNumeroDocumento(limpio) || RE_SOLO_DIGITOS.test(limpio)
+    pareceNumeroDocumento(limpio) || pareceNumeroDePagina(limpio) ||
+    RE_SOLO_DIGITOS.test(limpio)
   );
 }
 
@@ -155,6 +201,8 @@ const ETIQUETAS: ReglaEtiqueta[] = [
 
   { re: /^(iban|cuenta|cuenta bancaria|n\.? cuenta|ccc|domiciliacion)$/i, clave: 'empresa_iban', prioridad: 8 },
   { re: /^(banco|entidad)$/i, clave: 'empresa_banco', prioridad: 7 },
+
+  { re: /^(pagina|p[aá]g\.?|hoja|page)$/i, clave: 'doc_pagina', prioridad: 7 },
 ];
 
 /**
@@ -968,6 +1016,13 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
       clave = 'doc_fecha'; motivo = 'Es la primera fecha del documento'; confianza = 0.55;
     } else if (pareceNumeroDocumento(texto) && !yaAsignadas.has('doc_numero') && linea.y < pagina.alto * 0.35) {
       clave = 'doc_numero'; motivo = 'Tiene forma de número de documento y está en la cabecera'; confianza = 0.5;
+    } else if (!yaAsignadas.has('doc_pagina') && esPaginacion(texto, linea.y, pagina.alto)) {
+      // Se sustituye por el contador REAL de la factura que se imprima. Sin
+      // esto, el «Página 1 de 1» del PDF de muestra se calcaba como parte
+      // del diseño y salía igual en las cinco hojas de una factura larga.
+      clave = 'doc_pagina';
+      motivo = 'Tiene forma de número de página';
+      confianza = pareceNumeroDePaginaSinDuda(texto) ? 0.8 : 0.5;
     }
 
     registrar(campoDesde(linea.items, clave, confianza, motivo, ''), linea);

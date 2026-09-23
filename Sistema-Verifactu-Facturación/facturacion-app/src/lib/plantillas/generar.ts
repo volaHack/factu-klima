@@ -114,19 +114,39 @@ function esquemasDe(plantilla: Template): Schema[] {
 }
 
 /**
- * Dónde quiere la plantilla que vaya el QR.
+ * Dónde quiere la plantilla que vaya el QR, y de qué tamaño.
  *
- * Es lo único que decide la plantilla: la esquina. El tamaño se acota
- * siempre, y el rótulo y la leyenda los coloca el bloque a su alrededor. Una
- * plantilla calcada de un PDF antiguo, que no tiene hueco ninguno, devuelve
- * `null` y entonces manda la posición que dice la especificación.
+ * Las dos cosas las decide la plantilla, porque las dos las puede tocar el
+ * usuario en el editor: arrastrar el recuadro y estirarlo. La norma deja
+ * margen en ambas —otra ubicación si la preferente tiene obstáculos, y
+ * cualquier lado entre 30 y 40 mm— y el editor ya acota lo que no.
+ *
+ * El tamaño se leía antes sólo de las opciones de quien pedía el PDF, así
+ * que estirar el recuadro a 40 mm no servía de nada: seguía imprimiéndose
+ * a 35. Ahora manda el recuadro, y `acotarTamanoQr` sigue siendo la única
+ * puerta, así que una plantilla vieja guardada con 24 mm no puede colar un
+ * código ilegal.
+ *
+ * El rótulo y la leyenda los coloca el bloque alrededor. Una plantilla
+ * calcada de un PDF antiguo, que no tiene hueco ninguno, devuelve `null` y
+ * entonces manda la posición que dice la especificación.
  */
-function anclaQrDePlantilla(plantilla: Template): { x: number; y: number } | null {
+function huecoQrDePlantilla(
+  plantilla: Template,
+): { ancla: { x: number; y: number }; lado: number | undefined } | null {
   const hueco = esquemasDe(plantilla).find(e => typeof e?.name === 'string' && ES_QR.test(e.name));
   if (!hueco) return null;
-  const posicion = (hueco as unknown as { position?: { x?: number; y?: number } }).position;
+  const caja = hueco as unknown as { position?: { x?: number; y?: number }; width?: number; height?: number };
+  const posicion = caja.position;
   if (!posicion || typeof posicion.x !== 'number' || typeof posicion.y !== 'number') return null;
-  return { x: posicion.x, y: posicion.y };
+
+  // El código es cuadrado: si el recuadro no lo es del todo por un redondeo,
+  // manda el lado mayor, que es lo mismo que hace el editor al soltarlo.
+  const lado = Math.max(
+    typeof caja.width === 'number' ? caja.width : 0,
+    typeof caja.height === 'number' ? caja.height : 0,
+  );
+  return { ancla: { x: posicion.x, y: posicion.y }, lado: lado > 0 ? lado : undefined };
 }
 
 /**
@@ -219,13 +239,17 @@ async function incrustarImagenes(plantilla: Template, entrada: Record<string, st
  */
 function prepararQr(plantilla: Template, opciones: OpcionesQrFactura) {
   const hoja = hojaDePlantilla(plantilla);
+  const hueco = huecoQrDePlantilla(plantilla);
   const bloque = componerBloqueQr({
     hoja,
-    tamanoMm: opciones.tamanoMm,
+    // Manda el recuadro de la plantilla, que es lo que el usuario ve y
+    // mueve; las opciones de quien pide el PDF son el respaldo para las
+    // plantillas que no traen hueco.
+    tamanoMm: hueco?.lado ?? opciones.tamanoMm,
     posicion: opciones.posicion,
     margenMm: opciones.margenMm,
     leyenda: opciones.leyenda,
-    ancla: anclaQrDePlantilla(plantilla) ?? undefined,
+    ancla: hueco?.ancla,
   });
 
   const problemas = [

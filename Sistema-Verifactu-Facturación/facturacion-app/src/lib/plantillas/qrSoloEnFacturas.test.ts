@@ -31,7 +31,7 @@ import { facturaDesdeCero } from './desdeCero';
 import { generarPdf } from './generar';
 import { compilarPlantilla } from './plantilla';
 import { algunoLlevaQr, tipoDominante, type TipoDocumentoPlantilla } from './tiposDocumento';
-import { QR_MIN_MM } from '../verifactu/qrFactura';
+import { QR_MAX_MM, QR_MIN_MM } from '../verifactu/qrFactura';
 
 const PX_POR_MM = 6;
 
@@ -129,6 +129,32 @@ async function comoLaVistaPrevia(tipos: TipoDocumentoPlantilla[]): Promise<Uint8
   return generarPdf(plantilla, datos, { titulo: 'Vista previa', qr });
 }
 
+/** Una factura desde cero con su recuadro de QR movido y, si se pide, redimensionado. */
+async function facturaConElQrEn(x: number, y: number, lado?: number): Promise<Uint8Array> {
+  const analisis = facturaDesdeCero('generico', AJUSTES);
+  const hueco = analisis.campos.find(c => c.clave === 'verifactu_qr');
+  expect(hueco, 'la factura desde cero tiene que traer su recuadro de QR').toBeDefined();
+  hueco!.x = x;
+  hueco!.y = y;
+  if (lado) { hueco!.ancho = lado; hueco!.alto = lado; }
+
+  const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
+  const documento = facturaDeMuestra();
+  const datos = construirDatos({ tipo: 'factura', documento }, AJUSTES);
+  return generarPdf(plantilla, datos, {
+    titulo: 'Vista previa',
+    qr: {
+      exigido: false,
+      datos: {
+        nifEmisor: AJUSTES.nif,
+        numeroFactura: documento.number,
+        fechaEmision: documento.issueDate,
+        importeTotal: documento.total,
+      },
+    },
+  });
+}
+
 describe('el QR sobre el papel, según el tipo de documento', () => {
   it('un albarán sale SIN código QR', async () => {
     // Éste es el fallo que se reportó: un QR que nadie había colocado.
@@ -168,30 +194,6 @@ describe('el QR se puede mover, que es lo que permite la norma', () => {
    * Aquí se comprueba que esa salida existe de verdad sobre el papel:
    * que arrastrar el recuadro en el editor mueve el código impreso.
    */
-  async function facturaConElQrEn(x: number, y: number): Promise<Uint8Array> {
-    const analisis = facturaDesdeCero('generico', AJUSTES);
-    const hueco = analisis.campos.find(c => c.clave === 'verifactu_qr');
-    expect(hueco, 'la factura desde cero tiene que traer su recuadro de QR').toBeDefined();
-    hueco!.x = x;
-    hueco!.y = y;
-
-    const { plantilla } = compilarPlantilla(analisis, { fondo: FONDO, archivoOrigen: '' });
-    const documento = facturaDeMuestra();
-    const datos = construirDatos({ tipo: 'factura', documento }, AJUSTES);
-    return generarPdf(plantilla, datos, {
-      titulo: 'Vista previa',
-      qr: {
-        exigido: false,
-        datos: {
-          nifEmisor: AJUSTES.nif,
-          numeroFactura: documento.number,
-          fechaEmision: documento.issueDate,
-          importeTotal: documento.total,
-        },
-      },
-    });
-  }
-
   it('arrastrado al pie derecho, se imprime en el pie derecho', async () => {
     // Que es el caso de uso: arriba tapaba el membrete.
     const qr = await localizarQr(await facturaConElQrEn(160, 235));
@@ -211,5 +213,39 @@ describe('el QR se puede mover, que es lo que permite la norma', () => {
     const qr = await localizarQr(await facturaConElQrEn(160, 235));
     expect(qr!.lado).toBeGreaterThanOrEqual(QR_MIN_MM - 1);
     expect(qr!.contenido).toContain('agenciatributaria');
+  }, 60000);
+});
+
+describe('el tamaño del QR también lo manda el recuadro', () => {
+  /**
+   * La Orden HAC/1177/2024, art. 21.1, deja el lado entre 30 y 40 mm. El
+   * editor ya acotaba ahí lo que se estirase, pero el generador no leía
+   * ese tamaño: estampaba siempre 35 mm, así que agrandarlo no servía de
+   * nada. Se mide sobre el papel, no sobre el código fuente.
+   */
+  it('estirado a 40 mm, se imprime a 40 mm', async () => {
+    const qr = await localizarQr(await facturaConElQrEn(20, 20, QR_MAX_MM));
+    expect(qr).not.toBeNull();
+    expect(qr!.lado).toBeGreaterThan(38);
+    expect(qr!.lado).toBeLessThanOrEqual(QR_MAX_MM + 1);
+  }, 60000);
+
+  it('encogido a 30 mm, se imprime a 30 mm', async () => {
+    const qr = await localizarQr(await facturaConElQrEn(20, 20, QR_MIN_MM));
+    expect(qr).not.toBeNull();
+    expect(qr!.lado).toBeGreaterThanOrEqual(QR_MIN_MM - 1);
+    expect(qr!.lado).toBeLessThan(32);
+  }, 60000);
+
+  it('un recuadro ilegal no imprime un QR ilegal', async () => {
+    // 25 mm no es legal, y una plantilla vieja podría traerlo guardado.
+    // `acotarTamanoQr` es la única puerta: lo sube al mínimo.
+    const qr = await localizarQr(await facturaConElQrEn(20, 20, 25));
+    expect(qr!.lado).toBeGreaterThanOrEqual(QR_MIN_MM - 1);
+  }, 60000);
+
+  it('y uno enorme tampoco', async () => {
+    const qr = await localizarQr(await facturaConElQrEn(20, 20, 60));
+    expect(qr!.lado).toBeLessThanOrEqual(QR_MAX_MM + 1);
   }, 60000);
 });
