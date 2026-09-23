@@ -45,6 +45,14 @@ export interface ConfiguracionVoz {
 /** El modelo con oído que se usa en OpenRouter si no se dice otro. */
 export const MODELO_VOZ_OPENROUTER = 'qwen/qwen3.8-omni-flash';
 
+/**
+ * Si el primero falla o está saturado, OpenRouter prueba éste por su
+ * cuenta (`models`, en la misma petición): una nota de voz que no se
+ * transcribe es una pregunta perdida, y otro proveedor que oye cuesta lo
+ * mismo.
+ */
+export const MODELO_VOZ_RESERVA = 'google/gemini-3.5-flash-lite';
+
 /** Unos 90 s de WAV a 16 kHz en base64. Más que eso no es una pregunta. */
 export const MAXIMO_AUDIO_BASE64 = 4_000_000;
 
@@ -106,8 +114,11 @@ export function cuerpoTranscripcion(config: ConfiguracionVoz, wavBase64: string)
         { type: 'input_audio', input_audio: { data: wavBase64, format: 'wav' } },
       ],
     }],
-    // Sólo OpenRouter entiende este campo; Gemini rechaza lo que no conoce.
-    ...(config.esOpenRouter ? { reasoning: { enabled: false } } : {}),
+    // Sólo OpenRouter entiende estos campos; Gemini rechaza lo que no conoce.
+    ...(config.esOpenRouter ? {
+      reasoning: { enabled: false },
+      models: [...new Set([config.modelo, MODELO_VOZ_RESERVA])],
+    } : {}),
   };
 }
 

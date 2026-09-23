@@ -1,9 +1,24 @@
 # Qué falta para salir al mercado
 
-Última revisión: 2026-09-22. Lo que bloquea el cobro va primero.
+Última revisión: 2026-09-23. Lo que bloquea el cobro va primero.
 
 ## Bloqueantes — sólo quedan cosas que tienes que decidir tú
 
+- [ ] **Ninguna factura ha llegado nunca a la AEAT** (comprobado el
+      2026-09-23: 9 registros en `verifactu_registros`, todos
+      «pendiente», ninguno con CSV, y ninguna fila en `verifactu_config`).
+      Hace falta el certificado digital real, los datos del productor y
+      una vuelta completa en el entorno de pruebas (prewww1) antes de
+      poner `AEAT_INTEGRATION_ENABLED=true` en producción.
+- [ ] **Declaración responsable del sistema informático.** Quien produce
+      un SIF Veri*Factu tiene que suscribirla y el sistema tiene que
+      enseñarla. No existe todavía; conviene redactarla con la gestoría.
+- [ ] **Cuentas con los datos de la empresa de demostración.** Hasta
+      01f6b89 toda cuenta nueva nacía con la razón social, el NIF, el IBAN
+      y la numeración (desde la 21) de «Distribuciones Alimentarias del
+      Sur». Arreglado para las nuevas; en la base quedaban 5 de 7 cuentas
+      con ese NIF, 6 con ese IBAN y 18 documentos emitidos con él. Cada
+      cuenta tiene que corregir sus datos en Ajustes (la tuya también).
 - [ ] **Falta el domicilio fiscal completo** en `src/lib/legal/datos.ts`.
       El nombre (Alexander Carmelo del Pino Pérez), el NIF (78837942Z,
       comprobada su letra de control) y el correo de contacto ya están.
@@ -43,15 +58,10 @@
 
 - [ ] **Nadie se entera si algo falla.** Sigue sin haber monitorización
       de errores en producción.
-- [ ] **La ayuda con IA no funciona en producción: falta copiar una
-      variable a Vercel.** La clave de Gemini de `.env.local` está viva
-      (comprobada); ponerla en Vercel → Settings → Environment Variables
-      como `GEMINI_API_KEY` es todo lo que hace falta. Es la decisión de
-      mientras. El Qwen 3 4B montado en esta máquina (ver
-      `docs/ia-local.md`) atiende el trabajo local y manda sobre Gemini
-      cuando está en pie, pero Vercel no puede llegar a un modelo que
-      corre en una casa. Cuando haya un Qwen alojado, se cambian las tres
-      variables en Vercel y Gemini deja de usarse solo.
+- [ ] **Correo propio (SMTP) en Supabase.** El correo de confirmación de
+      alta no llega a todo el mundo: el servidor de correo que trae
+      Supabase de serie es de pruebas y manda muy pocos por hora.
+- [ ] **Protección de contraseñas filtradas** apagada en Supabase → Auth.
 - [ ] **No se envía ningún correo.** Ni la factura al cliente, ni aviso
       de cobro fallido, ni recordatorio de vencimiento.
 - [ ] **Certificado Veri\*Factu real** y datos del productor en
@@ -60,7 +70,7 @@
       solo lectura y panel de empresas). Lo que falta es cobrarlo: un
       precio por empresa en Stripe con cantidad variable, y el botón en
       la página de precios.
-- [ ] **60 errores de linter heredados** en `src`. La CI los enseña pero
+- [ ] **47 errores de linter heredados** en `src`. La CI los enseña pero
       no bloquea por ellos; cuando se limpien, quitar el
       `continue-on-error` del paso «Linter» en `.github/workflows/ci.yml`.
 

@@ -51,7 +51,13 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const fallo = err instanceof FalloIA ? err : new FalloIA('rechazado', String(err));
     console.error('[ayuda/voz]', fallo.motivo, fallo.detalle);
-    const { estado, error } = respuestaDeFallo(fallo, 'Escribe la pregunta mientras tanto.');
+    const { estado } = respuestaDeFallo(fallo, '');
+    // El aviso habla de la NOTA, no de «la IA»: quien la manda no sabe que
+    // detrás hay un modelo, y «el servicio de IA ha agotado su cupo» no le
+    // dice qué hacer.
+    const error = fallo.motivo === 'sin-cuota'
+      ? 'Ahora mismo no puedo pasar notas de voz a texto (se ha agotado el cupo del servicio). Escribe la pregunta, o prueba en un rato.'
+      : 'No he podido pasar la nota a texto. Escribe la pregunta, o prueba otra vez.';
     return NextResponse.json({ error }, { status: estado });
   }
 }

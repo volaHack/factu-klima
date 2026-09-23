@@ -165,9 +165,20 @@ export function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
     // el enunciado: no hay nada que razonar. Los servidores que no conocen
     // el campo lo ignoran —comprobado con llama.cpp—, así que va siempre.
     reasoning: { enabled: false },
+    // RESERVA EN OPENROUTER
+    //
+    // Si el modelo elegido está caído o saturado, OpenRouter pasa solo al
+    // siguiente de la lista dentro de la MISMA petición, sin reintentos
+    // nuestros ni segundos de espera para quien pregunta.
+    ...(/openrouter\.ai/.test(config.baseUrl)
+      ? { models: [...new Set([config.modelo, MODELO_RESERVA_OPENROUTER])] }
+      : {}),
     ...(p.json ? { response_format: { type: 'json_object' } } : {}),
   };
 }
+
+/** A quién se pasa OpenRouter si el modelo principal no responde. */
+export const MODELO_RESERVA_OPENROUTER = 'google/gemini-3.5-flash-lite';
 
 function cuerpoGemini(p: PeticionIA) {
   return {
