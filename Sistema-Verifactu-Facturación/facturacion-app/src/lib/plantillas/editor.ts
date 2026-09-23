@@ -13,7 +13,7 @@
 import { acotarTamanoQr, componerBloqueQr, type BloqueQr } from '../verifactu/qrFactura';
 import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
 import { COLUMNAS_VENCIMIENTOS } from './contrato';
-import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FuenteRejilla, RejillaDetectada, TablaDetectada } from './tipos';
+import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FuenteRejilla, RejillaDetectada, TablaDetectada, ZonaBorrado } from './tipos';
 
 /** La clave del hueco del QR tributario dentro del contrato de campos. */
 export const CLAVE_QR = 'verifactu_qr';
@@ -580,4 +580,81 @@ export function redimensionarColumnaRejilla(
     }
     return columna;
   });
+}
+
+// ============================================================
+// BORRAR LO SELECCIONADO
+// ============================================================
+
+/** Lo que hay puesto sobre el lienzo del editor. */
+export interface ContenidoLienzo {
+  campos: CampoDetectado[];
+  zonasExtra: ZonaBorrado[];
+  rejillas: RejillaDetectada[];
+  tabla: TablaDetectada | null;
+}
+
+export interface ResultadoBorrado {
+  /** Lo que hay que cambiar. Vacío si no se ha podido quitar nada. */
+  cambios: Partial<ContenidoLienzo>;
+  /** Qué NO se ha borrado y por qué, para poder decírselo al usuario. */
+  motivoDeLoQueSeQueda: string | null;
+}
+
+/**
+ * QUITA DEL LIENZO TODO LO QUE ESTÉ SELECCIONADO
+ *
+ * Antes esto vivía dentro del componente y sólo contemplaba campos y
+ * zonas. Un cuadro de desglose o de vencimientos se seleccionaba, se
+ * movía, se estiraba... y al pulsar Supr no pasaba nada, en silencio.
+ * Como el panel del campo anuncia «Eliminar (Supr)», quien aprendía la
+ * tecla con un campo la probaba con una rejilla y concluía que eso no se
+ * podía quitar.
+ *
+ * LA ÚNICA EXCEPCIÓN ES EL QR, Y SE EXPLICA
+ *
+ * El recuadro del QR tributario se mueve y se estira —la norma lo
+ * permite— pero no se borra: una factura Veri*Factu sin su código de
+ * cotejo no cumple. Antes tampoco se borraba, sólo que sin decirlo: se
+ * quitaba y volvía a aparecer sola, que es peor que no dejar. Ahora no se
+ * quita y se dice por qué.
+ */
+export function quitarSeleccionados(
+  seleccion: readonly string[],
+  contenido: ContenidoLienzo,
+): ResultadoBorrado {
+  const idsCampo = new Set(seleccion.filter(r => r.startsWith('campo:')).map(r => r.slice(6)));
+  const idsZona = new Set(seleccion.filter(r => r.startsWith('zona:')).map(r => r.slice(5)));
+  const idsRejilla = new Set(seleccion.filter(r => r.startsWith('rejilla:')).map(r => r.slice(8)));
+  const borraTabla = seleccion.includes('tabla');
+
+  const qrProtegido = contenido.campos.some(c => idsCampo.has(c.id) && esCampoQr(c));
+  if (qrProtegido) {
+    for (const campo of contenido.campos) {
+      if (esCampoQr(campo)) idsCampo.delete(campo.id);
+    }
+  }
+
+  // Sólo se devuelve lo que de verdad ha menguado. Devolver una lista
+  // idéntica —porque el id seleccionado ya no existía— repintaría el
+  // editor entero y metería un paso vacío en el historial: deshacer no
+  // haría nada visible y parecería que Ctrl+Z está roto.
+  const cambios: Partial<ContenidoLienzo> = {};
+  const sinLosCampos = contenido.campos.filter(c => !idsCampo.has(c.id));
+  if (sinLosCampos.length < contenido.campos.length) cambios.campos = sinLosCampos;
+
+  const sinLasZonas = contenido.zonasExtra.filter(z => !idsZona.has(z.id));
+  if (sinLasZonas.length < contenido.zonasExtra.length) cambios.zonasExtra = sinLasZonas;
+
+  const sinLasRejillas = contenido.rejillas.filter(r => !idsRejilla.has(r.id));
+  if (sinLasRejillas.length < contenido.rejillas.length) cambios.rejillas = sinLasRejillas;
+
+  if (borraTabla && contenido.tabla) cambios.tabla = null;
+
+  return {
+    cambios,
+    motivoDeLoQueSeQueda: qrProtegido
+      ? 'El QR tributario no se puede quitar: una factura Veri*Factu sin su código no cumple. Muévelo o cámbiale el tamaño si estorba.'
+      : null,
+  };
 }

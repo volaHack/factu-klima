@@ -46,9 +46,12 @@ import {
   acotar, acotarCajaQr, alinear, anadirColumna, bloqueDeCampoQr, calcularImanes, campoNuevo,
   distribuir, duplicarCampo, ejemploDeColumna, escalarColumnas, esCampoQr, igualarColumnas,
   intersecan, moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
-  hacerSitio, redimensionarColumna, redimensionarColumnaRejilla, redondearMm, rejillaNueva,
+  hacerSitio, quitarSeleccionados, redimensionarColumna, redimensionarColumnaRejilla,
+  redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
+import { tablaPorDefecto } from '@/lib/plantillas/plantilla';
+import { invadenLaReserva } from '@/lib/verifactu/qrFactura';
 import type {
   AnalisisPdf, CampoDetectado, ColumnaRejilla, RejillaDetectada, SegmentoTexto,
   TablaDetectada, ZonaBorrado,
@@ -360,18 +363,39 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   // ACCIONES
   // ------------------------------------------------------------
 
+  /**
+   * Supr borra lo que esté seleccionado, sea lo que sea.
+   *
+   * La decisión de qué se puede quitar y qué no vive en
+   * `quitarSeleccionados`, que es una función pura y se puede probar sin
+   * montar el editor. Aquí sólo se aplica y se enseña el motivo cuando
+   * algo se queda.
+   */
   const borrarSeleccion = useCallback(() => {
     if (seleccion.length === 0) return;
-    const idsCampo = new Set(seleccion.filter(r => r.startsWith('campo:')).map(r => r.slice(6)));
-    const idsZona = new Set(seleccion.filter(r => r.startsWith('zona:')).map(r => r.slice(5)));
-    if (idsCampo.size === 0 && idsZona.size === 0) return;
+    const { cambios, motivoDeLoQueSeQueda } = quitarSeleccionados(
+      seleccion, { campos, zonasExtra: zonas, rejillas, tabla },
+    );
+    if (motivoDeLoQueSeQueda) setAvisoEditor(motivoDeLoQueSeQueda);
+    if (Object.keys(cambios).length === 0) return;
     marcar();
-    const cambios: CambioAnalisis = {};
-    if (idsCampo.size > 0) cambios.campos = campos.filter(c => !idsCampo.has(c.id));
-    if (idsZona.size > 0) cambios.zonasExtra = zonas.filter(z => !idsZona.has(z.id));
     onCambiar(cambios);
     setSeleccion([]);
-  }, [seleccion, campos, zonas, onCambiar, marcar]);
+  }, [seleccion, campos, zonas, rejillas, tabla, onCambiar, marcar]);
+
+  /**
+   * Pone una tabla de líneas donde no había ninguna.
+   *
+   * Hace falta en dos casos: cuando el PDF subido no tenía una que el
+   * detector supiera leer —y entonces las líneas de la factura no tenían
+   * dónde imprimirse—, y cuando se acaba de borrar y se quiere otra.
+   */
+  const anadirTabla = useCallback(() => {
+    if (tabla) return;
+    marcar();
+    onCambiar({ tabla: tablaPorDefecto(pagina.ancho, pagina.alto) });
+    setSeleccion(['tabla']);
+  }, [tabla, pagina, onCambiar, marcar]);
 
   const duplicarSeleccion = useCallback(() => {
     if (camposSeleccionados.length === 0) return;
@@ -770,6 +794,26 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     ? rejillas.find(r => r.id === seleccion[0].slice(8)) ?? null
     : null;
 
+  /**
+   * QUÉ VA A TAPAR EL QR
+   *
+   * El bloque del QR —el código, su rótulo, su leyenda y el espacio en
+   * blanco que exige la AEAT— se estampa el último y sobre fondo blanco,
+   * así que en el PDF final siempre queda legible. El precio lo paga lo
+   * que hubiera debajo: desaparece sin avisar.
+   *
+   * `invadenLaReserva` existía desde el principio y no la llamaba nadie,
+   * así que ese aviso no llegaba nunca. Ahora que el recuadro se puede
+   * mover, decirlo sirve para algo: se ve qué estorba y se arrastra.
+   */
+  const campoQr = campos.find(esCampoQr) ?? null;
+  const tapadosPorElQr: CampoDetectado[] = campoQr
+    ? invadenLaReserva(
+      bloqueDeCampoQr(campoQr, pagina),
+      campos.filter(c => c !== campoQr && !c.fijo),
+    )
+    : [];
+
   /** Tamaño en píxeles de pantalla de un texto medido en puntos tipográficos. */
   const puntosAPx = (puntos: number) => Math.max(4, puntos * 0.3528 * pxPorMm);
 
@@ -781,6 +825,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           modoDibujo={modoDibujo}
           onModoDibujo={setModoDibujo}
           hayTabla={Boolean(tabla)}
+          onAnadirTabla={anadirTabla}
           tablaSeleccionada={tablaSeleccionada}
           onSeleccionarTabla={() => {
             setModoDibujo(null);
@@ -797,6 +842,42 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           onDeshacer={deshacer}
           onRehacer={rehacer}
         />
+
+        {/* Lo que el QR va a tapar, y lo que pasa si no hay tabla: dos
+            cosas que sólo se notaban al descargar el PDF. */}
+        {tapadosPorElQr.length > 0 && (
+          <div className="callout callout-warning plantilla-callout-compacto">
+            <div>
+              <strong>
+                El QR va a tapar {tapadosPorElQr.length}{' '}
+                {tapadosPorElQr.length === 1 ? 'dato' : 'datos'}
+              </strong>
+              <p>
+                {tapadosPorElQr.map(c => (c.clave ? nombreDe(c.clave) : 'un recuadro sin asignar')).join(', ')}.
+                {' '}Arrastra el QR a otro sitio: la norma lo permite si donde debería ir hay obstáculos.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setSeleccion(tapadosPorElQr.map(c => `campo:${c.id}`))}
+            >
+              Ver cuáles
+            </button>
+          </div>
+        )}
+
+        {!tabla && (
+          <div className="callout callout-warning plantilla-callout-compacto">
+            <div>
+              <strong>Este diseño no tiene tabla de líneas</strong>
+              <p>Los productos de cada factura no se imprimirían en ninguna parte.</p>
+            </div>
+            <button type="button" className="btn btn-sm btn-primary" onClick={anadirTabla}>
+              <Table2 size={14} /> Añadir tabla
+            </button>
+          </div>
+        )}
 
         {avisoEditor && (
           <div className="callout callout-info plantilla-callout-compacto animate-fade-in">
@@ -1215,6 +1296,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           <PanelTabla
             tabla={tabla}
             onCambiar={(nueva) => { marcar(); cambiarTabla(nueva); }}
+            onEliminar={borrarSeleccion}
             onHacerSitio={(mm) => {
               const hecho = hacerSitio(mm, tabla, campos, rejillas, pagina.alto);
               if (!hecho) {
@@ -1320,6 +1402,7 @@ interface PropsBarra {
   modoDibujo: ModoDibujo;
   onModoDibujo: (modo: ModoDibujo) => void;
   hayTabla: boolean;
+  onAnadirTabla: () => void;
   tablaSeleccionada: boolean;
   onSeleccionarTabla: () => void;
   vistaPrevia: boolean;
@@ -1381,13 +1464,26 @@ function BarraHerramientas(p: PropsBarra) {
         >
           <CalendarClock size={14} /> Pagos
         </button>
-        {p.hayTabla && (
+        {p.hayTabla ? (
           <button
             type="button"
             className={`btn btn-sm ${p.tablaSeleccionada ? 'btn-primary' : 'btn-secondary'}`}
             onClick={p.onSeleccionarTabla}
+            title="Selecciona la tabla de líneas para ajustar sus columnas"
           >
             <Table2 size={14} /> Tabla
+          </button>
+        ) : (
+          /* Sin tabla, las líneas de la factura no tienen dónde imprimirse.
+             Pasa cuando el PDF subido no traía una que el detector supiera
+             leer, y hasta ahora no había forma de dársela. */
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={p.onAnadirTabla}
+            title="Este diseño no tiene tabla de líneas: sin ella, los productos de la factura no se imprimen"
+          >
+            <Table2 size={14} /> Añadir tabla
           </button>
         )}
       </div>
@@ -1936,10 +2032,11 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
   );
 }
 
-function PanelTabla({ tabla, onCambiar, onHacerSitio }: {
+function PanelTabla({ tabla, onCambiar, onHacerSitio, onEliminar }: {
   tabla: TablaDetectada;
   onCambiar: (t: TablaDetectada) => void;
   onHacerSitio: (milimetros: number) => void;
+  onEliminar: () => void;
 }) {
   const estilo = tabla.estilo;
   const cambiarEstilo = (cambios: Partial<typeof estilo>) => onCambiar({ ...tabla, estilo: { ...estilo, ...cambios } });
@@ -1952,6 +2049,16 @@ function PanelTabla({ tabla, onCambiar, onHacerSitio }: {
           <h4 className="card-title">Tabla de líneas</h4>
           <p className="card-subtitle">Arrástrala en la factura para moverla, o estírala por sus tiradores.</p>
         </div>
+        {/* Se puede quitar como todo lo demás. Sin ella las líneas de la
+            factura no se imprimen, así que el aviso lo dice y «Añadir
+            tabla» vuelve a ponerla; Ctrl+Z también. */}
+        <button
+          className="btn btn-ghost btn-icon btn-sm text-danger"
+          onClick={onEliminar}
+          title="Quitar la tabla (Supr). Sin ella no se imprimen las líneas de la factura"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
 
       <div className="plantilla-estilo">
