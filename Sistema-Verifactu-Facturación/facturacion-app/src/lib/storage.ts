@@ -26,6 +26,7 @@ import {
   CobroPago, CobroPagoDesglose, TipoCobroPago, MovimientoExtracto,
   Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie, Escandallo,
 } from './types';
+import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
@@ -575,6 +576,11 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
   // número si el previsto ya lo usaba otra factura, así que el sellado
   // debe usar el número que de verdad se persistió (no el del objeto
   // original, que quedaría desfasado o chocaría con el de otra factura).
+  // Completa o simplificada se decide AQUÍ: sellada ya no se puede
+  // cambiar, y una F1 sin NIF del cliente la rechazaría la AEAT.
+  const tipoFacturaFiscal = tipoFiscalAlEmitir(invoice);
+  if (tipoFacturaFiscal) invoice = { ...invoice, tipoFacturaFiscal };
+
   const draft = await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
   await saveInvoice({ ...draft, status: InvoiceStatus.EMITIDA });
 
