@@ -689,8 +689,159 @@ function formatoEuros(num: number): string {
  * Traduce el retrato completo a un conjunto de frases ricas y estructuradas
  * para que el modelo de IA tenga a la vista todos los datos del sistema.
  */
+/**
+ * LOS RECUENTOS, HECHOS AQUÍ Y NO POR EL MODELO
+ *
+ * «¿Cuántos borradores tengo?» se contestaba con 3 cuando había más de
+ * diez. El modelo no se equivocaba al sumar: le llegaba una lista de
+ * documentos recortada y le tocaba contarla. Un modelo de lenguaje cuenta
+ * mal una lista larga y no puede contar lo que no ve.
+ *
+ * Así que los números van ya hechos, sobre TODOS los documentos: cuántos
+ * de cada tipo en cada estado, con su importe, y cuántos por año. Van los
+ * primeros del enunciado, antes de cualquier listado, para que lleguen
+ * siempre enteros aunque lo de abajo haya que recortarlo.
+ */
+export function recuentosEnPalabras(documentos: readonly DocumentoDetalleIA[]): string[] {
+  if (documentos.length === 0) return ['- No hay ningún documento creado todavía.'];
+
+  // tipo -> estado -> { cuantos, importe }
+  const porTipo = new Map<string, Map<string, { cuantos: number; importe: number }>>();
+  // año -> tipo -> estado -> cuantos
+  const porAno = new Map<string, Map<string, Map<string, number>>>();
+
+  for (const d of documentos) {
+    const tipo = d.tipo;
+    const estado = d.estado || 'Sin estado';
+    const ano = (d.fechaEmision || '').slice(0, 4) || 'sin fecha';
+
+    const estados = porTipo.get(tipo) ?? new Map();
+    const actual = estados.get(estado) ?? { cuantos: 0, importe: 0 };
+    estados.set(estado, { cuantos: actual.cuantos + 1, importe: actual.importe + (d.total || 0) });
+    porTipo.set(tipo, estados);
+
+    const tiposDelAno = porAno.get(ano) ?? new Map();
+    const estadosDelTipo = tiposDelAno.get(tipo) ?? new Map();
+    estadosDelTipo.set(estado, (estadosDelTipo.get(estado) ?? 0) + 1);
+    tiposDelAno.set(tipo, estadosDelTipo);
+    porAno.set(ano, tiposDelAno);
+  }
+
+  const lineas: string[] = [
+    `=== RECUENTO EXACTO DE DOCUMENTOS (${documentos.length} en total; estos números son los buenos, úsalos tal cual) ===`,
+  ];
+
+  for (const [tipo, estados] of [...porTipo].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const total = [...estados.values()].reduce((s, e) => s + e.cuantos, 0);
+    const detalle = [...estados]
+      .sort((a, b) => b[1].cuantos - a[1].cuantos)
+      .map(([estado, e]) => `${estado}: ${e.cuantos} (${formatoEuros(e.importe)})`)
+      .join('; ');
+    lineas.push(`- ${tipo}: ${total} en total → ${detalle}.`);
+  }
+
+  lineas.push('', '=== POR AÑO DE EMISIÓN ===');
+  for (const [ano, tipos] of [...porAno].sort((a, b) => b[0].localeCompare(a[0]))) {
+    const partes = [...tipos].map(([tipo, estados]) => {
+      const total = [...estados.values()].reduce((s, n) => s + n, 0);
+      const detalle = [...estados].map(([estado, n]) => `${n} ${estado.toLowerCase()}`).join(', ');
+      return `${tipo}: ${total} (${detalle})`;
+    });
+    lineas.push(`- ${ano}: ${partes.join(' | ')}.`);
+  }
+
+  // DESDE CADA AÑO HASTA HOY, YA SUMADO
+  //
+  // «¿Cuántos borradores hay a partir de 2024?» se contestaba con los de
+  // 2024 solos —4 en vez de 20—: el modelo leía «a partir de» como «de».
+  // Pedirle que sume no bastó; dárselo sumado, sí. Es la misma lección que
+  // con los recuentos: lo que se puede calcular aquí no se le deja a él.
+  const anos = [...porAno.keys()].filter(a => /^\d{4}$/.test(a)).sort();
+  if (anos.length > 1) {
+    lineas.push('', '=== ACUMULADO DESDE CADA AÑO HASTA HOY («a partir de», «desde») ===');
+    for (const desde of anos.slice(0, -1)) {
+      const acumulado = new Map<string, Map<string, number>>();
+      for (const [ano, tipos] of porAno) {
+        if (!/^\d{4}$/.test(ano) || ano < desde) continue;
+        for (const [tipo, estados] of tipos) {
+          const suma = acumulado.get(tipo) ?? new Map<string, number>();
+          for (const [estado, n] of estados) suma.set(estado, (suma.get(estado) ?? 0) + n);
+          acumulado.set(tipo, suma);
+        }
+      }
+      const partes = [...acumulado].map(([tipo, estados]) => {
+        const total = [...estados.values()].reduce((s, n) => s + n, 0);
+        const detalle = [...estados].map(([estado, n]) => `${n} ${estado.toLowerCase()}`).join(', ');
+        return `${tipo}: ${total} (${detalle})`;
+      });
+      lineas.push(`- Desde ${desde} hasta hoy: ${partes.join(' | ')}.`);
+    }
+  }
+
+  // LOS QUE ESTÁN A MEDIAS, CON SU NÚMERO
+  //
+  // «¿Cuáles son?» es la pregunta que sigue a «¿cuántos hay?», y se
+  // contestaba inventando: con el listado recortado, el modelo nombró
+  // cuatro facturas FAC-2024-00xx que no existían. Un número de factura
+  // inventado es peor que ninguno —se busca, no aparece, y se deja de
+  // fiar—. Así que los documentos que se preguntan (borradores,
+  // pendientes, vencidos, sin facturar) van aquí con su número, sin
+  // depender de que el listado de abajo llegue entero.
+  const aMedias = /borrador|pendiente|vencid|expedido|pre-aprob|parcial/i;
+  const grupos = new Map<string, string[]>();
+  for (const d of documentos) {
+    if (!aMedias.test(d.estado || '')) continue;
+    const ano = (d.fechaEmision || '').slice(0, 4) || 'sin fecha';
+    const clave = `${d.tipo} · ${d.estado} · ${ano}`;
+    const lista = grupos.get(clave) ?? [];
+    lista.push(d.numero);
+    grupos.set(clave, lista);
+  }
+  if (grupos.size > 0) {
+    lineas.push('', '=== NÚMEROS DE LOS DOCUMENTOS A MEDIAS (todos, por tipo, estado y año) ===');
+    for (const [clave, numeros] of [...grupos].sort((a, b) => b[0].localeCompare(a[0]))) {
+      const mostrados = numeros.slice(0, 60);
+      const resto = numeros.length - mostrados.length;
+      lineas.push(
+        `- ${clave} (${numeros.length}): ${mostrados.join(', ')}${resto > 0 ? ` y ${resto} más` : ''}.`,
+      );
+    }
+  }
+
+  return lineas;
+}
+
+/**
+ * Deja el retrato dentro de un tamaño, recortando por el FINAL.
+ *
+ * Antes la ruta se quedaba con las 20 primeras líneas: bastaba cuando el
+ * retrato era un resumen de diez, y dejó de bastar cuando empezó a listar
+ * cada documento. Ahora el límite es de tamaño, no de líneas, y lo que se
+ * corta es lo último —el detalle—, nunca los recuentos del principio. Si
+ * se corta algo, se dice, para que el modelo no tome un listado parcial
+ * por completo.
+ */
+export function acotarSituacion(lineas: readonly string[], maximoCaracteres: number): string[] {
+  const resultado: string[] = [];
+  let usados = 0;
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = String(lineas[i]).slice(0, 1_000);
+    if (usados + linea.length + 1 > maximoCaracteres) {
+      resultado.push(
+        `(… ${lineas.length - i} líneas más de detalle no caben aquí. Los RECUENTOS de arriba sí incluyen TODOS los documentos: fíate de ellos, no de contar esta lista.)`,
+      );
+      break;
+    }
+    resultado.push(linea);
+    usados += linea.length + 1;
+  }
+  return resultado;
+}
+
 export function retratoEnPalabras(r: RetratoDelPanel): string[] {
   const lineas: string[] = [
+    ...recuentosEnPalabras(r.todosLosDocumentos),
+    '',
     `=== ALMACENES Y LOGÍSTICA (${r.totalAlmacenes} almacenes registrados) ===`,
   ];
 

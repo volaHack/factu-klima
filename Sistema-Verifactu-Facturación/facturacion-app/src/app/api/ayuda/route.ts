@@ -43,10 +43,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
-import { AYUDA_PAGINAS } from '@/lib/ayuda/paginas';
+import { instruccionesAsistencia } from '@/lib/asistencia/enunciado';
+import { acotarSituacion } from '@/lib/asistencia/contexto';
 
 /** Tope de la pregunta. Nadie escribe una novela detrás del mostrador. */
 const MAXIMO_PREGUNTA = 400;
+
+/**
+ * Cuánto retrato del negocio le cabe a la Asistencia, en caracteres.
+ *
+ * Depende de quién lo lea, y está MEDIDO con el contador de tokens del
+ * propio modelo, no calculado a ojo: los importes y las fechas se trocean
+ * mucho, y 16.000 caracteres de retrato resultaron ser 8.425 tokens —casi
+ * el doble de lo que daba la cuenta de «4 caracteres por token»—.
+ *
+ * - El Qwen local tiene una ventana de 8.192 tokens en la que caben
+ *   también las reglas, el mapa de pantallas, la conversación y la
+ *   respuesta. Le quedan unos 4.000 para el retrato: los recuentos
+ *   exactos y los documentos más recientes.
+ * - Un modelo alojado (Qwen 3.8 27B en OpenRouter) admite muchísimo más,
+ *   así que ahí va el listado casi entero. 32.000 caracteres son unos
+ *   17.000 tokens: menos de un céntimo por pregunta.
+ *
+ * En los dos casos los recuentos van primero y enteros; lo que se recorta
+ * es el detalle del final.
+ */
+function maximoSituacion(): number {
+  const base = configuracionIA()?.baseUrl ?? '';
+  const esLocal = /127\.0\.0\.1|localhost/.test(base);
+  return esLocal ? 7_500 : 32_000;
+}
 
 export interface ContextoTpv {
   /** Cuántas líneas hay ahora mismo en el carrito. */
@@ -238,104 +264,6 @@ function instruccionesPagina(pregunta: string, p: ContextoPagina): string {
   ].join('\n');
 }
 
-/**
- * EL MAPA DEL PROGRAMA, SACADO DE SU PROPIA AYUDA
- *
- * Una línea por pantalla: su ruta, su nombre y para qué sirve. Sale de
- * `lib/ayuda/paginas.ts`, que es la ayuda que ya se le enseña al usuario
- * en cada pantalla, así que no hay una segunda lista que mantener ni
- * riesgo de que el asistente mande a un sitio que no existe. Si mañana
- * se añade una pantalla con su ayuda, el asistente la conoce sola.
- */
-const PANTALLAS_DEL_PROGRAMA = AYUDA_PAGINAS.map(
-  // SIN LA RUTA A PROPÓSITO
-  //
-  // Antes cada línea empezaba por «/facturas». Un modelo pequeño copia
-  // lo que ve, y las respuestas salían con «entra en /ajustes» — una
-  // dirección de programador en la cara de quien sólo quiere facturar.
-  // Pedirle que no las use no bastaba; dejar de dárselas, sí. Y no las
-  // necesita: sabe el nombre de la pantalla, que es lo que hay escrito
-  // en el menú y lo único que el usuario puede buscar.
-  p => `- «${p.titulo}»: ${p.paraQue}`,
-);
-
-/**
- * ASISTENCIA: LA DUDA CON LA SITUACIÓN REAL DELANTE
- *
- * Los otros modos contestan con el manual. Éste contesta con el manual Y
- * con el retrato de lo que esa empresa tiene ahora mismo —cuántas
- * facturas vencidas, qué le falta por configurar—, que es lo que
- * convierte una respuesta cierta e inútil («para cobrar una vencida,
- * entra en Facturas y…») en una que sirve («tienes 3 vencidas por
- * 1.240 €, la más vieja lleva 47 días»).
- *
- * El retrato llega ya contado y escrito en frases desde el cliente
- * (`lib/asistencia/contexto.ts`): aquí no llegan listas de clientes ni
- * importes uno a uno.
- */
-function instruccionesAsistencia(
-  pregunta: string,
-  situacion: string[],
-  historial: { deQuien: 'persona' | 'asistente'; texto: string }[],
-): string {
-  return [
-    'Eres un compañero cercano y amable que conoce muy bien este programa',
-    'de facturación. Hablas con alguien que lleva su negocio y te tiene',
-    'confianza. Eres una persona cálida, no un robot.',
-    '',
-    'PERSONALIDAD:',
-    '- Eres educado y cercano. Si te saludan, saluda tú también con',
-    '  naturalidad antes de nada («¡Hola! ¿Qué tal?», «¡Buenas! Dime»,',
-    '  «¡Ey! ¿Qué necesitas?»). No ignores nunca un saludo.',
-    '- Si la conversación es informal o personal (como un «¿qué tal?»',
-    '  o «cómo va eso»), responde como lo haría un amigo: con calidez',
-    '  y un poco de humor si viene bien. No saltes directo a datos.',
-    '- Si te piden algo del programa, ahí sí ve al grano pero con tono',
-    '  humano. Usa expresiones como «mira», «fíjate», «lo que te',
-    '  conviene es…», «ojo con eso», «tranqui, es fácil».',
-    '',
-    'CÓMO CONTESTAS:',
-    '- En castellano, de tú. Máximo 4-5 frases que suenen a conversación',
-    '  real, no a manual ni a informe.',
-    '- ACCESO TOTAL A TODOS LOS DATOS DEL PANEL (ALMACENES, DOCUMENTOS, STOCK, CLIENTES, GASTOS, OBRAS):',
-    '  Tienes acceso completo y en tiempo real a cada entidad del negocio en «DATOS Y SITUACIÓN ACTUAL»:',
-    '  * ALMACENES: Tienes la lista de almacenes registrados en «ALMACENES Y LOGÍSTICA». Si te preguntan',
-    '    cuántos almacenes tiene, cuáles son, cómo se llaman o cuál es el principal, respóndele con sus nombres',
-    '    exactos (ej: «Almacén izq» y «Almacén Central») y detalles. NUNCA digas que no tiene almacenes si aparecen listados.',
-    '  * ALBARANES: Tienes todos los albaranes en «ALBARANES DE ENTREGA» y en el listado con [ALBARÁN].',
-    '    Si te preguntan si tiene algún albarán o por albaranes concretos (ej: ALB-2026-0001, daddad, etc.),',
-    '    menciona el número de albarán, destinatario, fecha, importe (ej: 11,10 €) y si está facturado o pendiente.',
-    '  * FACTURAS, PRESUPUESTOS Y PEDIDOS: Si te preguntan cuánto dinero tiene o por cualquier documento,',
-    '    da las cifras exactas en euros (ej: 1.452,00 €). NUNCA digas 0 € si hay documentos registrados.',
-    '  * PRODUCTOS Y STOCK: Tienes las existencias, precios y referencias de cada artículo.',
-    '  * CLIENTES, GASTOS, OBRAS, VEHÍCULOS Y VENDEDORES: Conoces todas las partes del sistema registradas.',
-    '- Para mandarle a un sitio del programa, dilo de forma natural:',
-    '  «Lo tienes en Facturas» — el nombre tal cual, sin describir qué',
-    '  hay dentro.',
-    '- Si te preguntan por impuestos —cuánto pagar, qué modelo presentar,',
-    '  si algo desgrava— contesta con honestidad: «Eso te lo tiene que',
-    '  decir tu gestoría, ahí no me meto. Pero los números los tienes',
-    '  en Listados fiscales.»',
-    '- Si el programa no hace algo, díselo con naturalidad y sugiere la',
-    '  alternativa. Un «no» seco no ayuda a nadie.',
-    '- Adapta tu tono al de la persona: si está siendo informal, sé',
-    '  informal. Si pregunta algo serio, responde serio pero cercano.',
-    '',
-    'DATOS Y SITUACIÓN ACTUAL DEL NEGOCIO (DASHBOARD):',
-    ...situacion,
-    '',
-    'LAS PANTALLAS QUE EXISTEN:',
-    ...PANTALLAS_DEL_PROGRAMA,
-    ...(historial.length > 0
-      ? ['', 'LO QUE YA OS HABÉIS DICHO:',
-        ...historial.map(m => `${m.deQuien === 'persona' ? 'Ella' : 'Tú'}: ${m.texto}`)]
-      : []),
-    '',
-    'PREGUNTA:',
-    pregunta,
-  ].join('\n');
-}
-
 function numero(valor: unknown): number {
   return typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
 }
@@ -398,10 +326,16 @@ export async function POST(request: NextRequest) {
     if (!pregunta) {
       return NextResponse.json({ error: 'Escribe o dicta tu pregunta.' }, { status: 400 });
     }
-    // Se acota lo que llega del cliente: el texto viaja al modelo y no
-    // tiene sentido pagar por un retrato de diez folios que nadie escribió.
-    const situacion = (Array.isArray(cuerpo.situacion) ? cuerpo.situacion : [])
-      .slice(0, 20).map(x => String(x).slice(0, 300));
+    // Se acota lo que llega del cliente —viaja al modelo y se paga—, pero
+    // por TAMAÑO y recortando por el final. Antes eran las 20 primeras
+    // líneas, y desde que el retrato lista cada documento eso dejaba al
+    // modelo con el resumen y tres documentos: contestaba «3 borradores»
+    // a quien tenía más de diez. Los recuentos exactos van al principio,
+    // así que lo que se pierde al recortar es detalle, nunca los números.
+    const situacion = acotarSituacion(
+      (Array.isArray(cuerpo.situacion) ? cuerpo.situacion : []).map(x => String(x)),
+      maximoSituacion(),
+    );
     // La conversación previa, para que se pueda repreguntar sin repetirlo
     // todo. Las últimas seis y nada más: lo de hace veinte mensajes ya no
     // ayuda y se paga igual.
