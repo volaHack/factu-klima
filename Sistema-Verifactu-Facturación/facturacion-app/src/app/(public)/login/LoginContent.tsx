@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { isSafeRedirectPath } from '@/lib/security';
+import { errorDeAcceso } from '@/lib/erroresDeAcceso';
 
 export default function LoginContent() {
   const router = useRouter();
@@ -23,7 +24,17 @@ export default function LoginContent() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
+  /**
+   * El error que viene en la propia dirección.
+   *
+   * Cuando Google falla, Supabase devuelve el motivo en los parámetros y
+   * nadie los leía: la pantalla salía en blanco, como si no hubiera
+   * pasado nada, y la única pista era un texto en inglés dentro de la
+   * URL. Se resuelve en el primer render y no en un efecto, así que el
+   * aviso está ahí desde que se pinta la pantalla.
+   */
+  const errorDeLaUrl = errorDeAcceso(searchParams as unknown as URLSearchParams);
+  const [error, setError] = useState(errorDeLaUrl?.mensaje ?? '');
   const [successMsg, setSuccessMsg] = useState('');
   const [desktopState, setDesktopState] = useState<string | null>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -288,6 +299,12 @@ export default function LoginContent() {
           {error && (
             <div className="login-alert login-alert--error" role="alert">
               {error}
+              {/* La pista técnica sólo en desarrollo: al cliente no le
+                  sirve de nada y a quien lo está montando le ahorra una
+                  hora de buscar en el sitio equivocado. */}
+              {process.env.NODE_ENV === 'development' && errorDeLaUrl?.pistaParaLocal && (
+                <p className="login-alert-pista">{errorDeLaUrl.pistaParaLocal}</p>
+              )}
             </div>
           )}
 

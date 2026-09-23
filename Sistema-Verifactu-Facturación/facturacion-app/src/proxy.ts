@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isPublicRoute } from '@/lib/publicRoutes';
+import { parametrosDeError } from '@/lib/erroresDeAcceso';
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -52,6 +53,21 @@ export async function proxy(request: NextRequest) {
   // cliente anónimo (autorizado por su token de aprobación). Con el
   // webhook bloqueado, ningún pago llegaba a marcarse como cobrado.
   const isApiRoute = pathname.startsWith('/api');
+
+  // UN ERROR DE ACCESO NECESITA UNA PANTALLA DONDE CONTARSE
+  //
+  // Cuando Google falla, Supabase no devuelve un aviso: devuelve una
+  // dirección con el error dentro, y la manda al Site URL del proyecto,
+  // que es la portada. Allí no hay nada que lea esos parámetros, así que
+  // el usuario se queda mirando la web pública con un churro en la barra
+  // del navegador —«error_code=flow_state_already_used»— y ninguna
+  // explicación. Se lleva a /login, que sí sabe contarlo.
+  const parametrosDelError = parametrosDeError(request.nextUrl.searchParams);
+  if (!isAuthenticated && pathname === '/' && [...parametrosDelError].length > 0) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.search = parametrosDelError.toString();
+    return NextResponse.redirect(loginUrl);
+  }
 
   // Server-side redirect for unauthenticated users accessing protected pages
   if (!isAuthenticated && !isPublicPage && !isApiRoute) {

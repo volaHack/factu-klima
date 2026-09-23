@@ -1,8 +1,28 @@
 # Entrar en localhost y acabar en el dominio público
 
 **Síntoma.** Abres `http://localhost:3000`, inicias sesión con Google y el
-navegador te deja en `https://facturacion-app-mocha.vercel.app/dashboard`.
-La sesión queda en producción y en local sigues fuera.
+navegador te deja en el dominio público, casi siempre con esto en la barra:
+
+```
+/?error=invalid_request&error_code=flow_state_already_used
+ &error_description=State+has+already+been+used
+```
+
+La sesión no se completa en ninguna de las dos partes.
+
+## Por qué sale precisamente ese error
+
+Entrar con Google usa PKCE: al pulsar el botón, el navegador se guarda una
+**clave de un solo uso** y le manda a Supabase sólo su huella. Al volver,
+hay que presentar la clave original para completar el acceso.
+
+Esa clave vive en el navegador **para el origen que empezó el acceso** —
+aquí, `localhost:3000`. Si la vuelta cae en el dominio público, la clave no
+está allí: no es que se haya perdido, es que nunca estuvo. Supabase
+encuentra el flujo ya consumido y contesta `flow_state_already_used`.
+
+Por eso el error habla de un estado «ya usado» aunque sea tu primer
+intento: describe lo que le pasa a Supabase, no lo que has hecho tú.
 
 ## No está en el código
 
@@ -42,6 +62,20 @@ salto.
 
 El `/**` del final importa: permite cualquier ruta debajo, que es lo que
 hace falta porque el callback lleva parámetros (`?next=`, `?code=`).
+
+## Lo que el programa hace ahora con ese error
+
+Antes no lo leía nadie: Supabase manda el error a la portada, donde no
+había nada que lo interpretara, así que la persona se quedaba mirando la
+web pública con una línea en inglés en la barra del navegador.
+
+Ahora el proxy lleva esos parámetros a `/login` —que sí tiene dónde
+contarlo— y la pantalla enseña el motivo en castellano con qué hacer. En
+desarrollo, además, sale debajo la pista de que esto es la lista blanca de
+Supabase, para no perder una hora buscando en el código.
+
+Eso no arregla el acceso: lo arregla la lista blanca de arriba. Lo que
+arregla es que el fallo deje de ser mudo.
 
 ## Mientras tanto
 

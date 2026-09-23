@@ -3741,6 +3741,16 @@ a.pricing-nav-cta {
   border: 1px solid rgba(184, 38, 31, 0.25);
 }
 
+/* La pista tecnica que solo sale en desarrollo: mas pequena y mas
+   apagada que el aviso, porque es para quien monta la aplicacion y no
+   para quien intenta entrar. */
+.login-alert-pista {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
 .login-alert--success {
   background: var(--color-success-bg);
   color: var(--color-success);
