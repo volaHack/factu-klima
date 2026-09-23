@@ -42,6 +42,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
+import { createClient } from '@/lib/supabase/server';
 import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
 import { instruccionesAsistencia } from '@/lib/asistencia/enunciado';
 import { acotarSituacion } from '@/lib/asistencia/contexto';
@@ -62,8 +63,9 @@ const MAXIMO_PREGUNTA = 400;
  *   respuesta. Le quedan unos 4.000 para el retrato: los recuentos
  *   exactos y los documentos más recientes.
  * - Un modelo alojado (Qwen 3.8 27B en OpenRouter) admite muchísimo más,
- *   así que ahí va el listado casi entero. 32.000 caracteres son unos
- *   17.000 tokens: menos de un céntimo por pregunta.
+ *   así que ahí va el listado casi entero. 60.000 caracteres son unos
+ *   32.000 tokens: en torno a un céntimo por pregunta, y un negocio con
+ *   varios cientos de documentos entra entero.
  *
  * En los dos casos los recuentos van primero y enteros; lo que se recorta
  * es el detalle del final.
@@ -71,7 +73,7 @@ const MAXIMO_PREGUNTA = 400;
 function maximoSituacion(): number {
   const base = configuracionIA()?.baseUrl ?? '';
   const esLocal = /127\.0\.0\.1|localhost/.test(base);
-  return esLocal ? 7_500 : 32_000;
+  return esLocal ? 7_500 : 60_000;
 }
 
 export interface ContextoTpv {
@@ -279,7 +281,21 @@ export async function POST(request: NextRequest) {
   // Un modelo de pago cuesta dinero y uno local cuesta tiempo de máquina.
   // Un cajero pregunta unas cuantas veces por turno; sesenta por hora es de
   // sobra y corta cualquier bucle.
-  const permitido = await checkRateLimit(`ayuda:${clientIpFromRequest(request)}`, 60, 3600);
+  // SÓLO PARA QUIEN HA ENTRADO
+  //
+  // Todas las pantallas que preguntan aquí están detrás del login, pero la
+  // ruta no lo comprobaba: cualquiera con la dirección podía gastar el
+  // modelo —que se paga— sin cuenta. Y el tope iba por IP, así que dos
+  // clientes detrás del mismo router de una oficina se lo repartían. Ahora
+  // va por cuenta.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Tu sesión ha caducado. Vuelve a entrar.' }, { status: 401 });
+  }
+
+  const permitido = await checkRateLimit(`ayuda:${user.id}`, 60, 3600)
+    && await checkRateLimit(`ayuda-ip:${clientIpFromRequest(request)}`, 300, 3600);
   if (!permitido) {
     return NextResponse.json(
       { error: 'Has preguntado muchas veces seguidas. Espera un minuto.' },

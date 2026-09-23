@@ -191,8 +191,113 @@ function openDB(): Promise<IDBDatabase> {
 // GENERIC CRUD HELPERS
 // ============================================================
 
+// ============================================================
+// DE QUIÉN ES ESTA CACHÉ
+// ============================================================
+//
+// La caché vive en el navegador, no en la cuenta. Si en el mismo
+// ordenador entra otra cuenta, lo que hay aquí es de la anterior: sus
+// facturas, sus clientes, sus gastos. Y como toda lectura mira aquí
+// primero, la nueva cuenta los veía —y la Asistencia IA se los contaba—
+// hasta que el refresco en segundo plano los sustituía, si es que lo
+// hacía.
+//
+// Vaciarla al cerrar sesión no basta: la sesión también se acaba por
+// caducidad, por la ruta /auth/signout o porque el vaciado tarda más que
+// su tope de tres segundos, y en ninguno de esos casos se vaciaba. Así
+// que la comprobación va aquí, en el único sitio por el que pasa TODA
+// lectura y escritura: la caché apunta de quién es, y si quien pregunta
+// es otro, se vacía entera antes de devolver nada.
+
+const CLAVE_DUENIO = 'duenio-de-la-cache';
+let duenioComprobado: string | null = null;
+let comprobando: Promise<void> | null = null;
+
+/** El usuario de la sesión que hay en este navegador, sin ir a la red. */
+async function usuarioDeLaSesion(): Promise<string | null> {
+  try {
+    const { createClient } = await import('./supabase/client');
+    const { data } = await createClient().auth.getSession();
+    return data.session?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function vaciarTodo(db: IDBDatabase): Promise<void> {
+  // TODAS las tablas que haya en la base, no una lista escrita a mano: la
+  // lista se quedó en 16 mientras la base crecía, y lo que no estaba en
+  // ella —vendedores, almacenes, gastos, obras, lotes…— sobrevivía a la
+  // limpieza y pasaba a la siguiente cuenta.
+  const nombres = Array.from(db.objectStoreNames);
+  if (nombres.length === 0) return Promise.resolve();
+  const tx = db.transaction(nombres, 'readwrite');
+  for (const nombre of nombres) tx.objectStore(nombre).clear();
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function leerDuenio(db: IDBDatabase): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const req = db.transaction('meta', 'readonly').objectStore('meta').get(CLAVE_DUENIO);
+      req.onsuccess = () => resolve((req.result as { value?: string } | undefined)?.value ?? null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function apuntarDuenio(db: IDBDatabase, usuario: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('meta', 'readwrite');
+    tx.objectStore('meta').put({ key: CLAVE_DUENIO, value: usuario });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Deja la caché en manos de la cuenta que hay ahora.
+ *
+ * Sin sesión no se toca nada: no hay a quién comparar, y las pantallas
+ * que leen de aquí están detrás del login.
+ *
+ * Una caché sin dueño apuntado —la de antes de esto— se queda para quien
+ * entra, SIN vaciarla. Vaciarla sería más estricto, pero en la cola de
+ * sincronización puede haber cambios hechos sin conexión que aún no han
+ * subido, y borrarlos al desplegar esto sería perder trabajo. Cerrar
+ * sesión ya vaciaba la caché, así que la que queda sin dueño es, casi
+ * siempre, de quien sigue dentro.
+ */
+async function comprobarDuenio(db: IDBDatabase): Promise<void> {
+  const usuario = await usuarioDeLaSesion();
+  if (!usuario || usuario === duenioComprobado) return;
+
+  if (!comprobando) {
+    comprobando = (async () => {
+      const apuntado = await leerDuenio(db);
+      if (apuntado !== usuario) {
+        if (apuntado !== null) await vaciarTodo(db);
+        await apuntarDuenio(db, usuario);
+      }
+      duenioComprobado = usuario;
+    })().finally(() => { comprobando = null; });
+  }
+  await comprobando;
+}
+
+/** Para las pruebas: olvida qué cuenta se comprobó. */
+export function _olvidarDuenioComprobado(): void {
+  duenioComprobado = null;
+}
+
 async function getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
   const db = await openDB();
+  await comprobarDuenio(db);
   const tx = db.transaction(storeName, mode);
   return tx.objectStore(storeName);
 }
@@ -226,6 +331,7 @@ export async function put<T>(storeName: string, data: T): Promise<void> {
 
 export async function putMany<T>(storeName: string, items: T[]): Promise<void> {
   const db = await openDB();
+  await comprobarDuenio(db);
   const tx = db.transaction(storeName, 'readwrite');
   const store = tx.objectStore(storeName);
   for (const item of items) {
@@ -242,7 +348,6 @@ export async function remove(storeName: string, id: string): Promise<void> {
   await promisifyRequest(store.delete(id));
 }
 
-const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userProfiles', 'syncQueue', 'meta', 'pos_sessions', 'open_checks', 'albaranes', 'albaran_line_items', 'devoluciones', 'devolucion_line_items', 'abonos', 'abono_aplicaciones', 'document_templates'];
 
 /**
  * Limpia toda la caché local de IndexedDB. Se llama al cerrar sesión para
@@ -250,7 +355,11 @@ const ALL_STORE_NAMES = ['invoices', 'clients', 'products', 'settings', 'userPro
  * datos de la sesión anterior mientras está offline.
  */
 export async function clearOfflineCache(): Promise<void> {
-  await Promise.all(ALL_STORE_NAMES.map(name => clearStore(name)));
+  // Todas las tablas que existan, no ALL_STORE_NAMES: esa lista se quedó
+  // corta y lo que no estaba en ella sobrevivía al cierre de sesión.
+  const db = await openDB();
+  await vaciarTodo(db);
+  duenioComprobado = null;
 }
 
 export async function clearStore(storeName: string): Promise<void> {

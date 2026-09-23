@@ -838,131 +838,199 @@ export function acotarSituacion(lineas: readonly string[], maximoCaracteres: num
   return resultado;
 }
 
+/** Hoy, escrito como lo diría una persona: el modelo no sabe qué día es. */
+function hoyEnPalabras(ahora = new Date()): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  }).format(ahora);
+}
+
+/**
+ * QUIÉN LE DEBE DINERO, POR CLIENTE
+ *
+ * «¿Quién me debe más?» es de las primeras cosas que pregunta alguien
+ * con varios clientes, y el retrato sólo tenía el total pendiente. Se
+ * suma aquí, de las facturas que siguen sin cobrar, para que el modelo
+ * no tenga que recorrer el listado y sumar —que es justo lo que hace mal.
+ */
+export function deudaPorCliente(
+  documentos: readonly DocumentoDetalleIA[],
+): { cliente: string; importe: number; facturas: number; vencidas: number }[] {
+  const porCliente = new Map<string, { importe: number; facturas: number; vencidas: number }>();
+  for (const d of documentos) {
+    if (d.sentido === 'compra') continue;
+    if (!/^Factura/.test(d.tipo)) continue;
+    const vencida = /vencid/i.test(d.estado);
+    if (!vencida && !/pendiente|parcial|emitida/i.test(d.estado)) continue;
+    const nombre = d.destinatario || 'Sin cliente';
+    const actual = porCliente.get(nombre) ?? { importe: 0, facturas: 0, vencidas: 0 };
+    porCliente.set(nombre, {
+      importe: actual.importe + (d.total || 0),
+      facturas: actual.facturas + 1,
+      vencidas: actual.vencidas + (vencida ? 1 : 0),
+    });
+  }
+  return [...porCliente.entries()]
+    .map(([cliente, v]) => ({ cliente, importe: redondearEuros(v.importe), facturas: v.facturas, vencidas: v.vencidas }))
+    .filter(c => c.importe > 0)
+    .sort((a, b) => b.importe - a.importe);
+}
+
+/**
+ * EL RETRATO EN FRASES, DE LO MÁS IMPORTANTE A LO MENOS
+ *
+ * El orden no es estético. Si el retrato no cabe —el modelo local lee
+ * unos 7.500 caracteres—, se recorta por el FINAL. Antes el listado de
+ * todos los documentos iba en medio, así que en un negocio con muchas
+ * facturas se comía el sitio y lo que se perdía era la configuración de
+ * la empresa, los clientes y el stock: el asistente decía que no había
+ * NIF porque la línea del NIF no había llegado. Ahora van primero los
+ * números hechos y lo que describe al negocio, y el listado documento a
+ * documento, que es lo más largo y lo que menos falta hace entero, al
+ * final.
+ */
 export function retratoEnPalabras(r: RetratoDelPanel): string[] {
   const lineas: string[] = [
-    ...recuentosEnPalabras(r.todosLosDocumentos),
+    `HOY ES ${hoyEnPalabras()}.`,
     '',
-    `=== ALMACENES Y LOGÍSTICA (${r.totalAlmacenes} almacenes registrados) ===`,
+    `=== LA EMPRESA ===`,
+    `- Nombre: ${r.nombreEmpresa || 'sin nombre puesto'}${r.nifEmpresa ? ` (NIF: ${r.nifEmpresa})` : ' (sin NIF puesto)'}.`,
+    `- Impuesto que aplica: ${r.impuesto}. Plan contratado: ${r.plan}. Veri*Factu: ${r.verifactuActivo ? 'ACTIVO' : 'desactivado'}.`,
   ];
-
-  if (r.almacenes.length > 0) {
-    r.almacenes.forEach(a => {
-      const etiquetaPrincipal = a.principal ? ' [ALMACÉN PRINCIPAL]' : '';
-      const dirStr = a.direccion ? ` | Ubicación: ${a.direccion}` : '';
-      const estadoStr = a.activo ? 'Activo' : 'Inactivo';
-      lineas.push(
-        `*${etiquetaPrincipal} "${a.nombre}" (Código: ${a.codigo}${dirStr} | Estado: ${estadoStr})`
-      );
-    });
-  } else {
-    lineas.push('- No hay almacenes registrados en el sistema actualmente.');
-  }
-
-  lineas.push(
-    `\n=== RESUMEN FINANCIERO Y DOCUMENTOS ===`,
-    `- FACTURACIÓN REAL ACUMULADA: ${formatoEuros(r.totalFacturado)} (${r.facturasTotales} facturas emitidas).`,
-    `- Total cobrado / aprobado: ${formatoEuros(r.totalCobradoOAprobado)} (${r.facturasCobradasOAprobadas} facturas).`,
-    `- Total pendiente de cobro: ${formatoEuros(r.totalPendiente)} (${r.facturasPendientes} facturas).`,
-    `- Total vencido impagado: ${formatoEuros(r.totalVencido)} (${r.facturasVencidas} facturas).`,
-    `- ALBARANES DE ENTREGA: ${r.albaranesTotales} albaranes en total por valor de ${formatoEuros(r.albaranesImporte)}. De ellos, ${r.albaranesPendientesFacturar} están pendientes de facturar (${formatoEuros(r.albaranesPendientesImporte)}) y ${r.albaranesFacturados} ya están facturados.`,
-    `- Presupuestos emitidos: ${r.presupuestosTotales} por valor de ${formatoEuros(r.presupuestosImporte)}.`,
-    `- Pedidos registrados: ${r.pedidosTotales} por valor de ${formatoEuros(r.pedidosImporte)}.`,
-    `- Rectificativas: ${r.rectificativasTotales} (${formatoEuros(r.rectificativasImporte)}). Devoluciones: ${r.devolucionesTotales}. Abonos: ${r.abonosTotales}.`,
-    `- Gastos del negocio acumulados: ${formatoEuros(r.totalGastos)} (${r.gastos.length} gastos).`,
-    `- Facturación este año (${new Date().getFullYear()}): ${formatoEuros(r.importeDelAno)} (${r.facturasDelAno} facturas).`,
-    `- Facturación este mes: ${formatoEuros(r.importeDelMes)} (${r.facturasDelMes} facturas).`,
-  );
-
-  if (r.vencidasMasViejas.length > 0) {
-    lineas.push(
-      '- Facturas vencidas a reclamar: ' +
-      r.vencidasMasViejas.map(v => `${v.numero} de ${v.cliente} (${formatoEuros(v.importe)}, vencida hace ${v.dias} días)`).join('; ') + '.'
-    );
-  }
-
-  // Listado completo de TODOS los documentos creados (facturas, albaranes, presupuestos, pedidos)
-  if (r.todosLosDocumentos.length > 0) {
-    lineas.push(`\n=== REGISTRO DETALLADO DE TODOS LOS DOCUMENTOS CREADOS (${r.todosLosDocumentos.length}) ===`);
-    r.todosLosDocumentos.forEach(d => {
-      const sentidoStr = d.sentido === 'compra' ? ' [COMPRA]' : '';
-      const nifStr = d.destinatarioNif ? ` (${d.destinatarioNif})` : '';
-      const conceptosStr = d.lineasResumen ? ` | Conceptos: ${d.lineasResumen}` : '';
-      lineas.push(
-        `* [${d.tipo.toUpperCase()}${sentidoStr}] ${d.numero} | Destinatario: ${d.destinatario}${nifStr} | Fecha: ${d.fechaEmision}${d.fechaVencimiento ? ` (Vto: ${d.fechaVencimiento})` : ''} | Estado: ${d.estado} | Total: ${formatoEuros(d.total)} (Base: ${formatoEuros(d.subtotal)} + Impuestos: ${formatoEuros(d.impuestos)})${conceptosStr}`
-      );
-    });
-  } else {
-    lineas.push('- No hay documentos registrados en el sistema todavía.');
-  }
-
-  // Clientes y proveedores
-  if (r.clientes.length > 0) {
-    lineas.push(`\n=== CLIENTES Y PROVEEDORES (${r.clientes.length}) ===`);
-    r.clientes.slice(0, 15).forEach(c => {
-      const rol = c.esProveedor ? ' [PROVEEDOR]' : ' [CLIENTE]';
-      const extraDocs: string[] = [];
-      if (c.totalAlbaranes > 0) extraDocs.push(`${c.totalAlbaranes} albaranes`);
-      if (c.totalPresupuestos > 0) extraDocs.push(`${c.totalPresupuestos} presupuestos`);
-      if (c.totalPedidos > 0) extraDocs.push(`${c.totalPedidos} pedidos`);
-      const extraStr = extraDocs.length > 0 ? ` + ${extraDocs.join(', ')}` : '';
-
-      lineas.push(
-        `*${rol} ${c.nombre}${c.nif ? ` [${c.nif}]` : ''}: ${formatoEuros(c.totalFacturado)} facturados (${c.totalFacturas} facturas${extraStr})${c.activo ? '' : ' [inactivo]'}`
-      );
-    });
-  }
-
-  // Catálogo de productos y stock
-  if (r.productos && r.productos.length > 0) {
-    lineas.push(`\n=== PRODUCTOS Y STOCK EN CATÁLOGO (${r.productos.length}) ===`);
-    r.productos.slice(0, 15).forEach(p => {
-      const stockStr = p.stock !== undefined ? ` | Stock: ${p.stock} ud` : '';
-      const refStr = p.referencia ? ` (Ref: ${p.referencia})` : '';
-      lineas.push(`* ${p.nombre}${refStr}: ${formatoEuros(p.precio)}${stockStr}`);
-    });
-  }
-
-  // Obras y Proyectos
-  if (r.obras.length > 0) {
-    lineas.push(`\n=== OBRAS Y PROYECTOS (${r.obras.length}) ===`);
-    r.obras.forEach(o => {
-      const cliStr = o.cliente ? ` | Cliente: ${o.cliente}` : '';
-      const pptoStr = o.presupuesto ? ` | Presupuesto: ${formatoEuros(o.presupuesto)}` : '';
-      lineas.push(`* [${o.numero}] "${o.nombre}" (Estado: ${o.estado}${cliStr}${pptoStr})`);
-    });
-  }
-
-  // Vendedores y comerciales
-  if (r.vendedores.length > 0) {
-    lineas.push(`\n=== EQUIPO COMERCIAL Y VENDEDORES (${r.vendedores.length}) ===`);
-    r.vendedores.forEach(v => {
-      const comStr = v.comisionPct !== undefined ? ` | Comisión: ${v.comisionPct}%` : '';
-      lineas.push(`* ${v.nombre}${comStr} (${v.activo ? 'Activo' : 'Inactivo'})`);
-    });
-  }
-
-  // Flota de Vehículos
-  if (r.vehiculos.length > 0) {
-    lineas.push(`\n=== VEHÍCULOS DE EMPRESA (${r.vehiculos.length}) ===`);
-    r.vehiculos.forEach(v => {
-      lineas.push(`* Matrícula ${v.matricula}${v.nombre ? ` (${v.nombre})` : ''} - ${v.activo ? 'En servicio' : 'Baja'}`);
-    });
-  }
-
-  // Configuración de la empresa
-  lineas.push(`\n=== DATOS DE LA EMPRESA Y CONFIGURACIÓN ===`);
-  lineas.push(`- Empresa: ${r.nombreEmpresa}${r.nifEmpresa ? ` (NIF: ${r.nifEmpresa})` : ''}.`);
-  lineas.push(`- Impuesto: ${r.impuesto}. Plan contratado: ${r.plan}. Veri*Factu: ${r.verifactuActivo ? 'ACTIVO' : 'Desactivado'}.`);
 
   const pendienteConfig: string[] = [];
   if (!r.tieneNif) pendienteConfig.push('el NIF de la empresa');
   if (!r.tieneDireccion) pendienteConfig.push('la dirección fiscal');
   if (!r.tieneLogotipo) pendienteConfig.push('el logotipo');
-  if (!r.tienePlantillaPropia) pendienteConfig.push('un diseño de documento personalizado');
+  if (!r.tienePlantillaPropia) pendienteConfig.push('un diseño de documento propio');
   if (!r.verifactuActivo) pendienteConfig.push('activar la emisión Veri*Factu');
+  lineas.push(pendienteConfig.length > 0
+    ? `- PENDIENTE DE CONFIGURAR: ${pendienteConfig.join(', ')}.`
+    : '- La configuración básica está completa.');
 
-  if (pendienteConfig.length > 0) {
-    lineas.push(`- PENDIENTE DE CONFIGURAR: ${pendienteConfig.join(', ')}.`);
+  lineas.push('', ...recuentosEnPalabras(r.todosLosDocumentos));
+
+  lineas.push(
+    '',
+    `=== RESUMEN DE DINERO ===`,
+    `- Facturado en total: ${formatoEuros(r.totalFacturado)} (${r.facturasTotales} facturas).`,
+    `- Cobrado / aprobado: ${formatoEuros(r.totalCobradoOAprobado)} (${r.facturasCobradasOAprobadas} facturas).`,
+    `- Pendiente de cobro: ${formatoEuros(r.totalPendiente)} (${r.facturasPendientes} facturas).`,
+    `- Vencido sin cobrar: ${formatoEuros(r.totalVencido)} (${r.facturasVencidas} facturas).`,
+    `- Este año (${new Date().getFullYear()}): ${formatoEuros(r.importeDelAno)} en ${r.facturasDelAno} facturas. Este mes: ${formatoEuros(r.importeDelMes)} en ${r.facturasDelMes} facturas.`,
+    `- Albaranes: ${r.albaranesTotales} por ${formatoEuros(r.albaranesImporte)}; ${r.albaranesPendientesFacturar} sin facturar (${formatoEuros(r.albaranesPendientesImporte)}) y ${r.albaranesFacturados} ya facturados.`,
+    `- Presupuestos: ${r.presupuestosTotales} por ${formatoEuros(r.presupuestosImporte)}. Pedidos: ${r.pedidosTotales} por ${formatoEuros(r.pedidosImporte)}.`,
+    `- Rectificativas: ${r.rectificativasTotales} (${formatoEuros(r.rectificativasImporte)}). Devoluciones: ${r.devolucionesTotales}. Abonos: ${r.abonosTotales}.`,
+    `- Gastos apuntados: ${formatoEuros(r.totalGastos)} en ${r.gastos.length} gastos.`,
+  );
+
+  if (r.vencidasMasViejas.length > 0) {
+    lineas.push(
+      '- Vencidas a reclamar, de la más antigua a la más reciente: ' +
+      r.vencidasMasViejas.map(v => `${v.numero} de ${v.cliente} (${formatoEuros(v.importe)}, vencida hace ${v.dias} días)`).join('; ') + '.',
+    );
+  }
+
+  const deudas = deudaPorCliente(r.todosLosDocumentos);
+  if (deudas.length > 0) {
+    lineas.push('', `=== QUIÉN DEBE DINERO (${deudas.length} clientes, de más a menos) ===`);
+    deudas.slice(0, 25).forEach(d => {
+      lineas.push(`- ${d.cliente}: ${formatoEuros(d.importe)} en ${d.facturas} factura${d.facturas === 1 ? '' : 's'} sin cobrar${d.vencidas > 0 ? `, ${d.vencidas} vencida${d.vencidas === 1 ? '' : 's'}` : ''}.`);
+    });
+  }
+
+  if (r.clientes.length > 0) {
+    const ordenados = [...r.clientes].sort((a, b) => b.totalFacturado - a.totalFacturado);
+    const tope = 40;
+    lineas.push('', `=== CLIENTES Y PROVEEDORES (${r.clientes.length}${r.clientes.length > tope ? `, aquí los ${tope} que más facturan` : ''}) ===`);
+    ordenados.slice(0, tope).forEach(c => {
+      const rol = c.esProveedor ? 'PROVEEDOR' : 'CLIENTE';
+      const extra: string[] = [];
+      if (c.totalAlbaranes > 0) extra.push(`${c.totalAlbaranes} albaranes`);
+      if (c.totalPresupuestos > 0) extra.push(`${c.totalPresupuestos} presupuestos`);
+      if (c.totalPedidos > 0) extra.push(`${c.totalPedidos} pedidos`);
+      lineas.push(
+        `- [${rol}] ${c.nombre}${c.nif ? ` (${c.nif})` : ''}: ${formatoEuros(c.totalFacturado)} en ${c.totalFacturas} facturas${extra.length ? ` + ${extra.join(', ')}` : ''}${c.activo ? '' : ' [inactivo]'}.`,
+      );
+    });
+  } else {
+    lineas.push('', '- No hay ningún cliente dado de alta.');
+  }
+
+  if (r.productos.length > 0) {
+    const tope = 40;
+    const sinStock = r.productos.filter(p => p.stock !== undefined && p.stock <= 0);
+    lineas.push('', `=== PRODUCTOS Y STOCK (${r.productos.length}${r.productos.length > tope ? `, aquí ${tope}` : ''}) ===`);
+    if (sinStock.length > 0) {
+      lineas.push(`- SIN STOCK (${sinStock.length}): ${sinStock.slice(0, 20).map(p => p.nombre).join(', ')}.`);
+    }
+    r.productos.slice(0, tope).forEach(p => {
+      const ref = p.referencia ? ` (ref. ${p.referencia})` : '';
+      const stock = p.stock !== undefined ? ` · stock ${p.stock} ud` : '';
+      const cat = p.categoria ? ` · ${p.categoria}` : '';
+      lineas.push(`- ${p.nombre}${ref}: ${formatoEuros(p.precio)}${stock}${cat}`);
+    });
+  }
+
+  if (r.gastos.length > 0) {
+    const porCategoria = new Map<string, number>();
+    for (const g of r.gastos) {
+      const c = g.categoria || 'Sin categoría';
+      porCategoria.set(c, (porCategoria.get(c) ?? 0) + (g.total || 0));
+    }
+    lineas.push('', `=== GASTOS (${r.gastos.length}, total ${formatoEuros(r.totalGastos)}) ===`);
+    lineas.push('- Por categoría: ' + [...porCategoria.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([c, t]) => `${c} ${formatoEuros(t)}`).join('; ') + '.');
+    [...r.gastos].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).slice(0, 12).forEach(g => {
+      lineas.push(`- ${g.fecha}: ${g.concepto}${g.proveedor ? ` (${g.proveedor})` : ''} · ${formatoEuros(g.total)}`);
+    });
+  }
+
+  if (r.lotes.length > 0) {
+    lineas.push('', `=== LOTES (${r.lotes.length}, primero los que caducan antes) ===`);
+    [...r.lotes]
+      .sort((a, b) => (a.fechaCaducidad || '9999').localeCompare(b.fechaCaducidad || '9999'))
+      .slice(0, 20)
+      .forEach(l => lineas.push(`- Lote ${l.numeroLote} de ${l.productoNombre}: ${l.stockActual} ud${l.fechaCaducidad ? ` · caduca ${l.fechaCaducidad}` : ''}`));
+  }
+
+  if (r.obras.length > 0) {
+    lineas.push('', `=== OBRAS Y PROYECTOS (${r.obras.length}) ===`);
+    r.obras.forEach(o => {
+      lineas.push(`- [${o.numero}] «${o.nombre}» · ${o.estado}${o.cliente ? ` · cliente ${o.cliente}` : ''}${o.presupuesto ? ` · presupuesto ${formatoEuros(o.presupuesto)}` : ''}`);
+    });
+  }
+
+  if (r.vendedores.length > 0) {
+    lineas.push('', `=== VENDEDORES (${r.vendedores.length}) ===`);
+    r.vendedores.forEach(v => lineas.push(`- ${v.nombre}${v.comisionPct !== undefined ? ` · comisión ${v.comisionPct}%` : ''} (${v.activo ? 'activo' : 'inactivo'})`));
+  }
+
+  if (r.vehiculos.length > 0) {
+    lineas.push('', `=== VEHÍCULOS (${r.vehiculos.length}) ===`);
+    r.vehiculos.forEach(v => lineas.push(`- ${v.matricula}${v.nombre ? ` (${v.nombre})` : ''} · ${v.activo ? 'en servicio' : 'de baja'}`));
+  }
+
+  lineas.push('', `=== ALMACENES (${r.totalAlmacenes}) ===`);
+  if (r.almacenes.length > 0) {
+    r.almacenes.forEach(a => {
+      lineas.push(`- «${a.nombre}» (código ${a.codigo}${a.direccion ? ` · ${a.direccion}` : ''} · ${a.activo ? 'activo' : 'inactivo'})${a.principal ? ' [PRINCIPAL]' : ''}`);
+    });
+  } else {
+    lineas.push('- No hay almacenes dados de alta.');
+  }
+
+  if (r.todosLosDocumentos.length > 0) {
+    lineas.push('', `=== REGISTRO DETALLADO DE TODOS LOS DOCUMENTOS (${r.todosLosDocumentos.length}, del más reciente al más antiguo) ===`);
+    r.todosLosDocumentos.forEach(d => {
+      const sentido = d.sentido === 'compra' ? ' [COMPRA]' : '';
+      const nif = d.destinatarioNif ? ` (${d.destinatarioNif})` : '';
+      const conceptos = d.lineasResumen ? ` | Conceptos: ${d.lineasResumen}` : '';
+      lineas.push(
+        `* [${d.tipo.toUpperCase()}${sentido}] ${d.numero} | ${d.destinatario}${nif} | ${d.fechaEmision}${d.fechaVencimiento ? ` (vto. ${d.fechaVencimiento})` : ''} | ${d.estado} | ${formatoEuros(d.total)} (base ${formatoEuros(d.subtotal)} + impuestos ${formatoEuros(d.impuestos)})${conceptos}`,
+      );
+    });
   }
 
   return lineas;
