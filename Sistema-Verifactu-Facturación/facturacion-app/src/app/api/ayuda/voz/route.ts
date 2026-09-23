@@ -55,9 +55,13 @@ export async function POST(request: NextRequest) {
     // El aviso habla de la NOTA, no de «la IA»: quien la manda no sabe que
     // detrás hay un modelo, y «el servicio de IA ha agotado su cupo» no le
     // dice qué hacer.
-    const error = fallo.motivo === 'sin-cuota'
-      ? 'Ahora mismo no puedo pasar notas de voz a texto (se ha agotado el cupo del servicio). Escribe la pregunta, o prueba en un rato.'
-      : 'No he podido pasar la nota a texto. Escribe la pregunta, o prueba otra vez.';
+    // El código del proveedor va al final, entre paréntesis: sin acceso a
+    // los registros de Vercel, es lo único que dice por qué ha fallado
+    // (402 sin saldo, 401 clave mala, 400 audio no aceptado…).
+    const codigo = fallo.detalle?.match(/^\d{3}/)?.[0] ?? fallo.motivo;
+    const error = (fallo.motivo === 'sin-cuota'
+      ? 'Ahora mismo no puedo pasar notas de voz a texto: el servicio se ha quedado sin saldo o sin cupo. Escribe la pregunta, o prueba en un rato.'
+      : 'No he podido pasar la nota a texto. Escribe la pregunta, o prueba otra vez.') + ` (código ${codigo})`;
     return NextResponse.json({ error }, { status: estado });
   }
 }

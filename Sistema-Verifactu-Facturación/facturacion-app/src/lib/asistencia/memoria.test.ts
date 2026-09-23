@@ -88,11 +88,13 @@ describe('la nota de voz', () => {
   });
 
   it('va al modelo como input_audio en WAV', () => {
-    const cuerpo = cuerpoTranscripcion({ baseUrl: 'x', modelo: 'm', esOpenRouter: true }, 'QUJD');
+    const cuerpo = cuerpoTranscripcion({ baseUrl: 'x', modelo: 'google/gemini-3.5-flash-lite', esOpenRouter: true }, 'QUJD');
     const partes = cuerpo.messages[0].content;
     expect(partes[1]).toEqual({ type: 'input_audio', input_audio: { data: 'QUJD', format: 'wav' } });
     expect(cuerpo).toHaveProperty('reasoning');
     expect(cuerpoTranscripcion({ baseUrl: 'x', modelo: 'm', esOpenRouter: false }, 'QUJD')).not.toHaveProperty('reasoning');
+    // GPT Audio no razona: el campo no se le manda.
+    expect(cuerpoTranscripcion({ baseUrl: 'x', modelo: 'openai/gpt-audio-mini', esOpenRouter: true }, 'QUJD')).not.toHaveProperty('reasoning');
   });
 
   it('el silencio no se manda como pregunta', () => {
@@ -117,5 +119,34 @@ describe('quién debe dinero', () => {
       { cliente: 'López', importe: 400, facturas: 1, vencidas: 0 },
       { cliente: 'Pérez', importe: 150, facturas: 2, vencidas: 1 },
     ]);
+  });
+});
+
+describe('transcribir con reserva', () => {
+  it('si el primer modelo falla, prueba el siguiente; sin saldo, para', async () => {
+    const { transcribir } = await import('../ia/voz');
+    const antes = { ...process.env };
+    process.env.IA_BASE_URL = 'https://openrouter.ai/api/v1';
+    process.env.IA_API_KEY = 'k';
+    delete process.env.IA_VOZ_MODELO;
+    const pedidos: string[] = [];
+    const fetchOriginal = globalThis.fetch;
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      const modelo = JSON.parse(String(init.body)).model as string;
+      pedidos.push(modelo);
+      if (modelo.startsWith('google/')) return new Response('{"error":{"message":"bad audio"}}', { status: 400 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: '¿Cuántas facturas tengo?' } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      await expect(transcribir('QUJD')).resolves.toBe('¿Cuántas facturas tengo?');
+      expect(pedidos).toEqual(['google/gemini-3.5-flash-lite', 'openai/gpt-audio-mini']);
+
+      pedidos.length = 0;
+      globalThis.fetch = (async () => new Response('{"error":{"message":"Insufficient credits"}}', { status: 402 })) as typeof fetch;
+      await expect(transcribir('QUJD')).rejects.toMatchObject({ motivo: 'sin-cuota' });
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      process.env = antes;
+    }
   });
 });

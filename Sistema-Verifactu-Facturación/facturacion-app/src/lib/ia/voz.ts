@@ -20,8 +20,8 @@
  *   1. `IA_VOZ_MODELO` (+ `IA_VOZ_BASE_URL` y `IA_VOZ_API_KEY` si es otro
  *      servidor): lo que se diga.
  *   2. Si la IA principal es OpenRouter, el mismo servidor y la misma
- *      clave con Qwen 3.8 Omni Flash: el Qwen 3.8 de texto no oye, su
- *      hermano «omni» sí, y cuesta céntimos por cientos de notas.
+ *      clave con los modelos de MODELOS_VOZ_OPENROUTER (el Qwen 3.8 de
+ *      texto no oye).
  *   3. Si hay `GEMINI_API_KEY`, Gemini por su puerta compatible con
  *      OpenAI.
  *   4. Nada: se dice que no está disponible y la pantalla pide escribir.
@@ -37,21 +37,33 @@ import {
 
 export interface ConfiguracionVoz {
   baseUrl: string;
+  /** El primero que se prueba. */
   modelo: string;
+  /** Todos, en orden: si uno falla, se pasa al siguiente. */
+  modelos?: string[];
   clave?: string;
   esOpenRouter: boolean;
 }
 
-/** El modelo con oído que se usa en OpenRouter si no se dice otro. */
-export const MODELO_VOZ_OPENROUTER = 'qwen/qwen3.8-omni-flash';
-
 /**
- * Si el primero falla o está saturado, OpenRouter prueba éste por su
- * cuenta (`models`, en la misma petición): una nota de voz que no se
- * transcribe es una pregunta perdida, y otro proveedor que oye cuesta lo
- * mismo.
+ * LOS MODELOS QUE TRANSCRIBEN EN OPENROUTER, EN ORDEN
+ *
+ * Empezó con Qwen 3.8 Omni y en producción no transcribió ni una nota. En
+ * la ficha pública de OpenRouter ese modelo acepta audio pero no tiene
+ * precio de audio, y los Qwen-Omni de su proveedor (Alibaba) sólo
+ * contestan en modo streaming: una petición normal falla. Tampoco la
+ * rescataba la reserva de OpenRouter (`models`), que no salta con un
+ * error de petición inválida.
+ *
+ * Así que van dos modelos cuya ficha SÍ cobra el audio —es decir, que lo
+ * transcriben de verdad por esta vía—, y el paso de uno a otro lo hace
+ * este código, no OpenRouter:
+ *   1. Gemini 3.5 Flash Lite: barato (0,30 $ por millón de tokens de
+ *      audio; una nota de 15 s son unos 500) y bueno en castellano.
+ *   2. GPT Audio Mini, de OpenAI: otro proveedor distinto, por si Google
+ *      falla.
  */
-export const MODELO_VOZ_RESERVA = 'google/gemini-3.5-flash-lite';
+export const MODELOS_VOZ_OPENROUTER = ['google/gemini-3.5-flash-lite', 'openai/gpt-audio-mini'];
 
 /** Unos 90 s de WAV a 16 kHz en base64. Más que eso no es una pregunta. */
 export const MAXIMO_AUDIO_BASE64 = 4_000_000;
@@ -71,13 +83,20 @@ export function configuracionVoz(): ConfiguracionVoz | null {
     return {
       baseUrl,
       modelo: modeloVoz,
+      modelos: /openrouter\.ai/.test(baseUrl) ? [...new Set([modeloVoz, ...MODELOS_VOZ_OPENROUTER])] : [modeloVoz],
       clave: limpio(process.env.IA_VOZ_API_KEY) || clavePrincipal || undefined,
       esOpenRouter: /openrouter\.ai/.test(baseUrl),
     };
   }
 
   if (/openrouter\.ai/.test(basePrincipal) && clavePrincipal) {
-    return { baseUrl: sinBarra(basePrincipal), modelo: MODELO_VOZ_OPENROUTER, clave: clavePrincipal, esOpenRouter: true };
+    return {
+      baseUrl: sinBarra(basePrincipal),
+      modelo: MODELOS_VOZ_OPENROUTER[0],
+      modelos: MODELOS_VOZ_OPENROUTER,
+      clave: clavePrincipal,
+      esOpenRouter: true,
+    };
   }
 
   const claveGemini = limpio(process.env.GEMINI_API_KEY);
@@ -114,11 +133,9 @@ export function cuerpoTranscripcion(config: ConfiguracionVoz, wavBase64: string)
         { type: 'input_audio', input_audio: { data: wavBase64, format: 'wav' } },
       ],
     }],
-    // Sólo OpenRouter entiende estos campos; Gemini rechaza lo que no conoce.
-    ...(config.esOpenRouter ? {
-      reasoning: { enabled: false },
-      models: [...new Set([config.modelo, MODELO_VOZ_RESERVA])],
-    } : {}),
+    // Sólo en OpenRouter y sólo a los modelos que razonan: Gemini directo
+    // rechaza los campos que no conoce, y GPT Audio no razona.
+    ...(config.esOpenRouter && /^(google|qwen)\//.test(config.modelo) ? { reasoning: { enabled: false } } : {}),
   };
 }
 
@@ -133,6 +150,23 @@ export async function transcribir(wavBase64: string): Promise<string> {
   const config = configuracionVoz();
   if (!config) throw new FalloIA('sin-configurar');
 
+  // Un modelo tras otro. Sin saldo o sin cuota no se sigue probando: el
+  // siguiente va con la misma cuenta y fallaría igual.
+  let ultimo: FalloIA | null = null;
+  for (const modelo of config.modelos ?? [config.modelo]) {
+    try {
+      return await transcribirCon({ ...config, modelo }, wavBase64);
+    } catch (err) {
+      const fallo = err instanceof FalloIA ? err : new FalloIA('rechazado', String(err));
+      console.error('[ayuda/voz]', modelo, fallo.motivo, fallo.detalle?.slice(0, 300));
+      if (fallo.motivo === 'sin-cuota' || fallo.motivo === 'sin-configurar') throw fallo;
+      ultimo = fallo;
+    }
+  }
+  throw ultimo ?? new FalloIA('vacio');
+}
+
+async function transcribirCon(config: ConfiguracionVoz, wavBase64: string): Promise<string> {
   // Los mismos reintentos que la IA principal: un 503 «mucha demanda» de
   // Gemini salió en la primera prueba de esto y al repetir, pasó.
   let respuesta: Response | null = null;
@@ -146,7 +180,7 @@ export async function transcribir(wavBase64: string): Promise<string> {
           ...(config.clave ? { Authorization: `Bearer ${config.clave}` } : {}),
         },
         body: JSON.stringify(cuerpoTranscripcion(config, wavBase64)),
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(40_000),
       });
     } catch (err) {
       if (intento < ESPERAS_ENTRE_INTENTOS_MS.length && err instanceof Error && err.name === 'TimeoutError') continue;
@@ -154,14 +188,22 @@ export async function transcribir(wavBase64: string): Promise<string> {
     }
     if (respuesta.ok) break;
     const detalle = await respuesta.text().catch(() => '');
-    if (respuesta.status === 429 && esCuotaAgotada(detalle)) throw new FalloIA('sin-cuota', `429 ${detalle.slice(0, 500)}`);
+    // 402 es «sin saldo» en OpenRouter: tan definitivo como un cupo agotado.
+    if (respuesta.status === 402 || (respuesta.status === 429 && esCuotaAgotada(detalle))) {
+      throw new FalloIA('sin-cuota', `${respuesta.status} ${detalle.slice(0, 500)}`);
+    }
     if (intento < ESPERAS_ENTRE_INTENTOS_MS.length && mereceOtroIntento(respuesta.status)) continue;
     throw new FalloIA('rechazado', `${respuesta.status} ${detalle.slice(0, 500)}`);
   }
   if (!respuesta?.ok) throw new FalloIA('rechazado');
 
+  // OpenRouter a veces contesta 200 con el error DENTRO del cuerpo.
   const datos = await respuesta.json().catch(() => null) as
-    { choices?: { message?: { content?: unknown } }[] } | null;
+    { choices?: { message?: { content?: unknown } }[]; error?: { code?: number; message?: string } } | null;
+  if (datos?.error) {
+    throw new FalloIA('rechazado', `${datos.error.code ?? 200} ${String(datos.error.message ?? '').slice(0, 500)}`);
+  }
   const contenido = datos?.choices?.[0]?.message?.content;
-  return limpiarTranscripcion(typeof contenido === 'string' ? contenido : '');
+  if (typeof contenido !== 'string') throw new FalloIA('vacio', 'sin texto en la respuesta');
+  return limpiarTranscripcion(contenido);
 }
