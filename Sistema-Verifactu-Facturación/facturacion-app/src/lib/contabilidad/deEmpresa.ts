@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/client';
 import { mapClientFromDb, mapGastoFromDb, mapInvoiceFromDb, mapSettingsFromDb } from '../storage';
 import { DEFAULT_COMPANY_SETTINGS } from '../constants';
 import { montarContabilidad, type Contabilidad } from './cargar';
+import { apunteDeFila } from './apuntesAlmacen';
 
 const TROZO = 150;
 
@@ -45,12 +46,16 @@ export async function cargarContabilidadDeEmpresa(userId: string): Promise<Conta
     }
   }
 
+  // Los apuntes a mano, si la empresa tiene la migración 052 (si no, no hay).
+  const ap = await db.from('apuntes_contables').select('*').eq('user_id', userId);
+
   const ajustes = aj.data?.[0];
   return montarContabilidad({
     facturas: filas.map(f => mapInvoiceFromDb(f, [], desglose.get(f.id) ?? [])),
     clientes: (cli.data ?? []).map(mapClientFromDb),
     gastos: (gas.data ?? []).map(mapGastoFromDb),
     cobrosPagos: [],
+    apuntes: ap.error ? [] : (ap.data ?? []).map(apunteDeFila),
     empresa: ajustes ? mapSettingsFromDb(ajustes) : { ...DEFAULT_COMPANY_SETTINGS },
   });
 }
