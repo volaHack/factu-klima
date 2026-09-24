@@ -494,7 +494,7 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   {
     ruta: '/listados-fiscales',
     titulo: 'Listados fiscales',
-    paraQue: 'Los modelos de la Agencia Tributaria calculados con tus datos: 303, 347, 130, 131, 415, 420 y 425.',
+    paraQue: 'Los modelos de Hacienda calculados con tus datos: 303, 390, 347, 349, 130, 131, 111, 190 y, en Canarias, 420, 415 y 425.',
     pasos: [
       'Elige el modelo y el periodo.',
       'Repasa las casillas: salen calculadas de tus facturas y gastos.',

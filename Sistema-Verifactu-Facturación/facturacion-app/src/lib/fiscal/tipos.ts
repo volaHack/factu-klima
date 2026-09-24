@@ -15,7 +15,7 @@
 /** Quién recauda. Determina el formato de fichero y dónde se presenta. */
 export type Organismo = 'AEAT' | 'ATC';
 
-export type ModeloId = '347' | '303' | '130' | '131' | '420' | '415' | '425';
+export type ModeloId = '347' | '303' | '390' | '349' | '130' | '131' | '111' | '190' | '420' | '415' | '425';
 
 /** Cada cuánto se presenta. */
 export type Periodicidad = 'anual' | 'trimestral';
@@ -45,7 +45,13 @@ export interface PeriodoFiscal {
  * Inventarse las posiciones de un fichero que se presenta ante Hacienda
  * es peor que no generarlo: el que lo presenta se lleva la sanción.
  */
-export type ViaPresentacion = 'fichero_oficial' | 'sede_o_programa';
+export type ViaPresentacion = 'fichero_oficial' | 'sede_o_programa' | 'diseno_sin_generador';
+/*
+ *  - `diseno_sin_generador`: el organismo SÍ publica diseño de registro,
+ *    pero este programa todavía no genera el fichero. Se calcula, se valida
+ *    y se exportan los datos. Se separa de `sede_o_programa` para no decir
+ *    «no hay fichero público» cuando sí lo hay.
+ */
 
 export interface DefinicionModelo {
   id: ModeloId;
@@ -98,6 +104,26 @@ export const MODELOS: DefinicionModelo[] = [
     nota: 'La AEAT publica diseño de registro (ejercicio 2026 y siguientes). Generador pendiente.',
   },
   {
+    id: '390',
+    nombre: 'Modelo 390',
+    descripcion: 'Declaración resumen anual del IVA',
+    organismo: 'AEAT',
+    periodicidad: 'anual',
+    via: 'diseno_sin_generador',
+    fuenteOficial: 'https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-300-399.html',
+    nota: 'Suma de los cuatro 303 con el mismo motor, para que cuadre al céntimo.',
+  },
+  {
+    id: '349',
+    nombre: 'Modelo 349',
+    descripcion: 'Declaración recapitulativa de operaciones intracomunitarias',
+    organismo: 'AEAT',
+    periodicidad: 'trimestral',
+    via: 'diseno_sin_generador',
+    fuenteOficial: 'https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-300-399.html',
+    nota: 'Misma agrupación por operador y clave que la pantalla de Intracomunitarias.',
+  },
+  {
     id: '130',
     nombre: 'Modelo 130',
     descripcion: 'Pago fraccionado del IRPF — estimación directa',
@@ -116,6 +142,26 @@ export const MODELOS: DefinicionModelo[] = [
     via: 'sede_o_programa',
     fuenteOficial: 'https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-100-199.html',
     nota: 'Igual que el 130: presentación por formulario en la Sede.',
+  },
+  {
+    id: '111',
+    nombre: 'Modelo 111',
+    descripcion: 'Retenciones e ingresos a cuenta de IRPF — trimestral',
+    organismo: 'AEAT',
+    periodicidad: 'trimestral',
+    via: 'diseno_sin_generador',
+    fuenteOficial: 'https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-100-199.html',
+    nota: 'Sale de las facturas de compra con retención. Las nóminas no están en el programa.',
+  },
+  {
+    id: '190',
+    nombre: 'Modelo 190',
+    descripcion: 'Resumen anual de retenciones de IRPF, por perceptor',
+    organismo: 'AEAT',
+    periodicidad: 'anual',
+    via: 'diseno_sin_generador',
+    fuenteOficial: 'https://sede.agenciatributaria.gob.es/Sede/ayuda/disenos-registro/modelos-100-199.html',
+    nota: 'Suma de los cuatro 111, desglosada por perceptor con su NIF.',
   },
   {
     id: '420',

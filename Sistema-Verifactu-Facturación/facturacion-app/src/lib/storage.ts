@@ -3601,27 +3601,47 @@ export async function addCustomCategory(name: string, icon: string): Promise<Cat
 }
 
 export async function deleteCustomCategory(categoryId: string): Promise<void> {
+  await deleteCategories([categoryId]);
+}
+
+/**
+ * Borra varias categorías de una vez, con UN solo guardado de ajustes (uno
+ * por categoría eran N viajes y N copias en la cola sin conexión).
+ *
+ * Las del sector no se borran de verdad: se ocultan, para que los productos
+ * que las nombran no se rompan y se puedan recuperar editándolas. «otros»
+ * nunca: es donde van a parar los productos de las categorías borradas.
+ */
+export function categoriasTrasBorrar(
+  customs: CustomCategory[],
+  defaults: { value: string; label: string; icon: string }[],
+  ids: Set<string>,
+  sector?: CustomCategory['sector'],
+): CustomCategory[] {
+  const esDefecto = (id: string) => defaults.some(d => d.value === id);
+  // Propias: fuera. Del sector que ya tenían ajuste: se marcan ocultas.
+  const next: CustomCategory[] = customs
+    .filter(c => !ids.has(c.id) || esDefecto(c.id))
+    .map(c => (ids.has(c.id) ? { ...c, hidden: true } : c));
+  // Del sector sin ajuste previo: se añade el ajuste oculto.
+  for (const id of ids) {
+    const def = defaults.find(d => d.value === id);
+    if (def && !customs.some(c => c.id === id)) {
+      next.push({ id: def.value, name: def.label, icon: def.icon, sector, hidden: true });
+    }
+  }
+  return next;
+}
+
+export async function deleteCategories(categoryIds: string[]): Promise<void> {
   const settings = await getCompanySettings();
   if (!settings) return;
+  const ids = new Set(categoryIds.filter(id => id !== 'otros'));
+  if (ids.size === 0) return;
 
   const sector = settings.sector || 'alimentacion';
   const defaults = SECTOR_DEFAULT_CATEGORIES[sector] || SECTOR_DEFAULT_CATEGORIES.alimentacion;
-  const isDefault = defaults.some(d => d.value === categoryId);
-  const customs = settings.customCategories || [];
-
-  let next: CustomCategory[];
-  if (isDefault) {
-    // Eliminar una categoría por defecto = ocultarla. Así los productos que
-    // la referencian por value no se rompen, y puede restaurarse editando.
-    const def = defaults.find(d => d.value === categoryId)!;
-    const existing = customs.find(c => c.id === categoryId);
-    next = existing
-      ? customs.map(c => c.id === categoryId ? { ...c, hidden: true } : c)
-      : [...customs, { id: def.value, name: def.label, icon: def.icon, sector: settings.sector, hidden: true }];
-  } else {
-    next = customs.filter(c => c.id !== categoryId);
-  }
-
+  const next = categoriasTrasBorrar(settings.customCategories || [], defaults, ids, settings.sector);
   await saveCompanySettings({ ...settings, customCategories: next });
 }
 

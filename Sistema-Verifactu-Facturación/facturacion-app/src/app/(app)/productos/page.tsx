@@ -14,7 +14,7 @@ import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts
 import { useColoresGrafica, SERIES } from '@/components/charts/theme';
 import {
   getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
-  getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings,
+  getCompanyCategories, addCustomCategory, deleteCustomCategory, deleteCategories, updateCustomCategory, getCompanySettings,
   getInvoices,
 } from '@/lib/storage';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings, Invoice } from '@/lib/types';
@@ -40,6 +40,10 @@ export default function ProductosPage() {
   
   // Tabs: 'products' | 'categories'
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');
+  // Borrado de varias categorías a la vez.
+  const [catSeleccion, setCatSeleccion] = useState<Set<string>>(() => new Set());
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
+  const [borrandoCats, setBorrandoCats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -331,6 +335,46 @@ export default function ProductosPage() {
       warning('Categoría eliminada', cat.label);
     } catch (err) {
       toastError('Error', 'No se pudo eliminar la categoría');
+    }
+  };
+
+  // «otros» no se puede borrar: es donde caen los productos de las demás.
+  const catsBorrables = categories.filter(c => c.value !== 'otros');
+  const seleccionadas = catsBorrables.filter(c => catSeleccion.has(c.value));
+  const productosAfectados = products.filter(p => catSeleccion.has(p.category));
+
+  const alternarCategoria = (valor: string) => {
+    setCatSeleccion(prev => {
+      const next = new Set(prev);
+      if (next.has(valor)) next.delete(valor); else next.add(valor);
+      return next;
+    });
+  };
+  const alternarTodas = () => {
+    setCatSeleccion(prev => (prev.size === catsBorrables.length ? new Set() : new Set(catsBorrables.map(c => c.value))));
+  };
+
+  const borrarSeleccionadas = async () => {
+    if (seleccionadas.length === 0) return;
+    setBorrandoCats(true);
+    try {
+      await deleteCategories(seleccionadas.map(c => c.value));
+      for (const p of productosAfectados) {
+        await persistProduct({ ...p, category: 'otros' });
+      }
+      if (categoryFilter && catSeleccion.has(categoryFilter)) setCategoryFilter('');
+      await reloadCategories();
+      await reloadProducts();
+      warning(
+        seleccionadas.length === 1 ? 'Categoría borrada' : `${seleccionadas.length} categorías borradas`,
+        productosAfectados.length > 0 ? `${productosAfectados.length} producto(s) pasan a «Otros».` : seleccionadas.map(c => c.label).join(', '),
+      );
+      setCatSeleccion(new Set());
+      setConfirmarBorrado(false);
+    } catch {
+      toastError('Error', 'No se pudieron borrar las categorías');
+    } finally {
+      setBorrandoCats(false);
     }
   };
 
@@ -666,15 +710,50 @@ export default function ProductosPage() {
       {/* TAB 2: CATEGORÍAS */}
       {activeTab === 'categories' && (
         <div>
+          {catsBorrables.length > 0 && (
+            <div className="cat-seleccion-barra">
+              <label className="cat-seleccion-todas">
+                <input
+                  type="checkbox"
+                  checked={catSeleccion.size > 0 && catSeleccion.size === catsBorrables.length}
+                  ref={el => { if (el) el.indeterminate = catSeleccion.size > 0 && catSeleccion.size < catsBorrables.length; }}
+                  onChange={alternarTodas}
+                />
+                {catSeleccion.size > 0 ? `${seleccionadas.length} seleccionada${seleccionadas.length === 1 ? '' : 's'}` : 'Seleccionar todas'}
+              </label>
+              {catSeleccion.size > 0 && (
+                <>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCatSeleccion(new Set())}>
+                    Quitar selección
+                  </button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmarBorrado(true)}>
+                    <Trash2 size={14} /> Borrar {seleccionadas.length === 1 ? 'categoría' : `${seleccionadas.length} categorías`}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <div className="kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
             {categories.map(cat => {
               const catProds = products.filter(p => p.category === cat.value);
               const val = catProds.reduce((sum, p) => sum + (p.unitPrice * (p.stockQuantity ?? 1)), 0);
+              const marcada = catSeleccion.has(cat.value);
 
               return (
-                <div key={cat.value} className="kpi-card" style={{ padding: 'var(--space-5)' }}>
+                <div key={cat.value} className={`kpi-card cat-tarjeta ${marcada ? 'is-marcada' : ''}`} style={{ padding: 'var(--space-5)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+                      {cat.value !== 'otros' ? (
+                        <input
+                          type="checkbox"
+                          className="cat-casilla"
+                          checked={marcada}
+                          onChange={() => alternarCategoria(cat.value)}
+                          aria-label={`Seleccionar ${cat.label}`}
+                        />
+                      ) : (
+                        <span className="cat-casilla-hueco" title="«Otros» no se puede borrar: ahí van los productos de las categorías borradas." />
+                      )}
                       <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-lg)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <CategoryIcon name={cat.icon} size={20} />
                       </div>
@@ -864,6 +943,44 @@ export default function ProductosPage() {
       )}
 
       {/* Modal Crear / Editar Categoría */}
+      {confirmarBorrado && (
+        <div className="modal-overlay" onClick={() => !borrandoCats && setConfirmarBorrado(false)}>
+          <div className="modal" style={{ maxWidth: 460 }} role="alertdialog" aria-labelledby="titulo-borrar-cats" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title" id="titulo-borrar-cats">
+                Borrar {seleccionadas.length === 1 ? 'la categoría' : `${seleccionadas.length} categorías`}
+              </h3>
+              <button className="modal-close" onClick={() => setConfirmarBorrado(false)} disabled={borrandoCats} aria-label="Cerrar"><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <ul className="cat-borrar-lista">
+                {seleccionadas.map(c => {
+                  const n = products.filter(p => p.category === c.value).length;
+                  return (
+                    <li key={c.value}>
+                      <CategoryIcon name={c.icon} size={14} /> {c.label}
+                      <span>{n === 0 ? 'sin productos' : `${n} producto${n === 1 ? '' : 's'}`}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="equipo-nota" style={{ marginTop: 'var(--space-3)' }}>
+                {productosAfectados.length > 0
+                  ? `Los ${productosAfectados.length} productos que tienen pasarán a «Otros». No se borra ningún producto.`
+                  : 'Ninguna tiene productos.'}
+                {' '}Las categorías que venían con tu sector se pueden recuperar creándolas otra vez.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmarBorrado(false)} disabled={borrandoCats}>Cancelar</button>
+              <button className="btn btn-danger" onClick={borrarSeleccionadas} disabled={borrandoCats}>
+                <Trash2 size={15} /> {borrandoCats ? 'Borrando…' : 'Borrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCatModal && (
         <div className="modal-overlay" onClick={() => setShowCatModal(false)}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>

@@ -15,9 +15,19 @@
  *     haciendo. Emitir una factura no puede fallar por no poder decir
  *     quién la emitió.
  *
- * Si la base de datos todavía no tiene las tablas (migración 050 sin
- * aplicar), todo esto se apaga solo: `disponible` es falso, no se piden
- * perfiles y la app funciona exactamente como antes.
+ * DÓNDE SE GUARDAN
+ *
+ * Lo normal es la tabla `perfiles_trabajo` (migración 050). Pero esa
+ * migración hay que aplicarla a mano en Supabase, y mientras tanto la
+ * función se quedaba apagada con un aviso. Ahora, si la tabla no existe,
+ * los perfiles se guardan en la propia cuenta (los metadatos del usuario
+ * de Supabase Auth, que existen siempre y sólo puede tocar su dueño):
+ * funcionan ya, en todos los equipos. Lo que no cabe ahí es el historial
+ * de actividad, que en ese modo se queda en cada equipo.
+ *
+ * El día que se aplique la 050, al cargar se ve la tabla vacía y los
+ * perfiles de la cuenta se pasan a ella solos, con el historial que haya
+ * en el equipo; después se quitan de la cuenta.
  */
 
 import { useSyncExternalStore } from 'react';
@@ -30,19 +40,29 @@ const CLAVE_CACHE = 'klima-perfiles';
 const CLAVE_ACTIVO = 'klima-perfil-activo';
 const CLAVE_BANDEJA = 'klima-actividad-pendiente';
 const CLAVE_BLOQUEO = 'klima-perfil-bloqueo-min';
+const CLAVE_HISTORIAL = 'klima-actividad-local';
 const MAX_BANDEJA = 300;
+const MAX_HISTORIAL = 200;
+/** Nombre del campo en los metadatos de la cuenta. */
+const CAMPO_CUENTA = 'klima_perfiles';
+/** Los metadatos viajan en el token de sesión: se ponen límites. */
+export const MAX_PERFILES_EN_CUENTA = 20;
+
+/** `tabla`: migración 050 aplicada. `cuenta`: metadatos de Supabase Auth. */
+export type Almacen = 'tabla' | 'cuenta';
 
 export interface EstadoPerfiles {
   cargado: boolean;
-  /** ¿Existen las tablas? Si no, la función está apagada. */
+  /** ¿Se pueden usar perfiles? (hay sesión y se han podido leer). */
   disponible: boolean;
+  almacen: Almacen;
   cuenta: string | null;
   perfiles: Perfil[];
   /** El perfil que está usando este equipo, si lo hay. */
   activoId: string | null;
 }
 
-let estado: EstadoPerfiles = { cargado: false, disponible: false, cuenta: null, perfiles: [], activoId: null };
+let estado: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null };
 const oyentes = new Set<() => void>();
 const avisar = () => { for (const o of oyentes) o(); };
 const fijar = (parcial: Partial<EstadoPerfiles>) => { estado = { ...estado, ...parcial }; avisar(); };
@@ -70,6 +90,61 @@ function desdeBd(f: any): Perfil {
   };
 }
 
+// ------------------------------------------------------------
+// Perfiles guardados en la cuenta (sin migración)
+// ------------------------------------------------------------
+
+/** Forma corta: los metadatos van dentro del token, cada byte cuenta. */
+interface PerfilCompacto { i: string; n: string; r: RolPerfil; c: string; h?: string | null; s?: string | null; a: boolean; t?: string }
+
+const aCompacto = (p: Perfil): PerfilCompacto => ({
+  i: p.id, n: p.nombre, r: p.rol, c: p.color, h: p.pinHash ?? null, s: p.pinSal ?? null, a: p.activo, t: p.creadoEn,
+});
+const deCompacto = (c: PerfilCompacto): Perfil => ({
+  id: c.i, nombre: c.n, rol: c.r, color: c.c, pinHash: c.h ?? null, pinSal: c.s ?? null, activo: c.a !== false, creadoEn: c.t,
+});
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function perfilesDeMetadatos(meta: any): Perfil[] {
+  const lista = meta?.[CAMPO_CUENTA];
+  if (!Array.isArray(lista)) return [];
+  return lista
+    .filter((c): c is PerfilCompacto => !!c && typeof c.i === 'string' && typeof c.n === 'string')
+    .map(deCompacto);
+}
+
+async function leerDeLaCuenta(): Promise<Perfil[]> {
+  const { data, error } = await createClient().auth.getUser();
+  if (error) throw error;
+  return perfilesDeMetadatos(data.user?.user_metadata);
+}
+
+async function escribirEnLaCuenta(perfiles: Perfil[] | null): Promise<void> {
+  const { error } = await createClient().auth.updateUser({
+    data: { [CAMPO_CUENTA]: perfiles ? perfiles.map(aCompacto) : null },
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Con la tabla ya creada: se pasan a ella los perfiles que vivían en la cuenta. */
+async function pasarALaTabla(cuenta: string, perfiles: Perfil[]): Promise<boolean> {
+  const { error } = await createClient().from('perfiles_trabajo').upsert(perfiles.map(p => ({
+    id: p.id, user_id: cuenta, nombre: p.nombre, rol: p.rol, color: p.color,
+    pin_hash: p.pinHash ?? null, pin_sal: p.pinSal ?? null, activo: p.activo,
+    ...(p.creadoEn ? { creado_en: p.creadoEn } : {}),
+  })));
+  if (error) return false;
+  // El historial que se apuntó en este equipo sube con el resto.
+  const historial = leer<Apunte[]>(CLAVE_HISTORIAL) ?? [];
+  if (historial.length) {
+    const bandeja = leer<Apunte[]>(CLAVE_BANDEJA) ?? [];
+    escribir(CLAVE_BANDEJA, [...historial.slice().reverse(), ...bandeja].slice(-MAX_BANDEJA));
+    try { localStorage.removeItem(CLAVE_HISTORIAL); } catch { /* */ }
+  }
+  try { await escribirEnLaCuenta(null); } catch { /* se reintenta en la próxima carga; la tabla ya manda */ }
+  return true;
+}
+
 async function cuentaActual(): Promise<string | null> {
   try {
     const { data } = await createClient().auth.getSession();
@@ -91,35 +166,57 @@ export function cargarPerfiles(forzar = false): Promise<void> {
   if (cargando && !forzar) return cargando;
   cargando = (async () => {
     const cuenta = await cuentaActual();
-    const cache = leer<{ cuenta: string; disponible: boolean; perfiles: Perfil[] }>(CLAVE_CACHE);
+    const cache = leer<{ cuenta: string; disponible: boolean; almacen?: Almacen; perfiles: Perfil[] }>(CLAVE_CACHE);
     const cacheValida = cache && cache.cuenta === cuenta ? cache : null;
     // Lo guardado primero: el selector sale al instante y sin conexión.
     if (cacheValida && !estado.cargado) {
-      fijar({ cargado: true, cuenta, disponible: cacheValida.disponible, perfiles: cacheValida.perfiles, activoId: activoGuardado(cuenta) });
+      fijar({
+        cargado: true, cuenta, disponible: cacheValida.disponible, almacen: cacheValida.almacen ?? 'tabla',
+        perfiles: cacheValida.perfiles, activoId: activoGuardado(cuenta),
+      });
     }
     if (!cuenta) { fijar({ cargado: true, cuenta: null, disponible: false, perfiles: [], activoId: null }); return; }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       if (!cacheValida) fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
       return;
     }
+
+    let almacen: Almacen = 'tabla';
+    let perfiles: Perfil[];
     const { data, error } = await createClient()
       .from('perfiles_trabajo').select('*').order('creado_en', { ascending: true });
-    if (error) {
-      if (faltaLaTabla(error)) {
-        escribir(CLAVE_CACHE, { cuenta, disponible: false, perfiles: [] });
-        fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
-      } else if (!cacheValida) {
-        fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
-      }
+    if (error && !faltaLaTabla(error)) {
+      // Fallo pasajero: se queda lo que hubiera.
+      if (!cacheValida) fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
       return;
     }
-    const perfiles = ordenarPerfiles<Perfil>((data ?? []).map(desdeBd));
-    escribir(CLAVE_CACHE, { cuenta, disponible: true, perfiles });
+    if (error) {
+      // Sin migración 050: los perfiles viven en la cuenta.
+      almacen = 'cuenta';
+      sinTabla = true;
+      try {
+        perfiles = await leerDeLaCuenta();
+      } catch {
+        if (!cacheValida) fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
+        return;
+      }
+    } else {
+      sinTabla = false;
+      perfiles = (data ?? []).map(desdeBd);
+      if (perfiles.length === 0) {
+        // Recién aplicada la 050: lo que hubiera en la cuenta pasa a la tabla.
+        const enCuenta = await leerDeLaCuenta().catch(() => [] as Perfil[]);
+        if (enCuenta.length && await pasarALaTabla(cuenta, enCuenta)) perfiles = enCuenta;
+      }
+    }
+
+    perfiles = ordenarPerfiles<Perfil>(perfiles);
+    escribir(CLAVE_CACHE, { cuenta, disponible: true, almacen, perfiles });
     let activoId = activoGuardado(cuenta);
     // El perfil activo se borró o se desactivó en otro equipo: fuera.
     if (activoId && !perfiles.some(p => p.id === activoId && p.activo)) activoId = null;
-    fijar({ cargado: true, cuenta, disponible: true, perfiles, activoId });
-    void vaciarBandeja();
+    fijar({ cargado: true, cuenta, disponible: true, almacen, perfiles, activoId });
+    if (almacen === 'tabla') void vaciarBandeja();
   })().finally(() => { cargando = null; });
   return cargando;
 }
@@ -145,7 +242,7 @@ function suscribirse(alCambiar: () => void): () => void {
   };
 }
 
-const ESTADO_SERVIDOR: EstadoPerfiles = { cargado: false, disponible: false, cuenta: null, perfiles: [], activoId: null };
+const ESTADO_SERVIDOR: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null };
 
 export function usePerfiles(): EstadoPerfiles & { activo: Perfil | null; enUso: boolean } {
   const e = useSyncExternalStore(suscribirse, () => estado, () => ESTADO_SERVIDOR);
@@ -206,12 +303,27 @@ export async function guardarPerfil(perfil: Perfil, pin?: string, { activar = fa
   let pinSal = perfil.pinSal ?? null;
   if (pin === '') { pinHash = null; pinSal = null; }
   else if (pin) { pinSal = nuevaSal(); pinHash = await hashPin(pin, pinSal); }
-  const fila = {
-    id: perfil.id, user_id: cuenta, nombre: perfil.nombre.trim(), rol: perfil.rol, color: perfil.color,
-    pin_hash: pinHash, pin_sal: pinSal, activo: perfil.activo, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await createClient().from('perfiles_trabajo').upsert(fila);
-  if (error) throw new Error(faltaLaTabla(error) ? 'Falta preparar la base de datos para los perfiles (migración 050).' : error.message);
+  if (estado.almacen === 'cuenta') {
+    // Se relee de la cuenta justo antes: otro equipo pudo cambiar algo.
+    const lista = await leerDeLaCuenta();
+    const nuevo: Perfil = {
+      ...perfil, nombre: perfil.nombre.trim(), pinHash, pinSal,
+      creadoEn: perfil.creadoEn ?? lista.find(p => p.id === perfil.id)?.creadoEn ?? new Date().toISOString(),
+    };
+    const i = lista.findIndex(p => p.id === perfil.id);
+    if (i === -1 && lista.length >= MAX_PERFILES_EN_CUENTA) {
+      throw new Error(`Caben ${MAX_PERFILES_EN_CUENTA} perfiles. Borra alguno que ya no se use.`);
+    }
+    if (i === -1) lista.push(nuevo); else lista[i] = nuevo;
+    await escribirEnLaCuenta(lista);
+  } else {
+    const fila = {
+      id: perfil.id, user_id: cuenta, nombre: perfil.nombre.trim(), rol: perfil.rol, color: perfil.color,
+      pin_hash: pinHash, pin_sal: pinSal, activo: perfil.activo, actualizado_en: new Date().toISOString(),
+    };
+    const { error } = await createClient().from('perfiles_trabajo').upsert(fila);
+    if (error) throw new Error(error.message);
+  }
   // Activarlo ANTES de recargar la lista: si no, en medio hay un instante
   // con perfiles y sin nadie elegido, y el selector asoma.
   if (activar) escribir(CLAVE_ACTIVO, { cuenta, id: perfil.id, desde: new Date().toISOString() });
@@ -220,8 +332,13 @@ export async function guardarPerfil(perfil: Perfil, pin?: string, { activar = fa
 }
 
 export async function borrarPerfil(id: string): Promise<void> {
-  const { error } = await createClient().from('perfiles_trabajo').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (estado.almacen === 'cuenta') {
+    const lista = await leerDeLaCuenta();
+    await escribirEnLaCuenta(lista.filter(p => p.id !== id));
+  } else {
+    const { error } = await createClient().from('perfiles_trabajo').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  }
   if (estado.activoId === id) cerrarPerfil();
   await cargarPerfiles(true);
 }
@@ -250,11 +367,17 @@ export function registrarActividad(
   { documentoId, detalle, en }: { documentoId?: string; detalle?: string; en?: Date },
   quien: Perfil | null = perfilActivo(),
 ): void {
-  if (!quien || !estado.disponible || sinTabla || typeof window === 'undefined') return;
+  if (!quien || !estado.disponible || typeof window === 'undefined') return;
   const apunte: Apunte = {
     perfil_id: quien.id, perfil_nombre: quien.nombre, accion,
     documento_id: documentoId ?? null, detalle: detalle ?? null, en: (en ?? new Date()).toISOString(),
   };
+  if (estado.almacen === 'cuenta') {
+    // Sin tabla de actividad: se queda en este equipo, lo más nuevo delante.
+    const historial = leer<Apunte[]>(CLAVE_HISTORIAL) ?? [];
+    escribir(CLAVE_HISTORIAL, [apunte, ...historial].slice(0, MAX_HISTORIAL));
+    return;
+  }
   const bandeja = leer<Apunte[]>(CLAVE_BANDEJA) ?? [];
   bandeja.push(apunte);
   escribir(CLAVE_BANDEJA, bandeja.slice(-MAX_BANDEJA));
@@ -279,7 +402,6 @@ async function vaciarBandeja(): Promise<void> {
       escribir(CLAVE_BANDEJA, ahora.slice(bandeja.length));
     } else if (faltaLaTabla(error)) {
       sinTabla = true;
-      escribir(CLAVE_BANDEJA, []);
     }
   } catch {
     /* sin red: se reintenta al volver la conexión */
@@ -300,7 +422,16 @@ export interface ApunteLeido {
 
 /** La actividad de la cuenta, más reciente primero. */
 export async function leerActividad({ limite = 30, documentoId }: { limite?: number; documentoId?: string } = {}): Promise<ApunteLeido[]> {
-  if (!estado.disponible || sinTabla) return [];
+  if (!estado.disponible) return [];
+  if (estado.almacen === 'cuenta' || sinTabla) {
+    const historial = (leer<Apunte[]>(CLAVE_HISTORIAL) ?? [])
+      .filter(a => !documentoId || a.documento_id === documentoId)
+      .slice(0, limite);
+    return historial.map((a, i) => ({
+      id: `local-${a.en}-${i}`, perfilId: a.perfil_id, perfilNombre: a.perfil_nombre, accion: a.accion,
+      documentoId: a.documento_id, detalle: a.detalle, en: a.en,
+    }));
+  }
   let q = createClient().from('actividad_perfiles').select('*').order('en', { ascending: false }).limit(limite);
   if (documentoId) q = q.eq('documento_id', documentoId);
   const { data, error } = await q;
