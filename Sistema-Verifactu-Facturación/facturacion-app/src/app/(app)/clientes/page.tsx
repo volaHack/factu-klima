@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
@@ -315,6 +315,9 @@ export default function ClientesPage() {
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
+          <Link href="/importar" className="btn btn-secondary" title="Traer clientes desde otro programa (Excel o CSV)">
+            <Upload size={16} /> Importar
+          </Link>
           <button className="btn btn-primary" onClick={openCreateModal}>
             <Plus size={16} /> Nuevo cliente
           </button>

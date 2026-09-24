@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Sparkles, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -407,6 +408,9 @@ export default function ProductosPage() {
           <button className="btn btn-secondary" onClick={openCreateCategory}>
             <Tag size={16} /> Nueva categoría
           </button>
+          <Link href="/importar" className="btn btn-secondary" title="Traer productos desde otro programa (Excel o CSV)">
+            <Upload size={16} /> Importar
+          </Link>
           <button className="btn btn-primary" onClick={openCreateProduct}>
             <Plus size={16} /> Nuevo producto
           </button>

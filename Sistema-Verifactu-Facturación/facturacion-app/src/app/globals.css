@@ -12814,3 +12814,61 @@ body.nav-abierta { overflow: hidden; }
 @media (max-width: 520px) {
   .facturar-periodo-pie .btn { width: 100%; justify-content: center; }
 }
+
+/* ============================================================
+   IMPORTAR DE OTRO PROGRAMA
+   ============================================================ */
+.imp .card { padding: var(--space-5); margin-bottom: var(--space-4); }
+.imp-soltar {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: var(--space-8) var(--space-4); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);
+  background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; text-align: center;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.imp-soltar:hover:not(:disabled) { border-color: var(--accent-500); background: var(--accent-glow); }
+.imp-soltar svg { color: var(--accent-500); }
+.imp-soltar strong { font-size: var(--text-md); color: var(--text-primary); }
+.imp-soltar span { font-size: var(--text-sm); }
+.imp-como { margin-top: var(--space-5); }
+.imp-como h2 { display: flex; align-items: center; gap: 6px; font-size: var(--text-md); font-weight: 650; margin-bottom: var(--space-2); }
+.imp-como ul { display: flex; flex-direction: column; gap: 6px; padding-left: 18px; font-size: var(--text-sm); color: var(--text-secondary); }
+.imp-nota { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
+.imp-paso-cabeza { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.imp-paso-cabeza h2 { display: flex; align-items: center; gap: 8px; font-size: var(--text-lg); font-weight: 650; }
+.imp-paso-cabeza h2 em { font-style: normal; color: var(--accent-500); word-break: break-all; }
+.imp-paso-cabeza p { margin-top: 2px; font-size: var(--text-sm); color: var(--text-secondary); }
+.imp-num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-gradient); color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.imp-tipo { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); }
+.imp-tipo-op { border: 0; background: transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); }
+.imp-tipo-op.is-activo { background: var(--bg-elevated); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.imp-mapeo { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 8px 16px; }
+.imp-mapeo-fila { display: grid; grid-template-columns: 130px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; gap: 2px 10px; }
+.imp-mapeo-campo { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); grid-row: span 2; }
+.imp-mapeo-campo b { color: var(--color-danger); }
+.imp-mapeo-ejemplo { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; }
+.imp-alerta { display: flex; align-items: center; gap: 6px; margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-danger); }
+.imp-cuentas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: var(--space-3); }
+.imp-cuenta { display: flex; flex-direction: column; padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-tertiary); border: 1px solid var(--border-subtle); }
+.imp-cuenta strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.imp-cuenta span { font-size: var(--text-xs); color: var(--text-muted); }
+.imp-cuenta--nuevo strong { color: var(--color-success); }
+.imp-cuenta--error strong { color: var(--color-danger); }
+.imp-filtro { display: inline-flex; align-items: center; gap: 8px; margin-bottom: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; }
+.imp-tabla { max-height: 460px; overflow: auto; }
+.imp-fila-num, .imp-fila-dato { font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
+.imp-estado { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.imp-estado--nuevo { background: var(--color-success-bg); color: var(--color-success); }
+.imp-estado--existe { background: var(--bg-tertiary); color: var(--text-muted); }
+.imp-estado--error { background: var(--color-danger-bg); color: var(--color-danger); }
+.imp-motivo { display: block; margin-top: 3px; font-size: 11.5px; color: var(--color-warning); }
+.imp-motivo.is-error { color: var(--color-danger); }
+.imp-acciones { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+.imp-hecho { display: flex; gap: var(--space-3); align-items: flex-start; }
+.imp-hecho > svg { color: var(--color-success); flex-shrink: 0; margin-top: 2px; }
+.imp-hecho ul { margin: 6px 0 var(--space-3); padding-left: 18px; font-size: var(--text-sm); color: var(--color-danger); }
+.imp-hecho .imp-acciones { justify-content: flex-start; margin-top: var(--space-3); }
+@media (max-width: 640px) {
+  .imp-cuentas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .imp-mapeo-fila { grid-template-columns: 1fr; }
+  .imp-mapeo-campo { grid-row: auto; }
+}

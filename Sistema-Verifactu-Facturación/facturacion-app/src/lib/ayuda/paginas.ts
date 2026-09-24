@@ -42,6 +42,27 @@ export interface AyudaPagina {
 }
 
 export const AYUDA_PAGINAS: AyudaPagina[] = [
+  {
+    ruta: '/importar',
+    titulo: 'Importar de otro programa',
+    paraQue: 'Traer tus clientes y tus productos desde Holded, Contasimple, Factusol, Quipu, Sage, Anfix o una hoja de cálculo, sin teclearlos otra vez.',
+    pasos: [
+      'En tu programa anterior, exporta el listado de clientes o de productos a Excel (.xlsx) o CSV.',
+      'Arrastra el archivo aquí: se reconoce solo si son clientes o productos y qué columna es cada dato.',
+      'Revisa lo propuesto y la lista de filas: verás cuáles se crean, cuáles ya tenías y cuáles tienen algún problema.',
+      'Pulsa «Crear» y listo: los que ya existían no se tocan ni se duplican.',
+    ],
+    saber: [
+      'El archivo se lee en tu navegador: no se sube a ningún sitio.',
+      'Los precios se guardan sin impuesto; si el archivo sólo trae el PVP con IVA o IGIC, se calcula la base.',
+      'Las facturas antiguas no se importan: las emitió y registró tu programa anterior, y ahí se conservan.',
+      'Los .xls antiguos no se leen: ábrelo en Excel y guárdalo como .xlsx o CSV.',
+    ],
+    relacionadas: [
+      { ruta: '/clientes', texto: 'Ver los clientes' },
+      { ruta: '/productos', texto: 'Ver los productos' },
+    ],
+  },
   // ============================================================
   // EL DÍA A DÍA
   // ============================================================
