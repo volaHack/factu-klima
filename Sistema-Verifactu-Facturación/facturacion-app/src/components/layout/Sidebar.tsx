@@ -65,6 +65,7 @@ const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/documentos', label: 'Documentos', icon: Files },
   { href: '/tesoreria', label: 'Tesorería y cobros', icon: WalletCards },
+  { href: '/conciliacion', label: 'Conciliación bancaria', icon: Landmark },
   { href: '/clientes', label: 'Clientes y proveedores', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
   { href: '/almacenes', label: 'Almacenes y stock', icon: Warehouse, modulo: 'almacenes' },

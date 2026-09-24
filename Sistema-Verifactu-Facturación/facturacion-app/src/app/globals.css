@@ -14449,3 +14449,53 @@ body {
   .home-conta-asiento td:first-child { width: 76px; }
   .home-conta-num { width: 62px; }
 }
+
+/* ============================================================
+   CONCILIACIÓN BANCARIA
+   ============================================================ */
+.banco-subir {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-3);
+  padding: var(--space-10, 48px) var(--space-6); border: 1.5px dashed var(--border-color);
+  transition: border-color var(--transition-fast, .15s), background var(--transition-fast, .15s);
+}
+.banco-subir.is-encima { border-color: var(--accent-500); background: var(--bg-tertiary); }
+.banco-subir svg { color: var(--text-muted); }
+.banco-subir h2 { font-size: var(--text-lg); margin: 0; }
+.banco-subir p { max-width: 560px; color: var(--text-secondary); margin: 0; }
+.banco-nota { font-size: var(--text-xs); color: var(--text-muted) !important; }
+.banco-cuenta { color: var(--text-secondary); font-size: var(--text-sm); margin: 0 0 var(--space-4); }
+.banco-pie { font-size: var(--text-xs); color: var(--text-muted); margin: var(--space-1) 0 0; }
+.banco-barra {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
+  margin: var(--space-5) 0 var(--space-3);
+}
+.banco-barra .tabs { margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.banco-lista { display: flex; flex-direction: column; gap: var(--space-2); }
+.banco-mov { padding: var(--space-3) var(--space-4); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: var(--space-4); align-items: center; }
+.banco-mov.is-hecho { opacity: .75; }
+.banco-mov-dato { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: baseline; min-width: 0; }
+.banco-mov-fecha { color: var(--text-muted); font-size: var(--text-sm); }
+.banco-mov-concepto { overflow-wrap: anywhere; font-size: var(--text-sm); }
+.banco-mov-importe { font-weight: 600; white-space: nowrap; }
+.banco-mov-importe.is-entra { color: var(--color-success); }
+.banco-mov-importe.is-sale { color: var(--text-primary); }
+.banco-mov-pareja { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; min-width: 0; }
+.banco-propuesta { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 220px; font-size: var(--text-sm); }
+.banco-elegir { max-width: 100%; font-size: var(--text-sm); padding-top: 4px; padding-bottom: 4px; }
+.banco-motivo { font-size: var(--text-xs); color: var(--text-secondary); }
+.banco-motivo a { color: var(--accent-500); }
+.banco-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.banco-hecho { display: inline-flex; align-items: center; gap: 6px; color: var(--color-success); font-size: var(--text-sm); }
+.banco-vacio { display: flex; align-items: center; gap: var(--space-3); color: var(--color-success); }
+.banco-vacio p { margin: 0; color: var(--text-secondary); }
+@media (max-width: 900px) {
+  .banco-mov { grid-template-columns: 1fr; gap: var(--space-2); }
+}
+@media (max-width: 480px) {
+  .banco-mov-dato { grid-template-columns: minmax(0, 1fr) auto; }
+  .banco-mov-fecha { grid-column: 1 / -1; }
+}
+@media (max-width: 768px) {
+  .banco .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .banco .kpi-grid .card { padding: var(--space-3); }
+}
