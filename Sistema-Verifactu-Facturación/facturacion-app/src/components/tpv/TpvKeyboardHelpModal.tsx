@@ -1,6 +1,7 @@
 'use client';
 
-import { X, Keyboard, ScanBarcode, Check } from 'lucide-react';
+import { Keyboard, ScanBarcode, Check } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 
 interface TpvKeyboardHelpModalProps {
   onClose: () => void;
@@ -20,61 +21,7 @@ const SHORTCUTS = [
 
 export default function TpvKeyboardHelpModal({ onClose }: TpvKeyboardHelpModalProps) {
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-      <div
-        className="modal tpv-shortcuts-modal"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: 520,
-          width: '92vw',
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          padding: 0,
-          borderRadius: 'var(--radius-xl)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-xl)',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          padding: 'var(--space-5) var(--space-6)',
-          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 'var(--radius-lg)',
-              background: 'rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-            }}>
-              <Keyboard size={22} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>
-                Atajos de Teclado TPV
-              </h3>
-              <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-                Operativa ultra-rápida de caja sin tocar el ratón
-              </p>
-            </div>
-          </div>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={onClose}
-            style={{ color: '#ffffff', opacity: 0.8 }}
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <TpvDialogo titulo="Atajos de teclado" subtitulo="Cobra y vende sin tocar el ratón" icono={<Keyboard size={20} />} ancho="md" onClose={onClose} className="tpvk">
 
         <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
           {/* Scanner Tip Box */}
@@ -143,7 +90,6 @@ export default function TpvKeyboardHelpModal({ onClose }: TpvKeyboardHelpModalPr
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

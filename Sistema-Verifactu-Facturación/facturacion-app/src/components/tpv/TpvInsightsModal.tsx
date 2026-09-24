@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { X, TrendingUp, Star, PackageX, AlertTriangle, Clock, Activity, Zap } from 'lucide-react';
+import { TrendingUp, Star, PackageX, AlertTriangle, Clock, Activity, Zap } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 import { Invoice, InvoiceStatus, Product } from '@/lib/types';
 import { getProducts, getInvoices } from '@/lib/storage';
 import { formatCurrency } from '@/lib/utils';
@@ -97,61 +98,7 @@ export default function TpvInsightsModal({ onClose }: TpvInsightsModalProps) {
   }
 
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-      <div
-        className="modal tpv-insights-modal"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: 640,
-          width: '94vw',
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          padding: 0,
-          borderRadius: 'var(--radius-xl)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-xl)',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          padding: 'var(--space-5) var(--space-6)',
-          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 'var(--radius-lg)',
-              background: 'rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-            }}>
-              <TrendingUp size={22} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>
-                Patrones de Consumo TPV
-              </h3>
-              <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.8 }}>
-                Últimos {DAYS} días · Cálculo local offline
-              </p>
-            </div>
-          </div>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={onClose}
-            style={{ color: '#ffffff', opacity: 0.8 }}
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <TpvDialogo titulo="Tendencias de venta" subtitulo={<>Últimos {DAYS} días · calculado en este dispositivo</>} icono={<TrendingUp size={20} />} ancho="lg" onClose={onClose} className="tpvi">
 
         <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* Top 8 */}
@@ -290,7 +237,6 @@ export default function TpvInsightsModal({ onClose }: TpvInsightsModalProps) {
             )}
           </section>
         </div>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

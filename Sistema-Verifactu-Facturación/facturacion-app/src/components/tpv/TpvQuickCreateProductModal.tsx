@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, PackagePlus, Barcode, Check, Loader2, ImagePlus, ImageOff } from 'lucide-react';
+import { PackagePlus, Barcode, Check, Loader2, ImagePlus, ImageOff } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings } from '@/lib/types';
 import { getTaxLabel, getDefaultTaxRate, UNITS_OF_MEASURE } from '@/lib/constants';
 import { generateId, processImageFile } from '@/lib/utils';
@@ -103,59 +104,7 @@ export default function TpvQuickCreateProductModal({
   };
 
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-      <div
-        className="modal tpv-quick-create-modal"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: 500,
-          width: '92vw',
-          padding: 0,
-          borderRadius: 'var(--radius-xl)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-xl)',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          padding: 'var(--space-5) var(--space-6)',
-          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 'var(--radius-lg)',
-              background: 'rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-            }}>
-              <PackagePlus size={22} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>
-                Dar de Alta Nuevo Producto
-              </h3>
-              <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-                Registro exprés en catálogo desde la caja TPV
-              </p>
-            </div>
-          </div>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={onClose}
-            style={{ color: '#ffffff', opacity: 0.8 }}
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <TpvDialogo titulo="Nuevo producto" subtitulo="Se da de alta en el catálogo y entra en el ticket" icono={<PackagePlus size={20} />} ancho="md" onClose={onClose} bloqueado={submitting} className="tpvq">
 
         <form onSubmit={handleSubmit} style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
           {initialBarcode && (
@@ -319,7 +268,6 @@ export default function TpvQuickCreateProductModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

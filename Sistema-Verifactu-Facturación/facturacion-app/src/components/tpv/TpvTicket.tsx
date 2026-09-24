@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Printer, Plus, Share2, Mail, MessageCircle, X, CloudOff } from 'lucide-react';
+import { Printer, Plus, Mail, MessageCircle, CloudOff, CheckCircle2 } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 import { Invoice, CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getTaxLabel } from '@/lib/constants';
@@ -12,6 +13,12 @@ interface TpvTicketProps {
   cashGiven?: number;
   onNewSale: () => void;
   onClose?: () => void;
+}
+
+/** La hora de la venta; vacía si no se sabe (antes salía «Invalid Date»). */
+function horaDeVenta(creada?: string): string {
+  const d = creada ? new Date(creada) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
 export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onClose }: TpvTicketProps) {
@@ -66,22 +73,48 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
     window.open(`mailto:?subject=${encodeURIComponent(`Ticket de compra ${invoice.number}`)}&body=${text}`, '_blank');
   };
 
+  const metodo = ({ efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum' } as Record<string, string>)[String(invoice.paymentMethod)] ?? 'Cobrado';
+  const hayCambio = change != null && change > 0.004;
+
   return (
-    <div className="modal-overlay" onClick={onClose || onNewSale}>
-      <div className="modal tpv-ticket-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            <span className="badge badge-rose">Ticket Generado</span>
-            {invoice.numberTemporary && (
-              <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Emitido sin conexión: se sellará en el servidor al reconectar">
-                <CloudOff size={12} /> Pendiente de sincronizar
-              </span>
-            )}
-          </div>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose || onNewSale} aria-label="Cerrar">
-            <X size={16} />
+    <TpvDialogo
+      titulo="Venta cobrada"
+      subtitulo={<>{invoice.number} · {metodo} · {formatCurrency(invoice.total)}</>}
+      icono={<CheckCircle2 size={22} />}
+      tono="exito"
+      ancho="md"
+      onClose={onClose || onNewSale}
+      className="tpvt"
+      accion={invoice.numberTemporary ? (
+        <span className="tpvt-offline" title="Emitido sin conexión: se registra en Hacienda al volver la red">
+          <CloudOff size={13} /> Sin conexión
+        </span>
+      ) : undefined}
+      pie={
+        <>
+          <button type="button" className="tpvd-boton tpvt-compartir" onClick={shareWhatsApp} title="Enviar por WhatsApp">
+            <MessageCircle size={17} /> <span>WhatsApp</span>
           </button>
+          <button type="button" className="tpvd-boton tpvt-compartir" onClick={shareEmail} title="Enviar por correo">
+            <Mail size={17} /> <span>Email</span>
+          </button>
+          <button type="button" className="tpvd-boton" onClick={() => window.print()}>
+            <Printer size={17} /> Imprimir
+          </button>
+          <button type="button" className="tpvd-boton tpvd-boton--principal tpvt-nueva" onClick={onNewSale} data-autofocus>
+            <Plus size={18} /> Nueva venta
+          </button>
+        </>
+      }
+    >
+      {/* Lo primero que mira el cajero: cuánto tiene que devolver. */}
+      {hayCambio && (
+        <div className="tpvt-cambio" role="status">
+          <span>Devuelve</span>
+          <strong>{formatCurrency(change!)}</strong>
+          <small>Entregado {formatCurrency(cashGiven!)} · Total {formatCurrency(invoice.total)}</small>
         </div>
+      )}
 
         <div className="tpv-ticket-print-area">
           <div className="tpv-ticket">
@@ -102,7 +135,7 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
             </div>
             <div className="tpv-ticket-meta">
               <span>{invoice.number}</span>
-              <span>{formatDate(invoice.issueDate)} {new Date(invoice.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span>{formatDate(invoice.issueDate)} {horaDeVenta(invoice.createdAt)}</span>
             </div>
             <div className="tpv-ticket-divider" />
             <table className="tpv-ticket-lines">
@@ -137,25 +170,6 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
           </div>
         </div>
 
-        {/* Action bar with WhatsApp & Email options */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-          <button className="btn btn-secondary btn-sm" onClick={shareWhatsApp} style={{ color: '#16a34a', borderColor: 'rgba(22, 163, 74, 0.3)' }}>
-            <MessageCircle size={15} /> WhatsApp
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={shareEmail}>
-            <Mail size={15} /> Email
-          </button>
-        </div>
-
-        <div className="tpv-checkout-actions tpv-ticket-actions" style={{ marginTop: 'var(--space-3)' }}>
-          <button className="btn btn-secondary" onClick={() => window.print()} style={{ flex: 1 }}>
-            <Printer size={16} /> Imprimir
-          </button>
-          <button className="btn btn-primary tpv-checkout-btn" onClick={onNewSale} style={{ flex: 1.2 }}>
-            <Plus size={16} /> Nueva venta
-          </button>
-        </div>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

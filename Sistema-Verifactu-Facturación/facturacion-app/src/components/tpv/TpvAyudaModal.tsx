@@ -25,7 +25,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, X, Loader2, CornerDownLeft } from 'lucide-react';
+import { Sparkles, Loader2, CornerDownLeft } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 
 export interface ContextoAyuda {
   lineas: number;
@@ -89,20 +90,42 @@ export default function TpvAyudaModal({ contexto, onClose }: Props) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal tpv-ayuda-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Ayuda del TPV">
-        <div className="modal-header">
-          <div className="tpv-ayuda-titulo">
-            <span className="tpv-ayuda-chispa"><Sparkles size={18} /></span>
-            <div>
-              <h3 className="modal-title">Ayuda</h3>
-              <p className="tpv-ayuda-sub">Pregunta lo que necesites. Sabe cómo tienes el mostrador ahora mismo.</p>
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+    <TpvDialogo
+      titulo="Ayuda"
+      subtitulo="Pregunta lo que necesites: sabe cómo tienes el mostrador ahora mismo."
+      icono={<Sparkles size={20} />}
+      ancho="md"
+      onClose={onClose}
+      className="tpva"
+      pie={
+        <div className="tpv-ayuda-pie">
+          <textarea
+            ref={campoRef}
+            className="form-textarea tpv-ayuda-campo"
+            rows={2}
+            placeholder="Escribe tu duda…"
+            value={pregunta}
+            data-autofocus
+            onChange={e => setPregunta(e.target.value)}
+            onKeyDown={e => {
+              // Enter envía; Mayús+Enter hace salto de línea. Detrás de un
+              // mostrador se escribe con una mano y sin buscar botones.
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void preguntar(pregunta); }
+            }}
+          />
+          <button
+            type="button"
+            className="tpvd-boton tpvd-boton--principal"
+            onClick={() => void preguntar(pregunta)}
+            disabled={cargando || !pregunta.trim()}
+          >
+            {cargando ? <Loader2 size={16} className="spin" /> : <CornerDownLeft size={16} />}
+            Preguntar
+          </button>
         </div>
-
-        <div className="modal-body tpv-ayuda-cuerpo">
+      }
+    >
+      <div className="modal-body tpv-ayuda-cuerpo">
           {!respuesta && !cargando && !error && (
             <div className="tpv-ayuda-ejemplos">
               {EJEMPLOS.map(e => (
@@ -140,30 +163,6 @@ export default function TpvAyudaModal({ contexto, onClose }: Props) {
           )}
         </div>
 
-        <div className="modal-footer tpv-ayuda-pie">
-          <textarea
-            ref={campoRef}
-            className="form-textarea tpv-ayuda-campo"
-            rows={2}
-            placeholder="Escribe tu duda…"
-            value={pregunta}
-            onChange={e => setPregunta(e.target.value)}
-            onKeyDown={e => {
-              // Enter envía; Mayús+Enter hace salto de línea. Detrás de un
-              // mostrador se escribe con una mano y sin buscar botones.
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void preguntar(pregunta); }
-            }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={() => void preguntar(pregunta)}
-            disabled={cargando || !pregunta.trim()}
-          >
-            {cargando ? <Loader2 size={16} className="spin" /> : <CornerDownLeft size={16} />}
-            Preguntar
-          </button>
-        </div>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

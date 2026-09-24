@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Lock, Unlock, Banknote, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Lock, Unlock, Banknote, Sparkles, CheckCircle2, Coins } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 import { PosSession } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -38,6 +39,9 @@ type TpvCashSessionProps = TpvOpenSessionProps | TpvCloseSessionProps;
 
 const QUICK_PRESETS = [0, 50, 100, 150, 200];
 
+/** Billetes y monedas en euros, de mayor a menor: el orden en que se cuenta un cajón. */
+const PIEZAS = [100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
+
 export default function TpvCashSession(props: TpvCashSessionProps) {
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +55,10 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
   const resumenPedido = useRef(false);
 
   const value = Number(amount.replace(',', '.')) || 0;
+  const [porPiezas, setPorPiezas] = useState(true);
+  const [piezas, setPiezas] = useState<Record<number, number>>({});
+  const sumaPiezas = Math.round(PIEZAS.reduce((suma, v) => suma + (piezas[v] || 0) * v, 0) * 100) / 100;
+  const contado = porPiezas ? sumaPiezas : value;
 
   /**
    * EL RESUMEN DEL TURNO
@@ -96,6 +104,7 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
 
   if (props.mode === 'open') {
     const handleOpen = async () => {
+      if (submitting) return;
       setSubmitting(true);
       setError('');
       try {
@@ -107,143 +116,57 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
     };
 
     return (
-      <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-        <div className="modal tpv-session-modal" style={{ maxWidth: 460, padding: 0, overflow: 'hidden', borderRadius: 'var(--radius-xl)' }}>
-          {/* Header */}
-          <div style={{
-            padding: 'var(--space-6)',
-            background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-            color: '#ffffff',
-            textAlign: 'center',
-            position: 'relative',
-          }}>
-            <div style={{
-              width: 56,
-              height: 56,
-              borderRadius: 'var(--radius-xl)',
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto var(--space-4)',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
-            }}>
-              <Unlock size={28} />
+      <TpvDialogo
+        titulo="Abrir caja"
+        subtitulo="Cuenta el fondo con el que empiezas: al cerrar se compara con lo que haya."
+        icono={<Unlock size={20} />}
+        ancho="sm"
+        onClose={props.onSkip}
+        bloqueado={submitting}
+        pie={
+          <>
+            <button type="button" className="tpvd-boton" onClick={props.onSkip} disabled={submitting}>Vender sin turno</button>
+            <button type="submit" form="tpv-abrir" className="tpvd-boton tpvd-boton--principal" style={{ flex: 1 }} disabled={submitting}>
+              {submitting ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />} Abrir con {formatCurrency(value)}
+            </button>
+          </>
+        }
+      >
+        <form id="tpv-abrir" className="tpvx-pila" onSubmit={e => { e.preventDefault(); void handleOpen(); }}>
+          <label className="tpvx-campo-grande">
+            <span>Fondo inicial</span>
+            <div>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                data-autofocus
+                aria-label="Fondo inicial en euros"
+              />
+              <em>€</em>
             </div>
-            <h3 style={{ margin: '0 0 var(--space-1)', fontSize: '1.4rem', fontWeight: 700, color: '#ffffff' }}>
-              Apertura de Caja TPV
-            </h3>
-            <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85, lineHeight: 1.5, maxWidth: '38ch' }}>
-              Indica el fondo inicial en efectivo con el que empieza el turno para cuadrar el arqueo al cerrar.
-            </p>
-          </div>
-
-          {/* Body */}
-          <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
-            <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
-              <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <Banknote size={16} style={{ color: 'var(--accent-500)' }} /> Fondo inicial en efectivo (€)
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  className="form-input"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  autoFocus
-                  style={{
-                    fontSize: '1.4rem',
-                    fontWeight: 700,
-                    padding: '12px 16px',
-                    textAlign: 'right',
-                    letterSpacing: '-0.02em',
-                  }}
-                />
-                <span style={{
-                  position: 'absolute',
-                  left: 14,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontWeight: 600,
-                  color: 'var(--text-tertiary)',
-                  fontSize: '1rem',
-                }}>
-                  EUR (€)
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Presets */}
-            <div style={{ marginBottom: 'var(--space-5)' }}>
-              <span style={{ fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 'var(--space-2)' }}>
-                Importes rápidos
-              </span>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {QUICK_PRESETS.map(preset => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setAmount(String(preset))}
-                    style={{
-                      flex: '1 0 auto',
-                      padding: '6px 12px',
-                      fontSize: 'var(--text-xs)',
-                      fontWeight: 600,
-                      background: value === preset ? 'var(--accent-50)' : 'var(--bg-tertiary)',
-                      borderColor: value === preset ? 'var(--accent-500)' : 'var(--border-color)',
-                      color: value === preset ? 'var(--accent-500)' : 'var(--text-primary)',
-                    }}
-                  >
-                    {preset === 0 ? 'Sin fondo (0 €)' : `${preset} €`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && (
-              <div className="status-panel" style={{ background: 'var(--color-danger-bg)', borderColor: 'var(--color-danger)', marginBottom: 'var(--space-4)', padding: 'var(--space-3)' }}>
-                <AlertCircle size={18} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>{error}</span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ flex: 1, padding: '12px', justifyContent: 'center' }}
-                onClick={props.onSkip}
-              >
-                Vender sin turno
+          </label>
+          <div className="tpvx-chips">
+            {QUICK_PRESETS.map(preset => (
+              <button key={preset} type="button" className={amount !== '' && value === preset ? 'is-activo' : ''} onClick={() => setAmount(String(preset))}>
+                {preset === 0 ? 'Sin fondo' : formatCurrency(preset)}
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ flex: 1.3, padding: '12px', justifyContent: 'center', fontWeight: 700 }}
-                onClick={handleOpen}
-                disabled={submitting}
-              >
-                {submitting ? <Loader2 size={18} className="spin" /> : <><Sparkles size={18} /> Abrir caja</>}
-              </button>
-            </div>
+            ))}
           </div>
-        </div>
-      </div>
+          {error && <div className="tpvc-error" role="alert">{error}</div>}
+        </form>
+      </TpvDialogo>
     );
   }
 
   const handleClose = async () => {
+    if (submitting) return;
     setSubmitting(true);
     setError('');
     try {
-      const result = await props.onSubmit(value);
+      const result = await props.onSubmit(contado);
       setClosed(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cerrar la caja.');
@@ -253,164 +176,118 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
 
   if (closed) {
     const diff = closed.cashDifference ?? 0;
+    const cuadra = Math.abs(diff) < 0.005;
+    const estado = cuadra ? 'cuadra' : diff > 0 ? 'sobra' : 'falta';
+    const total = datosTurno ? datosTurno.ventasEfectivo + datosTurno.ventasTarjeta + datosTurno.ventasBizum : null;
     return (
-      <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-        <div className="modal tpv-session-modal" style={{ maxWidth: 440, padding: 0, overflow: 'hidden', borderRadius: 'var(--radius-xl)' }}>
-          <div style={{
-            padding: 'var(--space-6)',
-            background: 'linear-gradient(135deg, #1e7a45 0%, #14522e 100%)',
-            color: '#ffffff',
-            textAlign: 'center',
-          }}>
-            <div style={{
-              width: 56,
-              height: 56,
-              borderRadius: 'var(--radius-xl)',
-              background: 'rgba(255, 255, 255, 0.15)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto var(--space-4)',
-            }}>
-              <CheckCircle2 size={32} />
-            </div>
-            <h3 style={{ margin: '0 0 var(--space-1)', fontSize: '1.4rem', fontWeight: 700, color: '#ffffff' }}>
-              Caja Cerrada Correctamente
-            </h3>
-            <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.9 }}>
-              Arqueo de turno finalizado con registro de auditoría.
-            </p>
+      <TpvDialogo
+        titulo="Caja cerrada"
+        subtitulo="El arqueo queda registrado con su hora y su diferencia."
+        icono={<CheckCircle2 size={22} />}
+        tono={cuadra ? 'exito' : 'aviso'}
+        ancho="md"
+        onClose={props.onDone}
+        pie={<button type="button" className="tpvd-boton tpvd-boton--principal" style={{ flex: 1 }} onClick={props.onDone} data-autofocus>Hecho</button>}
+      >
+        <div className="tpvx-pila">
+          <div className={`tpvs-veredicto tpvs-veredicto--${estado}`}>
+            <span>{cuadra ? 'La caja cuadra' : diff > 0 ? 'Sobra dinero' : 'Falta dinero'}</span>
+            <strong>{cuadra ? formatCurrency(0) : `${diff > 0 ? '+' : '−'}${formatCurrency(Math.abs(diff))}`}</strong>
+            <small>Esperado {formatCurrency(closed.expectedCash ?? 0)} · Contado {formatCurrency(closed.countedCash ?? 0)}</small>
           </div>
 
-          <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-4)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-3)',
-              marginBottom: 'var(--space-5)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Efectivo esperado:</span>
-                <strong>{formatCurrency(closed.expectedCash ?? 0)}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Efectivo contado:</span>
-                <strong>{formatCurrency(closed.countedCash ?? 0)}</strong>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 'var(--text-base)',
-                fontWeight: 700,
-                paddingTop: 'var(--space-2)',
-                borderTop: '1px solid var(--border-color)',
-                color: diff === 0 ? 'var(--color-success)' : diff > 0 ? 'var(--color-info)' : 'var(--color-danger)',
-              }}>
-                <span>Diferencia de caja:</span>
-                <span>{diff > 0 ? '+' : ''}{formatCurrency(diff)}</span>
-              </div>
+          {datosTurno && (
+            <div className="tpvs-cifras">
+              <div><span>Ventas</span><strong>{datosTurno.numeroVentas}</strong></div>
+              <div><span>Total vendido</span><strong>{formatCurrency(total ?? 0)}</strong></div>
+              <div><span>Efectivo</span><strong>{formatCurrency(datosTurno.ventasEfectivo)}</strong></div>
+              <div><span>Tarjeta</span><strong>{formatCurrency(datosTurno.ventasTarjeta)}</strong></div>
+              <div><span>Bizum</span><strong>{formatCurrency(datosTurno.ventasBizum)}</strong></div>
+              <div><span>Ticket medio</span><strong>{formatCurrency(datosTurno.numeroVentas ? (total ?? 0) / datosTurno.numeroVentas : 0)}</strong></div>
             </div>
+          )}
 
-            {datosTurno && !resumenFallido && (
-              <div className="tpv-turno-resumen">
-                <div className="tpv-turno-resumen-titulo">
-                  <Sparkles size={13} /> Cómo ha ido el turno
-                </div>
-                {resumen
-                  ? <p className="tpv-turno-resumen-texto">{resumen}</p>
-                  : <p className="tpv-turno-resumen-texto" style={{ opacity: 0.7 }}>Repasando el turno…</p>}
-              </div>
-            )}
+          {datosTurno && datosTurno.masVendidos.length > 0 && (
+            <div className="tpvs-top">
+              <span>Lo más vendido</span>
+              <ol>{datosTurno.masVendidos.slice(0, 3).map(m => <li key={m.nombre}><b>{m.nombre}</b> · {m.unidades} ud</li>)}</ol>
+            </div>
+          )}
 
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', justifyContent: 'center', fontWeight: 700, marginTop: 'var(--space-5)' }}
-              onClick={props.onDone}
-            >
-              Entendido y Volver
-            </button>
-          </div>
+          {datosTurno && !resumenFallido && (
+            <div className="tpv-turno-resumen">
+              <div className="tpv-turno-resumen-titulo"><Sparkles size={13} /> Cómo ha ido el turno</div>
+              {resumen
+                ? <p className="tpv-turno-resumen-texto">{resumen}</p>
+                : <p className="tpv-turno-resumen-texto" style={{ opacity: 0.7 }}>Repasando el turno…</p>}
+            </div>
+          )}
         </div>
-      </div>
+      </TpvDialogo>
     );
   }
 
   return (
-    <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-      <div className="modal tpv-session-modal" style={{ maxWidth: 460, padding: 0, overflow: 'hidden', borderRadius: 'var(--radius-xl)' }}>
-        <div style={{
-          padding: 'var(--space-6)',
-          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-          color: '#ffffff',
-          textAlign: 'center',
-        }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: 'var(--radius-xl)',
-            background: 'rgba(255, 255, 255, 0.12)',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto var(--space-4)',
-          }}>
-            <Lock size={28} />
-          </div>
-          <h3 style={{ margin: '0 0 var(--space-1)', fontSize: '1.4rem', fontWeight: 700, color: '#ffffff' }}>
-            Cierre y Arqueo de Caja
-          </h3>
-          <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-            Fondo inicial: {formatCurrency(props.session.startingCash)} desde las{' '}
-            {new Date(props.session.openedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}.
-          </p>
+    <TpvDialogo
+      titulo="Cerrar caja"
+      subtitulo={<>Turno abierto a las {new Date(props.session.openedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} con {formatCurrency(props.session.startingCash)} de fondo</>}
+      icono={<Lock size={20} />}
+      ancho="lg"
+      onClose={props.onDone}
+      bloqueado={submitting}
+      pie={
+        <>
+          <span className="tpvd-pie-pista">Arqueo ciego: lo esperado se ve al cerrar, para que el recuento sea limpio.</span>
+          <button type="submit" form="tpv-cerrar" className="tpvd-boton tpvd-boton--principal" disabled={submitting}>
+            {submitting ? <Loader2 size={18} className="spin" /> : <Lock size={18} />} Cerrar con {formatCurrency(contado)}
+          </button>
+        </>
+      }
+    >
+      <form id="tpv-cerrar" className="tpvx-pila" onSubmit={e => { e.preventDefault(); void handleClose(); }}>
+        <div className="tpvs-modo" role="tablist" aria-label="Cómo contar">
+          <button type="button" role="tab" aria-selected={porPiezas} className={porPiezas ? 'is-activo' : ''} onClick={() => setPorPiezas(true)}>
+            <Coins size={16} /> Contar billetes y monedas
+          </button>
+          <button type="button" role="tab" aria-selected={!porPiezas} className={!porPiezas ? 'is-activo' : ''} onClick={() => setPorPiezas(false)}>
+            <Banknote size={16} /> Escribir el total
+          </button>
         </div>
 
-        <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
-          <div className="form-group" style={{ marginBottom: 'var(--space-5)' }}>
-            <label className="form-label required" style={{ fontWeight: 600 }}>Efectivo contado en el cajón (€)</label>
-            <input
-              className="form-input"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              placeholder="0,00"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              autoFocus
-              style={{
-                fontSize: '1.4rem',
-                fontWeight: 700,
-                padding: '12px 16px',
-                textAlign: 'right',
-              }}
-            />
-          </div>
-
-          {error && (
-            <div className="status-panel" style={{ background: 'var(--color-danger-bg)', borderColor: 'var(--color-danger)', marginBottom: 'var(--space-4)', padding: 'var(--space-3)' }}>
-              <AlertCircle size={18} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>{error}</span>
+        {porPiezas ? (
+          <>
+            <div className="tpvs-piezas">
+              {PIEZAS.map(v => (
+                <label key={v} className={`tpvs-pieza ${v >= 5 ? 'es-billete' : ''}`}>
+                  <span className="tpvs-pieza-valor">{v >= 1 ? `${v} €` : `${Math.round(v * 100)} c`}</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={piezas[v] || ''}
+                    placeholder="0"
+                    onChange={e => setPiezas(p => ({ ...p, [v]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                    onFocus={e => e.target.select()}
+                    aria-label={`Cantidad de ${v >= 1 ? `${v} euros` : `${Math.round(v * 100)} céntimos`}`}
+                  />
+                  <small>{formatCurrency((piezas[v] || 0) * v)}</small>
+                </label>
+              ))}
             </div>
-          )}
+            <div className="tpvx-resultado"><span>Total contado</span><strong>{formatCurrency(contado)}</strong></div>
+          </>
+        ) : (
+          <label className="tpvx-campo-grande">
+            <span>Efectivo contado en el cajón</span>
+            <div>
+              <input type="text" inputMode="decimal" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} data-autofocus aria-label="Efectivo contado" />
+              <em>€</em>
+            </div>
+          </label>
+        )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', justifyContent: 'center', fontWeight: 700 }}
-              onClick={handleClose}
-              disabled={submitting}
-            >
-              {submitting ? <Loader2 size={18} className="spin" /> : 'Finalizar Arqueo y Cerrar'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        {error && <div className="tpvc-error" role="alert">{error}</div>}
+      </form>
+    </TpvDialogo>
   );
 }

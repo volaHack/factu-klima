@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { X, Search, Printer, RotateCcw, CheckCircle, Clock, Banknote, CreditCard, Smartphone, ShieldCheck, CloudOff, FileText } from 'lucide-react';
+import { Search, Printer, RotateCcw, CheckCircle, Clock, Banknote, CreditCard, Smartphone, ShieldCheck, CloudOff, FileText , Receipt } from 'lucide-react';
+import TpvDialogo from './TpvDialogo';
 import { Invoice, InvoiceStatus, PaymentMethod } from '@/lib/types';
 import { getInvoices, cancelInvoice } from '@/lib/storage';
 import { formatCurrency, getToday } from '@/lib/utils';
@@ -85,53 +86,7 @@ export default function TpvTodaySalesModal({ onReprint, onClose }: TpvTodaySales
   };
 
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-      <div
-        className="modal tpv-today-sales-modal"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: 880,
-          width: '94vw',
-          maxHeight: '90vh',
-          overflow: 'hidden',
-          padding: 0,
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-xl)',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          padding: 'var(--space-5) var(--space-6)',
-          background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', fontWeight: 700 }}>
-                Turno Actual TPV
-              </span>
-              <span style={{ fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-                {invoices.length} tickets hoy
-              </span>
-            </div>
-            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: '4px 0 0' }}>
-              Ventas del Día · Total: <span style={{ color: '#f6b9cf' }}>{formatCurrency(totalSalesToday)}</span>
-            </h3>
-          </div>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={onClose}
-            style={{ color: '#ffffff', opacity: 0.8 }}
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <TpvDialogo titulo="Ventas de hoy" subtitulo={<>{invoices.length} {invoices.length === 1 ? 'ticket' : 'tickets'} · {formatCurrency(totalSalesToday)}</>} icono={<Receipt size={20} />} ancho="xl" onClose={onClose} className="tpvh">
 
         {/* Content Body */}
         <div style={{
@@ -305,7 +260,6 @@ export default function TpvTodaySalesModal({ onReprint, onClose }: TpvTodaySales
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </TpvDialogo>
   );
 }

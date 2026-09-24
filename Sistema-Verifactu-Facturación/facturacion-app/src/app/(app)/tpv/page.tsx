@@ -15,6 +15,7 @@ import TpvQuickCreateProductModal from '@/components/tpv/TpvQuickCreateProductMo
 import TpvTodaySalesModal from '@/components/tpv/TpvTodaySalesModal';
 import TpvInsightsModal from '@/components/tpv/TpvInsightsModal';
 import TpvWeightModal from '@/components/tpv/TpvWeightModal';
+import TpvDialogo from '@/components/tpv/TpvDialogo';
 import TpvTables from '@/components/tpv/TpvTables';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
@@ -24,7 +25,7 @@ import {
 import {
   getOpenChecks, createOpenCheck, saveOpenCheck, deleteOpenCheck, addLineToCheck, OpenCheck,
 } from '@/lib/openChecks';
-import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals } from '@/lib/utils';
+import { generateId, generateInvoiceNumber, getToday, calculateInvoiceTotals, formatCurrency } from '@/lib/utils';
 import type { PlanId } from '@/lib/plans';
 import { isTpvEnabled, defaultTpvModeForSector } from '@/lib/constants';
 import { nextOfflineNumber, numeroSinConexion } from '@/lib/tpvOffline';
@@ -1042,113 +1043,45 @@ export default function TpvPage() {
       )}
 
       {heldListOpen && (
-        <div className="modal-overlay animate-fade-in" onClick={() => setHeldListOpen(false)} style={{ zIndex: 1100, backdropFilter: 'blur(6px)' }}>
-          <div
-            className="modal tpv-held-modal"
-            onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: 480,
-              width: '92vw',
-              padding: 0,
-              borderRadius: 'var(--radius-xl)',
-              overflow: 'hidden',
-              boxShadow: 'var(--shadow-xl)',
-            }}
-          >
-            {/* Header */}
-            <div style={{
-              padding: 'var(--space-5) var(--space-6)',
-              background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-              color: '#ffffff',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                }}>
-                  <List size={20} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#ffffff' }}>
-                    Ventas Aparcadas ({heldSales.length})
-                  </h3>
-                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-                    Tickets en espera de cobro
-                  </p>
-                </div>
-              </div>
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={() => setHeldListOpen(false)}
-                style={{ color: '#ffffff', opacity: 0.8 }}
-                aria-label="Cerrar"
-              >
-                <X size={20} />
-              </button>
+        <TpvDialogo
+          titulo="Ventas aparcadas"
+          subtitulo={heldSales.length ? `${heldSales.length} en espera · toca una para seguir cobrándola` : 'Ninguna en espera'}
+          icono={<List size={20} />}
+          ancho="md"
+          onClose={() => setHeldListOpen(false)}
+        >
+          {heldSales.length === 0 ? (
+            <div className="tpvx-vacio">
+              <List size={28} />
+              <strong>No hay ventas aparcadas</strong>
+              <span>Aparca una venta para atender a otro cliente y recupérala aquí después.</span>
             </div>
-
-            <div style={{ padding: 'var(--space-6)', background: 'var(--bg-card)' }}>
-              {heldSales.length === 0 ? (
-                <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                  No hay ventas aparcadas en este momento.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  {heldSales.map(h => (
-                    <div
-                      key={h.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 14px',
-                        background: 'var(--bg-secondary)',
-                        borderRadius: 'var(--radius-lg)',
-                        border: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <button
-                        onClick={() => resumeHeld(h.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          flex: 1,
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
-                          {h.label}
-                        </div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-500)', fontWeight: 600, marginTop: 2 }}>
-                          {h.lines.length} {h.lines.length === 1 ? 'artículo' : 'artículos'} · Recuperar ticket
-                        </div>
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-icon"
-                        onClick={() => discardHeld(h.id)}
-                        style={{ color: 'var(--color-danger)' }}
-                        title="Descartar venta"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+          ) : (
+            <ul className="tpvx-lista">
+              {heldSales.map(h => {
+                const importe = h.lines.reduce((suma, l) => {
+                  const base = l.quantity * l.unitPrice * (1 - (l.discountPercent || 0) / 100);
+                  return suma + base * (1 + (l.taxRate || 0) / 100);
+                }, 0);
+                const unidades = h.lines.reduce((suma, l) => suma + l.quantity, 0);
+                return (
+                  <li key={h.id}>
+                    <button type="button" className="tpvx-lista-abrir" onClick={() => resumeHeld(h.id)}>
+                      <span className="tpvx-lista-titulo">{h.label}</span>
+                      <span className="tpvx-lista-meta">
+                        {unidades} {unidades === 1 ? 'artículo' : 'artículos'} · {h.lines.slice(0, 3).map(l => l.productName).join(', ')}{h.lines.length > 3 ? '…' : ''}
+                      </span>
+                    </button>
+                    <strong className="tpvx-lista-importe">{formatCurrency(importe)}</strong>
+                    <button type="button" className="tpvx-lista-quitar" onClick={() => discardHeld(h.id)} title="Descartar esta venta" aria-label="Descartar esta venta">
+                      <X size={16} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TpvDialogo>
       )}
       {paywallState && (
         <SubscriptionPaywallModal

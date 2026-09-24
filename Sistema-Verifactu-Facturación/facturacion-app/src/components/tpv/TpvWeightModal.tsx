@@ -1,10 +1,20 @@
 'use client';
 
+/**
+ * VENTA AL PESO
+ *
+ * Se teclea el peso en gramos (o se toca uno habitual) y se ve al momento
+ * lo que cuesta. Intro lo añade. El importe va grande porque es lo que se
+ * le dice al cliente mientras se envuelve.
+ */
+
 import { useState } from 'react';
-import { X, Scale } from 'lucide-react';
+import { Scale, Plus } from 'lucide-react';
+
 import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { pluToKg, pluKgToPrice } from '@/lib/tpvOffline';
+import TpvDialogo from './TpvDialogo';
 
 interface TpvWeightModalProps {
   product: Product;
@@ -13,10 +23,11 @@ interface TpvWeightModalProps {
 }
 
 const PRESETS = [
-  { grams: 250, label: '250g' },
-  { grams: 500, label: '500g' },
-  { grams: 1000, label: '1kg' },
-  { grams: 2000, label: '2kg' },
+  { grams: 100, label: '100 g' },
+  { grams: 250, label: '¼ kg' },
+  { grams: 500, label: '½ kg' },
+  { grams: 1000, label: '1 kg' },
+  { grams: 2000, label: '2 kg' },
 ];
 
 export default function TpvWeightModal({ product, onAdd, onClose }: TpvWeightModalProps) {
@@ -25,68 +36,60 @@ export default function TpvWeightModal({ product, onAdd, onClose }: TpvWeightMod
   const kg = pluToKg(grams);
   const total = pluKgToPrice(product.unitPrice, kg);
 
-  const commit = (g: number) => {
-    onAdd(pluToKg(g));
+  const commit = () => {
+    if (grams <= 0) return;
+    onAdd(kg);
     onClose();
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, width: '92vw' }}>
-        <div className="tpv-checkout-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Scale size={18} style={{ color: 'var(--accent-500)' }} />
-            <h3 style={{ margin: 0 }}>Venta por peso</h3>
-          </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Cerrar">
-            <X size={18} />
+    <TpvDialogo
+      titulo={product.name}
+      subtitulo={<>Venta al peso · {formatCurrency(product.unitPrice)}/kg</>}
+      icono={<Scale size={20} />}
+      ancho="sm"
+      onClose={onClose}
+      pie={
+        <>
+          <button type="button" className="tpvd-boton" onClick={onClose}>Cancelar</button>
+          <button type="submit" form="tpv-peso" className="tpvd-boton tpvd-boton--principal" style={{ flex: 1 }} disabled={grams <= 0}>
+            <Plus size={18} /> Añadir · {formatCurrency(total)}
           </button>
-        </div>
+        </>
+      }
+    >
+      <form id="tpv-peso" onSubmit={e => { e.preventDefault(); commit(); }} className="tpvx-pila">
+        <label className="tpvx-campo-grande">
+          <span>Peso</span>
+          <div>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={5}
+              value={grams}
+              onChange={e => setGrams(Math.max(0, parseInt(e.target.value) || 0))}
+              onFocus={e => e.target.select()}
+              data-autofocus
+              aria-label="Peso en gramos"
+            />
+            <em>g</em>
+          </div>
+        </label>
 
-        <div className="tpv-weight-product" style={{ marginBottom: 'var(--space-3)' }}>
-          <div className="tpv-weight-name">{product.name}</div>
-          <div className="tpv-weight-price" style={{ color: 'var(--text-muted)' }}>{formatCurrency(product.unitPrice)}/kg</div>
-        </div>
-
-        <label className="form-label">Peso en gramos</label>
-        <input
-          className="form-input"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step={5}
-          value={grams}
-          onChange={e => setGrams(Math.max(1, parseInt(e.target.value) || 0))}
-          autoFocus
-          onFocus={e => e.target.select()}
-        />
-
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div className="tpvx-chips">
           {PRESETS.map(p => (
-            <button
-              key={p.grams}
-              className="btn btn-secondary btn-sm"
-              onClick={() => setGrams(p.grams)}
-              style={{ flex: 1 }}
-            >
+            <button key={p.grams} type="button" className={grams === p.grams ? 'is-activo' : ''} onClick={() => setGrams(p.grams)}>
               {p.label}
             </button>
           ))}
         </div>
 
-        <div className="tpv-weight-total" style={{ marginTop: 'var(--space-4)', textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-            {kg.toFixed(3)} kg · {formatCurrency(product.unitPrice)}/kg
-          </div>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-500)' }}>
-            {formatCurrency(total)}
-          </div>
+        <div className="tpvx-resultado">
+          <span>{kg.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg × {formatCurrency(product.unitPrice)}</span>
+          <strong>{formatCurrency(total)}</strong>
         </div>
-
-        <button className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: 'var(--space-4)' }} onClick={() => commit(grams)}>
-          Añadir al ticket · {formatCurrency(total)}
-        </button>
-      </div>
-    </div>
+      </form>
+    </TpvDialogo>
   );
 }

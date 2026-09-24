@@ -13220,3 +13220,355 @@ body.nav-abierta { overflow: hidden; }
 .cmd-palette-overlay { padding-top: calc(12vh + var(--safe-top)); }
 .site-nav { padding-top: var(--safe-top); }
 .site-nav-panel { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+/* ============================================================
+   TPV · VENTANAS (TpvDialogo)
+   Una sola forma para todas: icono y título arriba, contenido con
+   aire, botones abajo y siempre en el mismo sitio. Entrada corta y
+   con salida suave; en el teléfono, hoja desde abajo.
+   ============================================================ */
+.tpvd-velo {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center;
+  padding: max(16px, calc(var(--safe-top) + 8px)) max(16px, var(--safe-right)) max(16px, calc(var(--safe-bottom) + 8px)) max(16px, var(--safe-left));
+  background: color-mix(in srgb, #140b0f 52%, transparent);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  animation: tpvdVelo 180ms ease-out both;
+}
+@keyframes tpvdVelo { from { opacity: 0; } }
+.tpvd {
+  --tpvd-acento: var(--accent-500);
+  --tpvd-acento-suave: var(--accent-glow);
+  position: relative;
+  width: 100%;
+  max-height: min(92dvh, 900px);
+  display: flex; flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  box-shadow: 0 30px 80px -24px rgba(40, 10, 20, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  outline: none;
+  animation: tpvdEntra 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes tpvdEntra { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+.tpvd--sm { max-width: 420px; }
+.tpvd--md { max-width: 520px; }
+.tpvd--lg { max-width: 760px; }
+.tpvd--xl { max-width: 960px; }
+.tpvd--exito { --tpvd-acento: var(--color-success); --tpvd-acento-suave: var(--color-success-bg); }
+.tpvd--aviso { --tpvd-acento: var(--color-warning); --tpvd-acento-suave: var(--color-warning-bg); }
+.tpvd--neutro { --tpvd-acento: var(--text-secondary); --tpvd-acento-suave: var(--bg-tertiary); }
+
+.tpvd-cabeza {
+  display: flex; align-items: center; gap: 14px;
+  padding: 20px 20px 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tpvd-acento-suave) 70%, transparent), transparent);
+}
+.tpvd-icono {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 14px;
+  background: var(--tpvd-acento); color: #fff;
+  box-shadow: 0 10px 22px -12px var(--tpvd-acento);
+}
+.tpvd--marca .tpvd-icono { background: var(--accent-gradient); }
+.tpvd--neutro .tpvd-icono { background: var(--bg-tertiary); color: var(--text-primary); box-shadow: none; border: 1px solid var(--border-color); }
+.tpvd-titulos { flex: 1; min-width: 0; }
+.tpvd-titulo { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.2; }
+.tpvd-subtitulo { margin: 3px 0 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.4; }
+.tpvd-cerrar {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 12px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--text-muted); cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.tpvd-cerrar:hover:not(:disabled) { background: var(--bg-tertiary); color: var(--text-primary); }
+.tpvd-cerrar:active:not(:disabled) { transform: scale(0.94); }
+.tpvd-cerrar:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.tpvd-cuerpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 22px; }
+.tpvd-pie {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 14px 22px calc(14px + var(--safe-bottom));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+.tpvd-pie-pista { margin-right: auto; font-size: 12px; color: var(--text-muted); }
+.tpvd kbd {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 6px; border: 1px solid var(--border-color); border-bottom-width: 2px;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+}
+
+/* Botones de las ventanas: grandes, para el dedo y para el mostrador. */
+.tpvd-boton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: 14px;
+  font: inherit; font-size: var(--text-md); font-weight: 650;
+  border: 1px solid var(--border-color); background: var(--bg-elevated); color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease, opacity 150ms ease;
+}
+.tpvd-boton:hover:not(:disabled) { background: var(--bg-tertiary); }
+.tpvd-boton:active:not(:disabled) { transform: scale(0.97); }
+.tpvd-boton:disabled { opacity: 0.45; cursor: not-allowed; }
+.tpvd-boton--principal {
+  border-color: transparent; color: #fff; background: var(--accent-gradient);
+  box-shadow: 0 12px 26px -14px var(--accent-500);
+}
+.tpvd-boton--principal:hover:not(:disabled) { background: var(--accent-gradient); filter: brightness(1.06); }
+.tpvd-boton--exito { border-color: transparent; color: #fff; background: linear-gradient(135deg, #22a05b, #16753f); box-shadow: 0 12px 26px -14px #16753f; }
+.tpvd-boton--exito:hover:not(:disabled) { background: linear-gradient(135deg, #22a05b, #16753f); filter: brightness(1.06); }
+
+/* ── COBRAR ── */
+.tpvc-rejilla { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 22px; }
+.tpvc-izquierda { display: flex; flex-direction: column; gap: 14px; }
+.tpvc-total {
+  padding: 18px 20px; border-radius: 18px;
+  background: var(--accent-gradient); color: #fff;
+  box-shadow: 0 18px 36px -22px var(--accent-500);
+}
+.tpvc-total span { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.85; }
+.tpvc-total strong { display: block; margin-top: 4px; font-size: clamp(2.2rem, 5vw, 3rem); font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.tpvc-metodos { display: grid; gap: 8px; }
+.tpvc-metodo {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 58px; padding: 0 16px;
+  border-radius: 14px; border: 1.5px solid var(--border-color);
+  background: var(--bg-card); color: var(--text-primary);
+  font: inherit; font-size: var(--text-md); font-weight: 600; text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+.tpvc-metodo svg { color: var(--text-secondary); }
+.tpvc-metodo span { flex: 1; }
+.tpvc-metodo:hover { border-color: var(--border-color-hover); }
+.tpvc-metodo:active { transform: scale(0.98); }
+.tpvc-metodo.is-activo { border-color: var(--accent-500); background: var(--accent-glow); }
+.tpvc-metodo.is-activo svg { color: var(--accent-500); }
+
+.tpvc-derecha { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tpvc-pantalla { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tpvc-pantalla > div { padding: 12px 14px; border-radius: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); min-width: 0; }
+.tpvc-pantalla span { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.tpvc-pantalla strong { display: block; margin-top: 2px; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpvc-pantalla small { display: block; font-size: 11px; color: var(--text-muted); }
+.tpvc-cambio { background: var(--color-success-bg) !important; border-color: color-mix(in srgb, var(--color-success) 30%, transparent) !important; }
+.tpvc-cambio strong { color: var(--color-success); }
+.tpvc-cambio.is-falta { background: var(--color-danger-bg) !important; border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
+.tpvc-cambio.is-falta strong { color: var(--color-danger); }
+.tpvc-billetes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.tpvc-billetes button, .tpvc-teclado button {
+  min-height: 46px; border-radius: 12px;
+  border: 1px solid var(--border-color); background: var(--bg-card);
+  font: inherit; font-weight: 650; color: var(--text-primary); font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms ease, border-color 120ms ease;
+}
+.tpvc-billetes button { font-size: var(--text-sm); padding: 0 4px; }
+.tpvc-billetes button:first-child { background: var(--accent-glow); border-color: color-mix(in srgb, var(--accent-500) 35%, transparent); color: var(--accent-500); }
+.tpvc-billetes button:hover, .tpvc-teclado button:hover { border-color: var(--border-color-hover); background: var(--bg-tertiary); }
+.tpvc-billetes button:active, .tpvc-teclado button:active { transform: scale(0.95); }
+.tpvc-teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tpvc-teclado button { min-height: 54px; font-size: 1.3rem; display: grid; place-items: center; }
+.tpvc-datafono {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px;
+  padding: 28px 20px; border-radius: 18px; border: 1.5px dashed var(--border-color); background: var(--bg-card);
+}
+.tpvc-datafono-icono { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; background: var(--accent-glow); color: var(--accent-500); animation: tpvcLatido 1.8s ease-in-out infinite; }
+@keyframes tpvcLatido { 50% { transform: scale(1.06); } }
+.tpvc-datafono strong { font-size: 1.15rem; }
+.tpvc-datafono p { margin: 0; max-width: 34ch; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+.tpvc-error { padding: 10px 12px; border-radius: 12px; background: var(--color-danger-bg); color: var(--color-danger); font-size: var(--text-sm); font-weight: 600; }
+.tpvc-cobrar { min-width: 240px; min-height: 54px; font-size: 1.05rem; }
+
+@media (max-width: 720px) {
+  .tpvd-velo { place-items: end center; padding: 0; padding-top: calc(var(--safe-top) + 12px); }
+  .tpvd { max-height: calc(100dvh - var(--safe-top) - 12px); border-radius: 22px 22px 0 0; animation-name: tpvdHoja; }
+  @keyframes tpvdHoja { from { transform: translateY(40px); opacity: 0; } }
+  .tpvd-cuerpo { padding: 16px; }
+  .tpvd-pie { padding: 12px 16px calc(12px + var(--safe-bottom)); }
+  .tpvd-pie-pista { display: none; }
+  .tpvd-pie .tpvd-boton { flex: 1; }
+  .tpvc-rejilla { grid-template-columns: 1fr; gap: 14px; }
+  .tpvc-metodos { grid-template-columns: repeat(3, 1fr); }
+  .tpvc-metodo { flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 6px; text-align: center; font-size: var(--text-sm); }
+  .tpvc-metodo kbd { display: none; }
+  .tpvc-billetes { grid-template-columns: repeat(3, 1fr); }
+  .tpvc-cobrar { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tpvd, .tpvd-velo, .tpvc-datafono-icono { animation: none !important; }
+}
+
+/* ── TICKET DE VENTA ── */
+.tpvt-cambio {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  margin-bottom: 18px; padding: 18px 16px 16px; border-radius: 20px;
+  background: linear-gradient(135deg, #22a05b, #16753f); color: #fff;
+  box-shadow: 0 18px 36px -22px #16753f;
+  animation: tpvtCambio 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes tpvtCambio { from { opacity: 0; transform: scale(0.94); } }
+.tpvt-cambio span { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.9; }
+.tpvt-cambio strong { font-size: clamp(2.4rem, 7vw, 3.2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tpvt-cambio small { margin-top: 4px; font-size: 12.5px; opacity: 0.9; font-variant-numeric: tabular-nums; }
+.tpvt-offline {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--color-warning-bg); color: var(--color-warning);
+  font-size: 12px; font-weight: 700;
+}
+.tpvt .tpv-ticket-print-area { display: flex; justify-content: center; }
+.tpvt .tpv-ticket {
+  width: 100%; max-width: 340px;
+  padding: 18px 16px 14px;
+  background: #fffdf9; color: #1a1216;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 14px 30px -18px rgba(40, 10, 20, 0.45);
+  /* El borde dentado de abajo: parece un ticket recién cortado. */
+  mask: radial-gradient(circle 5px at 50% 100%, transparent 98%, #000) 50% 100% / 14px 100% repeat-x;
+  -webkit-mask: radial-gradient(circle 5px at 50% 100%, transparent 98%, #000) 50% 100% / 14px 100% repeat-x;
+}
+.tpvt .tpvd-pie { gap: 8px; }
+.tpvt-nueva { flex: 1; min-width: 150px; }
+.tpvt .tpvd-pie .tpvd-boton:not(.tpvt-nueva) { padding: 0 14px; }
+@media (max-width: 720px) {
+  .tpvt-compartir span { display: none; }
+  .tpvt .tpvd-pie .tpvt-compartir { flex: 0 0 48px; padding: 0; }
+  .tpvt-nueva { min-width: 0; }
+}
+@media print {
+  .tpvd, .tpvd-cuerpo, .tpvd-velo { overflow: visible !important; max-height: none !important; transform: none !important; animation: none !important; backdrop-filter: none !important; background: none !important; box-shadow: none !important; }
+  .tpvt .tpv-ticket { mask: none; -webkit-mask: none; background: #fff; box-shadow: none; }
+}
+
+/* ── Piezas comunes de los formularios del TPV ── */
+.tpvx-pila { display: flex; flex-direction: column; gap: 16px; }
+.tpvx-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: start; }
+.tpvx-campo-grande { display: block; }
+.tpvx-campo-grande > span { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.tpvx-campo-grande > div {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 10px 18px; border-radius: 16px;
+  border: 1.5px solid var(--border-color); background: var(--bg-card);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.tpvx-campo-grande > div:focus-within { border-color: var(--accent-500); box-shadow: 0 0 0 4px var(--accent-glow); }
+.tpvx-campo-grande input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
+  font: inherit; font-size: 2.4rem; font-weight: 750; letter-spacing: -0.03em;
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.tpvx-campo-grande input::-webkit-outer-spin-button, .tpvx-campo-grande input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tpvx-campo-grande em { font-style: normal; font-size: 1.4rem; font-weight: 700; color: var(--text-muted); }
+.tpvx-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tpvx-chips button {
+  flex: 1 1 auto; min-height: 42px; padding: 0 14px; border-radius: 12px;
+  border: 1px solid var(--border-color); background: var(--bg-card);
+  font: inherit; font-size: var(--text-sm); font-weight: 650; color: var(--text-primary);
+  cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+.tpvx-chips button:hover { background: var(--bg-tertiary); }
+.tpvx-chips button:active { transform: scale(0.96); }
+.tpvx-chips button.is-activo { border-color: var(--accent-500); background: var(--accent-glow); color: var(--accent-500); }
+.tpvx-chips--suaves { margin-top: 8px; }
+.tpvx-chips--suaves button { flex: 0 0 auto; min-height: 34px; padding: 0 12px; font-size: 12.5px; font-weight: 600; }
+.tpvx-resultado {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-radius: 16px; background: var(--accent-glow);
+}
+.tpvx-resultado span { font-size: var(--text-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.tpvx-resultado strong { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; color: var(--accent-500); font-variant-numeric: tabular-nums; }
+.tpvx-contador { display: grid; grid-template-columns: 46px 1fr 46px; gap: 6px; }
+.tpvx-contador button {
+  display: grid; place-items: center; height: 46px; border-radius: 12px;
+  border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); cursor: pointer;
+}
+.tpvx-contador button:active { transform: scale(0.94); }
+.tpvx-contador input {
+  height: 46px; min-width: 0; text-align: center; border-radius: 12px;
+  border: 1px solid var(--border-color); background: var(--bg-card);
+  font: inherit; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);
+}
+@media (max-width: 720px) { .tpvx-fila { grid-template-columns: 1fr; } }
+
+/* ── APERTURA Y CIERRE DE CAJA ── */
+.tpvs-modo { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); }
+.tpvs-modo button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; border-radius: 10px; border: 0; background: transparent;
+  font: inherit; font-size: var(--text-sm); font-weight: 650; color: var(--text-secondary); cursor: pointer;
+}
+.tpvs-modo button.is-activo { background: var(--bg-elevated); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.tpvs-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.tpvs-pieza {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 2px 8px; align-items: center;
+  padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-card);
+}
+.tpvs-pieza:focus-within { border-color: var(--accent-500); box-shadow: 0 0 0 3px var(--accent-glow); }
+.tpvs-pieza-valor {
+  grid-row: span 2; display: grid; place-items: center; min-width: 46px; height: 40px; padding: 0 6px;
+  border-radius: 50%; background: linear-gradient(135deg, #d9c8a0, #b89a5e); color: #3b2a12;
+  font-size: 12px; font-weight: 800;
+}
+.tpvs-pieza.es-billete .tpvs-pieza-valor { border-radius: 8px; background: linear-gradient(135deg, #8fb8a6, #4d7d68); color: #fff; }
+.tpvs-pieza input {
+  width: 100%; min-width: 0; border: 0; outline: none; background: transparent;
+  font: inherit; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); text-align: right;
+  -moz-appearance: textfield;
+}
+.tpvs-pieza input::-webkit-outer-spin-button, .tpvs-pieza input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tpvs-pieza small { text-align: right; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tpvs-veredicto {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 18px 16px; border-radius: 20px; color: #fff;
+  background: linear-gradient(135deg, #22a05b, #16753f);
+}
+.tpvs-veredicto--sobra { background: linear-gradient(135deg, #2f7fbf, #1f5e91); }
+.tpvs-veredicto--falta { background: linear-gradient(135deg, #d24a3c, #9c2b20); }
+.tpvs-veredicto span { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.92; }
+.tpvs-veredicto strong { font-size: clamp(2.2rem, 6vw, 2.9rem); font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tpvs-veredicto small { font-size: 12.5px; opacity: 0.92; font-variant-numeric: tabular-nums; }
+.tpvs-cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tpvs-cifras div { padding: 10px 12px; border-radius: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); }
+.tpvs-cifras span { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.tpvs-cifras strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.tpvs-top span { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.tpvs-top ol { margin: 0; padding-left: 18px; font-size: var(--text-sm); color: var(--text-secondary); display: grid; gap: 2px; }
+@media (max-width: 720px) { .tpvs-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Ventanas del TPV cuyo contenido ya trae su propio relleno. */
+.tpvk .tpvd-cuerpo, .tpvq .tpvd-cuerpo, .tpvi .tpvd-cuerpo { padding: 0; }
+.tpvq form { background: transparent !important; }
+/* Ventas de hoy: dos columnas que se desplazan cada una por su lado. */
+.tpvh .tpvd-cuerpo { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tpvh .tpvd-cuerpo > * { flex: 1; min-height: 0; }
+.tpva .tpvd-pie { padding-top: 12px; }
+.tpva .tpv-ayuda-pie { display: flex; gap: 10px; width: 100%; align-items: stretch; }
+.tpva .tpv-ayuda-campo { flex: 1; min-height: 48px; resize: none; border-radius: 14px; }
+
+/* ── Listas y vacíos de las ventanas del TPV ── */
+.tpvx-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 12px; text-align: center; color: var(--text-muted); }
+.tpvx-vacio strong { color: var(--text-primary); font-size: var(--text-md); }
+.tpvx-vacio span { max-width: 34ch; font-size: var(--text-sm); line-height: 1.5; }
+.tpvx-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tpvx-lista li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 14px; border-radius: 14px;
+  border: 1px solid var(--border-color); background: var(--bg-card);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.tpvx-lista li:hover { border-color: var(--accent-500); background: var(--accent-glow); }
+.tpvx-lista-abrir { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.tpvx-lista-titulo { font-weight: 700; font-size: var(--text-sm); color: var(--text-primary); }
+.tpvx-lista-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpvx-lista-importe { font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.tpvx-lista-quitar { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
+.tpvx-lista-quitar:hover { background: var(--color-danger-bg); color: var(--color-danger); }
