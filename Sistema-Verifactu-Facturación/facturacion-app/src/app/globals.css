@@ -14027,3 +14027,247 @@ body {
   --border-color-focus: var(--accent-500);
   --shadow-glow: 0 0 20px var(--accent-glow);
 }
+
+/* ============================================================
+   PERFILES DE TRABAJO
+   ------------------------------------------------------------
+   Quién está usando la cuenta: el selector a pantalla completa, el
+   teclado del PIN, el chip de la cabecera y el aviso de «sin acceso».
+   Los avatares llevan el color de cada persona (fijo, categórico); el
+   resto sigue el acento de la empresa.
+   ============================================================ */
+.perfil-avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff; font-weight: 700; letter-spacing: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  user-select: none;
+}
+
+/* --- Selector «¿Quién está trabajando?» --- */
+.perfil-selector {
+  position: fixed; inset: 0; z-index: 1300;
+  display: grid; place-items: center;
+  padding: calc(var(--space-6) + var(--safe-top)) var(--space-4) calc(var(--space-6) + var(--safe-bottom));
+  overflow-y: auto;
+  /* Opaco: detrás está la cuenta, y hasta elegir perfil no se enseña. */
+  background:
+    radial-gradient(900px 500px at 50% 0%, var(--accent-glow), transparent 60%),
+    var(--bg-primary);
+  animation: perfilEntra 220ms var(--ease-settle) both;
+}
+@keyframes perfilEntra { from { opacity: 0; } to { opacity: 1; } }
+.perfil-selector-cerrar {
+  position: absolute; top: calc(var(--space-4) + var(--safe-top)); right: var(--space-4);
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-md); background: transparent;
+  color: var(--text-secondary); cursor: pointer;
+}
+.perfil-selector-cerrar:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.perfil-selector-cuerpo {
+  width: 100%; max-width: 720px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.perfil-selector-titulo { font-size: var(--text-2xl); font-weight: 650; letter-spacing: var(--tracking-display); color: var(--text-primary); }
+.perfil-selector-sub { margin-top: 6px; font-size: var(--text-sm); color: var(--text-tertiary); }
+.perfil-selector-lista {
+  list-style: none; padding: 0; margin: var(--space-6) 0 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--space-3); width: 100%;
+}
+.perfil-tarjeta {
+  width: 100%; min-height: 168px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: var(--space-5) var(--space-3);
+  border: 1px solid var(--border-color); border-radius: var(--radius-xl);
+  background: var(--bg-card); color: var(--text-primary);
+  cursor: pointer; font: inherit;
+  transition: transform 160ms var(--ease-settle), border-color 160ms, box-shadow 160ms;
+}
+.perfil-tarjeta:hover { transform: translateY(-2px); border-color: var(--accent-500); box-shadow: 0 10px 28px -12px var(--accent-glow); }
+.perfil-tarjeta:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+.perfil-tarjeta.is-actual { border-color: var(--accent-500); }
+.perfil-tarjeta-nombre { font-weight: 650; font-size: var(--text-md); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perfil-tarjeta-rol { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--text-muted); }
+.perfil-selector-pie { margin-top: var(--space-8); }
+.perfil-selector-salir {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 0; background: transparent; cursor: pointer; font: inherit;
+  font-size: var(--text-xs); color: var(--text-muted);
+}
+.perfil-selector-salir:hover { color: var(--text-primary); text-decoration: underline; }
+
+/* --- PIN --- */
+.perfil-selector-cuerpo--pin { max-width: 320px; gap: 4px; }
+.perfil-selector-cuerpo--pin .perfil-avatar { margin-top: var(--space-2); margin-bottom: var(--space-2); }
+.perfil-selector-volver {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  border: 0; background: transparent; cursor: pointer; font: inherit;
+  font-size: var(--text-sm); color: var(--text-secondary); padding: 8px 0; margin-bottom: var(--space-3);
+}
+.perfil-pin-puntos { display: flex; gap: 12px; margin-top: var(--space-5); min-height: 16px; }
+.perfil-pin-puntos span {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border-strong, var(--border-color-hover));
+  transition: background 120ms, border-color 120ms;
+}
+.perfil-pin-puntos span.is-lleno { background: var(--accent-500); border-color: var(--accent-500); }
+.perfil-pin-puntos.is-error { animation: perfilTiembla 320ms; }
+.perfil-pin-puntos.is-error span { border-color: var(--color-danger); }
+@keyframes perfilTiembla {
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.perfil-pin-error { min-height: 20px; margin-top: var(--space-2); font-size: var(--text-xs); font-weight: 600; color: var(--color-danger); }
+.perfil-pin-teclado {
+  display: grid; grid-template-columns: repeat(3, 72px); gap: 12px;
+  margin-top: var(--space-3);
+}
+.perfil-pin-teclado button {
+  height: 64px; border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color); background: var(--bg-card);
+  font: inherit; font-size: 1.35rem; font-weight: 600; color: var(--text-primary);
+  display: grid; place-items: center; cursor: pointer;
+  transition: background 120ms, transform 120ms;
+  font-variant-numeric: tabular-nums;
+}
+.perfil-pin-teclado button:hover:not(:disabled) { background: var(--bg-card-hover); }
+.perfil-pin-teclado button:active:not(:disabled) { transform: scale(0.95); }
+.perfil-pin-teclado button:disabled { opacity: 0.4; cursor: default; }
+.perfil-pin-teclado .perfil-pin-entrar {
+  font-size: var(--text-sm); color: #fff; border: 0;
+  background: var(--accent-gradient);
+}
+@media (prefers-reduced-motion: reduce) {
+  .perfil-selector, .perfil-pin-puntos.is-error { animation: none; }
+  .perfil-tarjeta { transition: none; }
+}
+
+/* --- Chip de la cabecera --- */
+.perfil-chip { position: relative; }
+.perfil-chip-boton {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 10px 0 5px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-full);
+  background: var(--bg-card); cursor: pointer; font: inherit;
+  max-width: 200px;
+}
+.perfil-chip-boton:hover { border-color: var(--border-color-hover); background: var(--bg-card-hover); }
+.perfil-chip-texto { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; min-width: 0; }
+.perfil-chip-nombre { font-size: var(--text-xs); font-weight: 650; color: var(--text-primary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perfil-chip-rol { font-size: 10px; color: var(--text-muted); }
+.perfil-chip-flecha { color: var(--text-muted); flex-shrink: 0; }
+.perfil-chip-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 120;
+  min-width: 200px; padding: var(--space-1);
+  background: var(--bg-elevated); border: 1px solid var(--border-color-hover);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.perfil-chip-menu button {
+  width: 100%; display: flex; align-items: center; gap: var(--space-2);
+  padding: 8px var(--space-3); border: 0; border-radius: var(--radius-sm);
+  background: transparent; cursor: pointer; font: inherit;
+  font-size: var(--text-sm); color: var(--text-secondary); text-align: left;
+}
+.perfil-chip-menu button:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+/* En el móvil no cabe: el avatar del menú de cuenta ya es el de quien
+   trabaja, y el cambio de perfil está dentro de ese menú. */
+@media (max-width: 1100px) {
+  .header .perfil-chip-texto, .header .perfil-chip-flecha { display: none; }
+  .header .perfil-chip-boton { padding: 0 4px; }
+}
+@media (max-width: 768px) {
+  .header .perfil-chip { display: none; }
+}
+
+/* --- En el menú de cuenta --- */
+.account-dropdown-perfil {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); margin-bottom: var(--space-1);
+  border-radius: var(--radius-md); background: var(--bg-tertiary);
+}
+.account-dropdown-perfil-texto { display: flex; flex-direction: column; min-width: 0; }
+.account-dropdown-perfil-texto small { font-size: 11px; color: var(--text-muted); }
+.account-dropdown-perfil-texto strong { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Sin acceso --- */
+.perfil-sin-acceso {
+  max-width: 520px; margin: var(--space-12) auto; padding: var(--space-6);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-3);
+}
+.perfil-sin-acceso-icono {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-glow); color: var(--accent-500);
+}
+.perfil-sin-acceso h1 { font-size: var(--text-xl); font-weight: 650; color: var(--text-primary); }
+.perfil-sin-acceso p { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; }
+.perfil-sin-acceso-acciones { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* --- Ajustes → Equipo --- */
+.equipo { display: flex; flex-direction: column; gap: var(--space-4); }
+.equipo-nota { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin-top: 4px; }
+.equipo-error { font-size: var(--text-sm); font-weight: 600; color: var(--color-danger); background: var(--color-danger-bg); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); }
+.equipo-vacio { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; max-width: 640px; }
+.equipo-roles { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.equipo-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; }
+.equipo-fila { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--bg-card); }
+.equipo-fila + .equipo-fila { border-top: 1px solid var(--border-subtle, var(--border-color)); }
+.equipo-fila.is-inactivo { opacity: 0.6; }
+.equipo-fila-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.equipo-fila-nombre { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 650; font-size: var(--text-sm); color: var(--text-primary); }
+.equipo-fila-detalle { font-size: var(--text-xs); color: var(--text-muted); }
+.equipo-aviso { color: var(--color-warning); font-weight: 600; }
+.equipo-fila-acciones { display: flex; gap: 2px; flex-shrink: 0; }
+.equipo > .btn { align-self: flex-start; }
+.equipo-bloqueo { max-width: 360px; }
+.equipo-subtitulo { display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 650; color: var(--text-primary); margin-bottom: var(--space-2); }
+.equipo-actividad-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.equipo-actividad-lista li { display: flex; align-items: center; gap: var(--space-2); padding: 6px 0; font-size: var(--text-xs); color: var(--text-secondary); border-bottom: 1px dashed var(--border-subtle, var(--border-color)); }
+.equipo-actividad-texto { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.equipo-actividad-texto strong { color: var(--text-primary); }
+.equipo-actividad-texto a { color: var(--accent-500); font-weight: 600; font-family: var(--font-mono); }
+.equipo-actividad-lista time { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.equipo-form { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-card); max-width: 640px; }
+.equipo-form-cabeza { display: flex; align-items: center; gap: var(--space-3); }
+.equipo-form-cabeza h3 { font-size: var(--text-md); font-weight: 650; }
+.equipo-form-roles { border: 0; padding: 0; margin: 0; display: grid; gap: var(--space-2); }
+.equipo-rol { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; }
+.equipo-rol.is-activo { border-color: var(--accent-500); background: var(--accent-glow); }
+.equipo-rol input { margin-top: 3px; accent-color: var(--accent-500); }
+.equipo-rol span { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-sm); }
+.equipo-rol small { font-size: var(--text-xs); color: var(--text-muted); }
+.equipo-colores { display: flex; flex-wrap: wrap; gap: 8px; }
+.equipo-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 0 1px var(--border-color); }
+.equipo-color.is-activo { box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-primary); }
+.equipo-pin { max-width: 180px; letter-spacing: 0.3em; }
+.equipo-pin-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.equipo-form-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+/* En el TPV el chip dice quién cobra; en pantallas medias, sólo el avatar. */
+.tpv-topbar .perfil-chip-boton { height: 38px; }
+@media (max-width: 1200px) {
+  .tpv-topbar .perfil-chip-texto, .tpv-topbar .perfil-chip-flecha { display: none; }
+  .tpv-topbar .perfil-chip-boton { padding: 0 5px; }
+}
+/* El avatar del botón de cuenta: el de la cuenta en escritorio (el chip ya
+   dice quién trabaja), el del perfil en el móvil (donde no hay chip). */
+.account-trigger .account-avatar--perfil { display: none; }
+@media (max-width: 768px) {
+  .account-trigger .account-avatar--perfil { display: flex; }
+  .account-trigger .account-avatar--cuenta { display: none; }
+}
+
+/* Cabecera de escritorio con el chip del perfil: el título de la pantalla
+   no cede (se quedaba en una letra) y cede el buscador, que es flexible.
+   Por debajo de 1440 px lo decorativo se queda en icono: la insignia de
+   registros sellados (el sello ya está en el panel) y el texto de «Tip». */
+@media (min-width: 769px) {
+  .header-breadcrumb { flex: 0 0 auto; max-width: 220px; }
+  .header-search { min-width: 120px; }
+}
+@media (max-width: 1440px) and (min-width: 769px) {
+  .header .verifactu-badge { display: none; }
+  .header .header-tip-btn > span { display: none; }
+  .header .header-tip-btn { padding: 4px 8px; }
+}

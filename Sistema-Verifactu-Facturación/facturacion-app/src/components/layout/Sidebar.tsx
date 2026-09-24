@@ -16,6 +16,8 @@ import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
 import { empresasQueLlevo, invitacionesPendientes } from '@/lib/gestoria';
 import type { CompanySettings } from '@/lib/types';
+import { usePerfiles } from '@/lib/perfilesCliente';
+import { puedeEntrar } from '@/lib/perfiles';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -98,6 +100,9 @@ const controlItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
+  // El menú sólo enseña lo que el perfil de trabajo activo puede abrir.
+  const { activo: perfilActivo } = usePerfiles();
+  const entra = (href: string) => !perfilActivo || puedeEntrar(perfilActivo.rol, href);
   const pathname = usePathname();
   const [brandName, setBrandName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -223,18 +228,21 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             // Mientras no se sepan los módulos se enseña todo: esconder menús
             // y hacerlos aparecer medio segundo después es peor que esperar.
             .filter(item => !modulos || !('modulo' in item) || !item.modulo || modulos.includes(item.modulo))
+            .filter(item => entra(item.href))
             .map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
 
-          <span className="sidebar-section-label" style={{ marginTop: 'var(--space-5)' }}>
-            Control y cumplimiento
-          </span>
-          {controlItems.map(item => (
+          {controlItems.some(item => entra(item.href)) && (
+            <span className="sidebar-section-label" style={{ marginTop: 'var(--space-5)' }}>
+              Control y cumplimiento
+            </span>
+          )}
+          {controlItems.filter(item => entra(item.href)).map(item => (
             <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
           ))}
 
-          {tieneGestoria && (
+          {tieneGestoria && entra('/gestoria') && (
             <SidebarLink
               item={{ href: '/gestoria', label: 'Gestoría', icon: Briefcase }}
               pathname={pathname}

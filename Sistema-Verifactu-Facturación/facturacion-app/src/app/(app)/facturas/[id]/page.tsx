@@ -23,6 +23,7 @@ import { descuentoEfectivo, unidadesTotales } from '@/lib/documentos';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import EmitidaPor from '@/components/perfiles/EmitidaPor';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -281,6 +282,7 @@ export default function InvoiceDetailPage() {
           </div>
           <p className="page-subtitle">
             {invoice.clientName} · emitida el {formatDate(invoice.issueDate)} · vence el {formatDate(invoice.dueDate)}
+            <EmitidaPor documentoId={invoice.id} />
           </p>
         </div>
         <div className="page-header-actions detalle-acciones-cabecera">

@@ -34,6 +34,7 @@ import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_R
 import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
+import { registrarActividad } from './perfilesCliente';
 
 function supabase() {
   return createClient();
@@ -553,7 +554,24 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
  * El servidor le asigna posición en la cadena, la engancha con la huella
  * de la anterior y la sella. A partir de aquí ya no se puede editar.
  */
+const formatearEuros = (n: number) =>
+  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+
+/**
+ * Emite una factura y apunta quién lo hizo (el perfil de trabajo activo en
+ * este equipo, si la cuenta usa perfiles). El apunte va detrás y no espera:
+ * si no se puede apuntar, la factura queda emitida igual.
+ */
 export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
+  const emitida = await emitirFactura(invoice);
+  registrarActividad('factura_emitida', {
+    documentoId: emitida.id,
+    detalle: `${emitida.number} · ${formatearEuros(emitida.total)}`,
+  });
+  return emitida;
+}
+
+async function emitirFactura(invoice: Invoice): Promise<Invoice> {
   if (!esSellable(invoice)) {
     throw new Error('Solo las facturas y rectificativas de venta se sellan. Usa guardarDocumento para el resto.');
   }
@@ -1698,7 +1716,14 @@ export async function getActivePosSession(): Promise<PosSession | undefined> {
  * Abre un turno de caja. Escribe primero en IndexedDB y, si hay conexión,
  * también en Supabase; si no, encola el alta para sincronizarla al volver.
  */
+/** Abre la caja y apunta quién la abrió. */
 export async function openPosSession(startingCash: number): Promise<PosSession> {
+  const sesion = await abrirCaja(startingCash);
+  registrarActividad('caja_abierta', { documentoId: sesion.id, detalle: `Fondo ${formatearEuros(startingCash)}` });
+  return sesion;
+}
+
+async function abrirCaja(startingCash: number): Promise<PosSession> {
   const userId = await requireUserId();
   const session: PosSession = {
     id: generateId(), openedAt: new Date().toISOString(),
@@ -1726,7 +1751,18 @@ export async function openPosSession(startingCash: number): Promise<PosSession> 
  * del turno (facturas no anuladas), persiste el cierre en IndexedDB y, si no
  * hay conexión, encola el update para sincronizarlo al volver.
  */
+/** Cierra la caja y apunta quién la cerró y con qué descuadre. */
 export async function closePosSession(sessionId: string, countedCash: number): Promise<PosSession> {
+  const sesion = await cerrarCaja(sessionId, countedCash);
+  const dif = sesion.cashDifference ?? 0;
+  registrarActividad('caja_cerrada', {
+    documentoId: sesion.id,
+    detalle: dif === 0 ? 'Cuadrada' : `${dif > 0 ? 'Sobran' : 'Faltan'} ${formatearEuros(Math.abs(dif))}`,
+  });
+  return sesion;
+}
+
+async function cerrarCaja(sessionId: string, countedCash: number): Promise<PosSession> {
   const userId = await requireUserId();
   const offlineAvail = await isOfflineDbAvailable();
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
