@@ -14267,3 +14267,35 @@ body {
   .header .header-tip-btn > span { display: none; }
   .header .header-tip-btn { padding: 4px 8px; }
 }
+
+/* ============================================================
+   CATEGORÍAS DE PRODUCTO: SELECCIÓN Y BORRADO EN BLOQUE
+   ============================================================ */
+.cat-seleccion-barra {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+  min-height: 36px;
+}
+.cat-seleccion-todas {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; margin-right: auto;
+}
+.cat-seleccion-todas input,
+.cat-casilla {
+  width: 18px; height: 18px; flex-shrink: 0; margin: 0;
+  accent-color: var(--accent-500); cursor: pointer;
+}
+.cat-casilla-hueco { width: 18px; flex-shrink: 0; }
+.cat-tarjeta.is-marcada { border-color: var(--accent-500); box-shadow: 0 0 0 1px var(--accent-500); }
+.cat-borrar-lista { list-style: none; border-top: 1px solid var(--border-color); }
+.cat-borrar-lista li {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) 0; border-bottom: 1px solid var(--border-color);
+  font-size: var(--text-sm); font-weight: 600; color: var(--text-primary);
+}
+.cat-borrar-lista li span { margin-left: auto; font-weight: 400; color: var(--text-tertiary); font-size: var(--text-xs); }
+@media (hover: none) and (pointer: coarse) {
+  .cat-seleccion-todas input, .cat-casilla { width: 22px; height: 22px; }
+  .cat-casilla-hueco { width: 22px; }
+}

@@ -29,6 +29,10 @@ import { MODELOS, type DefinicionModelo, type Trimestre } from '@/lib/fiscal/tip
 import { calcularModelo347 } from '@/lib/fiscal/aeat/modelo347';
 import { calcularModelo303 } from '@/lib/fiscal/aeat/modelo303';
 import { calcularModelo130 } from '@/lib/fiscal/aeat/modelo130';
+import { calcularModelo390 } from '@/lib/fiscal/aeat/modelo390';
+import { calcularModelo349 } from '@/lib/fiscal/aeat/modelo349';
+import { calcularModelo111 } from '@/lib/fiscal/aeat/modelo111';
+import { calcularModelo190 } from '@/lib/fiscal/aeat/modelo190';
 import { calcularModelo420 } from '@/lib/fiscal/atc/modelo420';
 import { calcularModelo415 } from '@/lib/fiscal/atc/modelo415';
 import { calcularModelo425 } from '@/lib/fiscal/atc/modelo425';
@@ -37,9 +41,9 @@ import type { GeneracionFiscal } from '@/lib/fiscal/tipos';
 import { formatCurrency } from '@/lib/utils';
 
 function aplicaALaEmpresa(m: DefinicionModelo, regimen: 'IVA' | 'IGIC'): boolean {
-  // El 303 es del IVA; el 420/415/425 son del IGIC. El 347 y los pagos
-  // fraccionados de IRPF los presenta cualquiera de los dos.
-  if (m.id === '303' || m.id === '347') return regimen === 'IVA';
+  // El 303, su resumen (390) y el 349 son del IVA; el 420/415/425 son del
+  // IGIC. Los de IRPF (130, 131, 111, 190) los presenta cualquiera.
+  if (m.id === '303' || m.id === '347' || m.id === '390' || m.id === '349') return regimen === 'IVA';
   if (m.id === '420' || m.id === '415' || m.id === '425') return regimen === 'IGIC';
   return true;
 }
@@ -90,11 +94,19 @@ export default function ListadosFiscalesPage() {
     const r420 = calcularModelo420({ facturas: f, gastos: g }, trim);
     const r415 = calcularModelo415({ facturas: f, gastos: g, clientes: c }, anual);
     const r425 = calcularModelo425({ facturas: f, gastos: g }, anual);
+    const r390 = calcularModelo390({ facturas: f, gastos: g }, anual);
+    const r349 = calcularModelo349({ facturas: f }, trim);
+    const r111 = calcularModelo111({ facturas: f }, trim);
+    const r190 = calcularModelo190({ facturas: f }, anual);
 
     return {
       '347': { operaciones: r347.totalOperaciones, importe: r347.importeTotal, etiquetaImporte: 'Importe' },
       '303': { operaciones: r303.numFacturas + r303.numGastos, importe: r303.resultadoLiquidacion, etiquetaImporte: 'Resultado' },
+      '390': { operaciones: r390.numFacturas + r390.numGastos, importe: r390.resultadoAnual, etiquetaImporte: 'Resultado' },
+      '349': { operaciones: r349.totalOperaciones, importe: r349.totalBaseImponible, etiquetaImporte: 'Base' },
       '130': { operaciones: r130.numFacturas + r130.numGastos, importe: r130.resultado, etiquetaImporte: 'Resultado' },
+      '111': { operaciones: r111.numFacturas, importe: r111.resultado, etiquetaImporte: 'Retenciones' },
+      '190': { operaciones: r190.perceptores.length, importe: r190.retenciones, etiquetaImporte: 'Retenciones' },
       '131': { operaciones: 0 },
       '420': { operaciones: r420.numFacturas + r420.numGastos, importe: r420.resultado, etiquetaImporte: 'Resultado' },
       '415': { operaciones: r415.numOperaciones, importe: r415.importeTotal, etiquetaImporte: 'Importe' },
@@ -132,7 +144,9 @@ export default function ListadosFiscalesPage() {
             ? `No te aplica: la empresa tributa en ${regimen}.`
             : m.via === 'fichero_oficial'
               ? `Genera el fichero oficial${m.extension ? ` .${m.extension}` : ''}.`
-              : 'Cálculo y validación; la presentación se hace en la Sede del organismo.'}
+              : m.via === 'diseno_sin_generador'
+                ? 'Cálculo, validación y exportación de datos. El fichero oficial todavía no se genera aquí.'
+                : 'Cálculo y validación; la presentación se hace en la Sede del organismo.'}
         </p>
 
         {aplica ? (

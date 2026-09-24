@@ -40,7 +40,7 @@ const nuevoPerfil = (rol: RolPerfil, n: number, nombre = ''): Perfil => ({
  * quiere que nadie use el perfil de otro.
  */
 export default function EquipoPerfiles() {
-  const { cargado, disponible, perfiles, activo } = usePerfiles();
+  const { cargado, disponible, almacen, perfiles, activo } = usePerfiles();
   const [borrador, setBorrador] = useState<Borrador | null>(null);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -60,10 +60,9 @@ export default function EquipoPerfiles() {
   if (!disponible) {
     return (
       <div className="equipo-vacio">
-        <p><strong>Los perfiles de trabajo todavía no están activos en esta cuenta.</strong></p>
+        <p><strong>No se ha podido cargar el equipo.</strong></p>
         <p className="equipo-nota">
-          Hace falta preparar la base de datos una vez (migración <code>050_perfiles_trabajo</code>). Mientras tanto
-          todo funciona como siempre, con un único usuario.
+          Hace falta conexión la primera vez. Mientras tanto todo funciona como siempre, con un único usuario.
         </p>
       </div>
     );
@@ -175,6 +174,9 @@ export default function EquipoPerfiles() {
 
           <div className="equipo-actividad">
             <h3 className="equipo-subtitulo"><Clock size={15} /> Actividad reciente</h3>
+            {almacen === 'cuenta' && (
+              <p className="equipo-nota">De este equipo. Cada dispositivo guarda lo que se ha hecho en él.</p>
+            )}
             {actividad === null ? (
               <p className="equipo-nota">Cargando…</p>
             ) : actividad.length === 0 ? (

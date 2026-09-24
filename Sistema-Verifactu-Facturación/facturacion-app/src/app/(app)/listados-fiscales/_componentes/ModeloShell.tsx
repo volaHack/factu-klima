@@ -6,7 +6,7 @@
  * Cada modelo tiene su ruta y su contenido —el encargo pedía
  * explícitamente que no fuera una pantalla gigante con todo mezclado—,
  * pero la cabecera, los selectores de período, el semáforo de estado, la
- * lista de errores y la barra de acciones son iguales en los siete. Que
+ * lista de errores y la barra de acciones son iguales en todos. Que
  * lo sean es parte del diseño: quien aprende a usar el 303 ya sabe usar
  * el 420.
  */
@@ -114,6 +114,17 @@ export default function ModeloShell({
 
       {/* Los modelos sin diseño de registro público lo dicen aquí, para
           que nadie busque un botón de generar que no existe. */}
+      {modelo.via === 'diseno_sin_generador' && (
+        <div className="lf-aviso">
+          <AlertTriangle size={16} />
+          <p>
+            La AEAT publica el diseño de fichero de este modelo, pero <strong>aquí todavía no se genera</strong>:
+            se calcula, se valida y se exportan los datos para presentarlo en la Sede o pasárselo a tu
+            gestoría. <a href={modelo.fuenteOficial} target="_blank" rel="noopener noreferrer">Ver diseños oficiales</a>.
+          </p>
+        </div>
+      )}
+
       {modelo.via === 'sede_o_programa' && (
         <div className="lf-aviso">
           <AlertTriangle size={16} />
@@ -142,6 +153,9 @@ export default function ModeloShell({
                   Ver ficha <ChevronRight size={13} />
                 </Link>
               )}
+              {e.referencia?.tipo === 'factura' && (
+                <Link href={`/documentos/${e.referencia.id}`}>Ver factura <ChevronRight size={13} /></Link>
+              )}
               {e.referencia?.tipo === 'gasto' && (
                 <Link href="/gastos">Ver gastos <ChevronRight size={13} /></Link>
               )}
@@ -150,6 +164,9 @@ export default function ModeloShell({
           {avisos.map((a, i) => (
             <p key={`a${i}`} className="lf-error lf-error--aviso">
               <AlertTriangle size={14} /><span>{a.mensaje}</span>
+              {a.referencia?.tipo === 'factura' && (
+                <Link href={`/documentos/${a.referencia.id}`}>Ver factura <ChevronRight size={13} /></Link>
+              )}
             </p>
           ))}
         </div>
