@@ -124,7 +124,7 @@ const FAQS = [
   },
   {
     q: '¿Lleva también la contabilidad?',
-    a: 'Sí, y sin trabajo extra. Cada factura, compra, gasto, cobro y venta del TPV genera su asiento en el Plan General Contable en el momento en que ocurre. Tienes libro diario, mayor, sumas y saldos, pérdidas y ganancias y balance, y el diario se exporta para tu gestoría. Lo que no pasa por el programa —nóminas con Seguridad Social, amortizaciones, préstamos— lo añade tu gestoría sobre ese diario.',
+    a: 'Sí, y sin trabajo extra. Cada factura, compra, gasto, cobro y venta del TPV genera su asiento en el Plan General Contable en el momento en que ocurre. Tienes libro diario, mayor, sumas y saldos, pérdidas y ganancias y balance, y el diario se exporta para tu gestoría. Las nóminas con su Seguridad Social, las amortizaciones y los préstamos se dan de alta una vez y se apuntan solos cada mes.',
   },
   {
     q: '¿Hay permanencia?',

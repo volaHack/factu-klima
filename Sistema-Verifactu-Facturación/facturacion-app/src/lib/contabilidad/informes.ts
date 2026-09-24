@@ -134,6 +134,7 @@ export interface PartidaPyG {
 export interface PerdidasYGanancias {
   partidas: PartidaPyG[];
   resultadoExplotacion: number;
+  resultadoFinanciero: number;
   resultadoAntesDeImpuestos: number;
   ingresos: number;
   gastos: number;
@@ -147,20 +148,33 @@ const PARTIDAS: { clave: string; nombre: string; prefijos: string[] }[] = [
   { clave: '7', nombre: 'Otros gastos de explotación', prefijos: ['62', '63', '65'] },
   { clave: '8', nombre: 'Amortización del inmovilizado', prefijos: ['68'] },
 ];
+const FINANCIERAS: { clave: string; nombre: string; prefijos: string[] }[] = [
+  { clave: '14', nombre: 'Ingresos financieros', prefijos: ['76'] },
+  { clave: '15', nombre: 'Gastos financieros', prefijos: ['66'] },
+];
 
 export function perdidasYGanancias(diario: Asiento[], p?: Periodo): PerdidasYGanancias {
   const movs = p ? diario.filter(a => a.origen !== 'apertura' && enPeriodo(a, p)) : diario.filter(a => a.origen !== 'apertura');
   const s = saldos(movs);
-  const partidas: PartidaPyG[] = PARTIDAS.map(x => {
+  const partida = (x: { clave: string; nombre: string; prefijos: string[] }): PartidaPyG => {
     const cuentas = [...s.keys()].filter(c => x.prefijos.some(pr => c.startsWith(pr)));
     // Ingresos con saldo acreedor en positivo, gastos con saldo deudor en negativo.
     const importe = r2(cuentas.reduce((t, c) => t + (s.get(c)!.haber - s.get(c)!.debe), 0));
     return { clave: x.clave, nombre: x.nombre, importe, cuentas };
-  });
-  const resultadoExplotacion = r2(partidas.reduce((t, x) => t + x.importe, 0));
+  };
+  const explotacion = PARTIDAS.map(partida);
+  const financieras = FINANCIERAS.map(partida);
+  // Cualquier otra cuenta de gastos o ingresos (apuntes a mano en cuentas
+  // poco corrientes): a «Otros resultados», para que no se pierda nada.
+  const usadas = new Set([...explotacion, ...financieras].flatMap(p => p.cuentas));
+  const otras = [...s.keys()].filter(c => grupo(c) >= 6 && !usadas.has(c));
+  const otros: PartidaPyG = { clave: '13', nombre: 'Otros resultados', cuentas: otras, importe: r2(otras.reduce((t, c) => t + (s.get(c)!.haber - s.get(c)!.debe), 0)) };
+  const partidas = [...explotacion, otros, ...financieras];
+  const resultadoExplotacion = r2([...explotacion, otros].reduce((t, x) => t + x.importe, 0));
+  const resultadoFinanciero = r2(financieras.reduce((t, x) => t + x.importe, 0));
   const ingresos = r2([...s.entries()].filter(([c]) => grupo(c) === 7).reduce((t, [, v]) => t + v.haber - v.debe, 0));
   const gastos = r2([...s.entries()].filter(([c]) => grupo(c) === 6).reduce((t, [, v]) => t + v.debe - v.haber, 0));
-  return { partidas, resultadoExplotacion, resultadoAntesDeImpuestos: resultadoExplotacion, ingresos, gastos };
+  return { partidas, resultadoExplotacion, resultadoFinanciero, resultadoAntesDeImpuestos: r2(resultadoExplotacion + resultadoFinanciero), ingresos, gastos };
 }
 
 // ------------------------------------------------------------------
@@ -173,6 +187,7 @@ export interface Balance {
   activoNoCorriente: LineaBalance[];
   activoCorriente: LineaBalance[];
   patrimonioNeto: LineaBalance[];
+  pasivoNoCorriente: LineaBalance[];
   pasivoCorriente: LineaBalance[];
   totalActivo: number;
   totalPatrimonioNetoYPasivo: number;
@@ -192,7 +207,11 @@ export function balance(diario: Asiento[], hasta?: string): Balance {
   const empieza = (...p: string[]) => (c: string) => p.some(x => c.startsWith(x));
   const resultado = r2([...s.entries()].filter(([c]) => grupo(c) >= 6).reduce((t, [, v]) => t + v.haber - v.debe, 0));
 
-  const activoNoCorriente = [linea(s, 'Inmovilizado material', empieza('21'), true)];
+  // Las amortizaciones acumuladas restan de su inmovilizado.
+  const activoNoCorriente = [
+    linea(s, 'Inmovilizado intangible', empieza('20', '280'), true),
+    linea(s, 'Inmovilizado material', empieza('21', '281'), true),
+  ];
   const activoCorriente = [
     linea(s, 'Clientes por ventas y prestaciones de servicios', empieza('430', '431', '438'), true),
     linea(s, 'Hacienda Pública deudora (IVA soportado, retenciones)', empieza('472', '473'), true),
@@ -202,26 +221,33 @@ export function balance(diario: Asiento[], hasta?: string): Balance {
     linea(s, 'Remanente y resultados de ejercicios anteriores', empieza('12'), false),
     { nombre: 'Resultado del ejercicio', importe: resultado, cuentas: [] },
   ];
+  const pasivoNoCorriente = [
+    linea(s, 'Deudas a largo plazo con entidades de crédito', empieza('170'), false),
+  ];
   const pasivoCorriente = [
+    linea(s, 'Deudas a corto plazo con entidades de crédito', empieza('520'), false),
     linea(s, 'Proveedores', empieza('400'), false),
     linea(s, 'Acreedores varios', empieza('410'), false),
+    linea(s, 'Remuneraciones pendientes de pago', empieza('465'), false),
     linea(s, 'Hacienda Pública acreedora (IVA repercutido, retenciones)', empieza('475', '477'), false),
+    linea(s, 'Organismos de la Seguridad Social, acreedores', empieza('476'), false),
   ];
   // Lo que no encaja en ninguna línea (no debería haber nada) se suma a su
   // masa, para que el balance no pierda dinero por el camino.
-  const clasificadas = new Set([...activoNoCorriente, ...activoCorriente, ...patrimonioNeto, ...pasivoCorriente].flatMap(l => l.cuentas));
+  const clasificadas = new Set([...activoNoCorriente, ...activoCorriente, ...patrimonioNeto, ...pasivoNoCorriente, ...pasivoCorriente].flatMap(l => l.cuentas));
   for (const c of s.keys()) {
     if (grupo(c) >= 6 || clasificadas.has(c)) continue;
     const m = masaDe(c);
-    const destino = m === 'activo_no_corriente' ? activoNoCorriente : m === 'activo_corriente' ? activoCorriente : m === 'patrimonio_neto' ? patrimonioNeto : pasivoCorriente;
+    const destino = m === 'activo_no_corriente' ? activoNoCorriente : m === 'activo_corriente' ? activoCorriente
+      : m === 'patrimonio_neto' ? patrimonioNeto : m === 'pasivo_no_corriente' ? pasivoNoCorriente : pasivoCorriente;
     destino.push(linea(s, `Otras (${c})`, x => x === c, m.startsWith('activo')));
   }
 
   const suma = (ls: LineaBalance[]) => r2(ls.reduce((t, l) => t + l.importe, 0));
   const totalActivo = r2(suma(activoNoCorriente) + suma(activoCorriente));
-  const totalPatrimonioNetoYPasivo = r2(suma(patrimonioNeto) + suma(pasivoCorriente));
+  const totalPatrimonioNetoYPasivo = r2(suma(patrimonioNeto) + suma(pasivoNoCorriente) + suma(pasivoCorriente));
   return {
-    activoNoCorriente, activoCorriente, patrimonioNeto, pasivoCorriente,
+    activoNoCorriente, activoCorriente, patrimonioNeto, pasivoNoCorriente, pasivoCorriente,
     totalActivo, totalPatrimonioNetoYPasivo, cuadra: Math.abs(totalActivo - totalPatrimonioNetoYPasivo) < 0.01,
   };
 }

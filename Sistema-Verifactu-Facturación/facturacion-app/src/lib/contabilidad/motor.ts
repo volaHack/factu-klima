@@ -30,10 +30,11 @@
 
 import type { BusinessSector, Client, CobroPago, Gasto, GastoCategoria, Invoice } from '../types';
 import { CUENTAS, cuentaImpuesto, subcuenta, type Impuesto } from './plan';
+import { asientosDeApuntes, type ApunteContable } from './apuntes';
 
 export type OrigenAsiento =
   | 'apertura' | 'factura' | 'rectificativa' | 'tpv' | 'compra' | 'rectificativa_compra'
-  | 'gasto' | 'cobro' | 'pago' | 'cobro_implicito';
+  | 'gasto' | 'cobro' | 'pago' | 'cobro_implicito' | 'manual' | 'periodico';
 
 export interface LineaAsiento {
   cuenta: string;
@@ -60,6 +61,10 @@ export interface DatosContables {
   clientes: Client[];
   sector?: BusinessSector;
   impuesto: Impuesto;
+  /** Apuntes a mano y periódicos (nóminas, amortizaciones, préstamos…). */
+  apuntes?: ApunteContable[];
+  /** Hasta dónde se generan los periódicos. Por defecto, hoy. */
+  hoy?: string;
 }
 
 export interface Terceros {
@@ -340,6 +345,7 @@ export function generarAsientos(d: DatosContables): Asiento[] {
     ...asientosTpv(tickets, d.sector),
     ...d.gastos.filter(g => g.fecha).map(g => asientoGasto(g, t)),
     ...d.cobrosPagos.filter(c => c.fecha && c.importeTotal).map(c => asientoCobroPago(c, t, id => idsProveedor.has(id))),
+    ...asientosDeApuntes(d.apuntes ?? [], d.hoy ?? new Date().toISOString().slice(0, 10)),
   ];
 
   // Facturas de venta cobradas sin cobro apuntado en tesorería: el cobro
@@ -373,7 +379,7 @@ export function generarAsientos(d: DatosContables): Asiento[] {
 
   const orden: Record<OrigenAsiento, number> = {
     apertura: 0, factura: 1, rectificativa: 2, tpv: 3, compra: 4, rectificativa_compra: 5, gasto: 6,
-    cobro: 7, cobro_implicito: 8, pago: 9,
+    cobro: 7, cobro_implicito: 8, pago: 9, periodico: 10, manual: 11,
   };
   return asientos
     .filter(a => a.lineas.length > 0)

@@ -13,6 +13,8 @@ import { calcularModelo420 } from '../fiscal/atc/modelo420';
 import type { Trimestre } from '../fiscal/tipos';
 import { cuentaEnContabilidad, generarAsientos, nombresDeTerceros, r2, type Asiento } from './motor';
 import { nombreDeCuenta, type Impuesto } from './plan';
+import type { ApunteContable } from './apuntes';
+import { getApuntes, type AlmacenApuntes } from './apuntesAlmacen';
 import type { DatosCuadre } from './informes';
 
 export interface Contabilidad {
@@ -23,6 +25,9 @@ export interface Contabilidad {
   ejercicios: number[];
   /** Datos para los cuadres de un ejercicio. */
   datosCuadre: (ejercicio: number) => DatosCuadre;
+  apuntes: ApunteContable[];
+  /** Dónde se guardan los apuntes a mano (sin la migración 052, en la cuenta). */
+  almacenApuntes?: AlmacenApuntes;
 }
 
 export interface DatosContables {
@@ -31,20 +36,24 @@ export interface DatosContables {
   cobrosPagos: CobroPago[];
   clientes: Client[];
   empresa: CompanySettings;
+  apuntes?: ApunteContable[];
+  almacenApuntes?: AlmacenApuntes;
 }
 
 /** La contabilidad de la cuenta con la que se ha entrado. */
 export async function cargarContabilidad(): Promise<Contabilidad> {
-  const [facturas, gastos, cobrosPagos, clientes, empresa] = await Promise.all([
+  const [facturas, gastos, cobrosPagos, clientes, empresa, ap] = await Promise.all([
     getInvoices(), getGastos(), getCobrosPagos(), getClients(), getCompanySettings(),
+    // Sin conexión o sin sesión, la contabilidad sale igual, sin los apuntes a mano.
+    getApuntes().catch(() => ({ apuntes: [] as ApunteContable[], almacen: undefined })),
   ]);
-  return montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa });
+  return montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa, apuntes: ap.apuntes, almacenApuntes: ap.almacen });
 }
 
 /** Asientos, nombres de cuenta y cuadres a partir de los datos ya leídos. */
-export function montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa }: DatosContables): Contabilidad {
+export function montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa, apuntes = [], almacenApuntes }: DatosContables): Contabilidad {
   const impuesto: Impuesto = empresa?.igicEnabled ? 'IGIC' : 'IVA';
-  const asientos = generarAsientos({ facturas, gastos, cobrosPagos, clientes, sector: empresa?.sector, impuesto });
+  const asientos = generarAsientos({ facturas, gastos, cobrosPagos, clientes, sector: empresa?.sector, impuesto, apuntes });
   const terceros = nombresDeTerceros({ clientes, facturas, gastos });
 
   const anios = new Set<number>([new Date().getFullYear()]);
@@ -87,5 +96,7 @@ export function montarContabilidad({ facturas, gastos, cobrosPagos, clientes, em
     nombreCuenta: c => nombreDeCuenta(c, impuesto, terceros),
     ejercicios: [...anios].sort((a, b) => b - a),
     datosCuadre,
+    apuntes,
+    almacenApuntes,
   };
 }

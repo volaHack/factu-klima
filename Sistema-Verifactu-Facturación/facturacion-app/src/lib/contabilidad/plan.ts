@@ -8,14 +8,14 @@
  * distingue (el tipo de IVA, el número de cliente…).
  *
  * No están todas las del PGC, sólo las que el programa puede generar a
- * partir de sus datos. Inventar saldos para cuentas de las que no sabe nada
- * (amortizaciones, préstamos, nóminas con su Seguridad Social) sería peor
- * que dejarlas fuera.
+ * partir de sus datos y las de los apuntes a mano más corrientes (nóminas,
+ * amortizaciones, préstamos; ver apuntes.ts). Cualquier otra cuenta que se
+ * use en un asiento libre también vale: se nombra por su código.
  */
 
 /** A qué estado va cada cuenta. */
 export type Masa =
-  | 'patrimonio_neto' | 'activo_no_corriente' | 'activo_corriente' | 'pasivo_corriente'
+  | 'patrimonio_neto' | 'activo_no_corriente' | 'activo_corriente' | 'pasivo_no_corriente' | 'pasivo_corriente'
   | 'ingreso' | 'gasto';
 
 export interface Cuenta {
@@ -37,7 +37,8 @@ export const grupo = (codigo: string) => Number(codigo[0]);
 
 export function masaDe(codigo: string): Masa {
   const g = grupo(codigo);
-  if (g === 1) return 'patrimonio_neto';
+  // 10-13 fondos propios y subvenciones; 14-18 deudas y provisiones a largo plazo.
+  if (g === 1) return Number(codigo[1]) >= 4 ? 'pasivo_no_corriente' : 'patrimonio_neto';
   if (g === 2) return 'activo_no_corriente';
   if (g === 6) return 'gasto';
   if (g === 7) return 'ingreso';
@@ -47,6 +48,8 @@ export function masaDe(codigo: string): Masa {
     if (['430', '431', '438', '440', '460', '470', '471', '472', '473'].includes(r)) return 'activo_corriente';
     return 'pasivo_corriente';
   }
+  // Grupo 5: deudas a corto (50-52, 55-56 acreedoras) al pasivo; tesorería e inversiones al activo.
+  if (g === 5 && ['50', '51', '52', '56'].includes(codigo.slice(0, 2))) return 'pasivo_corriente';
   return 'activo_corriente'; // 3 existencias, 5 tesorería
 }
 
@@ -64,6 +67,14 @@ export const CUENTAS = {
   otrosServicios: '62900000',
   tributos: '63100000',
   sueldos: '64000000',
+  seguridadSocialEmpresa: '64200000',
+  interesesDeudas: '66230000',
+  amortizacionInmovilizado: '68100000',
+  amortizacionAcumulada: '28190000',
+  deudasLargoPlazoBanco: '17000000',
+  deudasCortoPlazoBanco: '52000000',
+  remuneracionesPendientes: '46500000',
+  seguridadSocialAcreedora: '47600000',
   ventasMercaderias: '70000000',
   prestacionServicios: '70500000',
   devolucionesVentas: '70800000',
@@ -88,6 +99,14 @@ const NOMBRES_FIJOS: Record<string, string> = {
   [CUENTAS.otrosServicios]: 'Otros servicios',
   [CUENTAS.tributos]: 'Otros tributos',
   [CUENTAS.sueldos]: 'Sueldos y salarios',
+  [CUENTAS.seguridadSocialEmpresa]: 'Seguridad Social a cargo de la empresa',
+  [CUENTAS.interesesDeudas]: 'Intereses de deudas con entidades de crédito',
+  [CUENTAS.amortizacionInmovilizado]: 'Amortización del inmovilizado material',
+  [CUENTAS.amortizacionAcumulada]: 'Amortización acumulada de otro inmovilizado material',
+  [CUENTAS.deudasLargoPlazoBanco]: 'Deudas a largo plazo con entidades de crédito',
+  [CUENTAS.deudasCortoPlazoBanco]: 'Deudas a corto plazo con entidades de crédito',
+  [CUENTAS.remuneracionesPendientes]: 'Remuneraciones pendientes de pago',
+  [CUENTAS.seguridadSocialAcreedora]: 'Organismos de la Seguridad Social, acreedores',
   [CUENTAS.ventasMercaderias]: 'Ventas de mercaderías',
   [CUENTAS.prestacionServicios]: 'Prestaciones de servicios',
   [CUENTAS.devolucionesVentas]: 'Devoluciones de ventas',

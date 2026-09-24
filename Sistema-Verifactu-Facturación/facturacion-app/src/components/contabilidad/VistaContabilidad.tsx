@@ -18,6 +18,7 @@ import {
   BookOpenCheck, CheckCircle2, AlertTriangle, XCircle, Download, Search, ArrowUpRight, Scale, Receipt,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import Apuntes from './Apuntes';
 import type { Contabilidad } from '@/lib/contabilidad/cargar';
 import {
   balance, cuadres, diarioCsv, diarioDelEjercicio, enPeriodo, libroMayor, perdidasYGanancias, saldos,
@@ -26,7 +27,7 @@ import {
 import type { Asiento } from '@/lib/contabilidad/motor';
 import { formatCurrency } from '@/lib/utils';
 
-type Pestana = 'resumen' | 'diario' | 'mayor' | 'sumas' | 'anuales' | 'cuadres';
+type Pestana = 'resumen' | 'diario' | 'mayor' | 'sumas' | 'anuales' | 'apuntes' | 'cuadres';
 
 const PESTANAS: { id: Pestana; nombre: string }[] = [
   { id: 'resumen', nombre: 'Resumen' },
@@ -34,6 +35,7 @@ const PESTANAS: { id: Pestana; nombre: string }[] = [
   { id: 'mayor', nombre: 'Mayor' },
   { id: 'sumas', nombre: 'Sumas y saldos' },
   { id: 'anuales', nombre: 'Cuentas anuales' },
+  { id: 'apuntes', nombre: 'Apuntes' },
   { id: 'cuadres', nombre: 'Cuadres' },
 ];
 
@@ -59,12 +61,14 @@ function periodoDe(ejercicio: number, id: string): Periodo {
 const ORIGEN: Record<Asiento['origen'], string> = {
   apertura: 'Apertura', factura: 'Factura', rectificativa: 'Rectificativa', tpv: 'TPV', compra: 'Compra',
   rectificativa_compra: 'Rect. compra', gasto: 'Gasto', cobro: 'Cobro', pago: 'Pago', cobro_implicito: 'Cobro',
+  manual: 'A mano', periodico: 'Periódico',
 };
 
 const PLURAL: Record<Asiento['origen'], [string, string]> = {
   apertura: ['apertura', 'aperturas'], factura: ['factura', 'facturas'], rectificativa: ['rectificativa', 'rectificativas'],
   tpv: ['día de TPV', 'días de TPV'], compra: ['compra', 'compras'], rectificativa_compra: ['rectificativa de compra', 'rectificativas de compra'],
   gasto: ['gasto', 'gastos'], cobro: ['cobro', 'cobros'], pago: ['pago', 'pagos'], cobro_implicito: ['cobro', 'cobros'],
+  manual: ['apunte a mano', 'apuntes a mano'], periodico: ['apunte periódico', 'apuntes periódicos'],
 };
 
 function enlaceDe(a: Asiento): string | null {
@@ -105,6 +109,8 @@ export default function VistaContabilidad({
   const [pestana, setPestana] = useState<Pestana>('resumen');
   const [ejercicio, setEjercicio] = useState(new Date().getFullYear());
   const [periodoId, setPeriodoId] = useState('anio');
+  // Sube al guardar o borrar un apunte: vuelve a generar la contabilidad.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -112,7 +118,7 @@ export default function VistaContabilidad({
       .then(c => { if (vivo) setConta(c); })
       .catch(e => { if (vivo) setError(e instanceof Error ? e.message : 'No se ha podido cargar la contabilidad.'); });
     return () => { vivo = false; };
-  }, [cargar]);
+  }, [cargar, version]);
 
   const diario = useMemo(() => (conta ? diarioDelEjercicio(conta.asientos, ejercicio) : []), [conta, ejercicio]);
   const periodo = useMemo(() => periodoDe(ejercicio, periodoId), [ejercicio, periodoId]);
@@ -169,6 +175,9 @@ export default function VistaContabilidad({
       {pestana === 'mayor' && <Mayor diario={delPeriodo} nombre={nombre} />}
       {pestana === 'sumas' && <SumasSaldos diario={delPeriodo} nombre={nombre} onExportar={() => descargar(sumasYSaldosCsv(delPeriodo, nombre), `sumas_y_saldos_${sufijo}.csv`)} />}
       {pestana === 'anuales' && <CuentasAnuales diario={diario} periodo={periodo} periodoId={periodoId} />}
+      {pestana === 'apuntes' && (
+        <Apuntes apuntes={conta.apuntes} almacen={conta.almacenApuntes} editable={enlaces} nombreCuenta={nombre} onCambio={() => setVersion(v => v + 1)} />
+      )}
       {pestana === 'cuadres' && <Cuadres conta={conta} diario={diario} ejercicio={ejercicio} />}
     </div>
   );
@@ -428,6 +437,9 @@ function CuentasAnuales({ diario, periodo, periodoId }: { diario: Asiento[]; per
           <div key={p.clave} className="conta-linea"><span>{p.clave}. {p.nombre}</span><span className={`mono ${p.importe < 0 ? 'conta-negativo' : ''}`}>{formatCurrency(p.importe)}</span></div>
         ))}
         <div className="conta-linea conta-linea--total"><span>A) Resultado de explotación</span><span className="mono">{formatCurrency(pyg.resultadoExplotacion)}</span></div>
+        {pyg.resultadoFinanciero !== 0 && (
+          <div className="conta-linea conta-linea--total"><span>B) Resultado financiero</span><span className="mono">{formatCurrency(pyg.resultadoFinanciero)}</span></div>
+        )}
         <div className="conta-linea conta-linea--total"><span>C) Resultado antes de impuestos</span><span className="mono">{formatCurrency(pyg.resultadoAntesDeImpuestos)}</span></div>
       </section>
 
@@ -440,6 +452,7 @@ function CuentasAnuales({ diario, periodo, periodoId }: { diario: Asiento[]; per
         <div className="conta-linea conta-linea--total"><span>Total activo</span><span className="mono">{formatCurrency(b.totalActivo)}</span></div>
         <h3 className="conta-masa">Patrimonio neto y pasivo</h3>
         <Lineas lineas={b.patrimonioNeto} />
+        <Lineas lineas={b.pasivoNoCorriente} />
         <Lineas lineas={b.pasivoCorriente} />
         <div className="conta-linea conta-linea--total"><span>Total patrimonio neto y pasivo</span><span className="mono">{formatCurrency(b.totalPatrimonioNetoYPasivo)}</span></div>
       </section>
