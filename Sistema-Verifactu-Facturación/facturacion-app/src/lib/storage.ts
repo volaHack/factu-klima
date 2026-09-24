@@ -28,6 +28,7 @@ import {
 } from './types';
 import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
 import { problemasParaEmitir, resumenDeErrores } from './validation/identidad';
+import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
 import {
   agruparPendientes, lineasDelGrupo, notaDelGrupo, type GrupoAFacturar, type Periodo,
 } from './albaranes/facturacionPeriodo';
@@ -2721,6 +2722,18 @@ function mapAplicacionFromDb(ap: any): AbonoAplicacion {
 // COMPANY SETTINGS
 // ============================================================
 
+/**
+ * Cuántas veces se han guardado los ajustes en esta pestaña.
+ *
+ * `getCompanySettings` devuelve la caché y, a la vez, pide la fila al
+ * servidor para refrescarla. Si mientras esa petición va y viene se guarda
+ * algo (borrar categorías, por ejemplo), la respuesta trae la fila de ANTES
+ * y, al llegar, pisaba la caché: la categoría borrada volvía a salir en
+ * cuanto se recargaba la lista. Con este contador, una respuesta que salió
+ * antes del último guardado se tira.
+ */
+let versionAjustes = 0;
+
 export async function getCompanySettings(): Promise<CompanySettings> {
   const offlineAvail = await isOfflineDbAvailable();
   let settings: CompanySettings | null = null;
@@ -2731,13 +2744,17 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     if (cached) {
       // Background refresh
       if (navigator.onLine) {
+        const versionAlPedir = versionAjustes;
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         supabase().from('company_settings').select('*').order('updated_at', { ascending: false }).limit(1).then((res: any) => {
           const data = res?.data?.[0];
-          if (data) {
+          if (data && versionAlPedir === versionAjustes) {
             withSettingsCacheLock(async () => {
               /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
               const prev = await getById<any>('settings', 'company');
+              // Otra comprobación ya dentro del cerrojo: el guardado pudo
+              // entrar mientras se esperaba el turno.
+              if (versionAlPedir !== versionAjustes) return;
               const merged = { ...data };
               // No clobber: si la fila de BD aún no trae custom_categories
               // (migración 008 sin aplicar), conserva las que haya localmente.
@@ -2883,7 +2900,25 @@ export async function contarFacturasSelladas(): Promise<number> {
   }
 }
 
-export async function saveCompanySettings(settings: CompanySettings): Promise<void> {
+/**
+ * Guarda los ajustes de la empresa.
+ *
+ * LAS CATEGORÍAS SÓLO LAS ESCRIBE QUIEN LAS CAMBIA (`{ categorias: true }`)
+ *
+ * Media aplicación guarda los ajustes enteros con el objeto que cargó al
+ * abrir la pantalla: el TPV tras cada venta (contador de tickets), nueva
+ * factura, albaranes, tesorería, devoluciones, Ajustes… Si entre medias
+ * se borraba una categoría en Productos, la siguiente venta del TPV —abierto
+ * desde por la mañana— volvía a escribir la lista vieja y las categorías
+ * «resucitaban». Ahora, salvo que la llamada venga de las funciones de
+ * categorías, la columna no se toca en la base de datos y en la caché se
+ * conserva la que ya hubiera.
+ */
+export async function saveCompanySettings(
+  settings: CompanySettings,
+  opciones: { categorias?: boolean } = {},
+): Promise<void> {
+  versionAjustes++;
   const userId = await requireUserId();
 
   const row = {
@@ -2935,12 +2970,21 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     // desde el navegador: viven en `suscripciones` (migración 040).
   };
 
+  const offlineAvail = await isOfflineDbAvailable();
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const anterior = offlineAvail ? await getById<any>('settings', 'company') : null;
+
+  // Ver el comentario de arriba: sin `categorias: true` manda la lista que
+  // ya había guardada, no la del objeto que trae quien llama.
+  const categorias = opciones.categorias || !Array.isArray(anterior?.custom_categories)
+    ? (settings.customCategories || [])
+    : anterior.custom_categories;
+
   // Categorías personalizadas y porcentajes de IVA/IGIC configurables: van
-  // en la misma fila de company_settings. Si las columnas aún no existen en
-  // la BD (migración 013 sin aplicar) se reintenta sin ellas.
+  // en la misma fila de company_settings.
   const fullRow = {
     ...row,
-    custom_categories: settings.customCategories || [],
+    custom_categories: categorias,
     iva_rates: settings.ivaRates || DEFAULT_IVA_RATES,
     igic_rates: settings.igicRates || DEFAULT_IGIC_RATES,
     series_documentos: settings.seriesDocumentos || {},
@@ -2948,9 +2992,6 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     almacenes: settings.almacenes || [],
   };
 
-  const offlineAvail = await isOfflineDbAvailable();
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const anterior = offlineAvail ? await getById<any>('settings', 'company') : null;
   if (offlineAvail) {
     await withSettingsCacheLock(() => put('settings', { ...fullRow, key: 'company' }));
   }
@@ -2969,6 +3010,12 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
     if (anterior) await withSettingsCacheLock(() => put('settings', anterior));
   };
 
+  // Lo que se reintenta más tarde tampoco lleva categorías si no se están
+  // cambiando: un reintento de madrugada tampoco puede resucitarlas.
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const paraLaCola: Record<string, any> = { ...fullRow };
+  if (!opciones.categorias) delete paraLaCola.custom_categories;
+
   if (navigator.onLine) {
     try {
       // Comprobar si existen settings. Sin .single(): filas duplicadas no
@@ -2980,23 +3027,31 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
         .limit(1);
       const existing = existingRows?.[0];
 
-      const write = async (payload: typeof row | typeof fullRow) => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const write = async (payload: Record<string, any>) => {
         if (existing) {
           return supabase().from('company_settings').update(payload).eq('id', existing.id);
         }
         return supabase().from('company_settings').insert(payload);
       };
 
-      const res = await write(fullRow);
-      if (res?.error) {
-        // Si alguna columna aún no existe en BD (migración sin aplicar),
-        // reintenta sin custom_categories ni iva_rates/igic_rates para no
-        // romper el resto del guardado.
-        const columnaQueFalta = /custom_categories|iva_rates|igic_rates|series_documentos|tarifas|almacenes/i
-          .test(String(res.error.message));
-        const fallo = columnaQueFalta ? (await write(row))?.error : res.error;
+      // En la base de datos, las categorías sólo se escriben si se están
+      // cambiando (o si la fila es nueva).
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const payload: Record<string, any> = { ...fullRow };
+      if (existing && !opciones.categorias) delete payload.custom_categories;
 
-        if (fallo) {
+      const { error: fallo, quitadas } = await escribirQuitandoColumnasQueFaltan(write, payload);
+      // Un refresco que saliera mientras se escribía trae la fila de antes.
+      versionAjustes++;
+      if (quitadas.includes('custom_categories') && opciones.categorias) {
+        // Sin la columna (migración 008) las categorías no se pueden guardar:
+        // decirlo, en vez de enseñar un cambio que no existe.
+        await deshacerCacheLocal();
+        throw new ErrorGuardado('La base de datos no tiene todavía la columna de categorías (migración 008). Aplícala en Supabase para poder cambiarlas.');
+      }
+
+      if (fallo) {
           // UN RECHAZO DEL SERVIDOR NO SE PUEDE REINTENTAR
           //
           // Encolarlo era lo que hacía este código, y es lo que convertía un
@@ -3014,19 +3069,19 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
             await deshacerCacheLocal();
             throw new ErrorGuardado(mensajeDeRechazo(fallo));
           }
-          await enqueueSyncAction('upsert', 'company_settings', row);
-        }
+          await enqueueSyncAction('upsert', 'company_settings', paraLaCola);
       }
     } catch (err) {
       // Un rechazo ya viene explicado: se deja pasar. Lo demás —caída de red,
       // servidor que no contesta— sí es reintentable.
       if (err instanceof ErrorGuardado) throw err;
-      await enqueueSyncAction('upsert', 'company_settings', row);
+      await enqueueSyncAction('upsert', 'company_settings', paraLaCola);
     }
   } else {
-    await enqueueSyncAction('upsert', 'company_settings', row);
+    await enqueueSyncAction('upsert', 'company_settings', paraLaCola);
   }
 }
+
 
 // ============================================================
 // AUTH HELPERS
@@ -3603,7 +3658,7 @@ export async function addCustomCategory(name: string, icon: string): Promise<Cat
     customCategories: [...existing, newCat],
   };
 
-  await saveCompanySettings(updatedSettings);
+  await saveCompanySettings(updatedSettings, { categorias: true });
 
   return {
     value: newCat.id,
@@ -3655,7 +3710,7 @@ export async function deleteCategories(categoryIds: string[]): Promise<void> {
   const sector = settings.sector || 'alimentacion';
   const defaults = SECTOR_DEFAULT_CATEGORIES[sector] || SECTOR_DEFAULT_CATEGORIES.alimentacion;
   const next = categoriasTrasBorrar(settings.customCategories || [], defaults, ids, settings.sector);
-  await saveCompanySettings({ ...settings, customCategories: next });
+  await saveCompanySettings({ ...settings, customCategories: next }, { categorias: true });
 }
 
 export async function updateCustomCategory(categoryId: string, name: string, icon: string): Promise<void> {
@@ -3669,7 +3724,7 @@ export async function updateCustomCategory(categoryId: string, name: string, ico
     // Editar una categoría por defecto = crear un override con su mismo id.
     : [...customs, { id: categoryId, name, icon, sector: settings.sector, hidden: false }];
 
-  await saveCompanySettings({ ...settings, customCategories: next });
+  await saveCompanySettings({ ...settings, customCategories: next }, { categorias: true });
 }
 
 // ============================================================
