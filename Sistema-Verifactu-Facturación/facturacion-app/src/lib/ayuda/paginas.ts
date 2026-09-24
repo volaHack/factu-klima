@@ -428,6 +428,23 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
   },
   {
+    ruta: '/recordatorios',
+    titulo: 'Recordatorios de cobro',
+    paraQue: 'Recordar a los clientes las facturas vencidas sin tener que escribir cada correo.',
+    pasos: [
+      'Cada cliente con facturas vencidas sale con su recordatorio ya escrito, con todas sus facturas juntas.',
+      'Mándalo por correo o por WhatsApp con un clic, o cópialo. Puedes retocar el texto antes.',
+      'Queda anotado cuándo se le recordó, para no repetirlo al día siguiente.',
+      'Con el correo del servidor configurado, activa el envío automático: cada mañana sale solo a quien le toque.',
+    ],
+    saber: [
+      'El tono sube con el retraso: primer aviso, recordatorio y segundo aviso.',
+      'Con retención de IRPF se reclama lo que de verdad hay que pagar: el total menos la retención.',
+      'Para el envío automático el cliente necesita correo en su ficha.',
+    ],
+    relacionadas: [{ ruta: '/tesoreria', texto: 'Tesorería' }, { ruta: '/clientes', texto: 'Clientes' }],
+  },
+  {
     ruta: '/conciliacion',
     titulo: 'Conciliación bancaria',
     paraQue: 'Casar los movimientos del banco con las facturas y los gastos, sin ir uno por uno.',
