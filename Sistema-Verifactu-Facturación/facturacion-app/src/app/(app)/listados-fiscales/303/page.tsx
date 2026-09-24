@@ -97,6 +97,13 @@ export default function Modelo303Page() {
                 <td className="num">{formatCurrency(t.cuota)}</td>
               </tr>
             ))}
+            {(r.modificacion.base !== 0 || r.modificacion.cuota !== 0) && (
+              <tr>
+                <td>Rectificativas · modificación de bases y cuotas [14][15]</td>
+                <td className="num">{formatCurrency(r.modificacion.base)}</td>
+                <td className="num">{formatCurrency(r.modificacion.cuota)}</td>
+              </tr>
+            )}
             <tr>
               <td><strong>Total [27]</strong></td>
               <td className="num"><strong>{formatCurrency(r.baseDevengada)}</strong></td>
@@ -123,6 +130,9 @@ export default function Modelo303Page() {
               ['Importaciones de bienes de inversión', '[34][35]', r.soportado.importacionInversion],
               ['Adq. intracomunitarias corrientes', '[36][37]', r.soportado.intracomunitariaCorriente],
               ['Adq. intracomunitarias de inversión', '[38][39]', r.soportado.intracomunitariaInversion],
+              ...(r.rectificacionDeducciones.base !== 0 || r.rectificacionDeducciones.cuota !== 0
+                ? [['Rectificación de deducciones (rectificativas de compra)', '[40][41]', r.rectificacionDeducciones]]
+                : []),
             ].map(([etiqueta, casillas, v]) => {
               const val = v as { base: number; cuota: number };
               return (
@@ -134,6 +144,14 @@ export default function Modelo303Page() {
                 </tr>
               );
             })}
+            {r.compras.cuota !== 0 && (
+              <tr>
+                <td colSpan={4} className="equipo-nota">
+                  Incluye {formatCurrency(r.compras.cuota)} de IVA de facturas de compra en [28][29].
+                  Si esas compras las apuntaste también como gasto, estarían contadas dos veces.
+                </td>
+              </tr>
+            )}
             <tr>
               <td><strong>Total a deducir</strong></td>
               <td className="mono"><strong>[45]</strong></td>

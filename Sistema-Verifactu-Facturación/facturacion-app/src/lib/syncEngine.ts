@@ -364,7 +364,11 @@ async function processItem(supabase: any, item: SyncQueueItem): Promise<void> {
       // en cada pasada, acumulando duplicados que rompen las lecturas .single()
       // y reinician los contadores de numeración (choques de número). Por eso
       // se resuelve la fila existente y se actualiza.
-      const { data } = await supabase.from(table).select('id').order('updated_at', { ascending: false }).limit(1);
+      const { data: ses } = await supabase.auth.getSession();
+      const propio = ses?.session?.user?.id;
+      let q = supabase.from(table).select('id');
+      if (propio) q = q.eq('user_id', propio);
+      const { data } = await q.order('updated_at', { ascending: false }).limit(1);
       // Si falta alguna columna (migración sin aplicar), se quita ésa y se
       // sigue: si no, el reintento fallaría para siempre y no se guardaría
       // nada de lo demás.
@@ -401,6 +405,11 @@ export async function fullDownloadToOffline(): Promise<void> {
   if (!navigator.onLine) return;
 
   const supabase = createClient();
+  // Sólo lo propio: una gestoría también puede leer lo de sus clientes.
+  const { data: sesion } = await supabase.auth.getSession();
+  const uid = sesion?.session?.user?.id;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const mio = <Q extends { eq: (c: string, v: string) => any }>(q: Q): Q => (uid ? q.eq('user_id', uid) : q);
 
   try {
     // Download all entities
@@ -410,10 +419,10 @@ export async function fullDownloadToOffline(): Promise<void> {
       { data: products },
       { data: settings },
     ] = await Promise.all([
-      supabase.from('invoices').select('*').order('issue_date', { ascending: false }),
-      supabase.from('clients').select('*').order('business_name', { ascending: true }),
+      mio(supabase.from('invoices').select('*')).order('issue_date', { ascending: false }),
+      mio(supabase.from('clients').select('*')).order('business_name', { ascending: true }),
       supabase.from('products').select('*').order('name', { ascending: true }),
-      supabase.from('company_settings').select('*').limit(1),
+      mio(supabase.from('company_settings').select('*')).order('updated_at', { ascending: false }).limit(1),
     ]);
 
     if (invoices?.length) {

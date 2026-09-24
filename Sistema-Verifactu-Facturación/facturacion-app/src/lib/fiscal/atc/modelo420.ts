@@ -110,8 +110,17 @@ export function calcularModelo420(datos: DatosModelo420, periodo: PeriodoFiscal)
   const baseRepercutida = redondear(repercutido.reduce((s, d) => s + d.base, 0));
   const totalRepercutido = redondear(repercutido.reduce((s, d) => s + d.cuota, 0));
 
-  // Soportado por tipo: los gastos guardan un solo tipo por gasto.
+  // Soportado por tipo: los gastos guardan un solo tipo por gasto; las
+  // facturas de compra traen su desglose (antes no se contaban).
   const porTipo = new Map<number, LineaIgicSoportado>();
+  const compras = datos.facturas.filter(f => f.sentido === 'compra' && facturaCuenta(f) && enPeriodo(f.issueDate, periodo));
+  for (const d of desglosarPorTipo(compras)) {
+    const linea = porTipo.get(d.tipo) || { tipo: d.tipo, base: 0, cuotaSoportada: 0, cuotaDeducible: 0 };
+    linea.base = redondear(linea.base + d.base);
+    linea.cuotaSoportada = redondear(linea.cuotaSoportada + d.cuota);
+    linea.cuotaDeducible = redondear(linea.cuotaDeducible + d.cuota);
+    porTipo.set(d.tipo, linea);
+  }
   for (const g of gastos) {
     const tipo = g.taxRate ?? 0;
     const linea = porTipo.get(tipo) || { tipo, base: 0, cuotaSoportada: 0, cuotaDeducible: 0 };
@@ -144,7 +153,7 @@ export function calcularModelo420(datos: DatosModelo420, periodo: PeriodoFiscal)
     compensacionesAnteriores,
     resultado: redondear(totalRepercutido - totalDeducible - compensacionesAnteriores),
     baseSinCuota: sinCuota,
-    numFacturas: emitidas.length,
+    numFacturas: emitidas.length + compras.length,
     numGastos: gastos.length,
   };
 }

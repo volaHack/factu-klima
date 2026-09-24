@@ -21,6 +21,38 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [oculta, setOculta] = useState(false);
+
+  // Al bajar por una página se aparta, y vuelve en cuanto se sube un poco o
+  // se llega al final. Fija en mitad de la pantalla tapaba justo lo que se
+  // estaba leyendo: las gráficas del Panel, las últimas filas de una tabla.
+  useEffect(() => {
+    let ultima = window.scrollY;
+    let pendiente = false;
+    const mirar = () => {
+      pendiente = false;
+      const y = window.scrollY;
+      const alFinal = window.innerHeight + y >= document.documentElement.scrollHeight - 40;
+      if (y < 80 || alFinal) setOculta(false);
+      else if (y > ultima + 6) setOculta(true);
+      else if (y < ultima - 6) setOculta(false);
+      ultima = y;
+    };
+    const alDesplazar = () => {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(mirar);
+    };
+    window.addEventListener('scroll', alDesplazar, { passive: true });
+    return () => window.removeEventListener('scroll', alDesplazar);
+  }, []);
+
+  // Al cambiar de pantalla se vuelve a ver.
+  const [rutaVista, setRutaVista] = useState(pathname);
+  if (rutaVista !== pathname) {
+    setRutaVista(pathname);
+    setOculta(false);
+  }
 
   // El teclado lo escucha el armazón (`AuthWrapper`), que es quien conoce
   // todas las pantallas. Aquí sólo se recoge el aviso de refrescar, porque
@@ -96,13 +128,16 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
     <>
       <div
         className={`management-bar-container ${className}`}
+        aria-hidden={oculta || undefined}
         style={{
           position: 'fixed',
           bottom: '24px',
           // Centrada en el CONTENIDO, no en la ventana: con el sidebar
           // abierto, el 50 % de la ventana la dejaba corrida a la izquierda.
           left: 'calc(50% + var(--sidebar-width, 0px) / 2)',
-          transform: 'translateX(-50%)',
+          transform: oculta ? 'translate(-50%, calc(100% + 32px))' : 'translateX(-50%)',
+          opacity: oculta ? 0 : 1,
+          transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease',
           // Por debajo de la cabecera y de cualquier modal: con 9990 se
           // quedaba flotando encima de los diálogos y de su fondo oscuro.
           zIndex: 85,
@@ -111,7 +146,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
       >
         <div
           style={{
-            pointerEvents: 'auto',
+            pointerEvents: oculta ? 'none' : 'auto',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',

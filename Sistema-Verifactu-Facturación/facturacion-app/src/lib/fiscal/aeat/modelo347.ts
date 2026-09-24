@@ -104,12 +104,15 @@ function importeDeclarable(f: Invoice): number {
  * ¿Cuenta esta factura para el 347?
  *
  * Fuera: borradores y facturas anuladas (no existen fiscalmente), y los
- * albaranes y demás documentos que no son factura.
+ * albaranes y demás documentos que no son factura. Dentro: las
+ * rectificativas, que restan.
  */
 function cuentaParaEl347(f: Invoice, ejercicio: number): boolean {
   if (f.cancelledAt) return false;
-  if (f.tipo && f.tipo !== 'factura') return false;
-  if (f.status === 'borrador') return false;
+  // Las rectificativas restan del total anual con cada tercero: el 347 se
+  // declara por el importe neto de las operaciones del año.
+  if (f.tipo && f.tipo !== 'factura' && f.tipo !== 'rectificativa') return false;
+  if (f.status === 'borrador' || f.status === 'anulada') return false;
   return Number(f.issueDate.slice(0, 4)) === ejercicio;
 }
 
