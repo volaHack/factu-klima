@@ -20,6 +20,7 @@ import ControlPerfiles, { SinAcceso } from '@/components/perfiles/ControlPerfile
 import { usePerfiles } from '@/lib/perfilesCliente';
 import { puedeEntrar } from '@/lib/perfiles';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
+import { prepararPendientes } from '@/lib/recurrentes';
 
 /**
  * Rutas que exigen sesión pero se dibujan a pantalla completa, sin sidebar,
@@ -42,7 +43,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const [cmdOpen, setCmdOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [settingsForOnboarding, setSettingsForOnboarding] = useState<CompanySettings | null>(null);
-  const { toasts, removeToast } = useToast();
+  const { toasts, removeToast, addToast } = useToast();
 
   const isPublic = isPublicRoute(pathname);
   // Perfil de trabajo activo en este equipo: si su rol no llega a esta
@@ -85,6 +86,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       // Full download to offline DB if online
       if (navigator.onLine) {
         fullDownloadToOffline();
+        // Las facturas recurrentes que ya tocan, en borrador y con aviso.
+        prepararPendientes().then(creadas => {
+          if (!creadas.length) return;
+          addToast({
+            type: 'info',
+            title: creadas.length === 1 ? 'Factura recurrente preparada' : `${creadas.length} facturas recurrentes preparadas`,
+            message: `${creadas.map(f => f.number).slice(0, 4).join(', ')}${creadas.length > 4 ? '…' : ''} en borrador, para revisar y emitir.`,
+            duration: 12000,
+          });
+        }).catch(() => { /* se reintenta en la próxima entrada */ });
       }
 
       // Check onboarding
@@ -130,7 +141,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener(EVENTO_BUSCAR, abrirBuscador);
     };
-  }, [isPublic, router]);
+  }, [isPublic, router, addToast]);
 
   if (isPublic) {
     return <main>{children}</main>;

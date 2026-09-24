@@ -411,6 +411,23 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }, { ruta: '/conciliacion', texto: 'Conciliación bancaria' }],
   },
   {
+    ruta: '/facturas/recurrentes',
+    titulo: 'Facturas recurrentes',
+    paraQue: 'Las facturas que se repiten igual cada mes, trimestre o año: cuotas, alquileres, igualas.',
+    pasos: [
+      'Abre una factura emitida que se repita y pulsa «Repetir».',
+      'Elige cada cuánto, la fecha de la próxima y, si quieres, hasta cuándo.',
+      'Cuando llega la fecha, al entrar en el programa se prepara la factura en borrador, con su número.',
+      'Revísala en Facturas y emítela.',
+    ],
+    saber: [
+      'No se emite sola a propósito: una factura emitida ya no se puede cambiar, sólo rectificar.',
+      'Si pasas unos días sin entrar, se preparan todas las que tocaban, cada una con su fecha.',
+      'Para cambiar el precio o las líneas, emite una factura nueva y repite esa.',
+    ],
+    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
+  },
+  {
     ruta: '/conciliacion',
     titulo: 'Conciliación bancaria',
     paraQue: 'Casar los movimientos del banco con las facturas y los gastos, sin ir uno por uno.',

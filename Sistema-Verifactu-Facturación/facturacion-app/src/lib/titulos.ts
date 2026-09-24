@@ -24,6 +24,7 @@ const EXACTAS: Record<string, string> = {
   '/documentos': 'Documentos',
   '/documentos/nuevo': 'Nuevo documento',
   '/tesoreria': 'Tesorería',
+  '/facturas/recurrentes': 'Facturas recurrentes',
   '/conciliacion': 'Conciliación bancaria',
   '/clientes': 'Clientes',
   '/productos': 'Productos',

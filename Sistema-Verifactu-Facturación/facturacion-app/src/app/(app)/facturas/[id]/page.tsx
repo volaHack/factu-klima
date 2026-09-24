@@ -12,6 +12,7 @@ import {
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf, { BotonVistaPreviaPdf, AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
+import BotonRepetir from '@/components/facturas/BotonRepetir';
 import {
   getInvoiceById, saveInvoice, getCompanySettings, createOrderApproval,
   getApprovalByInvoiceId, getApprovalItems, issueInvoice, isSealed, getOnboardingStatus,
@@ -303,9 +304,12 @@ export default function InvoiceDetailPage() {
             </>
           )}
           {invoice.status !== InvoiceStatus.BORRADOR && invoice.status !== InvoiceStatus.PRE_APROBACION && (
-            <button className="btn btn-secondary" onClick={handleDuplicate}>
-              <Copy size={16} /> Duplicar
-            </button>
+            <>
+              <button className="btn btn-secondary" onClick={handleDuplicate}>
+                <Copy size={16} /> Duplicar
+              </button>
+              <BotonRepetir factura={invoice} />
+            </>
           )}
           {(invoice.status === InvoiceStatus.PENDIENTE || invoice.status === InvoiceStatus.EMITIDA || invoice.status === InvoiceStatus.VENCIDA) && (
             <button className="btn btn-primary" onClick={handleMarkPaid}>

@@ -7,6 +7,7 @@ import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, FileText, SearchX,
   Eye, Edit, Copy, Trash2, MoreHorizontal, CheckCircle, Download, Store, BarChart3,
   AlertTriangle, RefreshCw,
+  Repeat,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -426,6 +427,9 @@ export default function FacturasPage() {
           )}
         </div>
         <div className="page-header-actions">
+          <Link href="/facturas/recurrentes" className="btn btn-ghost" title="Facturas que se preparan solas cada mes, trimestre o año">
+            <Repeat size={16} /> Recurrentes
+          </Link>
           <button
             className="btn btn-ghost btn-icon"
             onClick={reload}
