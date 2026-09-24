@@ -68,7 +68,7 @@
   /* La barra de arriba va translúcida con desenfoque por detrás, así que
      necesita su propio color: un token opaco taparía el efecto y el mismo
      con alfa sobre otro fondo daría un tono distinto. */
-  --bg-header: rgba(251, 246, 242, 0.82);
+  --bg-header: rgba(251, 246, 242, 0.95);
 
   /* Theme Dynamic Tokens (Default Rose) */
   --accent-50: #fdeef2;
@@ -300,7 +300,7 @@ body.theme-rose {
   --bg-overlay: rgba(10, 6, 8, 0.66);
   /* Más opaca que la clara: sobre fondo oscuro, el contenido que pasa por
      debajo se transparenta mucho más y se lee a través de la barra. */
-  --bg-header: rgba(33, 22, 25, 0.88);
+  --bg-header: rgba(33, 22, 25, 0.95);
 
   /* Acento rosa, aclarado para que se lea sobre oscuro. Aquí --accent-300
      hace de "aclarar al pasar el ratón", el papel inverso al que tiene en
@@ -463,7 +463,7 @@ body.theme-rose {
   --bg-elevated: #ffffff;
   --bg-input: #ffffff;
   --bg-overlay: rgba(23, 15, 18, 0.45);
-  --bg-header: rgba(251, 246, 242, 0.82);
+  --bg-header: rgba(251, 246, 242, 0.95);
 
   --accent-50: #fdeef2;
   --accent-100: #fbd7e3;
@@ -1119,7 +1119,7 @@ a:hover { color: var(--accent-300); }
   background-color: #ffffff;
 }
 .form-textarea { resize: vertical; min-height: 72px; }
-.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-4); }
 /* --- Cards --- */
 .card {
   background: var(--bg-card);
@@ -1140,7 +1140,7 @@ a:hover { color: var(--accent-300); }
 .card-subtitle { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
 
 /* --- KPI Cards --- */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-4); }
 
 .kpi-card {
   background: var(--bg-card);
@@ -4621,7 +4621,7 @@ a:focus-visible {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.skel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+.skel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-4); }
 .skel-kpi {
   border: 1px solid var(--border-color); border-radius: var(--radius-lg);
   background: var(--bg-card); padding: var(--space-5);
@@ -4762,12 +4762,12 @@ a.status-panel:hover .status-panel-chevron { color: var(--accent-400); transform
 .def-inline { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); }
 .def-inline > svg { flex-shrink: 0; margin-top: 3px; color: var(--text-muted); width: 14px; height: 14px; }
 
-.def-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); }
+.def-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: var(--space-4); }
 
 /* ============================================================
    REJILLA DE ELECCION — sector, icono de categoria, tema
    ============================================================ */
-.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); gap: var(--space-3); }
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(196px, 100%), 1fr)); gap: var(--space-3); }
 .choice-card {
   display: flex; flex-direction: column; gap: 6px;
   padding: var(--space-4);
@@ -6259,7 +6259,7 @@ a.stats-item:focus-visible {
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
   gap: var(--space-3);
   align-content: start;
 }
@@ -7535,7 +7535,7 @@ a.stats-item:focus-visible {
 /* Rutas relacionadas */
 .ayuda-relacionadas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
   gap: 8px;
 }
 
@@ -7733,7 +7733,7 @@ a.stats-item:focus-visible {
 
 .ofertas-lista {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -7776,7 +7776,7 @@ a.stats-item:focus-visible {
 /* --- Las plantillas del estado vacío --- */
 .ofertas-plantillas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-5);
   width: 100%;
@@ -8770,7 +8770,7 @@ body.nav-abierta { overflow: hidden; }
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   border-top: 1px solid var(--border-color);
 }
 .home-norma-list li {
@@ -9162,7 +9162,7 @@ body.nav-abierta { overflow: hidden; }
 .home-capacidades-list {
   margin: var(--space-8) 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 0 clamp(32px, 5vw, 72px);
 }
 .home-capacidades-list > div { position: relative; padding: var(--space-5) 0; border-bottom: 1px solid var(--border-subtle); }
@@ -9370,7 +9370,7 @@ body.nav-abierta { overflow: hidden; }
 }
 .instalar-porque-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 0 clamp(28px, 4vw, 56px);
   border-top: 1px solid var(--border-color);
   margin-top: var(--space-6);
@@ -10042,7 +10042,7 @@ body.nav-abierta { overflow: hidden; }
 
 .plantilla-rejilla {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -10688,7 +10688,7 @@ body.nav-abierta { overflow: hidden; }
 
 .plantilla-oficios {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
   gap: var(--space-2);
 }
 
@@ -11160,7 +11160,7 @@ body.nav-abierta { overflow: hidden; }
 
 .modulos-lista {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: var(--space-2);
 }
 
@@ -11510,7 +11510,7 @@ body.nav-abierta { overflow: hidden; }
 
 .lf-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -11647,7 +11647,7 @@ body.nav-abierta { overflow: hidden; }
 
 .lf-resumen {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
@@ -13741,3 +13741,283 @@ body.nav-abierta { overflow: hidden; }
    afectados: son fixed y van en un portal. */
 .table-container,
 .table-responsive { position: relative; }
+
+/* ============================================================
+   CABECERA · AJUSTES DE LA AUDITORÍA DE RESPONSIVIDAD
+   ============================================================ */
+
+/* Contador de avisos de la campana. Era un círculo fijo de 16 px: con dos
+   cifras («23») el número tocaba el borde y con tres se salía. Ahora es
+   una píldora que crece con el número (tope «99+»), con un anillo del
+   color de la cabecera para despegarse del icono. */
+.header-contador {
+  position: absolute; top: 1px; right: 1px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--bg-secondary);
+  pointer-events: none;
+}
+
+/* Aviso de estado (Verifactu, AEAT…): título y texto son <span> dentro
+   de un enlace, y sin display:block se escribían en la misma línea
+   —«…con la AEATSigues facturando…»—. */
+.status-panel-title,
+.status-panel-text { display: block; }
+
+/* El sello del hero va SIEMPRE sobre la cabecera oscura del panel, también
+   en modo claro. Tomaba el dorado del tema claro (#734705, pensado para
+   fondo crema) y sobre casi negro no se leía: aquí va el dorado de fondo
+   oscuro en los dos modos. */
+.hero-panel .seal-chip svg,
+.hero-panel .seal-chip-title { color: #e0b455; }
+
+/* Cabecera del móvil: un solo tipo de botón de icono.
+   ------------------------------------------------------------------
+   Convivían tres: la ayuda era un círculo blanco con borde, la campana
+   una píldora blanca y el tema un cuadrado con borde. Ahora los tres (y
+   la lupa) son el mismo botón: transparente, sin borde, con el fondo de
+   «hover» al tocarlo. El tema sale de la cabecera —vive en el menú de
+   la cuenta, como el plan— y la flecha junto al avatar también: el
+   avatar ya abre el menú. Con eso el título de la pantalla, que en un
+   móvil es la única pista de dónde se está, deja de quedarse en unos
+   pocos píxeles. */
+@media (max-width: 768px) {
+  .header .tema-boton,
+  .header .account-trigger-flecha { display: none; }
+
+  .header-actions .apple-guide-trigger,
+  .header-actions .btn-icon,
+  .header-actions .header-search-btn-mobile {
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+    padding: 0;
+    display: inline-grid; place-items: center;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    border-radius: var(--radius-md);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    color: var(--text-secondary);
+  }
+  .header-actions .apple-guide-trigger:hover,
+  .header-actions .btn-icon:hover,
+  .header-actions .header-search-btn-mobile:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+  }
+  .header-actions .apple-guide-icon { width: 24px; height: 24px; background: transparent; }
+
+  .header-breadcrumb { flex: 1; min-width: 0; }
+  .header-breadcrumb span { font-size: var(--text-base); }
+}
+@media (max-width: 400px) {
+  .header-actions { gap: 0; }
+  .header-actions .apple-guide-trigger,
+  .header-actions .btn-icon,
+  .header-actions .header-search-btn-mobile { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .header-menu-btn { width: 40px !important; height: 40px !important; }
+  .header-breadcrumb span { font-size: var(--text-sm); }
+}
+
+/* Tres cifras en fila (Informes, ficha de cliente). Iban con un
+   `repeat(3, 1fr)` en línea que pisaba el paso a dos columnas del móvil:
+   en 320 px cada tarjeta quedaba en 90 px y el importe se salía. */
+.kpi-grid.kpi-grid--tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) {
+  .kpi-grid.kpi-grid--tres { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ============================================================
+   MÓVIL · FILAS DE FILTROS Y PESTAÑAS
+   ------------------------------------------------------------
+   Los chips de estado (nueve en Facturas) y las pestañas de tipo de
+   documento se partían en cinco filas en un teléfono: media pantalla
+   de botones antes de ver una sola factura. En móvil van en UNA fila
+   que se desplaza de lado, con un degradado en el borde derecho que
+   avisa de que hay más. En escritorio no cambia nada.
+   ============================================================ */
+@media (max-width: 768px) {
+  .filters-bar > .cluster-sm,
+  .fila-desplazable {
+    /* Es hijo de un flex: sin esto mide lo que suman sus chips y se sale. */
+    min-width: 0; max-width: 100%; flex: 1 1 100%;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* aire para que el foco y la sombra de los chips no se corten */
+    padding: 3px 2px;
+    margin-left: -2px; margin-right: -2px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .filters-bar > .cluster-sm::-webkit-scrollbar,
+  .fila-desplazable::-webkit-scrollbar { display: none; }
+  .filters-bar > .cluster-sm > *,
+  .fila-desplazable > * { flex-shrink: 0; white-space: nowrap; }
+  .filters-bar > .cluster-sm > *:last-child,
+  .fila-desplazable > *:last-child { margin-right: 24px; }
+}
+
+/* Números de documento en tablas: nunca partidos. «FAC-2026-0060» en tres
+   renglones no se lee como un número; la tabla ya se desplaza de lado. */
+.table td.mono { white-space: nowrap; }
+/* Nombres en tablas (cliente, producto…): con un nombre de sociedad largo
+   la columna se estrechaba hasta partirlo en seis renglones. Un mínimo
+   de 180 px lo deja en dos como mucho. */
+.table td.primary:not(.mono) { min-width: 180px; }
+
+/* La barra flotante de escritorio (Veri*Factu · Factura · …) mide ~56 px y
+   va a 24 px del borde: sin este hueco tapaba lo último de cada página
+   —la paginación de una tabla, el botón de guardar de un formulario—. */
+@media (min-width: 769px) {
+  .app-content { padding-bottom: calc(var(--space-6) + 88px); }
+}
+
+/* Cifras de cabecera («12 en ficha | 12 activos | …»). Cada cifra lleva su
+   separador a la izquierda, en mitad del hueco; cuando la fila salta de
+   línea, el separador de la primera cifra del renglón nuevo quedaba suelto
+   junto al borde de la página. Recortando lo que asoma por la izquierda
+   del contenedor, ese separador desaparece solo y el resto no cambia. */
+.page-meta { overflow: hidden; }
+
+/* Cabecera de página en móvil. Veinticinco pantallas montan sus botones
+   en un <div style="display:flex"> propio en vez de .page-header-actions,
+   así que no heredaban el salto de línea del móvil: en Tesorería,
+   «Registrar pago» se quedaba medio fuera de la pantalla. Aquí se cubre
+   cualquier bloque de acciones, lleve la clase o no. */
+@media (max-width: 768px) {
+  .page-header > * { max-width: 100%; min-width: 0; }
+  .page-header > div:last-child:not(:first-child) { flex-wrap: wrap; }
+  .page-title { overflow-wrap: anywhere; }
+}
+
+/* Pestañas (.tabs, nueve pantallas): no saltaban de línea ni se
+   desplazaban, así que en un móvil la tercera se quedaba a medias fuera
+   de la vista (Tesorería: «Pagos a proveedores»). Ahora la fila se
+   desplaza de lado y cada pestaña conserva su texto en una línea. El
+   subrayado de la activa sube al borde interior: la caja con scroll
+   recortaría el píxel de fuera. */
+.tabs {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs > .tab { flex-shrink: 0; white-space: nowrap; }
+.tab.active::after { bottom: 0; }
+
+/* Tesorería y Almacenes usan .tab-btn dentro de .tabs (una clase sin
+   estilos propios): la regla de las pestañas vale para cualquier hijo. */
+.tabs > * { flex-shrink: 0; white-space: nowrap; }
+
+/* Ficha de cliente: un email o una web larga es una sola «palabra» y se
+   salía de la tarjeta incluso en 1440 px. Se parte donde haga falta. */
+.def-inline { min-width: 0; }
+.def-inline > :not(svg) { min-width: 0; overflow-wrap: anywhere; }
+.listado-tabla-caja { overflow-x: auto; }
+
+/* ============================================================
+   TPV · BARRA SUPERIOR Y BARRA DE BÚSQUEDA EN PANTALLAS MEDIAS
+   ------------------------------------------------------------
+   La barra lleva ocho controles con texto en dos grupos que no podían
+   encoger: por debajo de ~1200 px lo de la derecha se salía de la
+   pantalla (el TPV recorta, así que simplemente desaparecía) y «Salir
+   del TPV» se partía en tres renglones. Por escalones:
+     · ≤1200 px: los botones secundarios se quedan en su icono. Todos
+       llevan `title`, que es su nombre para lectores de pantalla y el
+       texto que sale al pasar el ratón.
+     · ≤768 px: también «Salir», «Ayuda» y el escáner; si aun así no
+       cabe, la barra se desplaza de lado en vez de cortar.
+   «Caja abierta / cerrada» conserva siempre su texto: es el estado del
+   mostrador, no un botón más.
+   ============================================================ */
+.tpv-topbar { gap: var(--space-3); }
+.tpv-topbar > div { min-width: 0; }
+.tpv-back-link { white-space: nowrap; flex-shrink: 0; }
+.tpv-search-bar { min-width: 0; }
+.tpv-search-bar input { min-width: 0; }
+
+@media (max-width: 1200px) {
+  .tpv-topbar-actions .btn > span,
+  .tpv-topbar-izq .btn-ghost > span { display: none; }
+  .tpv-topbar-actions .btn,
+  .tpv-topbar-izq .btn-ghost { padding-left: 10px; padding-right: 10px; }
+}
+@media (max-width: 900px) {
+  .tpv-product-area > div:first-child .btn > span { display: none; }
+  .tpv-product-area > div:first-child .btn { padding-left: 12px; padding-right: 12px; }
+}
+@media (max-width: 768px) {
+  .tpv-topbar {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-left: var(--space-3); padding-right: var(--space-3);
+  }
+  .tpv-topbar::-webkit-scrollbar { display: none; }
+  .tpv-topbar > div { flex-shrink: 0; }
+  .tpv-back-link { font-size: 0; gap: 0; }
+  .tpv-back-link svg { width: 20px; height: 20px; }
+  .tpv-ayuda-boton > span,
+  .tpv-scanner-status > span { display: none; }
+}
+
+/* Selector de plataforma de /instalar: `width: fit-content` sin tope, así
+   que en 320 px la píldora medía más que la pantalla y la pestaña activa
+   quedaba cortada por el borde. Con tope, las pestañas reparten el ancho. */
+.instalar-switcher { max-width: 100%; }
+.instalar-switcher-tab { min-width: 0; }
+@media (max-width: 420px) {
+  .instalar-switcher { width: 100%; }
+  .instalar-switcher-tab { flex: 1 1 0; justify-content: center; padding: 8px 10px; }
+}
+
+/* Cifras de KPI: en tarjetas de medio móvil (dos por fila, ~150 px) un
+   importe de seis cifras («24.911,05 €») a tamaño de escritorio se salía
+   de la tarjeta. Se escala con el ancho de la pantalla y nunca se corta. */
+@media (max-width: 520px) {
+  .kpi-card-value { font-size: clamp(1.05rem, 5.4vw, 1.5rem); overflow-wrap: anywhere; }
+}
+
+/* Pestañas con icono (Gastos, Vehículos…): el SVG iba en línea con el
+   texto y se quedaba por encima de la línea base. */
+.tab { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Escritorio: la campana era un círculo blanco al lado del cuadrado con
+   borde del tema. Ahora tienen la misma forma, y el contador sale a la
+   esquina del botón en vez de tapar media campana. */
+@media (min-width: 769px) {
+  .header-actions .btn-icon {
+    width: 36px; height: 36px; min-width: 36px; padding: 0;
+    display: inline-grid; place-items: center;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    color: var(--text-secondary);
+  }
+  .header-actions .btn-icon:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--border-color-hover);
+  }
+}
+.header-contador { top: -5px; right: -6px; }
+
+/* Teléfonos de 360 px o menos: se ganan ~30 px para el título de la
+   pantalla (a 320 px quedaban 76). Los botones bajan a 36 px, holgados
+   sobre el mínimo táctil de 24 px, y se recorta el aire de los bordes. */
+@media (max-width: 360px) {
+  .header { gap: 4px; padding-left: calc(var(--space-2) + var(--safe-left)); padding-right: calc(var(--space-2) + var(--safe-right)); }
+  .header-actions .apple-guide-trigger,
+  .header-actions .btn-icon,
+  .header-actions .header-search-btn-mobile { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+  .header-menu-btn { width: 38px !important; height: 38px !important; }
+  .header-breadcrumb span { font-size: 13px; }
+}
+@media (max-width: 340px) {
+  .header-breadcrumb span { font-size: 12px; letter-spacing: -0.005em; }
+}

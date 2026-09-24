@@ -314,7 +314,7 @@ export default function TesoreriaPage() {
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowDownLeft size={24} />
@@ -703,7 +703,7 @@ export default function TesoreriaPage() {
           </div>
 
           {/* Resumen del extracto */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div className="card" style={{ padding: 'var(--space-3)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOTAL FACTURADO / DEBE</div>
               <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{formatCurrency(extractoData.totalDebe)}</div>

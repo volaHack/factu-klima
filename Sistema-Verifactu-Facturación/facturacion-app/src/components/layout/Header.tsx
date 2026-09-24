@@ -10,6 +10,7 @@ import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
 import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
 import { getPlan } from '@/lib/plans';
+import { tituloDePagina } from '@/lib/titulos';
 import AccountMenu from './AccountMenu';
 import BotonTema from './BotonTema';
 import NotificationsPopover from './NotificationsPopover';
@@ -20,15 +21,6 @@ interface HeaderProps {
   menuButtonRef?: React.Ref<HTMLButtonElement>;
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/facturas': 'Facturas',
-  '/facturas/nueva': 'Nueva factura',
-  '/clientes': 'Clientes',
-  '/productos': 'Productos',
-  '/informes': 'Informes',
-  '/ajustes': 'Ajustes',
-};
 
 export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: HeaderProps) {
   const pathname = usePathname();
@@ -82,14 +74,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
     })();
   }, [pathname]);
 
-  let pageTitle = PAGE_TITLES[pathname] || '';
-  if (!pageTitle && pathname.startsWith('/facturas/') && pathname.includes('/editar')) {
-    pageTitle = 'Editar Factura';
-  } else if (!pageTitle && pathname.startsWith('/facturas/')) {
-    pageTitle = 'Detalle de Factura';
-  } else if (!pageTitle && pathname.startsWith('/clientes/')) {
-    pageTitle = 'Ficha de Cliente';
-  }
+  const pageTitle = tituloDePagina(pathname);
 
   return (
     <header className="header">
@@ -158,26 +143,12 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
             style={{ position: 'relative' }}
             title={totalAlerts > 0 ? `${totalAlerts} avisos de stock o vencimiento` : 'Sin avisos pendientes'}
             onClick={() => setShowNotifications(prev => !prev)}
-            aria-label="Notificaciones"
+            aria-label={totalAlerts > 0 ? `Notificaciones: ${totalAlerts} avisos` : 'Notificaciones'}
           >
             <Bell size={20} />
             {totalAlerts > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: 2,
-                right: 2,
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: 'var(--color-danger)',
-                color: 'white',
-                fontSize: '10px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {totalAlerts}
+              <span className="header-contador" aria-hidden="true">
+                {totalAlerts > 99 ? '99+' : totalAlerts}
               </span>
             )}
           </button>

@@ -201,7 +201,7 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '1.25rem' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
               Serie para Suscripciones de Software
@@ -274,7 +274,7 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
           {/* Opción 1: Pequeño Empresario REPE */}
           <div
             onClick={() => setForm({ ...form, regimen_igic: 'pequeno_empresario', cobrar_impuesto: false })}
@@ -331,7 +331,7 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
         </div>
 
         {/* Toggle Cobro de Impuestos & Stripe Tax */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>Repercutir Impuesto en Stripe Checkout</div>

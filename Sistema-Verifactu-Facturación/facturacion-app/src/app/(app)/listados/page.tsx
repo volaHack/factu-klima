@@ -341,6 +341,9 @@ export default function ListadosPage() {
           </dl>
         </header>
 
+        {/* En pantalla la tabla se desplaza de lado dentro de la hoja: en un
+            móvil ensanchaba la página 280 px. Al imprimir no cambia nada. */}
+        <div className="listado-tabla-caja">
         <table className="listado-tabla">
           <thead>
             <tr>
@@ -404,6 +407,7 @@ export default function ListadosPage() {
             </tfoot>
           )}
         </table>
+        </div>
       </div>
     </div>
   );

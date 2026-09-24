@@ -280,7 +280,7 @@ export default function VerifactuPage() {
 
       {/* ---------- Lo primero: qué falta por enviar ---------- */}
       <section className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="stat-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-4)' }}>
+        <div className="stat-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 'var(--space-4)' }}>
           <div>
             <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: pendientes.length ? 'var(--color-warning)' : 'var(--text-primary)' }}>
               {pendientes.length}

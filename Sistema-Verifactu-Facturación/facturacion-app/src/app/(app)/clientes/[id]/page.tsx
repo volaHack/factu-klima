@@ -112,7 +112,7 @@ export default function ClientDetailPage() {
       <div className="detail-layout">
         <div className="detail-main">
           {/* Stats */}
-          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 'var(--space-6)' }}>
+          <div className="kpi-grid kpi-grid--tres" style={{ marginBottom: 'var(--space-6)' }}>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
               <div className="kpi-card-value">{formatCurrency(stats.total)}</div>
               <div className="kpi-card-label">Total documentos ({stats.count})</div>
