@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X, Shield } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
@@ -18,7 +18,17 @@ function initialsFrom(name: string, email: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-export default function AccountMenu() {
+export interface PlanDeCuenta {
+  nombre: string;
+  id: string;
+  activo: boolean;
+}
+
+/**
+ * El menú de la cuenta. En el móvil recoge además el plan y el «Tip», que
+ * en la cabecera del ordenador van sueltos pero en el móvil no caben.
+ */
+export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTip?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const [cerrando, setCerrando] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -217,6 +227,24 @@ export default function AccountMenu() {
             </div>
           ) : (
             <div className="account-dropdown-body">
+              {plan && (
+                <Link
+                  href="/precios"
+                  className={`account-dropdown-plan ${!plan.activo ? 'is-inactivo' : plan.id === 'sin_limite' ? 'is-top' : ''}`}
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="account-dropdown-plan-icono">
+                    {!plan.activo ? <Lock size={15} /> : plan.id === 'sin_limite' ? <Zap size={15} /> : <Crown size={15} />}
+                  </span>
+                  <span className="account-dropdown-plan-texto">
+                    <small>Tu plan</small>
+                    <strong>{plan.nombre}</strong>
+                  </span>
+                  <span className="account-dropdown-plan-accion">
+                    {plan.activo ? 'Cambiar' : 'Activar'} <ChevronRight size={14} />
+                  </span>
+                </Link>
+              )}
               <button className="account-dropdown-item" onClick={() => setEditing(true)}>
                 <User size={16} /> Editar perfil
               </button>
@@ -228,6 +256,14 @@ export default function AccountMenu() {
               <Link href="/ajustes" className="account-dropdown-item" onClick={() => setOpen(false)}>
                 <Settings size={16} /> Ajustes de la empresa
               </Link>
+              {onTip && (
+                <button
+                  className="account-dropdown-item account-dropdown-solo-movil"
+                  onClick={() => { setOpen(false); onTip(); }}
+                >
+                  <Heart size={16} style={{ color: '#e11d48' }} /> Invitar a un café
+                </button>
+              )}
               <div className="account-dropdown-divider" />
               {/*
                 POR QUÉ ESTO NO ERA UN `onSubmit` NORMAL

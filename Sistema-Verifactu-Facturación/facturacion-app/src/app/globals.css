@@ -1211,6 +1211,20 @@ a:hover { color: var(--accent-300); }
 }
 
 /* --- Verifactu Badge --- */
+.header-plan-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--radius-full);
+  font-size: var(--text-2xs); font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+}
+.header-tip-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--radius-full);
+  font-size: var(--text-2xs); font-weight: 700;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
 .verifactu-badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px; border-radius: var(--radius-full);
@@ -2807,6 +2821,15 @@ a:hover { color: var(--accent-300); }
      se pierde información, solo se libera sitio en la cabecera. */
   .account-trigger-name { display: none; }
   .header-tip-btn { display: none; }
+  /* El plan pasa al menú del perfil (ver .account-dropdown-plan): en la
+     cabecera del móvil no cabía junto a la ayuda, la búsqueda, la
+     campana, el tema y la cuenta, y se cortaba lo de la derecha. */
+  .header-plan-badge { display: none; }
+  /* Con la cabecera delante: el .btn-ghost de la web pública va más abajo
+     en este fichero y le devolvía el display, así que «Tip» seguía
+     saliendo en el móvil aunque aquí se ocultara. */
+  .header .header-tip-btn,
+  .header .header-plan-badge { display: none; }
 
   /* El interruptor de claro/oscuro, a la medida del dedo como el resto
      de botones del teléfono. En 36 px se quedaba pequeño y además
@@ -4100,6 +4123,36 @@ a:focus-visible {
 .account-dropdown-email { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .account-dropdown-body { padding: var(--space-2); }
+/* El plan, arriba del menú de la cuenta. Sólo en el móvil: en el
+   ordenador ya está a la vista en la cabecera. */
+.account-dropdown-plan {
+  display: none;
+  align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-glow);
+  border: 1px solid color-mix(in srgb, var(--accent-500) 25%, transparent);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.account-dropdown-plan-icono {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--accent-gradient); color: #fff;
+}
+.account-dropdown-plan.is-top .account-dropdown-plan-icono { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.account-dropdown-plan.is-inactivo { background: var(--color-danger-bg); border-color: var(--color-danger); }
+.account-dropdown-plan.is-inactivo .account-dropdown-plan-icono { background: var(--color-danger); }
+.account-dropdown-plan-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.account-dropdown-plan-texto small { font-size: 11px; color: var(--text-muted); }
+.account-dropdown-plan-texto strong { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-dropdown-plan-accion { display: inline-flex; align-items: center; gap: 2px; font-size: var(--text-xs); font-weight: 600; color: var(--accent-500); }
+.account-dropdown-item.account-dropdown-solo-movil { display: none; }
+@media (max-width: 768px) {
+  .account-dropdown-plan { display: flex; }
+  .account-dropdown-item.account-dropdown-solo-movil { display: flex; }
+}
 .account-dropdown-item {
   display: flex; align-items: center; gap: var(--space-3);
   width: 100%; padding: 9px var(--space-3);

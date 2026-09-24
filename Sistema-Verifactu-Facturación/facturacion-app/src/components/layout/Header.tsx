@@ -122,18 +122,11 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           href="/precios"
           className="header-plan-badge"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 10px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: 'var(--text-2xs)',
-            fontWeight: 700,
-            textDecoration: 'none',
+            // El resto (display, tamaños) va en el CSS: escrito aquí,
+            // `display` anulaba la regla que la esconde en el móvil.
             background: !isSubActive ? 'var(--color-danger-bg)' : planId === 'sin_limite' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--accent-50)',
             color: !isSubActive ? 'var(--color-danger)' : planId === 'sin_limite' ? '#ffffff' : 'var(--accent-500)',
             border: !isSubActive ? '1px solid var(--color-danger)' : '1px solid var(--border-color)',
-            whiteSpace: 'nowrap',
           }}
           title="Ver nivel de membresía y cambiar de plan"
         >
@@ -191,25 +184,16 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           className="btn btn-ghost header-tip-btn"
           onClick={() => setShowTipModal(true)}
           title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '4px 10px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: 'var(--text-2xs)',
-            fontWeight: 700,
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            cursor: 'pointer',
-          }}
         >
           <Heart size={13} style={{ color: '#e11d48', fill: '#e11d48' }} />
           <span>Tip ☕</span>
         </button>
 
         <BotonTema />
-        <AccountMenu />
+        <AccountMenu
+          plan={{ nombre: isSubActive ? planName : 'Sin suscripción', id: planId, activo: isSubActive }}
+          onTip={() => setShowTipModal(true)}
+        />
       </div>
 
       <TipModal isOpen={showTipModal} onClose={() => setShowTipModal(false)} />
