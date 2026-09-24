@@ -20,6 +20,7 @@ import { BUSINESS_SECTORS } from '@/lib/constants';
 import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstStepsModal';
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
 import AvisosTendencias from '@/components/dashboard/AvisosTendencias';
+import PanelAnalisis from '@/components/dashboard/PanelAnalisis';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import { fichasVisibles, type FichaId } from '@/lib/panel';
 
@@ -587,6 +588,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Análisis del negocio: ritmo, cobros, clientes y productos */}
+      {enPanel('analisis_negocio') && <PanelAnalisis invoices={invoices} products={products} />}
 
       {/* Avisos y tendencias IA */}
       <AvisosTendencias products={products} invoices={invoices} />

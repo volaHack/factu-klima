@@ -24,6 +24,7 @@ const PINTA_EL_DASHBOARD: FichaId[] = [
   'clientes_top',
   'productos_top',
   'proximos_vencimientos',
+  'analisis_negocio',
 ];
 
 describe('el panel por defecto', () => {

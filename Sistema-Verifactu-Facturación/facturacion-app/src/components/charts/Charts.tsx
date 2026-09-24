@@ -30,10 +30,11 @@ import { formatCurrency } from '@/lib/utils';
  * montar. Estos componentes sólo se montan en cliente, así que el
  * valor está listo en el primer render y no hace falta un segundo.
  */
-function useGrafica() {
+export function useGrafica() {
   const [valores] = useState(() => {
     const modo = modoGrafica();
     return {
+      modo,
       accent: resolveAccent(),
       ink: resolveInk(modo),
       reducido:
@@ -45,9 +46,10 @@ function useGrafica() {
 }
 
 /** Cromo del gráfico: ejes finos, cuadrícula de un paso sobre el fondo. */
-function temaNivo(ink: TintaGrafica) {
+export function temaNivo(ink: TintaGrafica) {
   return {
     text: { fontSize: 11, fill: ink.muted, fontFamily: 'inherit' },
+    labels: { text: { fontSize: 11, fill: ink.secondary, fontFamily: 'inherit' } },
     axis: {
       domain: { line: { stroke: ink.axis, strokeWidth: 1 } },
       ticks: {
@@ -128,11 +130,11 @@ function barraDe(orientacion: 'vertical' | 'horizontal') {
   };
 }
 
-const BarraVertical = barraDe('vertical');
+export const BarraVertical = barraDe('vertical');
 const BarraHorizontal = barraDe('horizontal');
 
 /** Tooltip: primero el número, después de qué es. El color va en una llave. */
-function Tip({ color, label, value }: { color: string; label: string; value: string }) {
+export function Tip({ color, label, value }: { color: string; label: string; value: string }) {
   return (
     <div className="chart-tip">
       <span className="chart-tip-key" style={{ background: color }} aria-hidden="true" />
@@ -202,7 +204,7 @@ export function RevenueColumns({ data }: { data: { name: string; total: number }
 // ============================================================
 
 /** Un tooltip con TODAS las series de esa X: el puntero no tiene que acertar la línea. */
-function TipRebanada({ puntos }: { puntos: { serie: string; color: string; valor: number }[] }) {
+export function TipRebanada({ puntos }: { puntos: { serie: string; color: string; valor: number }[] }) {
   return (
     <div className="chart-tip chart-tip--lista">
       {puntos.map(p => (
