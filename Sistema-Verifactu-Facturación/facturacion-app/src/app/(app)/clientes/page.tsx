@@ -13,6 +13,8 @@ import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib
 import { formatCurrency, generateId } from '@/lib/utils';
 import { isFactura } from '@/lib/documentos';
 import { PAYMENT_METHODS, PROVINCES, PAISES_SELECTOR, esPaisUeNoEspana } from '@/lib/constants';
+import ComprobacionIdentidad, { problemasDeFicha } from '@/components/clientes/ComprobacionIdentidad';
+import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identidad';
 import { useToast } from '@/hooks/useToast';
 
 export default function ClientesPage() {
@@ -234,6 +236,16 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     if (!form.businessName || !form.nif) return;
+    // Un NIF mal puesto aquí acaba en una factura que ya no se puede
+    // corregir: con errores claros (formato, control, DNI con nombre de
+    // sociedad…) no se guarda. Los avisos sí dejan guardar.
+    const erroresNif = esClienteEspanol(form.country) && !form.vatNumber?.trim()
+      ? comprobarNifYNombre(form.nif, form.businessName).filter(p => p.gravedad === 'error')
+      : [];
+    if (erroresNif.length > 0) {
+      toastError('Revisa el NIF', erroresNif.map(e => e.mensaje).join(' '));
+      return;
+    }
     const client: Client = {
       id: editingClient?.id || generateId(),
       ...form,
@@ -576,13 +588,25 @@ export default function ClientesPage() {
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
                   <label className="form-label required">NIF / CIF / NIE</label>
-                  <input className="form-input mono" value={form.nif} onChange={e => updateForm('nif', e.target.value)} placeholder="B12345678" />
+                  <input
+                    className={`form-input mono ${problemasDeFicha(form.nif, form.businessName, form.country).some(p => p.gravedad === 'error') ? 'is-invalid' : ''}`}
+                    value={form.nif}
+                    onChange={e => updateForm('nif', e.target.value.toUpperCase())}
+                    placeholder="B12345674"
+                    autoComplete="off"
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email de facturación</label>
                   <input className="form-input" type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="facturacion@acme.es" />
                 </div>
               </div>
+              <ComprobacionIdentidad
+                nif={form.nif}
+                nombre={form.businessName}
+                pais={form.country}
+                onUsarNombre={n => updateForm('businessName', n)}
+              />
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
                   <label className="form-label">Teléfono de contacto</label>

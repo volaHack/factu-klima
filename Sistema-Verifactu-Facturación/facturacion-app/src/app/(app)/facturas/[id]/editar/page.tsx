@@ -17,6 +17,7 @@ import { calculateInvoiceTotals, generateId } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
+import { avisadorDeNavegador, repasarAntesDeEmitir } from '@/lib/validation/antesDeEmitir';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
@@ -180,7 +181,9 @@ export default function EditInvoicePage() {
         const saved = await saveInvoice(updated);
         success('Borrador actualizado', saved.number);
       } else {
-        const issued = await issueInvoice(updated);
+        const revisada = await repasarAntesDeEmitir(updated, avisadorDeNavegador(showError));
+        if (!revisada) return;
+        const issued = await issueInvoice(revisada);
 
         let abonoNote = '';
         let cobrada = cobradaAlEmitir;

@@ -27,6 +27,7 @@ import {
   Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie, Escandallo,
 } from './types';
 import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
+import { problemasParaEmitir, resumenDeErrores } from './validation/identidad';
 import {
   agruparPendientes, lineasDelGrupo, notaDelGrupo, type GrupoAFacturar, type Periodo,
 } from './albaranes/facturacionPeriodo';
@@ -601,6 +602,18 @@ async function emitirFactura(invoice: Invoice): Promise<Invoice> {
   // cambiar, y una F1 sin NIF del cliente la rechazaría la AEAT.
   const tipoFacturaFiscal = tipoFiscalAlEmitir(invoice);
   if (tipoFacturaFiscal) invoice = { ...invoice, tipoFacturaFiscal };
+
+  // Última puerta antes de sellar: NIF y nombre de quien emite y de quien
+  // recibe, que cuadren entre sí, y los domicilios de la factura completa.
+  // Después de esta línea la factura ya no se puede corregir, sólo
+  // rectificar; por eso aquí se para, venga de donde venga (nueva
+  // factura, edición, detalle o TPV).
+  const [ajustesEmisor, fichaCliente] = await Promise.all([
+    getCompanySettings(),
+    invoice.clientId ? getClientById(invoice.clientId).catch(() => undefined) : Promise.resolve(undefined),
+  ]);
+  const bloqueo = resumenDeErrores(problemasParaEmitir(invoice, ajustesEmisor, fichaCliente?.country));
+  if (bloqueo) throw new Error(bloqueo);
 
   const draft = await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
   await saveInvoice({ ...draft, status: InvoiceStatus.EMITIDA });
