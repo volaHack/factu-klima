@@ -13607,3 +13607,137 @@ body.nav-abierta { overflow: hidden; }
 .tpvx-lista-importe { font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 .tpvx-lista-quitar { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
 .tpvx-lista-quitar:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* ============================================================
+   PANEL · ANÁLISIS DEL NEGOCIO
+   ------------------------------------------------------------
+   Tres pestañas y cuatro cifras encima. Las tarjetas anchas (la
+   rejilla de días, el ranking, el mapa de categorías) ocupan la fila
+   entera: a media anchura se quedan sin sitio para ser legibles.
+   ============================================================ */
+.analisis { margin-top: var(--space-6); }
+
+.analisis-cabecera {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.analisis-titulo {
+  font-size: var(--text-lg); font-weight: 700;
+  color: var(--text-primary); letter-spacing: -0.015em;
+}
+.analisis-sub { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+
+/* Control segmentado: una pieza, tres posiciones. */
+.analisis-pestanas {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.analisis-pestanas::-webkit-scrollbar { display: none; }
+.analisis-pestana {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  font: inherit; font-size: var(--text-xs); font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.analisis-pestana:hover { color: var(--text-primary); }
+.analisis-pestana[aria-selected="true"] {
+  color: var(--text-primary);
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.analisis-pestana:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+
+/* Cuatro cifras: el número manda, la etiqueta explica. */
+.analisis-cifras {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.analisis-cifra {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+.analisis-cifra dt { font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+.analisis-cifra dd {
+  margin: 0;
+  font-size: var(--text-xl); font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.analisis-cifra span { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+
+.analisis-rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.analisis-ancho { grid-column: 1 / -1; min-width: 0; }
+.analisis-rejilla > * { animation: stagger-in 380ms var(--ease-settle) both; }
+.analisis-rejilla > *:nth-child(2) { animation-delay: 50ms; }
+.analisis-rejilla > *:nth-child(3) { animation-delay: 100ms; }
+
+/* El gofre es cuadrado: se centra en vez de estirarse. */
+.analisis-waffle { width: 100%; height: 100%; }
+
+/* «Menos ▢▢▢▢▢ Más» bajo los mapas de calor. */
+.leyenda-rampa {
+  display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-3);
+  font-size: 11px; color: var(--text-muted);
+}
+.leyenda-rampa-celda { width: 11px; height: 11px; border-radius: 2px; }
+.leyenda-rampa-sep { width: var(--space-3); }
+
+@media (max-width: 900px) {
+  .analisis-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analisis-rejilla { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .analisis-cifra dd { font-size: var(--text-lg); }
+  .analisis-pestana span { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .analisis-rejilla > * { animation: none; }
+}
+.analisis-pestana-corto { display: none; }
+@media (max-width: 480px) {
+  .analisis-pestanas { display: flex; width: 100%; }
+  .analisis-pestana { flex: 1; justify-content: center; }
+  .analisis-pestana-largo { display: none; }
+  .analisis-pestana-corto { display: inline; }
+}
+
+/* Una pila dentro de una rejilla tiene que poder encoger: sin esto, la
+   tabla de «Últimas facturas» le impone su ancho mínimo y en el móvil la
+   columna entera se sale de la pantalla en vez de desplazar la tabla. */
+.charts-grid > .stack,
+.analisis-rejilla > .stack { min-width: 0; }
+
+/* La caja que desplaza una tabla es también su referencia de posición.
+   Sin esto, el texto sólo para lectores de pantalla de una cabecera
+   (`.solo-lectores`, que es absolute) se colocaba respecto a un
+   antepasado de FUERA de la caja, escapaba del overflow y en el móvil
+   ensanchaba la página entera ~150 px. Los menús de fila no se ven
+   afectados: son fixed y van en un portal. */
+.table-container,
+.table-responsive { position: relative; }

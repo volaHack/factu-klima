@@ -29,7 +29,8 @@ export type FichaId =
   | 'stock_bajo' | 'sin_movimiento'
   | 'albaranes_sin_facturar' | 'presupuestos_abiertos' | 'pedidos_pendientes'
   | 'compras_pendientes'
-  | 'evolucion_ventas' | 'reparto_impuestos'
+  | 'evolucion_ventas' | 'reparto_impuestos' | 'analisis_negocio'
+  | 'facturado_cobrado' | 'formas_pago'
   | 'estado_verifactu'
   | 'gastos_mes'
   | 'comisiones_mes'
@@ -96,6 +97,12 @@ export const FICHAS: Ficha[] = [
     explica: 'Los artículos que más salen, por importe o por unidades.' },
   { id: 'reparto_impuestos', nombre: 'Desglose de impuestos', tamano: 'mediana',
     explica: 'Bases y cuotas por tipo, para el trimestre.' },
+  { id: 'facturado_cobrado', nombre: 'Facturado y cobrado', tamano: 'mediana',
+    explica: 'Lo emitido cada mes frente a lo que entró ese mes, para ver si la caja se queda atrás.' },
+  { id: 'formas_pago', nombre: 'Cómo te pagan', tamano: 'mediana',
+    explica: 'Cuánto se factura por transferencia, tarjeta, Bizum, efectivo… en los últimos doce meses.' },
+  { id: 'analisis_negocio', nombre: 'Análisis del negocio', tamano: 'grande',
+    explica: 'Ritmo del mes, días y semanas que más venden, estado y antigüedad del cobro, quién tarda en pagar, cómo se mueven los mejores clientes y de qué categorías sale la facturación.' },
 
   { id: 'gastos_mes', nombre: 'Gastos del mes', tamano: 'pequena', requiere: 'gastos',
     explica: 'Lo que se ha pagado este mes en alquiler, suministros y demás, sin contar la mercancía.' },
@@ -145,6 +152,9 @@ export const PANEL_POR_DEFECTO: FichaId[] = [
   'clientes_top',
   'productos_top',
   'proximos_vencimientos',
+  'facturado_cobrado',
+  'formas_pago',
+  'analisis_negocio',
 ];
 
 /**

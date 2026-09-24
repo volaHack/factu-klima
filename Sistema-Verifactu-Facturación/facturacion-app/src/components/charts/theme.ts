@@ -156,3 +156,23 @@ export function compactEuro(value: number): string {
   if (abs >= 1_000) return `${Math.round(value / 1_000)}k`;
   return String(Math.round(value));
 }
+
+/**
+ * RAMPA SECUENCIAL — magnitud en un solo tono, de claro a oscuro
+ *
+ * Para mapas de calor y la rejilla de días: más oscuro es más. Es el vino
+ * de la casa en cinco pasos, uno por modo, porque en oscuro el orden se
+ * invierte: lo que se acerca a «nada» se funde con la tarjeta, que allí
+ * es casi negra. El paso 4 de cada rampa es el acento validado de
+ * CHART_ACCENT, así que el tono fuerte coincide con el de las barras.
+ */
+export const SECUENCIAL: Record<ModoGrafica, readonly string[]> = {
+  claro: ['#f2d9e2', '#e3a9bf', '#cf7298', '#b02a5c', '#7a1a3f'],
+  oscuro: ['#4a2231', '#74304b', '#a13a66', '#c9407a', '#ef8db4'],
+};
+
+/** Celda sin dato: un paso sobre la tarjeta, que se vea el hueco sin gritar. */
+export const CELDA_VACIA: Record<ModoGrafica, string> = {
+  claro: '#f0e6e1',
+  oscuro: '#2d2024',
+};
