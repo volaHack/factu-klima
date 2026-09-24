@@ -324,7 +324,7 @@ export default function NuevaFacturaPage() {
         <AvisoPlantillaDeOtroOficio oficioDeLaPlantilla={oficioDeLaPlantilla} sector={ajustes?.sector} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-6)', maxWidth: '900px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--space-6)', maxWidth: '900px' }}>
         {/* Client & Dates */}
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Datos generales</h3>

@@ -324,7 +324,7 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      <div className="tab-group" style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}>
+      <div className="tab-group fila-desplazable" style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}>
         <button
           className={`btn btn-sm ${tipoContactoFilter === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setTipoContactoFilter('todos')}
@@ -660,7 +660,7 @@ export default function ClientesPage() {
 
                 <div className="form-group" style={{ flex: 2 }}>
                   <label className="form-label">Descuentos en línea por defecto (hasta 3 en cascada)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
                     <input
                       type="number"
                       min={0}

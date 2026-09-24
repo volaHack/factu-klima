@@ -99,9 +99,13 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
         style={{
           position: 'fixed',
           bottom: '24px',
-          left: '50%',
+          // Centrada en el CONTENIDO, no en la ventana: con el sidebar
+          // abierto, el 50 % de la ventana la dejaba corrida a la izquierda.
+          left: 'calc(50% + var(--sidebar-width, 0px) / 2)',
           transform: 'translateX(-50%)',
-          zIndex: 9990,
+          // Por debajo de la cabecera y de cualquier modal: con 9990 se
+          // quedaba flotando encima de los diálogos y de su fondo oscuro.
+          zIndex: 85,
           pointerEvents: 'none',
         }}
       >

@@ -784,7 +784,7 @@ export default function TpvPage() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <header className="tpv-topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+        <div className="tpv-topbar-izq" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
           {!isTpvKiosk && (
             <Link href="/dashboard" className="tpv-back-link">
               <ArrowLeft size={18} /> Salir del TPV

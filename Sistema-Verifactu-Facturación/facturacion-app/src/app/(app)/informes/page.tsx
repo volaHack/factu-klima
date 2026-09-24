@@ -118,7 +118,7 @@ export default function InformesPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 'var(--space-6)' }}>
+      <div className="kpi-grid kpi-grid--tres" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)' } as React.CSSProperties}>
           <div className="kpi-card-value">{formatCurrency(totalRevenue)}</div>
           <div className="kpi-card-label">Facturación total ({invoices.length} facturas)</div>

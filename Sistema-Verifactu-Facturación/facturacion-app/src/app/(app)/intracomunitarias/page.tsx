@@ -396,7 +396,7 @@ export default function IntracomunitariasPage() {
       <div
         className="kpi-grid"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(210px, 100%), 1fr))',
           gap: 'var(--space-4)',
           marginBottom: 'var(--space-4)',
         }}
@@ -907,7 +907,7 @@ export default function IntracomunitariasPage() {
                                     No se han encontrado facturas individuales con este NIF para el periodo seleccionado.
                                   </p>
                                 ) : (
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-2)' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 'var(--space-2)' }}>
                                     {operatorInvoices.map(inv => (
                                       <div
                                         key={inv.id}

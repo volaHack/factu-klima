@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { cobrosAbiertos, MENSAJE_COBROS_CERRADOS } from '@/lib/plataforma/estado';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 
 /**
@@ -11,10 +10,6 @@ import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
  */
 export async function POST(request: Request) {
   try {
-  // Fase piloto: sin cobros hasta que la actividad esté dada de alta.
-  if (!(await cobrosAbiertos())) {
-    return NextResponse.json({ error: MENSAJE_COBROS_CERRADOS, piloto: true }, { status: 403 });
-  }
     const allowed = await checkRateLimit(`tip:${clientIpFromRequest(request)}`, 15, 3600);
     if (!allowed) {
       return NextResponse.json({ error: 'Demasiadas solicitudes. Inténtalo más tarde.' }, { status: 429 });

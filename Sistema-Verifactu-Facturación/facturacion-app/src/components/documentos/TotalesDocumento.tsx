@@ -71,7 +71,7 @@ export default function TotalesDocumento({
           <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, display: 'block', marginBottom: 'var(--space-2)' }}>
             Descuentos globales de pie de documento (en cascada)
           </span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 'var(--space-2)' }}>
             <div>
               <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dto. Comercial (%)</label>
               <input

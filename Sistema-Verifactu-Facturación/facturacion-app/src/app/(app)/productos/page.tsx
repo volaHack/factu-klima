@@ -438,7 +438,7 @@ export default function ProductosPage() {
         <>
           {/* Bloque de analítica */}
           {products.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
               <ChartCard
                 title="Valor Monetario del Stock por Categoría"
                 subtitle="Inversión acumulada en inventario por familia de producto"
@@ -777,7 +777,7 @@ export default function ProductosPage() {
                   <label className="form-label" style={{ marginBottom: 'var(--space-2)', fontWeight: 700 }}>
                     Precios específicos por Tarifa (€)
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(180px, 100%), 1fr))', gap: 'var(--space-3)' }}>
                     {settings.tarifas.map(t => (
                       <div key={t.id} className="form-group" style={{ margin: 0 }}>
                         <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>

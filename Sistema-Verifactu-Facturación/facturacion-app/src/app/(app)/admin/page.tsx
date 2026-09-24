@@ -260,7 +260,7 @@ export default async function AdminResumen() {
       </div>
 
       {/* Grid 2 Columnas: Cuentas más activas y Salud del Sistema */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: '1.25rem' }}>
         {/* Top Cuentas Activas */}
         <div className="apple-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -295,15 +295,17 @@ export default async function AdminResumen() {
                     transition: 'background 150ms ease',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {/* min-width 0 + puntos suspensivos: un email largo empujaba la
+                      fila fuera de la tarjeta en cualquier ancho por debajo de 1280. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
                     <div className="apple-avatar">{iniciales}</div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{c.nombre || c.email}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{c.email}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre || c.email}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
                     <span className="apple-pill apple-pill-slate">
                       {c.facturasMes} {c.facturasMes === 1 ? 'factura' : 'facturas'}
                     </span>
@@ -428,7 +430,7 @@ export default async function AdminResumen() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.875rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle, rgba(0,0,0,0.06))' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '0.875rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle, rgba(0,0,0,0.06))' }}>
           <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Codificación de Exportación</div>
             <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>UTF-8 con BOM (Excel nativo)</div>

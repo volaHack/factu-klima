@@ -61,6 +61,11 @@ export function temaNivo(ink: TintaGrafica) {
   };
 }
 
+/** Una etiqueta de eje que no cabe se corta por el final, con «…». */
+function recortaEtiqueta(texto: string, max: number): string {
+  return texto.length > max ? `${texto.slice(0, max - 1).trimEnd()}…` : texto;
+}
+
 /** Grosor máximo de una barra. Nunca llena su banda: el aire es del gráfico. */
 const GROSOR_MAX = 24;
 const RADIO = 4;
@@ -347,7 +352,10 @@ export function RankedBars({
       enableGridX
       enableGridY={false}
       axisBottom={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
-      axisLeft={{ tickSize: 0, tickPadding: 8 }}
+      // Los 136 px del margen caben unas 20 letras a 11 px: un nombre de
+      // sociedad más largo se cortaba por la IZQUIERDA («…adería Artesana»).
+      // Se recorta por el final y el nombre entero sigue en el tooltip.
+      axisLeft={{ tickSize: 0, tickPadding: 8, format: v => recortaEtiqueta(String(v), 20) }}
       tooltip={({ data: d, color: c }) => (
         <Tip color={c} label={String(d.name)} value={formatCurrency(Number(d.total))} />
       )}

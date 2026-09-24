@@ -588,7 +588,7 @@ function SiiTableRow({
                   background: 'var(--bg-tertiary)',
                   borderBottom: '1px solid var(--border-subtle)',
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
                   gap: 'var(--space-4)',
                 }}>
                   <DetailField

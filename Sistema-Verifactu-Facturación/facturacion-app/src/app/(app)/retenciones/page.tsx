@@ -320,7 +320,7 @@ export default function RetencionesPage() {
       <div
         className="kpi-grid"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(210px, 100%), 1fr))',
           gap: 'var(--space-4)',
           marginBottom: 'var(--space-4)',
         }}

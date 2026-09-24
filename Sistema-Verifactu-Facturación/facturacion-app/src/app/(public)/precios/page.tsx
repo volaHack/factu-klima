@@ -2,7 +2,6 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { PLANS } from '@/lib/plans';
 import PricingContent from './PricingContent';
-import { cobrosAbiertos } from '@/lib/plataforma/estado';
 
 /**
  * La única página comercial del sitio no tenía metadatos propios: salía
@@ -87,7 +86,7 @@ function datosEstructurados() {
  */
 export const dynamic = 'force-dynamic';
 
-export default async function PreciosPage() {
+export default function PreciosPage() {
   return (
     <>
       <script
@@ -100,7 +99,6 @@ export default async function PreciosPage() {
             el servidor, porque las variables de entorno no llegan al
             navegador. */}
         <PricingContent
-          cobrosAbiertos={await cobrosAbiertos()}
           tpvDisponible={Boolean(
             process.env.STRIPE_PRICE_TPV_MENSUAL && process.env.STRIPE_PRICE_TPV_ANUAL
           )}

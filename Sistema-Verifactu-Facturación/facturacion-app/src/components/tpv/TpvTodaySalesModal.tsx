@@ -93,7 +93,7 @@ export default function TpvTodaySalesModal({ onReprint, onClose }: TpvTodaySales
           padding: 'var(--space-6)',
           background: 'var(--bg-card)',
           display: 'grid',
-          gridTemplateColumns: '1fr 1.2fr',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)',
           gap: 'var(--space-5)',
           minHeight: 440,
           overflowY: 'auto',

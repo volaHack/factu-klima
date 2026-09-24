@@ -310,7 +310,7 @@ export default function DocumentoDetallePage() {
       )}
 
       {/* Grid de información */}
-      <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+      <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
             {esCompra ? 'Datos del Proveedor' : 'Datos del Cliente'}

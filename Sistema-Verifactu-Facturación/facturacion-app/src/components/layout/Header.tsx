@@ -10,6 +10,7 @@ import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
 import { InvoiceStatus } from '@/lib/types';
 import { getDaysUntilDue } from '@/lib/utils';
 import { getPlan } from '@/lib/plans';
+import { tituloDePagina } from '@/lib/titulos';
 import AccountMenu from './AccountMenu';
 import BotonTema from './BotonTema';
 import NotificationsPopover from './NotificationsPopover';
@@ -20,15 +21,6 @@ interface HeaderProps {
   menuButtonRef?: React.Ref<HTMLButtonElement>;
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/facturas': 'Facturas',
-  '/facturas/nueva': 'Nueva factura',
-  '/clientes': 'Clientes',
-  '/productos': 'Productos',
-  '/informes': 'Informes',
-  '/ajustes': 'Ajustes',
-};
 
 export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: HeaderProps) {
   const pathname = usePathname();
@@ -39,18 +31,6 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
   const [planId, setPlanId] = useState('pro');
   const [isSubActive, setIsSubActive] = useState(true);
   const [showTipModal, setShowTipModal] = useState(false);
-  // Las propinas sólo se ofrecen cuando la plataforma ya cobra (fase
-  // piloto: no). Hasta saberlo, ocultas: mejor que aparezcan un instante
-  // tarde que ofrecerlas cuando no se pueden aceptar.
-  const [propinasAbiertas, setPropinasAbiertas] = useState(false);
-  useEffect(() => {
-    let vivo = true;
-    fetch('/api/plataforma/estado')
-      .then(r => r.json())
-      .then(d => { if (vivo) setPropinasAbiertas(d?.cobrosAbiertos === true); })
-      .catch(() => {});
-    return () => { vivo = false; };
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -82,14 +62,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
     })();
   }, [pathname]);
 
-  let pageTitle = PAGE_TITLES[pathname] || '';
-  if (!pageTitle && pathname.startsWith('/facturas/') && pathname.includes('/editar')) {
-    pageTitle = 'Editar Factura';
-  } else if (!pageTitle && pathname.startsWith('/facturas/')) {
-    pageTitle = 'Detalle de Factura';
-  } else if (!pageTitle && pathname.startsWith('/clientes/')) {
-    pageTitle = 'Ficha de Cliente';
-  }
+  const pageTitle = tituloDePagina(pathname);
 
   return (
     <header className="header">
@@ -158,26 +131,12 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
             style={{ position: 'relative' }}
             title={totalAlerts > 0 ? `${totalAlerts} avisos de stock o vencimiento` : 'Sin avisos pendientes'}
             onClick={() => setShowNotifications(prev => !prev)}
-            aria-label="Notificaciones"
+            aria-label={totalAlerts > 0 ? `Notificaciones: ${totalAlerts} avisos` : 'Notificaciones'}
           >
             <Bell size={20} />
             {totalAlerts > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: 2,
-                right: 2,
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: 'var(--color-danger)',
-                color: 'white',
-                fontSize: '10px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {totalAlerts}
+              <span className="header-contador" aria-hidden="true">
+                {totalAlerts > 99 ? '99+' : totalAlerts}
               </span>
             )}
           </button>
@@ -192,21 +151,19 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
             campana, el tema y la cuenta ya no queda sitio para esto en un
             móvil sin que algo se salga de la cabecera, y de todo lo que hay
             aquí es lo único que no hace falta para usar la app. */}
-        {propinasAbiertas && (
-          <button
-            className="btn btn-ghost header-tip-btn"
-            onClick={() => setShowTipModal(true)}
-            title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
-          >
-            <Heart size={13} style={{ color: '#e11d48', fill: '#e11d48' }} />
-            <span>Tip ☕</span>
-          </button>
-        )}
+        <button
+          className="btn btn-ghost header-tip-btn"
+          onClick={() => setShowTipModal(true)}
+          title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
+        >
+          <Heart size={13} style={{ color: '#e11d48', fill: '#e11d48' }} />
+          <span>Tip ☕</span>
+        </button>
 
         <BotonTema />
         <AccountMenu
           plan={{ nombre: isSubActive ? planName : 'Sin suscripción', id: planId, activo: isSubActive }}
-          onTip={propinasAbiertas ? () => setShowTipModal(true) : undefined}
+          onTip={() => setShowTipModal(true)}
         />
       </div>
 

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun } from 'lucide-react';
+import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } from '@/lib/tema';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
@@ -29,6 +30,7 @@ export interface PlanDeCuenta {
  * en la cabecera del ordenador van sueltos pero en el móvil no caben.
  */
 export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTip?: () => void } = {}) {
+  const temaActual = useSyncExternalStore(suscribirseAlTema, leerTemaEfectivo, leerTemaEnServidor);
   const [open, setOpen] = useState(false);
   const [cerrando, setCerrando] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -178,7 +180,7 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
           {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : initials}
         </span>
         {displayName && <span className="account-trigger-name">{displayName}</span>}
-        <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+        <ChevronDown size={14} className="account-trigger-flecha" style={{ color: 'var(--text-muted)' }} />
       </button>
 
       {open && (
@@ -256,6 +258,15 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
               <Link href="/ajustes" className="account-dropdown-item" onClick={() => setOpen(false)}>
                 <Settings size={16} /> Ajustes de la empresa
               </Link>
+              {/* En el móvil el interruptor de tema sale de la cabecera para
+                  dejarle sitio al título de la pantalla, y vive aquí. */}
+              <button
+                className="account-dropdown-item account-dropdown-solo-movil"
+                onClick={() => guardarTema(temaActual === 'oscuro' ? 'claro' : 'oscuro')}
+              >
+                {temaActual === 'oscuro' ? <Sun size={16} /> : <Moon size={16} />}
+                {temaActual === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}
+              </button>
               {onTip && (
                 <button
                   className="account-dropdown-item account-dropdown-solo-movil"

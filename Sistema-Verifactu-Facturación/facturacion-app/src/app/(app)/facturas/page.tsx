@@ -447,7 +447,7 @@ export default function FacturasPage() {
 
       {/* Panel de analítica */}
       {showAnalytics && invoices.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
           <ChartCard
             title="Facturas Ordinarias vs. Tickets TPV"
             subtitle="Evolución del volumen facturado en los últimos 6 meses"
@@ -503,7 +503,7 @@ export default function FacturasPage() {
       )}
 
       {/* Document Type Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+      <div className="fila-desplazable" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <button
           className={`btn ${docTypeFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => { setDocTypeFilter('all'); setPage(1); }}

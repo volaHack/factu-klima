@@ -44,13 +44,15 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
       {/* Account Hero Card */}
       <div className="apple-card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-            <div className="apple-avatar" style={{ width: '56px', height: '56px', fontSize: '1.25rem' }}>
+          {/* En el móvil el email completo de la cuenta no cabía y la ficha
+              se cortaba: el bloque encoge y el texto parte donde haga falta. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', minWidth: 0, maxWidth: '100%' }}>
+            <div className="apple-avatar" style={{ width: '56px', height: '56px', fontSize: '1.25rem', flexShrink: 0 }}>
               {iniciales}
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.025em', margin: 0 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.025em', margin: 0, overflowWrap: 'anywhere' }}>
                   {c.nombre || c.email}
                 </h1>
                 {c.esAdmin && (
@@ -60,7 +62,7 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', marginTop: '0.2rem', overflowWrap: 'anywhere' }}>
                 {c.email} {c.nif ? `· NIF: ${c.nif}` : '· Sin NIF registrado'}
               </div>
             </div>
@@ -86,7 +88,7 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
         </div>
 
         {/* Grouped Information Rows (macOS System Settings Style) */}
-        <div style={{ marginTop: '1.75rem', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ marginTop: '1.75rem', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '1.25rem' }}>
           <div>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
               Fecha de Alta
@@ -158,7 +160,7 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
                 </a>
               )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
               <div>
                 <span style={{ color: 'var(--text-tertiary)' }}>ID Cliente Stripe: </span>
                 <code style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{c.fila.stripe_customer_id || '—'}</code>

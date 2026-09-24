@@ -385,7 +385,7 @@ export default function DashboardPage() {
               </div>
 
               <Link href="/precios" className="btn btn-primary btn-sm">
-                <Crown size={14} /> Activar Suscripción / Ver Planes
+                <Crown size={14} /> {isInactive ? 'Activar suscripción' : 'Ver planes'}
               </Link>
             </div>
           </div>
