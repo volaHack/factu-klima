@@ -9,12 +9,13 @@ import { ResponsiveScatterPlot, type ScatterPlotLayerProps, type ScatterPlotNode
 import { ResponsiveBump, type BumpCustomLayerProps } from '@nivo/bump';
 import { ResponsiveTreeMap } from '@nivo/treemap';
 import { ResponsiveBar, type BarDatum, type BarCustomLayerProps } from '@nivo/bar';
-import { BarraVertical, Tip, temaNivo, useGrafica } from './Charts';
+import { ResponsiveLine } from '@nivo/line';
+import { BarraVertical, Tip, TipRebanada, temaNivo, useGrafica } from './Charts';
 import { CELDA_VACIA, SECUENCIAL, SERIES, STATUS, compactEuro } from './theme';
 import { formatCurrency } from '@/lib/utils';
 import {
   DIAS_SEMANA, MESES_CORTOS, fechaLocal,
-  type DiaVenta, type EstadoCobro, type FilaSemana, type NodoArbol,
+  type AcumuladoMes, type DiaVenta, type EstadoCobro, type FilaSemana, type NodoArbol,
   type PuntualidadCliente, type RitmoDelMes, type SerieRanking, type TramoDeuda,
 } from '@/lib/analitica';
 
@@ -601,6 +602,81 @@ export function CategoriasTreemap({ arbol }: { arbol: NodoArbol }) {
       motionConfig="gentle"
       role="img"
       ariaLabel="Facturación por categoría y producto"
+    />
+  );
+}
+
+// ============================================================
+// 9 · ACUMULADO DEL AÑO — Line
+//
+// Este año en vino, el pasado en azul y con trazo discontinuo: es la
+// referencia, no el dato. Los meses que no han llegado van en null y
+// la línea de este año se corta ahí, sin caer a cero.
+// ============================================================
+
+export function AcumuladoLineas({ datos, anio }: { datos: AcumuladoMes[]; anio: number }) {
+  const { accent, ink, reducido } = useGrafica();
+  const actual = String(anio);
+  const anterior = String(anio - 1);
+  const series = useMemo(
+    () => [
+      { id: anterior, data: datos.map(d => ({ x: d.name, y: d.anterior })) },
+      { id: actual, data: datos.map(d => ({ x: d.name, y: d.actual })) },
+    ],
+    [datos, actual, anterior],
+  );
+
+  return (
+    <ResponsiveLine
+      data={series}
+      margin={{ top: 12, right: 16, bottom: 28, left: 48 }}
+      xScale={{ type: 'point' }}
+      yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
+      curve="monotoneX"
+      colors={[SERIES[0], accent]}
+      theme={temaNivo(ink)}
+      lineWidth={2}
+      enablePoints
+      pointSize={6}
+      pointColor={{ from: 'series.color' }}
+      pointBorderWidth={2}
+      pointBorderColor={ink.surface}
+      enableGridX={false}
+      axisBottom={{ tickSize: 0, tickPadding: 8 }}
+      axisLeft={{ tickSize: 0, tickPadding: 8, format: v => compactEuro(Number(v)), tickValues: 4 }}
+      layers={[
+        'grid', 'axes', 'areas', 'crosshair',
+        // El año pasado discontinuo: se pinta a mano sobre la línea de Nivo.
+        ({ series: s, lineGenerator }) => (
+          <g>
+            {s.map(serie => (
+              <path
+                key={serie.id}
+                d={lineGenerator(serie.data.map(p => p.position)) ?? ''}
+                fill="none"
+                stroke={serie.color}
+                strokeWidth={2}
+                strokeDasharray={serie.id === anterior ? '5 4' : undefined}
+                strokeLinecap="round"
+              />
+            ))}
+          </g>
+        ),
+        'points', 'slices', 'mesh',
+      ]}
+      enableSlices="x"
+      enableCrosshair
+      crosshairType="x"
+      sliceTooltip={({ slice }) => (
+        <TipRebanada
+          puntos={slice.points
+            .filter(p => p.data.y !== null)
+            .map(p => ({ serie: `Acumulado ${p.seriesId}`, color: p.seriesColor, valor: Number(p.data.y) }))}
+        />
+      )}
+      animate={!reducido}
+      motionConfig="gentle"
+      role="img"
     />
   );
 }

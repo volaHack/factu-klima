@@ -553,3 +553,99 @@ export function cifrasAnalisis(invoices: Invoice[], hoy: Date): CifrasAnalisis {
     porcentajeCobrado: cobro.total > 0 ? Math.round((cobro.cobrado / cobro.total) * 100) : null,
   };
 }
+
+// ============================================================
+// 9 · FACTURADO FRENTE A COBRADO, MES A MES
+//
+// Facturar no es cobrar. Dos barras por mes: lo emitido ese mes y lo que
+// entró ese mes (sea de la factura que sea). Si la segunda se queda
+// siempre corta, la caja se está quedando atrás.
+// ============================================================
+
+export interface FacturadoCobradoMes {
+  name: string;
+  series1: number;
+  series2: number;
+}
+
+export function facturadoYCobrado(invoices: Invoice[], hoy: Date, meses = 12): FacturadoCobradoMes[] {
+  const ventana = ultimosMeses(hoy, meses);
+  const facturado = ventana.map(() => 0);
+  const cobrado = ventana.map(() => 0);
+  for (const { inv, fecha } of ventas(invoices)) {
+    const i = ventana.findIndex(m => mismoMes(fecha, m.anio, m.mes));
+    if (i >= 0) facturado[i] += inv.total;
+  }
+  for (const inv of invoices) {
+    const f = fechaDeCobro(inv);
+    if (!f) continue;
+    const i = ventana.findIndex(m => mismoMes(f, m.anio, m.mes));
+    if (i >= 0) cobrado[i] += inv.total;
+  }
+  return ventana.map((m, i) => ({ name: m.nombre, series1: redondear(facturado[i]), series2: redondear(cobrado[i]) }));
+}
+
+// ============================================================
+// 10 · CÓMO PAGAN LOS CLIENTES
+// ============================================================
+
+export interface FormaDePago {
+  metodo: string;
+  total: number;
+  facturas: number;
+}
+
+export function formasDePago(invoices: Invoice[], hoy: Date, meses = 12): FormaDePago[] {
+  const desde = new Date(hoy.getFullYear(), hoy.getMonth() - meses + 1, 1);
+  const porMetodo = new Map<string, FormaDePago>();
+  for (const { inv, fecha } of ventas(invoices)) {
+    if (fecha < desde || fecha > hoy) continue;
+    const metodo = String(inv.paymentMethod || 'sin_indicar');
+    const f = porMetodo.get(metodo) ?? { metodo, total: 0, facturas: 0 };
+    f.total += inv.total;
+    f.facturas += 1;
+    porMetodo.set(metodo, f);
+  }
+  return [...porMetodo.values()]
+    .map(f => ({ ...f, total: redondear(f.total) }))
+    .sort((a, b) => b.total - a.total);
+}
+
+// ============================================================
+// 11 · ACUMULADO DEL AÑO FRENTE AL AÑO PASADO
+//
+// Lo que se lleva facturado desde enero, mes a mes, y lo que se llevaba a
+// estas alturas el año anterior. Los meses que aún no han llegado quedan
+// vacíos (null), no en cero: una línea que cae a cero en octubre dice
+// una mentira.
+// ============================================================
+
+export interface AcumuladoMes {
+  name: string;
+  actual: number | null;
+  anterior: number;
+}
+
+export function acumuladoDelAnio(invoices: Invoice[], hoy: Date): AcumuladoMes[] {
+  const anio = hoy.getFullYear();
+  const porMes = (a: number) => {
+    const m = Array.from({ length: 12 }, () => 0);
+    for (const { inv, fecha } of ventas(invoices)) {
+      if (fecha.getFullYear() === a && fecha <= hoy) m[fecha.getMonth()] += inv.total;
+    }
+    return m;
+  };
+  const actual = porMes(anio);
+  const anterior = porMes(anio - 1);
+  let sumaActual = 0;
+  let sumaAnterior = 0;
+  return MESES_CORTOS.map((name, i) => {
+    sumaActual += actual[i];
+    sumaAnterior += anterior[i];
+    return {
+      name,
+      actual: i <= hoy.getMonth() ? redondear(sumaActual) : null,
+      anterior: redondear(sumaAnterior),
+    };
+  });
+}

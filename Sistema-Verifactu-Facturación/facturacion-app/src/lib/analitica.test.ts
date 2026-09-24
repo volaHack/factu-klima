@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  acumuladoDelAnio, facturadoYCobrado, formasDePago,
   antiguedadDeuda, cifrasAnalisis, claveDia, estadoCobro, fechaLocal, mapaSemanal,
   puntualidadClientes, rankingClientes, ritmoDelMes, ventasPorCategoria, ventasPorDia,
   MAX_CATEGORIAS,
@@ -221,5 +222,48 @@ describe('cifrasAnalisis', () => {
     expect(c.clientesNuevos).toBe(2);
     expect(c.diasMediosCobro).toBe(10);
     expect(c.porcentajeCobrado).toBe(25);
+  });
+});
+
+describe('facturadoYCobrado', () => {
+  it('lo emitido cuenta el mes de la factura; lo cobrado, el mes del cobro', () => {
+    const r = facturadoYCobrado([
+      factura({ issueDate: '2026-05-20', total: 100, status: InvoiceStatus.PAGADA, paidDate: '2026-06-02' }),
+      factura({ issueDate: '2026-06-01', total: 50 }),
+    ], HOY, 2);
+    expect(r).toEqual([
+      { name: 'May', series1: 100, series2: 0 },
+      { name: 'Jun', series1: 50, series2: 100 },
+    ]);
+  });
+});
+
+describe('formasDePago', () => {
+  it('suma por forma de pago, de más a menos', () => {
+    const r = formasDePago([
+      factura({ paymentMethod: 'bizum' as never, total: 10 }),
+      factura({ paymentMethod: 'transferencia' as never, total: 100 }),
+      factura({ paymentMethod: 'bizum' as never, total: 10 }),
+    ], HOY);
+    expect(r).toEqual([
+      { metodo: 'transferencia', total: 100, facturas: 1 },
+      { metodo: 'bizum', total: 20, facturas: 2 },
+    ]);
+  });
+});
+
+describe('acumuladoDelAnio', () => {
+  it('acumula desde enero y deja vacíos los meses que no han llegado', () => {
+    const r = acumuladoDelAnio([
+      factura({ issueDate: '2026-01-10', total: 100 }),
+      factura({ issueDate: '2026-03-10', total: 50 }),
+      factura({ issueDate: '2025-02-10', total: 70 }),
+      factura({ issueDate: '2025-11-10', total: 30 }),
+    ], HOY);
+    expect(r[0]).toEqual({ name: 'Ene', actual: 100, anterior: 0 });
+    expect(r[2]).toEqual({ name: 'Mar', actual: 150, anterior: 70 });
+    expect(r[5].actual).toBe(150);
+    expect(r[6].actual).toBeNull();
+    expect(r[11].anterior).toBe(100);
   });
 });

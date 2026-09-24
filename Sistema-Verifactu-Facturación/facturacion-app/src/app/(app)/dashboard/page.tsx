@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, DollarSign, Clock, Users, AlertTriangle,
@@ -10,19 +10,27 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
-import { RevenueColumns, StatusDonut, ChartLegend, RankedBars } from '@/components/charts/Charts';
-import { INVOICE_STATUS_COLOR } from '@/components/charts/theme';
+import { RevenueColumns, StatusDonut, ChartLegend, RankedBars, ComparisonBarChart } from '@/components/charts/Charts';
+import { INVOICE_STATUS_COLOR, CHART_ACCENT, SERIES, modoGrafica } from '@/components/charts/theme';
+import { facturadoYCobrado, formasDePago } from '@/lib/analitica';
 import { getInvoices, getClients, getCompanySettings, getProducts, getOnboardingStatus, completeOnboarding } from '@/lib/storage';
 import { Invoice, InvoiceStatus, Client, CompanySettings, Product } from '@/lib/types';
 import { formatCurrency, formatDate, getDaysUntilDue, getShortMonthName, getStatusInfo } from '@/lib/utils';
 import { isFactura } from '@/lib/documentos';
-import { BUSINESS_SECTORS } from '@/lib/constants';
+import { BUSINESS_SECTORS, PAYMENT_METHODS } from '@/lib/constants';
 import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstStepsModal';
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
 import AvisosTendencias from '@/components/dashboard/AvisosTendencias';
 import PanelAnalisis from '@/components/dashboard/PanelAnalisis';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import { fichasVisibles, type FichaId } from '@/lib/panel';
+
+/**
+ * Alto de un ranking según cuántas filas trae: 36 px por barra más la
+ * banda del eje. Con un alto fijo de 220, un solo cliente dejaba una
+ * barra suelta en medio de un recuadro vacío.
+ */
+const altoRanking = (filas: number) => Math.max(110, 34 + Math.max(1, filas) * 36);
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -198,6 +206,48 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [invoices]);
 
+  // Facturado frente a cobrado y formas de pago: llenan la columna de la
+  // izquierda, que con sólo las últimas facturas se quedaba en la mitad
+  // de alto que la de los rankings.
+  const facturadoCobrado = useMemo(() => facturadoYCobrado(invoices, new Date(), 12), [invoices]);
+  const pagos = useMemo(
+    () => formasDePago(invoices, new Date()).map(f => ({
+      name: PAYMENT_METHODS.find(m => m.value === f.metodo)?.label ?? 'Sin indicar',
+      total: f.total,
+      count: f.facturas,
+    })),
+    [invoices],
+  );
+  const [acentoGrafica] = useState(() => CHART_ACCENT[modoGrafica()]);
+
+  /**
+   * «Cómo te pagan» va en la columna que quede más corta.
+   *
+   * Los rankings de la derecha crecen con los datos (una barra por cliente
+   * o producto) y la tabla de la izquierda también: con cinco clientes la
+   * izquierda es la corta; con uno solo, la derecha. Se mide una vez por
+   * cada carga de facturas —las tarjetas tienen alto fijo, así que la
+   * medida es buena desde el primer pintado— y sólo se cambia de columna
+   * si el hueco es mayor que la propia tarjeta: así, al moverla, el
+   * desnivel siempre baja y nunca se queda oscilando.
+   */
+  const colIzquierda = useRef<HTMLDivElement>(null);
+  const colDerecha = useRef<HTMLDivElement>(null);
+  const tarjetaPagos = useRef<HTMLDivElement>(null);
+  const [pagosDerecha, setPagosDerecha] = useState(false);
+  useLayoutEffect(() => {
+    const izq = colIzquierda.current?.getBoundingClientRect().height ?? 0;
+    const der = colDerecha.current?.getBoundingClientRect().height ?? 0;
+    const pagosAlto = (tarjetaPagos.current?.getBoundingClientRect().height ?? 0) + 16;
+    const unaColumna = colIzquierda.current && colDerecha.current
+      && colIzquierda.current.getBoundingClientRect().left === colDerecha.current.getBoundingClientRect().left;
+    if (unaColumna || pagosAlto <= 16) return;
+    if (!pagosDerecha && izq - der > pagosAlto) setPagosDerecha(true);
+    else if (pagosDerecha && der - izq > pagosAlto) setPagosDerecha(false);
+    // Sólo cuando cambian los datos: medir en cada render lo haría saltar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, mounted]);
+
   const sectorInfo = BUSINESS_SECTORS.find(s => s.value === settings?.sector) || BUSINESS_SECTORS[0];
 
   /**
@@ -214,6 +264,26 @@ export default function DashboardPage() {
     fichasVisibles(settings?.panel, settings?.modulos).map(f => f.id),
   );
   const enPanel = (id: FichaId) => puestas.has(id);
+
+  const pagosCard = enPanel('formas_pago') && pagos.length > 0 ? (
+    <div ref={tarjetaPagos}>
+        <ChartCard
+          title="Cómo te pagan"
+          subtitle="Importe facturado en 12 meses por forma de pago"
+          height={altoRanking(pagos.length)}
+          isEmpty={pagos.length === 0}
+          emptyLabel="Todavía no hay facturas con forma de pago"
+          tableColumns={[
+            { key: 'name', label: 'Forma de pago' },
+            { key: 'count', label: 'Facturas', align: 'right' },
+            { key: 'total', label: 'Importe', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+          ]}
+          tableRows={pagos}
+        >
+          <RankedBars data={pagos} color={SERIES[0]} />
+        </ChartCard>
+    </div>
+  ) : null;
 
   if (!mounted) {
     return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
@@ -447,6 +517,7 @@ export default function DashboardPage() {
 
       {/* Bottom Row */}
       <div className="charts-grid" style={{ marginTop: 'var(--space-4)' }}>
+        <div className="stack" ref={colIzquierda}>
         {/* Recent Invoices */}
         {enPanel('ultimas_facturas') && (
         <div className="chart-card">
@@ -511,14 +582,43 @@ export default function DashboardPage() {
         </div>
         )}
 
+        {enPanel('facturado_cobrado') && (
+        <ChartCard
+          title="Facturado y cobrado"
+          subtitle="Lo emitido cada mes frente a lo que entró ese mes"
+          height={230}
+          isEmpty={facturadoCobrado.every(m => m.series1 === 0 && m.series2 === 0)}
+          emptyLabel="Todavía no hay nada facturado ni cobrado"
+          emptyHint={<>Lo cobrado cuenta el día en que se marca la factura como pagada.</>}
+          tableColumns={[
+            { key: 'name', label: 'Mes' },
+            { key: 'series1', label: 'Facturado', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+            { key: 'series2', label: 'Cobrado', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+          ]}
+          tableRows={facturadoCobrado as unknown as Record<string, unknown>[]}
+          legend={
+            <ChartLegend
+              items={[
+                { name: 'Facturado 12 m', value: formatCurrency(facturadoCobrado.reduce((a, m) => a + m.series1, 0)), color: acentoGrafica },
+                { name: 'Cobrado 12 m', value: formatCurrency(facturadoCobrado.reduce((a, m) => a + m.series2, 0)), color: SERIES[0] },
+              ]}
+            />
+          }
+        >
+          <ComparisonBarChart data={facturadoCobrado} name1="Facturado" name2="Cobrado" />
+        </ChartCard>
+        )}
+        {!pagosDerecha && pagosCard}
+        </div>
+
         {/* Top Clients + Top Products Stack */}
-        <div className="stack">
+        <div className="stack" ref={colDerecha}>
           {/* Top Clients */}
           {enPanel('clientes_top') && (
           <ChartCard
             title="Clientes por facturación"
             subtitle="Los cinco clientes con mayor volumen (€)"
-            height={220}
+            height={altoRanking(topClients.length)}
             isEmpty={topClients.length === 0}
             emptyLabel="Todavía no hay facturación por cliente"
             emptyHint={<>Se calcula con las facturas emitidas, sin contar las anuladas.</>}
@@ -538,7 +638,7 @@ export default function DashboardPage() {
           <ChartCard
             title="Productos más vendidos"
             subtitle="Por importe acumulado facturado (€)"
-            height={220}
+            height={altoRanking(topProducts.length)}
             isEmpty={topProducts.length === 0}
             emptyLabel="Todavía no hay productos vendidos"
             emptyHint={<>Se ordena por importe facturado, no por unidades sueltas.</>}
@@ -586,6 +686,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+          {pagosDerecha && pagosCard}
         </div>
       </div>
 

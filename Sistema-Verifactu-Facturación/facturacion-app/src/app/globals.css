@@ -13726,3 +13726,18 @@ body.nav-abierta { overflow: hidden; }
   .analisis-pestana-largo { display: none; }
   .analisis-pestana-corto { display: inline; }
 }
+
+/* Una pila dentro de una rejilla tiene que poder encoger: sin esto, la
+   tabla de «Últimas facturas» le impone su ancho mínimo y en el móvil la
+   columna entera se sale de la pantalla en vez de desplazar la tabla. */
+.charts-grid > .stack,
+.analisis-rejilla > .stack { min-width: 0; }
+
+/* La caja que desplaza una tabla es también su referencia de posición.
+   Sin esto, el texto sólo para lectores de pantalla de una cabecera
+   (`.solo-lectores`, que es absolute) se colocaba respecto a un
+   antepasado de FUERA de la caja, escapaba del overflow y en el móvil
+   ensanchaba la página entera ~150 px. Los menús de fila no se ven
+   afectados: son fixed y van en un portal. */
+.table-container,
+.table-responsive { position: relative; }

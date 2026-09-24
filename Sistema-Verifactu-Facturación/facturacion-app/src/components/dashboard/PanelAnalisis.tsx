@@ -6,12 +6,12 @@ import { Activity, Wallet, Users } from 'lucide-react';
 import ChartCard from '@/components/charts/ChartCard';
 import { ChartLegend } from '@/components/charts/Charts';
 import {
-  CategoriasTreemap, CobroWaffle, COLORES_COBRO, DeudaColumnas, DiasConVentas, LeyendaRampa,
+  AcumuladoLineas, CategoriasTreemap, CobroWaffle, COLORES_COBRO, DeudaColumnas, DiasConVentas, LeyendaRampa,
   MapaSemanal, PuntualidadScatter, RankingBump, RitmoBullet,
 } from '@/components/charts/ChartsAnalisis';
 import { CHART_ACCENT, SERIES, modoGrafica } from '@/components/charts/theme';
 import {
-  antiguedadDeuda, cifrasAnalisis, estadoCobro, mapaSemanal, puntualidadClientes,
+  acumuladoDelAnio, antiguedadDeuda, cifrasAnalisis, estadoCobro, mapaSemanal, puntualidadClientes,
   rankingClientes, ritmoDelMes, ventasPorCategoria, ventasPorDia,
 } from '@/lib/analitica';
 import type { Invoice, Product } from '@/lib/types';
@@ -84,6 +84,10 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
   const [hoy] = useState(() => new Date());
   const [refRejilla, anchoRejilla] = useAncho<HTMLDivElement>();
   const [refRanking, anchoRanking] = useAncho<HTMLDivElement>();
+  // En una columna (móvil y tableta) el mapa semanal no necesita crecer
+  // para igualar a nadie; a dos columnas se estira hasta la altura de la
+  // pila de la izquierda (ritmo del mes + acumulado del año).
+  const [estrechoRitmo] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches);
 
   // Cuántas semanas caben sin que la casilla baje de 11 px: en el móvil,
   // medio año; en el ordenador, el año entero. Lo que se mide es la
@@ -91,11 +95,18 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
   // relleno por cada lado y los 30 del nombre de los días.
   const util = anchoRejilla - 2 * 20 - 30;
   const semanas = anchoRejilla > 0 ? Math.max(13, Math.min(53, Math.floor(util / 13) - 1)) : 53;
-  const celda = anchoRejilla > 0 ? Math.min(18, (util - 2 * (semanas + 2)) / (semanas + 1)) : 14;
+  // Tope de 26 px: con el de 18 la rejilla se quedaba en tres cuartos
+  // del ancho en pantallas grandes y dejaba una franja vacía a la derecha.
+  const celda = anchoRejilla > 0 ? Math.min(26, (util - 2 * (semanas + 2)) / (semanas + 1)) : 14;
   const altoRejilla = Math.round(22 + 7 * (celda + 2) + 6);
 
   const cifras = useMemo(() => cifrasAnalisis(invoices, hoy), [invoices, hoy]);
   const ritmo = useMemo(() => ritmoDelMes(invoices, hoy), [invoices, hoy]);
+  const acumulado = useMemo(() => acumuladoDelAnio(invoices, hoy), [invoices, hoy]);
+  const mesActual = acumulado[hoy.getMonth()];
+  const variacion = mesActual.anterior > 0 && mesActual.actual !== null
+    ? Math.round(((mesActual.actual - mesActual.anterior) / mesActual.anterior) * 100)
+    : null;
   const dias = useMemo(() => ventasPorDia(invoices, hoy, semanas), [invoices, hoy, semanas]);
   const semana = useMemo(() => mapaSemanal(invoices, hoy, 6), [invoices, hoy]);
   const cobro = useMemo(() => estadoCobro(invoices, hoy), [invoices, hoy]);
@@ -173,6 +184,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
 
       {pestana === 'ritmo' && (
         <div id="panel-ritmo" role="tabpanel" aria-labelledby="pestana-ritmo" className="analisis-rejilla">
+          <div className="stack">
           <ChartCard
             title="Cómo va el mes"
             subtitle={ritmo.facturado.actual > 0
@@ -212,9 +224,37 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
           </ChartCard>
 
           <ChartCard
+            title={`Acumulado de ${hoy.getFullYear()}`}
+            subtitle={variacion === null
+              ? 'Lo facturado desde enero, frente a lo que se llevaba el año pasado'
+              : `${variacion >= 0 ? '+' : ''}${variacion} % frente a lo que se llevaba a estas alturas de ${hoy.getFullYear() - 1}`}
+            height={190}
+            isEmpty={acumulado.every(m => !m.actual && !m.anterior)}
+            emptyLabel="Todavía no hay facturación que acumular"
+            emptyHint={sinVentas}
+            tableColumns={[
+              { key: 'name', label: 'Mes' },
+              { key: 'actual', label: String(hoy.getFullYear()), align: 'right', format: (v: unknown) => (v === null ? '—' : euros(v)) },
+              { key: 'anterior', label: String(hoy.getFullYear() - 1), align: 'right', format: euros },
+            ]}
+            tableRows={acumulado as unknown as Record<string, unknown>[]}
+            legend={
+              <ChartLegend
+                items={[
+                  { name: String(hoy.getFullYear()), value: formatCurrency(mesActual.actual ?? 0), color: acento },
+                  { name: `${hoy.getFullYear() - 1}, a estas alturas`, value: formatCurrency(mesActual.anterior), color: SERIES[0] },
+                ]}
+              />
+            }
+          >
+            <AcumuladoLineas datos={acumulado} anio={hoy.getFullYear()} />
+          </ChartCard>
+          </div>
+
+          <ChartCard
             title="Qué día de la semana se vende más"
             subtitle="Venta media por día, en los últimos seis meses"
-            height={270}
+            height={estrechoRitmo ? 280 : 520}
             isEmpty={semana.every(f => f.data.every(c => !c.y))}
             emptyLabel="Todavía no hay ventas que repartir por días"
             emptyHint={sinVentas}
