@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Receipt, Car, Plus, Trash2, Edit2, X, AlertTriangle, Layers, PieChart as PieChartIcon,
-  TrendingDown, Building, Truck, ChevronUp, ChevronDown,
+  TrendingDown, Building, Truck, ChevronUp, ChevronDown, Camera, Loader2,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -14,7 +14,8 @@ import {
 import { calcularGasto, totalGastos, costeDeVehiculos, gastoVacio, CATEGORIAS_GASTO } from '@/lib/gastos';
 import { tieneModulo } from '@/lib/modulos';
 import { Gasto, GastoCategoria, Vehiculo, Client, Obra, PaymentMethod } from '@/lib/types';
-import { generateId, formatCurrency, formatDate, getToday } from '@/lib/utils';
+import { generateId, formatCurrency, formatDate, getToday, fotoParaLeer } from '@/lib/utils';
+import type { DatosTicket } from '@/lib/ia/ticket';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 
@@ -56,6 +57,12 @@ export default function GastosPage() {
   };
 
   const [showGastoModal, setShowGastoModal] = useState(false);
+  // Gasto leído de la foto de un ticket: la foto (para comparar) y lo que
+  // no se ha podido leer bien.
+  const [ticket, setTicket] = useState<{ foto: string; avisos: string[] } | null>(null);
+  const [leyendoTicket, setLeyendoTicket] = useState(false);
+  const [igic, setIgic] = useState(false);
+  const entradaFoto = useRef<HTMLInputElement>(null);
   const [editandoGasto, setEditandoGasto] = useState<Gasto | null>(null);
   const [gastoForm, setGastoForm] = useState(gastoVacio(getToday()));
 
@@ -95,6 +102,7 @@ export default function GastosPage() {
       setObras(o);
       setModoVehiculos(tieneModulo(settings?.modulos, 'vehiculos'));
       setModoObras(tieneModulo(settings?.modulos, 'obras'));
+      setIgic(!!settings?.igicEnabled);
       setMounted(true);
     })();
     return () => { vivo = false; };
@@ -138,11 +146,50 @@ export default function GastosPage() {
 
   const abrirNuevoGasto = () => {
     setEditandoGasto(null);
+    setTicket(null);
     setGastoForm(gastoVacio(getToday()));
     setShowGastoModal(true);
   };
 
+  const leerTicket = async (fichero: File | undefined) => {
+    if (!fichero) return;
+    setLeyendoTicket(true);
+    try {
+      const foto = await fotoParaLeer(fichero);
+      const r = await fetch('/api/gastos/ticket', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imagen: foto, igic }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || `Error ${r.status}`);
+      const t = d as DatosTicket;
+      // El proveedor, si ya tiene ficha: por NIF, o por nombre si no hay NIF.
+      const nombre = (t.proveedor ?? '').toLowerCase();
+      const prov = proveedores.find(p => (t.nif && p.nif?.toUpperCase() === t.nif))
+        ?? (nombre ? proveedores.find(p => p.businessName.toLowerCase() === nombre || (p.tradeName ?? '').toLowerCase() === nombre) : undefined);
+      setEditandoGasto(null);
+      setGastoForm({
+        ...gastoVacio(t.fecha ?? getToday()),
+        concepto: t.concepto || t.proveedor || '',
+        categoria: t.categoria,
+        baseImponible: t.base,
+        taxRate: t.tipo,
+        taxAmount: t.cuota,
+        total: t.total,
+        proveedorId: prov?.id,
+        proveedorNombre: prov?.businessName ?? t.proveedor,
+        notas: t.nif && !prov ? `NIF del proveedor: ${t.nif}` : undefined,
+      });
+      setTicket({ foto, avisos: t.avisos });
+      setShowGastoModal(true);
+    } catch (err) {
+      toastError('No se ha podido leer el ticket', err instanceof Error ? err.message : '');
+    } finally {
+      setLeyendoTicket(false);
+    }
+  };
+
   const abrirEditarGasto = (g: Gasto) => {
+    setTicket(null);
     setEditandoGasto(g);
     setGastoForm(g);
     setShowGastoModal(true);
@@ -249,9 +296,17 @@ export default function GastosPage() {
           <p className="page-subtitle">Lo que se paga y no es mercancía: alquiler, suministros, dietas.</p>
         </div>
         {activeTab === 'gastos' ? (
-          <button type="button" className="btn btn-primary" onClick={abrirNuevoGasto}>
-            <Plus size={16} /> Nuevo gasto
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <input ref={entradaFoto} type="file" accept="image/*" hidden
+              onChange={e => { leerTicket(e.target.files?.[0]); e.target.value = ''; }} />
+            <button type="button" className="btn btn-secondary" onClick={() => entradaFoto.current?.click()} disabled={leyendoTicket}
+              title="Haz una foto al ticket o elígela de la galería: se rellena el gasto solo">
+              {leyendoTicket ? <Loader2 size={16} className="spin" /> : <Camera size={16} />} {leyendoTicket ? 'Leyendo el ticket…' : 'Desde una foto'}
+            </button>
+            <button type="button" className="btn btn-primary" onClick={abrirNuevoGasto}>
+              <Plus size={16} /> Nuevo gasto
+            </button>
+          </div>
         ) : (
           <button type="button" className="btn btn-primary" onClick={abrirNuevoVehiculo}>
             <Plus size={16} /> Nuevo vehículo
@@ -486,6 +541,18 @@ export default function GastosPage() {
             </div>
             <form onSubmit={handleGuardarGasto}>
               <div className="modal-body">
+                {ticket && (
+                  <div className="gasto-ticket">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <a href={ticket.foto} target="_blank" rel="noreferrer"><img src={ticket.foto} alt="Foto del ticket" /></a>
+                    <div>
+                      <strong>Leído del ticket.</strong> Revisa los datos antes de guardar.
+                      {ticket.avisos.length > 0 && (
+                        <ul>{ticket.avisos.map(a => <li key={a}>{a}</li>)}</ul>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label required">Fecha</label>
@@ -522,13 +589,17 @@ export default function GastosPage() {
                     <label className="form-label">Proveedor</label>
                     <select
                       className="form-select"
-                      value={gastoForm.proveedorId ?? ''}
+                      value={gastoForm.proveedorId ?? (gastoForm.proveedorNombre ? '__sin_ficha' : '')}
                       onChange={e => {
+                        if (e.target.value === '__sin_ficha') return;
                         const prov = proveedores.find(p => p.id === e.target.value);
                         setGastoForm({ ...gastoForm, proveedorId: prov?.id, proveedorNombre: prov?.businessName });
                       }}
                     >
                       <option value="">— Sin proveedor —</option>
+                      {!gastoForm.proveedorId && gastoForm.proveedorNombre && (
+                        <option value="__sin_ficha">{gastoForm.proveedorNombre} (sin ficha)</option>
+                      )}
                       {proveedores.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
                     </select>
                   </div>

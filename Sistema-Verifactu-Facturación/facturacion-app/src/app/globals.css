@@ -14541,3 +14541,11 @@ body {
   .recor-facturas li { grid-template-columns: 1fr auto; }
   .recor-facturas li > span:first-of-type { grid-column: 1 / -1; order: 3; }
 }
+
+/* Gasto leído de la foto de un ticket: la foto al lado, para comparar. */
+.gasto-ticket {
+  display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: var(--space-4);
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-tertiary); font-size: var(--text-sm);
+}
+.gasto-ticket img { width: 72px; height: 96px; object-fit: cover; border-radius: var(--radius-sm, 6px); border: 1px solid var(--border-color); display: block; }
+.gasto-ticket ul { margin: var(--space-1) 0 0; padding-left: 18px; color: var(--color-warning); }

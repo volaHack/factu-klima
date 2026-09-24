@@ -466,7 +466,7 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     titulo: 'Gastos',
     paraQue: 'Lo que pagas y no es mercancía: alquiler, suministros, dietas, gasolina.',
     pasos: [
-      'Registra el gasto con su proveedor, su importe y su IVA.',
+      'Registra el gasto con su proveedor, su importe y su IVA. O pulsa «Desde una foto» y haz una foto al ticket: se rellena solo y tú lo revisas.',
       'Asígnale una categoría para que los informes lo agrupen.',
       'Si es de un vehículo o de una obra, imputáselo.',
     ],
