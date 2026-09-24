@@ -381,3 +381,40 @@ export function desgloseDescuentos(doc: {
 
   return { enLineas: Number((total - alPie).toFixed(2)), alPie, porcentajesPie };
 }
+
+/**
+ * Prepara la foto de un ticket para leerla: JPEG de 1600 px de lado mayor.
+ * Un ticket fotografiado con el móvil pesa 3-5 MB; así se queda en unos
+ * 300 KB y sigue leyéndose la letra pequeña.
+ */
+export function fotoParaLeer(file: File, maxSize = 1600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * ratio));
+        const h = Math.max(1, Math.round(img.height * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas no disponible en este navegador');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error('No se pudo procesar la foto'));
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('No se pudo abrir la foto. Prueba con JPEG o PNG.'));
+    };
+    img.src = objectUrl;
+  });
+}

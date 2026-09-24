@@ -117,6 +117,24 @@ export interface PeticionIA {
    */
   esquemaJson?: unknown;
   tiempoLimiteMs?: number;
+  /**
+   * Imágenes que acompañan al enunciado (una foto de un ticket, por
+   * ejemplo). Hace falta un modelo que vea: con Gemini vale el de siempre;
+   * con un servidor compatible con OpenAI, el de `IA_MODELO_VISION`.
+   */
+  imagenes?: { mime: string; base64: string }[];
+  /** Otro modelo del mismo proveedor para esta petición. */
+  modelo?: string;
+}
+
+/**
+ * El modelo para peticiones con imagen. Gemini ve con el modelo normal;
+ * los modelos de texto de un servidor local no, así que ahí se usa
+ * `IA_MODELO_VISION` si está puesto.
+ */
+export function modeloVision(config: ConfiguracionIA): string {
+  const vision = (process.env.IA_MODELO_VISION ?? '').trim();
+  return vision || config.modelo;
 }
 
 /**
@@ -145,9 +163,15 @@ export function limpiarRespuesta(texto: string): string {
 
 /** El cuerpo que espera un servidor que hable como OpenAI. */
 export function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
+  const contenido = p.imagenes?.length
+    ? [
+      { type: 'text', text: p.instrucciones },
+      ...p.imagenes.map(i => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.base64}` } })),
+    ]
+    : p.instrucciones;
   return {
-    model: config.modelo,
-    messages: [{ role: 'user', content: p.instrucciones }],
+    model: p.modelo ?? config.modelo,
+    messages: [{ role: 'user', content: contenido }],
     temperature: p.temperatura ?? 0.2,
     max_tokens: p.maximoTokens ?? 1024,
     stream: false,
@@ -171,7 +195,7 @@ export function cuerpoOpenAI(config: ConfiguracionIA, p: PeticionIA) {
     // siguiente de la lista dentro de la MISMA petición, sin reintentos
     // nuestros ni segundos de espera para quien pregunta.
     ...(/openrouter\.ai/.test(config.baseUrl)
-      ? { models: [...new Set([config.modelo, MODELO_RESERVA_OPENROUTER])] }
+      ? { models: [...new Set([p.modelo ?? config.modelo, MODELO_RESERVA_OPENROUTER])] }
       : {}),
     ...(p.json ? { response_format: { type: 'json_object' } } : {}),
   };
@@ -182,7 +206,12 @@ export const MODELO_RESERVA_OPENROUTER = 'google/gemini-3.5-flash-lite';
 
 function cuerpoGemini(p: PeticionIA) {
   return {
-    contents: [{ parts: [{ text: p.instrucciones }] }],
+    contents: [{
+      parts: [
+        { text: p.instrucciones },
+        ...(p.imagenes ?? []).map(i => ({ inline_data: { mime_type: i.mime, data: i.base64 } })),
+      ],
+    }],
     generationConfig: {
       temperature: p.temperatura ?? 0.2,
       // El presupuesto de Gemini incluye lo que el modelo piensa, no sólo
@@ -254,7 +283,7 @@ export async function generarTexto(p: PeticionIA): Promise<string> {
 
   const esGemini = config.proveedor === 'gemini';
   const url = esGemini
-    ? `${config.baseUrl}/${config.modelo}:generateContent?key=${config.clave}`
+    ? `${config.baseUrl}/${p.modelo ?? config.modelo}:generateContent?key=${config.clave}`
     : `${config.baseUrl}/chat/completions`;
 
   // VARIOS INTENTOS, NO UNO
