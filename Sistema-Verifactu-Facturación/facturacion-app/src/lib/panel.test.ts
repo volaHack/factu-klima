@@ -5,7 +5,12 @@ import {
 } from './panel';
 
 /**
- * Las fichas que el Dashboard sabe pintar hoy.
+ * Las fichas del panel de salida.
+ *
+ * Que el Dashboard sepa pintar TODAS las del catálogo lo comprueba el
+ * compilador (el `never` al final de `tarjeta` en dashboard/page.tsx). Esta
+ * lista vigila otra cosa: el panel con el que arranca quien no ha tocado
+ * nada.
  *
  * El panel se guardaba pero no lo leía nadie: podías ordenar y apagar
  * fichas en Ajustes y el Dashboard salía siempre igual. Ahora manda lo
@@ -20,6 +25,7 @@ const PINTA_EL_DASHBOARD: FichaId[] = [
   'vencido',
   'estado_verifactu',
   'evolucion_ventas',
+  'reparto_estado',
   'ultimas_facturas',
   'clientes_top',
   'productos_top',

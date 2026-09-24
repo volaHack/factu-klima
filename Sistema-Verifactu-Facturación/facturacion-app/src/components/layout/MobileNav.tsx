@@ -17,7 +17,7 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
-    pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+    pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'));
 
   return (
     <nav className="mobile-nav" aria-label="Navegación principal">

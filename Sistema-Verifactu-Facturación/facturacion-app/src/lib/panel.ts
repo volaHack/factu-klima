@@ -29,17 +29,13 @@ export type FichaId =
   | 'stock_bajo' | 'sin_movimiento'
   | 'albaranes_sin_facturar' | 'presupuestos_abiertos' | 'pedidos_pendientes'
   | 'compras_pendientes'
-  | 'evolucion_ventas' | 'reparto_impuestos' | 'analisis_negocio'
+  | 'evolucion_ventas' | 'reparto_estado' | 'reparto_impuestos' | 'analisis_negocio'
   | 'facturado_cobrado' | 'formas_pago'
   | 'estado_verifactu'
   | 'gastos_mes'
-  | 'comisiones_mes'
   | 'obras_abiertas'
   | 'ordenes_atrasadas'
-  | 'lotes_caducando'
-  | 'rappels_periodo'
-  | 'sii_pendientes'
-  | 'intracomunitarias_periodo';
+  | 'lotes_caducando';
 
 export type TamanoFicha = 'pequena' | 'mediana' | 'grande';
 
@@ -64,12 +60,13 @@ export const FICHAS: Ficha[] = [
   { id: 'cobrado_mes', nombre: 'Cobrado este mes', tamano: 'pequena',
     explica: 'Lo que ha entrado de verdad en el mes, que no es lo mismo que lo facturado.' },
   { id: 'margen_mes', nombre: 'Margen del mes', tamano: 'pequena',
-    explica: 'Lo facturado menos lo que costó, con los costes reconstruidos en orden de fecha.' },
+    explica: 'Lo vendido este mes sin impuestos menos lo que costó, con el coste de compra de cada artículo.' },
 
   // --- Lo que hay que atender ---
   { id: 'proximos_vencimientos', nombre: 'Vencimientos próximos', tamano: 'mediana',
     explica: 'Lo que vence en los próximos días, para llamar antes y no después.' },
-  { id: 'ultimas_facturas', nombre: 'Últimas facturas', tamano: 'mediana',
+  // Tabla de seis columnas: a media anchura los nombres se partían en cuatro renglones.
+  { id: 'ultimas_facturas', nombre: 'Últimas facturas', tamano: 'grande',
     explica: 'Lo último emitido, con su estado de cobro.' },
   { id: 'borradores', nombre: 'Borradores sin emitir', tamano: 'pequena',
     explica: 'Documentos empezados y no terminados. Se olvidan y no se cobran.' },
@@ -89,8 +86,10 @@ export const FICHAS: Ficha[] = [
     explica: 'Lo que lleva meses sin venderse y tiene dinero inmovilizado encima.' },
 
   // --- Análisis ---
-  { id: 'evolucion_ventas', nombre: 'Evolución de ventas', tamano: 'grande',
+  { id: 'evolucion_ventas', nombre: 'Evolución de ventas', tamano: 'mediana',
     explica: 'Los últimos doce meses, para ver la tendencia y no un mes suelto.' },
+  { id: 'reparto_estado', nombre: 'Reparto por estado', tamano: 'mediana',
+    explica: 'Cuántas facturas hay pagadas, pendientes, vencidas o en borrador.' },
   { id: 'clientes_top', nombre: 'Mejores clientes', tamano: 'mediana',
     explica: 'Quién factura más, y cuánto pesa cada uno sobre el total.' },
   { id: 'productos_top', nombre: 'Más vendidos', tamano: 'mediana',
@@ -106,34 +105,23 @@ export const FICHAS: Ficha[] = [
 
   { id: 'gastos_mes', nombre: 'Gastos del mes', tamano: 'pequena', requiere: 'gastos',
     explica: 'Lo que se ha pagado este mes en alquiler, suministros y demás, sin contar la mercancía.' },
-  { id: 'comisiones_mes', nombre: 'Comisiones del mes', tamano: 'pequena', requiere: 'comisiones',
-    explica: 'Lo que se llevan los comerciales este mes, sumado entre todos.' },
   { id: 'obras_abiertas', nombre: 'Obras abiertas', tamano: 'mediana', requiere: 'obras',
     explica: 'Los proyectos en marcha, con lo que llevan facturado, gastado y de margen hasta ahora.' },
   { id: 'ordenes_atrasadas', nombre: 'Órdenes atrasadas', tamano: 'mediana', requiere: 'ordenes_trabajo',
     explica: 'Avisos que llevan más de una semana abiertos sin cerrarse.' },
   { id: 'lotes_caducando', nombre: 'Lotes por caducar', tamano: 'mediana', requiere: 'lotes',
     explica: 'Lo que caduca en los próximos siete días y todavía queda en el almacén.' },
-  { id: 'rappels_periodo', nombre: 'Rappels del periodo', tamano: 'pequena', requiere: 'rappels',
-    explica: 'Lo que se debe en rappels por lo facturado hasta ahora, sumado entre todas las reglas.' },
 
   // --- Cumplimiento ---
-  { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'pequena',
+  // La barra de Veri*Factu ocupa todo el ancho: va como «grande».
+  { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'grande',
     explica: 'Si la cadena de huellas está intacta y qué queda por enviar.' },
-  { id: 'sii_pendientes', nombre: 'SII — Pendientes de envío', tamano: 'mediana', requiere: 'sii',
-    explica: 'Facturas que aún no se han enviado al SII, con los días que quedan antes de que venza el plazo de cuatro días.' },
-  { id: 'intracomunitarias_periodo', nombre: 'Intracomunitarias del trimestre', tamano: 'mediana', requiere: 'intracomunitarias',
-    explica: 'Entregas, adquisiciones y servicios con la UE en el trimestre en curso, para el Modelo 349.' },
 ];
+// Comisiones, rappels, SII e intracomunitarias salieron del catálogo: cada
+// una tiene su pantalla con su cálculo, y aquí se ofrecían sin que el panel
+// supiera pintarlas. Un panel guardado que las tenga, sencillamente no las
+// enseña (ver `fichasVisibles`).
 
-/**
- * El panel de salida.
- *
- * Cinco fichas, no dieciocho. Un panel que arranca lleno no se lee: se
- * ignora. Es mejor empezar con lo que le importa a cualquiera que factura
- * —cuánto he hecho, cuánto me deben, qué está vencido— y que cada uno añada
- * lo suyo.
- */
 /**
  * Con lo que arranca un panel que nadie ha tocado.
  *
@@ -148,6 +136,7 @@ export const PANEL_POR_DEFECTO: FichaId[] = [
   'vencido',
   'estado_verifactu',
   'evolucion_ventas',
+  'reparto_estado',
   'ultimas_facturas',
   'clientes_top',
   'productos_top',
@@ -186,6 +175,36 @@ export function mover(panel: FichaId[], id: FichaId, direccion: -1 | 1): FichaId
   const salida = [...panel];
   [salida[i], salida[j]] = [salida[j], salida[i]];
   return salida;
+}
+
+/**
+ * CÓMO SE COLOCAN EN PANTALLA
+ *
+ * Las cifras sueltas («pequeñas») van juntas en la fila de arriba, en el
+ * orden elegido. Las tarjetas grandes ocupan todo el ancho y cortan donde
+ * estén. Las medianas, entre corte y corte, se reparten en dos columnas por
+ * turnos: la 1.ª a la izquierda, la 2.ª a la derecha, la 3.ª a la izquierda…
+ * Así se lee en el orden elegido, de izquierda a derecha y de arriba abajo,
+ * sin huecos entre tarjetas de distinto alto.
+ */
+export type Bloque = { tipo: 'grande'; id: FichaId } | { tipo: 'pareja'; izquierda: FichaId[]; derecha: FichaId[] };
+
+export function colocar(fichas: Ficha[]): { cifras: FichaId[]; bloques: Bloque[] } {
+  const cifras = fichas.filter(f => f.tamano === 'pequena').map(f => f.id);
+  const bloques: Bloque[] = [];
+  let actual: { tipo: 'pareja'; izquierda: FichaId[]; derecha: FichaId[] } | null = null;
+  let n = 0;
+  for (const f of fichas) {
+    if (f.tamano === 'pequena') continue;
+    if (f.tamano === 'grande') {
+      actual = null;
+      bloques.push({ tipo: 'grande', id: f.id });
+      continue;
+    }
+    if (!actual) { actual = { tipo: 'pareja', izquierda: [], derecha: [] }; bloques.push(actual); n = 0; }
+    (n++ % 2 === 0 ? actual.izquierda : actual.derecha).push(f.id);
+  }
+  return { cifras, bloques };
 }
 
 /** Pone o quita una ficha del panel. Al ponerla, va al final. */

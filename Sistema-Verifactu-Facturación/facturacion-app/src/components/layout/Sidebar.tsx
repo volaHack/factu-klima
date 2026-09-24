@@ -38,9 +38,11 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
   onClose: () => void;
   collapsed: boolean;
 }) {
+  // Por tramos enteros de la ruta: con un simple startsWith, estar en
+  // /listados-fiscales encendía también «Listados» (/listados).
   const isActive =
     pathname === item.href ||
-    (item.href !== '/dashboard' && pathname.startsWith(item.href));
+    (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
 
   return (
     <Link
