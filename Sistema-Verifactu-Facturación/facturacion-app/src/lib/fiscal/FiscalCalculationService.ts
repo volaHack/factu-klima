@@ -42,9 +42,38 @@ export function enPeriodo(fecha: string | undefined, periodo: PeriodoFiscal): bo
  */
 export function facturaCuenta(f: Invoice): boolean {
   if (f.cancelledAt) return false;
-  if (f.status === 'borrador') return false;
-  if (f.tipo && f.tipo !== 'factura') return false;
+  if (f.status === 'borrador' || f.status === 'anulada') return false;
+  // Las rectificativas SÍ cuentan: llevan importes negativos y restan de lo
+  // que rectifican. Antes se quedaban fuera de todos los modelos, y un 303
+  // con devoluciones salía con más IVA a ingresar del que tocaba.
+  if (f.tipo && f.tipo !== 'factura' && f.tipo !== 'rectificativa') return false;
   return true;
+}
+
+export const esRectificativa = (f: Invoice) => f.tipo === 'rectificativa';
+
+export interface BaseYCuota { base: number; cuota: number }
+
+/**
+ * El impuesto soportado en las FACTURAS DE COMPRA (las que registra el
+ * programa como documento de compra, no como gasto).
+ *
+ * Antes el 303 y el 420 sólo miraban los gastos: quien apuntaba sus
+ * compras como factura de proveedor no se deducía ese IVA y pagaba de más.
+ * Las ordinarias van a interiores corrientes; las rectificativas de compra,
+ * a «rectificación de deducciones».
+ */
+export function impuestoDeCompras(facturas: Invoice[], periodo: PeriodoFiscal): { ordinarias: BaseYCuota; rectificativas: BaseYCuota; numFacturas: number } {
+  const compras = facturas.filter(f => f.sentido === 'compra' && facturaCuenta(f) && enPeriodo(f.issueDate, periodo));
+  const suma = (lista: Invoice[]) => lista.reduce<BaseYCuota>((t, f) => ({
+    base: redondear(t.base + (f.subtotal || 0)),
+    cuota: redondear(t.cuota + (f.totalTax || 0)),
+  }), { base: 0, cuota: 0 });
+  return {
+    ordinarias: suma(compras.filter(f => !esRectificativa(f))),
+    rectificativas: suma(compras.filter(esRectificativa)),
+    numFacturas: compras.length,
+  };
 }
 
 export interface DesgloseTipo {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Building2, Lock } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, Building2, Lock } from 'lucide-react';
 
 import {
   empresasQueLlevo, facturasDeEmpresa, resumenPorTrimestre,
@@ -99,6 +99,9 @@ export default function LibrosDeEmpresa() {
           <p className="page-subtitle">NIF {empresa.nif} · facturas selladas de {anio}</p>
         </div>
         <div className="page-header-actions">
+          <Link href={`/gestoria/${empresaId}/contabilidad`} className="btn btn-secondary">
+            <BookOpenCheck size={16} /> Contabilidad
+          </Link>
           <label className="form-label" htmlFor="anio" style={{ margin: 0 }}>Ejercicio</label>
           <select
             id="anio"

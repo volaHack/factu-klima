@@ -7,7 +7,7 @@
  */
 
 import { getClients, getCobrosPagos, getCompanySettings, getGastos, getInvoices } from '../storage';
-import type { CompanySettings, Invoice } from '../types';
+import type { Client, CobroPago, CompanySettings, Gasto, Invoice } from '../types';
 import { calcularModelo303 } from '../fiscal/aeat/modelo303';
 import { calcularModelo420 } from '../fiscal/atc/modelo420';
 import type { Trimestre } from '../fiscal/tipos';
@@ -25,10 +25,24 @@ export interface Contabilidad {
   datosCuadre: (ejercicio: number) => DatosCuadre;
 }
 
+export interface DatosContables {
+  facturas: Invoice[];
+  gastos: Gasto[];
+  cobrosPagos: CobroPago[];
+  clientes: Client[];
+  empresa: CompanySettings;
+}
+
+/** La contabilidad de la cuenta con la que se ha entrado. */
 export async function cargarContabilidad(): Promise<Contabilidad> {
   const [facturas, gastos, cobrosPagos, clientes, empresa] = await Promise.all([
     getInvoices(), getGastos(), getCobrosPagos(), getClients(), getCompanySettings(),
   ]);
+  return montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa });
+}
+
+/** Asientos, nombres de cuenta y cuadres a partir de los datos ya leídos. */
+export function montarContabilidad({ facturas, gastos, cobrosPagos, clientes, empresa }: DatosContables): Contabilidad {
   const impuesto: Impuesto = empresa?.igicEnabled ? 'IGIC' : 'IVA';
   const asientos = generarAsientos({ facturas, gastos, cobrosPagos, clientes, sector: empresa?.sector, impuesto });
   const terceros = nombresDeTerceros({ clientes, facturas, gastos });
@@ -58,15 +72,11 @@ export async function cargarContabilidad(): Promise<Contabilidad> {
         ? calcularModelo420({ facturas: delAnio, gastos: gastosAnio }, { ejercicio, trimestre: t }).totalRepercutido
         : calcularModelo303({ facturas: delAnio, gastos: gastosAnio }, { ejercicio, trimestre: t }).cuotaDevengada;
     }
-    const rectificativas = delAnio.filter((f: Invoice) => cuentaEnContabilidad(f) && f.tipo === 'rectificativa' && f.sentido !== 'compra');
-    const cuotaRect = r2(rectificativas.reduce((t, f) => t + (f.totalTax || 0), 0));
     return {
       impuesto,
       pendienteDeCobro,
       impuestoDevengadoModelo: r2(devengadoModelo),
-      explicacionDiferenciaImpuesto: rectificativas.length
-        ? `Las ${rectificativas.length} facturas rectificativas del año (${cuotaRect.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € de cuota) cuentan en la contabilidad pero el cálculo del modelo del programa no las incluye: revísalo con tu gestoría antes de presentar.`
-        : 'Revisa si hay facturas emitidas con fecha fuera del trimestre en que se declararon.',
+      explicacionDiferenciaImpuesto: 'Suele ser una factura anulada después de declarada, o con la fecha cambiada de trimestre.',
     };
   };
 

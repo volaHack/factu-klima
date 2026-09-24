@@ -65,6 +65,29 @@ async function backgroundRefresh<T>(
   }
 }
 
+/**
+ * El usuario de la sesión, para filtrar las lecturas de lo propio.
+ *
+ * Hace falta aunque la seguridad de la base de datos ya aísla cuentas: una
+ * gestoría puede LEER las facturas, clientes, gastos y ajustes de las
+ * empresas que lleva (migración 045). Sin este filtro, esas filas se
+ * mezclarían con las suyas en sus listados, sus modelos y su contabilidad.
+ * Se lee de la sesión local (sin ir a la red); sin sesión no se filtra y
+ * la base de datos ya no devuelve nada.
+ */
+async function idParaLeer(): Promise<string | null> {
+  try {
+    const { data } = await supabase().auth.getSession();
+    if (data?.session?.user?.id) return data.session.user.id;
+  } catch { /* se intenta abajo */ }
+  return getCurrentUserId();
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function soloDe<Q extends { eq: (col: string, v: string) => any }>(consulta: Q, userId: string | null): Q {
+  return userId ? consulta.eq('user_id', userId) : consulta;
+}
+
 // ============================================================
 // CACHÉ DE SETTINGS — LOCK DE ESCRITURA
 // ============================================================
@@ -121,9 +144,10 @@ export async function getInvoices(): Promise<Invoice[]> {
 async function getInvoicesFromSupabase(): Promise<Invoice[]> {
   if (!navigator.onLine) return [];
 
-  const { data: invoicesData, error } = await supabase()
+  const userId = await idParaLeer();
+  const { data: invoicesData, error } = await soloDe(supabase()
     .from('invoices')
-    .select('*')
+    .select('*'), userId)
     .order('issue_date', { ascending: false });
 
   if (error || !invoicesData) return [];
@@ -795,8 +819,8 @@ export async function getClients(): Promise<Client[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('clients');
     if (cached.length > 0) {
-      backgroundRefresh('clients', () =>
-        supabase().from('clients').select('*').order('business_name', { ascending: true })
+      backgroundRefresh('clients', async () =>
+        soloDe(supabase().from('clients').select('*'), await idParaLeer()).order('business_name', { ascending: true })
       );
       return cached.map(mapClientFromDb);
     }
@@ -804,9 +828,9 @@ export async function getClients(): Promise<Client[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await soloDe(supabase()
     .from('clients')
-    .select('*')
+    .select('*'), await idParaLeer())
     .order('business_name', { ascending: true });
 
   if (error || !data) return [];
@@ -2745,8 +2769,9 @@ export async function getCompanySettings(): Promise<CompanySettings> {
       // Background refresh
       if (navigator.onLine) {
         const versionAlPedir = versionAjustes;
+        idParaLeer().then(uid => soloDe(supabase().from('company_settings').select('*'), uid).order('updated_at', { ascending: false }).limit(1))
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        supabase().from('company_settings').select('*').order('updated_at', { ascending: false }).limit(1).then((res: any) => {
+        .then((res: any) => {
           const data = res?.data?.[0];
           if (data && versionAlPedir === versionAjustes) {
             withSettingsCacheLock(async () => {
@@ -2779,9 +2804,9 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     // de company_settings (guardados offline antiguos), un .single() devolvería
     // 406 y el contador caería a los valores por defecto, provocando choques
     // de numeración al crear albaranes, facturas, devoluciones y abonos.
-    const { data } = await supabase()
+    const { data } = await soloDe(supabase()
       .from('company_settings')
-      .select('*')
+      .select('*'), await idParaLeer())
       .order('updated_at', { ascending: false })
       .limit(1);
 
@@ -2890,9 +2915,9 @@ export function mensajeDeRechazo(fallo: FalloSupabase): string {
 export async function contarFacturasSelladas(): Promise<number> {
   try {
     if (!navigator.onLine) return 0;
-    const { count } = await supabase()
+    const { count } = await soloDe(supabase()
       .from('invoices')
-      .select('id', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true }), await idParaLeer())
       .not('sealed_at', 'is', null);
     return count ?? 0;
   } catch {
@@ -3020,9 +3045,9 @@ export async function saveCompanySettings(
     try {
       // Comprobar si existen settings. Sin .single(): filas duplicadas no
       // deben romper el guardado ni provocar la creación de otra fila nueva.
-      const { data: existingRows } = await supabase()
+      const { data: existingRows } = await soloDe(supabase()
         .from('company_settings')
-        .select('id')
+        .select('id'), await idParaLeer())
         .order('updated_at', { ascending: false })
         .limit(1);
       const existing = existingRows?.[0];
@@ -3137,6 +3162,7 @@ export async function resetAllData(): Promise<{ keptInvoices: number }> {
   const { count } = await supabase()
     .from('invoices')
     .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
     .not('sealed_at', 'is', null);
 
   const keptInvoices = count ?? 0;
@@ -3170,8 +3196,9 @@ export async function seedInitialData(): Promise<void> {
     const { data: existing } = await supabase()
       .from('company_settings')
       .select('id')
+      .eq('user_id', userId)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (existing) return; // Already seeded
   } else {
@@ -3280,7 +3307,7 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
   };
 }
 
-function mapClientFromDb(c: any): Client {
+export function mapClientFromDb(c: any): Client {
   return {
     id: c.id,
     nif: c.nif,
@@ -4715,7 +4742,7 @@ export async function getGastos(): Promise<Gasto[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase().from('gastos').select('*').order('fecha', { ascending: false });
+  const { data, error } = await soloDe(supabase().from('gastos').select('*'), await idParaLeer()).order('fecha', { ascending: false });
   if (error || !data) return [];
 
   if (await isOfflineDbAvailable()) {
@@ -4776,7 +4803,7 @@ export async function deleteGasto(id: string): Promise<void> {
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-function mapGastoFromDb(g: any): Gasto {
+export function mapGastoFromDb(g: any): Gasto {
   return {
     id: g.id,
     fecha: g.fecha,

@@ -71,6 +71,7 @@ const CON_ID: [string, string, string][] = [
   ['/documentos/', '', 'Documento'],
   ['/albaranes/', '', 'Albarán'],
   ['/clientes/', '', 'Cliente'],
+  ['/gestoria/', '/contabilidad', 'Contabilidad de la empresa'],
   ['/gestoria/', '', 'Empresa'],
   ['/admin/cuentas/', '', 'Cuenta'],
 ];

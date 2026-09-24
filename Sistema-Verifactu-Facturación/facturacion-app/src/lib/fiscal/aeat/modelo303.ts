@@ -33,7 +33,10 @@ import {
   desglosarPorTipo,
   enPeriodo,
   facturaCuenta,
+  esRectificativa,
+  impuestoDeCompras,
   redondear,
+  type BaseYCuota,
   soportadoPorTipoOperacion,
   type DesgloseTipo,
   type SoportadoPorTipoOperacion,
@@ -45,8 +48,14 @@ export interface Resultado303 {
   /** IVA repercutido, desglosado por tipo. */
   devengado: DesgloseTipo[];
   baseDevengada: number;
-  /** Casilla [27]: total cuota devengada. */
+  /** Casillas [14][15]: rectificativas de venta del periodo (negativas). */
+  modificacion: BaseYCuota;
+  /** Casilla [27]: total cuota devengada (incluye [15]). */
   cuotaDevengada: number;
+  /** Casillas [40][41]: rectificativas de facturas de compra. */
+  rectificacionDeducciones: BaseYCuota;
+  /** IVA de las facturas de compra, sumado en [28][29]. */
+  compras: BaseYCuota;
   /** IVA soportado, por tipo de operación (cada uno va a su casilla). */
   soportado: SoportadoPorTipoOperacion;
   /** Casilla [45]: total a deducir. */
@@ -69,17 +78,33 @@ export interface DatosModelo303 {
 }
 
 export function calcularModelo303(datos: DatosModelo303, periodo: PeriodoFiscal): Resultado303 {
-  const emitidas = datos.facturas.filter(
+  const ventas = datos.facturas.filter(
     f => facturaCuenta(f) && f.sentido !== 'compra' && enPeriodo(f.issueDate, periodo),
   );
+  const emitidas = ventas.filter(f => !esRectificativa(f));
+  const rectificativas = ventas.filter(esRectificativa);
   const gastos = datos.gastos.filter(g => enPeriodo(g.fecha, periodo));
 
   const devengado = desglosarPorTipo(emitidas);
-  const baseDevengada = redondear(devengado.reduce((s, d) => s + d.base, 0));
-  const cuotaDevengada = redondear(devengado.reduce((s, d) => s + d.cuota, 0));
+  // Las rectificativas van a su casilla, [14][15], no mezcladas por tipo.
+  const modificacion: BaseYCuota = {
+    base: redondear(rectificativas.reduce((s, f) => s + (f.subtotal || 0), 0)),
+    cuota: redondear(rectificativas.reduce((s, f) => s + (f.totalTax || 0), 0)),
+  };
+  const baseDevengada = redondear(devengado.reduce((s, d) => s + d.base, 0) + modificacion.base);
+  const cuotaDevengada = redondear(devengado.reduce((s, d) => s + d.cuota, 0) + modificacion.cuota);
 
   const soportado = soportadoPorTipoOperacion(gastos);
-  const cuotaDeducible = soportado.totalDeducible;
+  // Las facturas de compra, con los gastos interiores corrientes [28][29].
+  const deCompras = impuestoDeCompras(datos.facturas, periodo);
+  soportado.interiorCorriente = {
+    base: redondear(soportado.interiorCorriente.base + deCompras.ordinarias.base),
+    cuota: redondear(soportado.interiorCorriente.cuota + deCompras.ordinarias.cuota),
+  };
+  soportado.totalSoportado = redondear(soportado.totalSoportado + deCompras.ordinarias.cuota + deCompras.rectificativas.cuota);
+  soportado.totalDeducible = redondear(soportado.totalDeducible + deCompras.ordinarias.cuota);
+  // [45] = [29] + … + [41]: la rectificación de deducciones (negativa) resta.
+  const cuotaDeducible = redondear(soportado.totalDeducible + deCompras.rectificativas.cuota);
 
   const resultadoRegimenGeneral = redondear(cuotaDevengada - cuotaDeducible);
 
@@ -87,7 +112,10 @@ export function calcularModelo303(datos: DatosModelo303, periodo: PeriodoFiscal)
     periodo,
     devengado,
     baseDevengada,
+    modificacion,
     cuotaDevengada,
+    rectificacionDeducciones: deCompras.rectificativas,
+    compras: deCompras.ordinarias,
     soportado,
     cuotaDeducible,
     resultadoRegimenGeneral,
@@ -95,7 +123,7 @@ export function calcularModelo303(datos: DatosModelo303, periodo: PeriodoFiscal)
     // [46]. Se deja como campo aparte porque es la casilla que de verdad
     // se ingresa o se devuelve, y para que se vea que son dos conceptos.
     resultadoLiquidacion: resultadoRegimenGeneral,
-    numFacturas: emitidas.length,
+    numFacturas: ventas.length + deCompras.numFacturas,
     numGastos: gastos.length,
   };
 }
@@ -349,9 +377,9 @@ export function pagina01_303(
     // Inversión del sujeto pasivo [12][13]
     [399, importe(s.inversionSujetoPasivo.base)],
     [416, importe(s.inversionSujetoPasivo.cuota)],
-    // Modificación de bases y cuotas [14][15]: el programa no registra
-    // rectificaciones separadas del devengo, van a cero.
-    [433, importe(0)], [450, importe(0)],
+    // Modificación de bases y cuotas [14][15]: las rectificativas de venta
+    // del periodo. Admiten negativo.
+    [433, importeFirmado(r.modificacion.base)], [450, importeFirmado(r.modificacion.cuota)],
     // Recargo de equivalencia [156-158], [168-170], [16]-[26]: la empresa
     // no está en recargo (no se registra), todo a cero.
     [467, importe(0)], [484, tipoPct(0)], [489, importe(0)],
@@ -370,7 +398,7 @@ export function pagina01_303(
     [815, importe(s.importacionInversion.base)], [832, importe(s.importacionInversion.cuota)], // [34][35]
     [849, importe(s.intracomunitariaCorriente.base)], [866, importe(s.intracomunitariaCorriente.cuota)], // [36][37]
     [883, importe(s.intracomunitariaInversion.base)], [900, importe(s.intracomunitariaInversion.cuota)], // [38][39]
-    [917, importe(0)], [934, importe(0)],   // [40][41] rectificación de deducciones
+    [917, importeFirmado(r.rectificacionDeducciones.base)], [934, importeFirmado(r.rectificacionDeducciones.cuota)], // [40][41] rectificación de deducciones
     [951, importe(0)],                       // [42] compensaciones REAGP
     [968, importe(0)],                       // [43] regularización de inversiones
     [985, importe(0)],                       // [44] regularización por prorrata definitiva
