@@ -11,7 +11,7 @@ import { ResponsiveTreeMap } from '@nivo/treemap';
 import { ResponsiveBar, type BarDatum, type BarCustomLayerProps } from '@nivo/bar';
 import { ResponsiveLine } from '@nivo/line';
 import { BarraVertical, Tip, TipRebanada, temaNivo, useGrafica } from './Charts';
-import { CELDA_VACIA, SECUENCIAL, SERIES, STATUS, compactEuro } from './theme';
+import { CELDA_VACIA, SERIES, STATUS, compactEuro, rampaSecuencial } from './theme';
 import { formatCurrency } from '@/lib/utils';
 import {
   DIAS_SEMANA, MESES_CORTOS, fechaLocal,
@@ -170,7 +170,7 @@ export function DiasConVentas({
       dayRadius={Math.min(3, celda / 4)}
       dayBorderWidth={0}
       emptyColor={CELDA_VACIA[modo]}
-      colors={[...SECUENCIAL[modo]]}
+      colors={rampaSecuencial(modo)}
       minValue={0}
       theme={temaNivo(ink)}
       tooltip={({ day, value, color }) => (
@@ -199,7 +199,7 @@ export function LeyendaRampa({ menos = 'Menos', mas = 'Más', vacio }: { menos?:
         </>
       )}
       <span>{menos}</span>
-      {SECUENCIAL[modo].map(c => <span key={c} className="leyenda-rampa-celda" style={{ background: c }} />)}
+      {rampaSecuencial(modo).map(c => <span key={c} className="leyenda-rampa-celda" style={{ background: c }} />)}
       <span>{mas}</span>
     </div>
   );
@@ -211,7 +211,7 @@ export function LeyendaRampa({ menos = 'Menos', mas = 'Más', vacio }: { menos?:
 
 export function MapaSemanal({ filas }: { filas: FilaSemana[] }) {
   const { ink, modo, reducido } = useGrafica();
-  const rampa = SECUENCIAL[modo];
+  const rampa = rampaSecuencial(modo);
   const max = Math.max(0, ...filas.flatMap(f => f.data.map(c => c.y ?? 0)));
 
   return (

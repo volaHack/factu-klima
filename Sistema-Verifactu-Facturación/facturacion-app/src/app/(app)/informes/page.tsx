@@ -7,7 +7,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import Rentabilidad from '@/components/informes/Rentabilidad';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, ChartLegend, AreaTrendChart, ComparisonBarChart } from '@/components/charts/Charts';
-import { SERIES, resolveAccent } from '@/components/charts/theme';
+import { SERIES, useColoresGrafica } from '@/components/charts/theme';
 import { getInvoices } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, getShortMonthName } from '@/lib/utils';
@@ -58,7 +58,7 @@ export default function InformesPage() {
   }, [invoices]);
 
   // El acento del tema activo, resuelto a hexadecimal para la leyenda.
-  const [accent] = useState(() => resolveAccent());
+  const { accent } = useColoresGrafica();
 
   // Category distribution
   const categoryDistribution = useMemo(() => {
@@ -209,8 +209,8 @@ export default function InformesPage() {
           legend={
             <ChartLegend
               items={[
-                { name: 'Base imponible total', value: formatCurrency(totalBase), color: '#b02a5c' },
-                { name: 'Cuota IVA total', value: formatCurrency(totalTax), color: '#3987e5' },
+                { name: 'Base imponible total', value: formatCurrency(totalBase), color: accent },
+                { name: 'Cuota IVA total', value: formatCurrency(totalTax), color: SERIES[0] },
               ]}
             />
           }

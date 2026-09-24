@@ -11,6 +11,7 @@ import { saveCompanySettings, saveUserProfile } from '@/lib/storage';
 import { BUSINESS_SECTORS, ACCENT_THEMES, PAYMENT_METHODS } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
 import SelectorSector from '@/components/ajustes/SelectorSector';
+import { aplicarAcento } from '@/lib/acento';
 
 interface OnboardingModalProps {
   settings: CompanySettings;
@@ -35,7 +36,7 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
   const updateField = (field: keyof CompanySettings, value: unknown) => {
     setSettings(prev => ({ ...prev, [field]: value }));
     if (field === 'accentTheme') {
-      document.body.className = `theme-${value}`;
+      aplicarAcento(String(value));
     }
   };
 

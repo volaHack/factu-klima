@@ -15,6 +15,7 @@ import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
 import { ManagementBar } from '@/components/animate-ui/components/community/management-bar';
 import { isPublicRoute } from '@/lib/publicRoutes';
+import { aplicarAcento } from '@/lib/acento';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 
 /**
@@ -69,9 +70,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       // Initial data load
       seedInitialData();
       getCompanySettings().then(stg => {
-        if (stg?.accentTheme) {
-          document.body.className = `theme-${stg.accentTheme}`;
-        }
+        aplicarAcento(stg?.accentTheme);
         setSettingsForOnboarding(stg);
       });
 

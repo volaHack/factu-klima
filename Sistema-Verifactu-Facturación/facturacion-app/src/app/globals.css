@@ -3105,7 +3105,7 @@ a:hover { color: var(--accent-300); }
 
 /* Pending */
 .network-bar--pending {
-  background: linear-gradient(90deg, rgba(176, 42, 92, 0.14) 0%, rgba(176, 42, 92, 0.05) 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-500) 14%, transparent) 0%, color-mix(in srgb, var(--accent-500) 5%, transparent) 100%);
   color: var(--accent-400);
 }
 
@@ -13985,4 +13985,45 @@ body.nav-abierta { overflow: hidden; }
 }
 @media (max-width: 340px) {
   .header-breadcrumb span { font-size: 12px; letter-spacing: -0.005em; }
+}
+
+/* ============================================================
+   ZOOM AL ENFOCAR UN CAMPO EN EL MÓVIL
+   ------------------------------------------------------------
+   Safari en iPhone/iPad amplía la página al enfocar cualquier campo con
+   letra de menos de 16 px, y al ampliar la desplaza de lado: la caja del
+   asistente (15 px) «daba un salto» al tocarla y dejaba la vista movida.
+   La regla de móvil que ya había sólo cubría input[type=text], number y
+   select; se quedaban fuera los textarea y los campos de email,
+   contraseña, búsqueda, teléfono o fecha.
+   Se aplica a cualquier pantalla táctil (no por anchura: un iPad en
+   horizontal mide más de 768 px y también amplía). No se desactiva el
+   zoom del usuario: quien necesite ampliar, sigue pudiendo.
+   ============================================================ */
+@media (hover: none) and (pointer: coarse) {
+  textarea,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+  .asis-campo {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================================
+   VARIABLES DERIVADAS DEL ACENTO: SE RESUELVEN EN <body>
+   ------------------------------------------------------------
+   `--color-primary`, `--border-color-focus` y `--shadow-glow` se
+   declaraban en :root como `var(--accent-500)`. Una variable que apunta a
+   otra se resuelve DONDE SE DECLARA: en :root, con el acento de :root, que
+   es el rosa. El acento de la empresa se pone después, en <body>
+   (theme-terracotta, theme-wine…), y esas tres llegaban ya resueltas en
+   rosa: Tesorería y otras siete pantallas pintaban en rosa, y el anillo
+   de foco de TODOS los campos también, eligieras el acento que eligieras.
+   Declararlas otra vez en <body> las resuelve con el acento de verdad,
+   en claro y en oscuro.
+   ============================================================ */
+body {
+  --color-primary: var(--accent-500);
+  --border-color-focus: var(--accent-500);
+  --shadow-glow: 0 0 20px var(--accent-glow);
 }

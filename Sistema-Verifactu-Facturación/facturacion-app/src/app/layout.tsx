@@ -5,6 +5,7 @@ import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import { ToastProvider } from '@/hooks/useToast';
 import Script from 'next/script';
 import { GUION_ANTI_FOGONAZO } from '@/lib/tema';
+import { GUION_ACENTO } from '@/lib/acento';
 
 export const metadata: Metadata = {
   title: {
@@ -58,7 +59,12 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: GUION_ANTI_FOGONAZO }}
         />
       </head>
-      <body>
+      {/* suppressHydrationWarning: el guion de abajo pone la clase del
+          acento antes de que React hidrate, igual que data-theme en <html>. */}
+      <body suppressHydrationWarning>
+        {/* El acento de la empresa antes del primer pintado: sin esto cada
+            carga salía en rosa y saltaba a su color medio segundo después. */}
+        <script dangerouslySetInnerHTML={{ __html: GUION_ACENTO }} />
         <ToastProvider>
           <AuthWrapper>{children}</AuthWrapper>
         </ToastProvider>

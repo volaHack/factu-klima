@@ -11,7 +11,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RevenueColumns, StatusDonut, ChartLegend, RankedBars, ComparisonBarChart } from '@/components/charts/Charts';
-import { INVOICE_STATUS_COLOR, CHART_ACCENT, SERIES, modoGrafica } from '@/components/charts/theme';
+import { INVOICE_STATUS_COLOR, SERIES, useColoresGrafica } from '@/components/charts/theme';
 import { facturadoYCobrado, formasDePago } from '@/lib/analitica';
 import { getInvoices, getClients, getCompanySettings, getProducts, getOnboardingStatus, completeOnboarding } from '@/lib/storage';
 import { Invoice, InvoiceStatus, Client, CompanySettings, Product } from '@/lib/types';
@@ -218,7 +218,7 @@ export default function DashboardPage() {
     })),
     [invoices],
   );
-  const [acentoGrafica] = useState(() => CHART_ACCENT[modoGrafica()]);
+  const { accent: acentoGrafica } = useColoresGrafica();
 
   /**
    * «Cómo te pagan» va en la columna que quede más corta.

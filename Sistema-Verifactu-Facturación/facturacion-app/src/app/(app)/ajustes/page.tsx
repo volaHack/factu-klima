@@ -21,6 +21,7 @@ import EditorPanel from '@/components/ajustes/EditorPanel';
 import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
+import { aplicarAcento } from '@/lib/acento';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
    sin que el informático tenga que tocar el código. Se guarda en
@@ -219,7 +220,7 @@ export default function AjustesPage() {
   // React en un efecto en vez de mutar el DOM directamente en el handler.
   useEffect(() => {
     if (settings?.accentTheme) {
-      document.body.className = `theme-${settings.accentTheme}`;
+      aplicarAcento(settings.accentTheme);
     }
   }, [settings?.accentTheme]);
 

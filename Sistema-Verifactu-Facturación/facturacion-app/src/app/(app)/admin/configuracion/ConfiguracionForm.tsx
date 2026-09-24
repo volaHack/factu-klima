@@ -130,7 +130,7 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
       {/* Tarjeta 0: Alta en Hacienda — desde cuándo se facturan los cobros */}
       <div className="apple-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1rem' }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(176, 42, 92, 0.12)', color: 'var(--accent-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Landmark size={18} />
           </div>
           <div>
