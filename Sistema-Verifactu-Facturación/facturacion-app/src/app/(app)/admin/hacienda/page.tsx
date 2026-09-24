@@ -309,7 +309,7 @@ export default async function AdminHacienda() {
             <span>Veri*Factu en Cola</span>
             <ShieldCheck size={16} className={vfPendientes.length > 0 ? 'text-rose-500' : 'text-emerald-500'} />
           </div>
-          <div className="analytics-hero-value" style={{ color: vfPendientes.length > 0 ? '#e11d48' : 'inherit' }}>
+          <div className="analytics-hero-value" style={{ color: vfPendientes.length > 0 ? 'var(--color-danger)' : 'inherit' }}>
             {vfPendientes.length}
           </div>
           <div className="analytics-hero-sub">

@@ -42,6 +42,8 @@ import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import ToastContainer from '@/components/ui/ToastContainer';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
+import ChipPerfil from '@/components/perfiles/ChipPerfil';
+import { usePerfiles } from '@/lib/perfilesCliente';
 
 const HELD_SALES_KEY = 'tpv-held-sales';
 
@@ -59,6 +61,7 @@ function persistHeldSales(sales: PosHeldSale[]) {
 }
 
 export default function TpvPage() {
+  const { activo: perfilTpv } = usePerfiles();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -785,11 +788,14 @@ export default function TpvPage() {
 
       <header className="tpv-topbar">
         <div className="tpv-topbar-izq" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-          {!isTpvKiosk && (
+          {/* Un cajero no tiene adónde salir: su perfil sólo ve el TPV. */}
+          {!isTpvKiosk && perfilTpv?.rol !== 'cajero' && (
             <Link href="/dashboard" className="tpv-back-link">
               <ArrowLeft size={18} /> Salir del TPV
             </Link>
           )}
+          {/* Quién cobra: a la vista, y desde aquí se cambia de cajero. */}
+          <ChipPerfil directo />
           {/* La ayuda va la primera de la barra y con su propio color: es
               el botón que se busca cuando algo no se sabe hacer, y buscarlo
               entre seis botones grises es justo lo que no se puede pedir

@@ -11,7 +11,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
-import { resolveAccent } from '@/components/charts/theme';
+import { useColoresGrafica } from '@/components/charts/theme';
 import {
   getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
   getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings,
@@ -339,7 +339,7 @@ export default function ProductosPage() {
   };
 
   // Datos de la analítica, con su vista en tabla
-  const accent = useMemo(() => resolveAccent(), []);
+  const { accent } = useColoresGrafica();
 
   const categoryDistributionData = useMemo(() => {
     const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'];

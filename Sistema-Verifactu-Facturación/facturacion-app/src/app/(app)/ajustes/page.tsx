@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/lib/storage';
 import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
 import AccesoGestoria from '@/components/ajustes/AccesoGestoria';
+import EquipoPerfiles from '@/components/ajustes/EquipoPerfiles';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -21,6 +22,7 @@ import EditorPanel from '@/components/ajustes/EditorPanel';
 import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
+import { aplicarAcento } from '@/lib/acento';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
    sin que el informático tenga que tocar el código. Se guarda en
@@ -219,7 +221,7 @@ export default function AjustesPage() {
   // React en un efecto en vez de mutar el DOM directamente en el handler.
   useEffect(() => {
     if (settings?.accentTheme) {
-      document.body.className = `theme-${settings.accentTheme}`;
+      aplicarAcento(settings.accentTheme);
     }
   }, [settings?.accentTheme]);
 
@@ -1126,6 +1128,15 @@ export default function AjustesPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Quién trabaja en el negocio: perfiles de titular, empleado y cajero. */}
+      <div className="settings-section" id="equipo">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <UsersRound size={18} />
+          <h2 className="settings-section-title">Equipo</h2>
+        </div>
+        <EquipoPerfiles />
       </div>
 
       {/* Justo antes de «tus datos son tuyos» a propósito: las dos

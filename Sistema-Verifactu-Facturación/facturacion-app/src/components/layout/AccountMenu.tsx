@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun, Users } from 'lucide-react';
 import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } from '@/lib/tema';
+import { cerrarPerfil, pedirCambioDePerfil, usePerfiles } from '@/lib/perfilesCliente';
+import { iniciales as inicialesPerfil, nombreRol } from '@/lib/perfiles';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
@@ -31,6 +33,10 @@ export interface PlanDeCuenta {
  */
 export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTip?: () => void } = {}) {
   const temaActual = useSyncExternalStore(suscribirseAlTema, leerTemaEfectivo, leerTemaEnServidor);
+  // Perfil de trabajo: su avatar en el botón, y los ajustes y el plan sólo
+  // para el titular (o para todos si la cuenta no usa perfiles).
+  const { activo: perfilActivo } = usePerfiles();
+  const esTitular = !perfilActivo || perfilActivo.rol === 'titular';
   const [open, setOpen] = useState(false);
   const [cerrando, setCerrando] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -176,7 +182,16 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="account-avatar">
+        {/* Con perfiles de trabajo, el avatar es el de quien trabaja ahora. */}
+        {/* En el móvil no cabe el chip del perfil: el avatar pasa a ser el
+            de quien trabaja. En escritorio el chip ya lo dice y aquí sigue
+            el de la cuenta, para no repetir las mismas iniciales dos veces. */}
+        {perfilActivo && (
+          <span className="account-avatar account-avatar--perfil" style={{ background: perfilActivo.color }} title={`Trabajando: ${perfilActivo.nombre}`}>
+            {inicialesPerfil(perfilActivo.nombre)}
+          </span>
+        )}
+        <span className={`account-avatar ${perfilActivo ? 'account-avatar--cuenta' : ''}`}>
           {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : initials}
         </span>
         {displayName && <span className="account-trigger-name">{displayName}</span>}
@@ -229,7 +244,27 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
             </div>
           ) : (
             <div className="account-dropdown-body">
-              {plan && (
+              {perfilActivo && (
+                <div className="account-dropdown-perfil">
+                  <span className="account-avatar" style={{ background: perfilActivo.color }}>{inicialesPerfil(perfilActivo.nombre)}</span>
+                  <span className="account-dropdown-perfil-texto">
+                    <small>Trabajando ahora</small>
+                    <strong>{perfilActivo.nombre} · {nombreRol(perfilActivo.rol)}</strong>
+                  </span>
+                </div>
+              )}
+              {perfilActivo && (
+                <>
+                  <button className="account-dropdown-item" onClick={() => { setOpen(false); pedirCambioDePerfil(); }}>
+                    <Users size={16} /> Cambiar de perfil
+                  </button>
+                  <button className="account-dropdown-item" onClick={() => { setOpen(false); cerrarPerfil(); }}>
+                    <Lock size={16} /> Cerrar mi perfil
+                  </button>
+                  <div className="account-dropdown-divider" />
+                </>
+              )}
+              {plan && esTitular && (
                 <Link
                   href="/precios"
                   className={`account-dropdown-plan ${!plan.activo ? 'is-inactivo' : plan.id === 'sin_limite' ? 'is-top' : ''}`}
@@ -250,14 +285,16 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
               <button className="account-dropdown-item" onClick={() => setEditing(true)}>
                 <User size={16} /> Editar perfil
               </button>
-              {esAdmin && (
+              {esAdmin && esTitular && (
                 <Link href="/admin" className="account-dropdown-item" onClick={() => setOpen(false)}>
                   <Shield size={16} /> Administración
                 </Link>
               )}
-              <Link href="/ajustes" className="account-dropdown-item" onClick={() => setOpen(false)}>
-                <Settings size={16} /> Ajustes de la empresa
-              </Link>
+              {esTitular && (
+                <Link href="/ajustes" className="account-dropdown-item" onClick={() => setOpen(false)}>
+                  <Settings size={16} /> Ajustes de la empresa
+                </Link>
+              )}
               {/* En el móvil el interruptor de tema sale de la cabecera para
                   dejarle sitio al título de la pantalla, y vive aquí. */}
               <button

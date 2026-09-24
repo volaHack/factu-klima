@@ -118,7 +118,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
           backgroundColor: 'var(--bg-secondary, #1a161f)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           borderRadius: '24px',
-          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 50px rgba(201, 64, 122, 0.22)',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 50px var(--accent-glow)',
           overflow: 'hidden',
           animation: 'modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           position: 'relative',
@@ -131,7 +131,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
           style={{
             position: 'relative',
             padding: '24px 24px 20px',
-            background: 'linear-gradient(135deg, #b02a5c 0%, #7c1a3e 50%, #4a1024 100%)',
+            background: 'linear-gradient(135deg, var(--accent-500) 0%, var(--accent-700) 50%, var(--accent-800) 100%)',
             color: '#ffffff',
             flexShrink: 0,
           }}
@@ -257,15 +257,15 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
                       padding: '10px 14px',
                       borderRadius: '14px',
                       backgroundColor: isSelected
-                        ? 'var(--accent-50, rgba(201, 64, 122, 0.16))'
+                        ? 'var(--accent-glow)'
                         : 'var(--bg-tertiary, rgba(255, 255, 255, 0.05))',
                       border: isSelected
-                        ? '2px solid var(--color-primary, #b02a5c)'
+                        ? '2px solid var(--accent-500)'
                         : '1px solid rgba(255, 255, 255, 0.1)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.15s ease',
-                      boxShadow: isSelected ? '0 0 16px rgba(201, 64, 122, 0.28)' : 'none',
+                      boxShadow: isSelected ? '0 0 16px var(--accent-glow)' : 'none',
                     }}
                   >
                     <span style={{ fontSize: '1.4rem' }}>{preset.emoji}</span>
@@ -274,7 +274,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
                         style={{
                           fontWeight: 800,
                           fontSize: '1.05rem',
-                          color: isSelected ? 'var(--color-primary, #e11d48)' : 'var(--text-primary, #f3f4f6)',
+                          color: isSelected ? 'var(--accent-500)' : 'var(--text-primary)',
                           lineHeight: 1.1,
                         }}
                       >
@@ -307,7 +307,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'var(--color-primary, #e11d48)',
+                color: 'var(--accent-500)',
                 fontSize: '0.82rem',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -418,8 +418,8 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               justifyContent: 'center',
               gap: '8px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, #b02a5c 0%, #851e44 100%)',
-              boxShadow: '0 8px 20px -4px rgba(176, 42, 92, 0.5)',
+              background: 'var(--accent-gradient)',
+              boxShadow: '0 8px 20px -4px var(--accent-glow)',
               border: 'none',
               cursor: loading || currentAmount < 1 ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease',

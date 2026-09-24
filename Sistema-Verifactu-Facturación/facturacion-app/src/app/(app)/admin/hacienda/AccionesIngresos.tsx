@@ -65,7 +65,7 @@ export default function AccionesIngresos({
         </button>
       )}
       {mensaje && (
-        <span role="status" style={{ fontSize: '0.8125rem', fontWeight: 600, color: mensaje.ok ? '#059669' : '#e11d48' }}>
+        <span role="status" style={{ fontSize: '0.8125rem', fontWeight: 600, color: mensaje.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>
           {mensaje.texto}
         </span>
       )}

@@ -12,7 +12,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { ComparisonBarChart, StatusDonut, ChartLegend } from '@/components/charts/Charts';
-import { INVOICE_STATUS_COLOR } from '@/components/charts/theme';
+import { INVOICE_STATUS_COLOR, SERIES, useColoresGrafica } from '@/components/charts/theme';
 import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
@@ -25,6 +25,8 @@ import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
 export default function FacturasPage() {
+  // El mismo acento con el que se pintan las barras: el de la empresa.
+  const { accent: acentoGrafica } = useColoresGrafica();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [deleteTargetInvoice, setDeleteTargetInvoice] = useState<Invoice | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -463,8 +465,8 @@ export default function FacturasPage() {
             legend={
               <ChartLegend
                 items={[
-                  { name: 'Facturas Ordinarias', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series1, 0)), color: '#b02a5c' },
-                  { name: 'Tickets TPV', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series2, 0)), color: '#3987e5' },
+                  { name: 'Facturas Ordinarias', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series1, 0)), color: acentoGrafica },
+                  { name: 'Tickets TPV', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series2, 0)), color: SERIES[0] },
                 ]}
               />
             }

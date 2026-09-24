@@ -7,7 +7,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
-import { resolveAccent, SERIES } from '@/components/charts/theme';
+import { useColoresGrafica, SERIES } from '@/components/charts/theme';
 import { getClients, saveClient as persistClient, deleteClient as removeClient, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
 import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
@@ -158,7 +158,7 @@ export default function ClientesPage() {
   };
 
   // Datos de la analítica
-  const accent = useMemo(() => resolveAccent(), []);
+  const { accent } = useColoresGrafica();
 
   const topClientsData = useMemo(() => {
     return clients

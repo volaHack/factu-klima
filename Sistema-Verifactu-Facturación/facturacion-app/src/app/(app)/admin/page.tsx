@@ -159,14 +159,14 @@ export default async function AdminResumen() {
         <div className="analytics-hero-card">
           <div className="analytics-hero-label">
             <span>Movimiento Este Mes</span>
-            <div style={{ padding: '4px', borderRadius: '50%', background: 'rgba(244, 63, 94, 0.1)', color: '#e11d48' }}>
+            <div style={{ padding: '4px', borderRadius: '50%', background: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
               <Activity size={16} />
             </div>
           </div>
           <div className="analytics-hero-value" style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
             <span style={{ color: '#059669' }}>+{r.altasMes}</span>
             <span style={{ fontSize: '1.25rem', color: 'var(--text-tertiary)' }}>/</span>
-            <span style={{ color: r.bajasMes > 0 ? '#e11d48' : 'var(--text-secondary)' }}>-{r.bajasMes}</span>
+            <span style={{ color: r.bajasMes > 0 ? 'var(--color-danger)' : 'var(--text-secondary)' }}>-{r.bajasMes}</span>
           </div>
           <div className="analytics-hero-sub">
             <span>Tasa de churn: {tasaBajas.toFixed(1)}%</span>

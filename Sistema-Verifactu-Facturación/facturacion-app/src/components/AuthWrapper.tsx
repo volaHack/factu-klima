@@ -15,6 +15,10 @@ import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
 import { CompanySettings } from '@/lib/types';
 import { ManagementBar } from '@/components/animate-ui/components/community/management-bar';
 import { isPublicRoute } from '@/lib/publicRoutes';
+import { aplicarAcento } from '@/lib/acento';
+import ControlPerfiles, { SinAcceso } from '@/components/perfiles/ControlPerfiles';
+import { usePerfiles } from '@/lib/perfilesCliente';
+import { puedeEntrar } from '@/lib/perfiles';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 
 /**
@@ -41,6 +45,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { toasts, removeToast } = useToast();
 
   const isPublic = isPublicRoute(pathname);
+  // Perfil de trabajo activo en este equipo: si su rol no llega a esta
+  // pantalla, se enseña el aviso en su lugar (ver lib/perfiles.ts).
+  const { enUso: perfilesEnUso, activo: perfilActivo } = usePerfiles();
+  const sinAcceso = !isPublic && perfilesEnUso && perfilActivo && !puedeEntrar(perfilActivo.rol, pathname)
+    ? perfilActivo : null;
   const isFullScreen = FULLSCREEN_ROUTES.some(r => pathname.startsWith(r));
 
   useEffect(() => {
@@ -69,9 +78,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       // Initial data load
       seedInitialData();
       getCompanySettings().then(stg => {
-        if (stg?.accentTheme) {
-          document.body.className = `theme-${stg.accentTheme}`;
-        }
+        aplicarAcento(stg?.accentTheme);
         setSettingsForOnboarding(stg);
       });
 
@@ -136,7 +143,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // Tampoco se monta aquí ToastContainer: la página del TPV ya monta el suyo
   // sobre el mismo contexto, y con los dos salían los avisos duplicados.
   if (isFullScreen) {
-    return <>{children}</>;
+    return (
+      <>
+        {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
+        <ControlPerfiles />
+      </>
+    );
   }
 
   return (
@@ -154,12 +166,13 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         <NetworkStatusBar />
         <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCmdOpen(true)} menuButtonRef={menuButtonRef} />
         <main className="app-content animate-fade-in">
-          {children}
+          {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
         </main>
       </div>
       <MobileNav />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <ControlPerfiles />
       <ManagementBar />
       {showOnboarding && settingsForOnboarding && (
         <OnboardingModal

@@ -5,7 +5,7 @@ import { ResponsiveBar, type BarDatum, type BarItemProps, type BarCustomLayerPro
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsivePie } from '@nivo/pie';
 import {
-  SERIES, compactEuro, modoGrafica, resolveAccent, resolveInk,
+  SERIES, compactEuro, useColoresGrafica,
   type TintaGrafica,
 } from './theme';
 import { formatCurrency } from '@/lib/utils';
@@ -31,18 +31,13 @@ import { formatCurrency } from '@/lib/utils';
  * valor está listo en el primer render y no hace falta un segundo.
  */
 export function useGrafica() {
-  const [valores] = useState(() => {
-    const modo = modoGrafica();
-    return {
-      modo,
-      accent: resolveAccent(),
-      ink: resolveInk(modo),
-      reducido:
-        typeof window !== 'undefined' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    };
-  });
-  return valores;
+  // Acento y modo en vivo: cambian si la empresa elige otro acento o pasa
+  // a modo oscuro con la gráfica en pantalla (ver useColoresGrafica).
+  const { modo, accent, ink } = useColoresGrafica();
+  const [reducido] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  return { modo, accent, ink, reducido };
 }
 
 /** Cromo del gráfico: ejes finos, cuadrícula de un paso sobre el fondo. */

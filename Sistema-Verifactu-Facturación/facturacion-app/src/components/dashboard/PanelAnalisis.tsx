@@ -9,7 +9,7 @@ import {
   AcumuladoLineas, CategoriasTreemap, CobroWaffle, COLORES_COBRO, DeudaColumnas, DiasConVentas, LeyendaRampa,
   MapaSemanal, PuntualidadScatter, RankingBump, RitmoBullet,
 } from '@/components/charts/ChartsAnalisis';
-import { CHART_ACCENT, SERIES, modoGrafica } from '@/components/charts/theme';
+import { SERIES, useColoresGrafica } from '@/components/charts/theme';
 import {
   acumuladoDelAnio, antiguedadDeuda, cifrasAnalisis, estadoCobro, mapaSemanal, puntualidadClientes,
   rankingClientes, ritmoDelMes, ventasPorCategoria, ventasPorDia,
@@ -115,7 +115,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
   const ranking = useMemo(() => rankingClientes(invoices, hoy, 6, 5), [invoices, hoy]);
   const arbol = useMemo(() => ventasPorCategoria(invoices, products, hoy), [invoices, products, hoy]);
 
-  const [acento] = useState(() => CHART_ACCENT[modoGrafica()]);
+  const { accent: acento } = useColoresGrafica();
   const hayVentas = cifras.facturas > 0;
   const deudaTotal = deuda.reduce((s, t) => s + t.importe, 0);
   const categorias = arbol.children ?? [];

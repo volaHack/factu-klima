@@ -13,6 +13,7 @@ import { getPlan } from '@/lib/plans';
 import { tituloDePagina } from '@/lib/titulos';
 import AccountMenu from './AccountMenu';
 import BotonTema from './BotonTema';
+import ChipPerfil from '@/components/perfiles/ChipPerfil';
 import NotificationsPopover from './NotificationsPopover';
 
 interface HeaderProps {
@@ -160,6 +161,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           <span>Tip ☕</span>
         </button>
 
+        <ChipPerfil />
         <BotonTema />
         <AccountMenu
           plan={{ nombre: isSubActive ? planName : 'Sin suscripción', id: planId, activo: isSubActive }}

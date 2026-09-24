@@ -1,5 +1,8 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
+import { acentoActual, suscribirseAlAcento, type Acento } from '@/lib/acento';
+
 // ============================================================
 // TOKENS DE VISUALIZACIÓN DE DATOS
 //
@@ -49,25 +52,40 @@ export const STATUS = {
 } as const;
 
 /**
- * EL VINO DE LA CASA, EN VERSIÓN GRÁFICA
+ * EL ACENTO DE CADA EMPRESA, EN VERSIÓN GRÁFICA
  *
- * El acento del tema NO sirve como color de serie. Se probó: en modo
- * oscuro `--accent-500` vale #7a2436 en los temas de sector, que da
- * luminosidad 0.399 (fuera de la banda 0.48–0.67) y 1.79:1 de
- * contraste sobre la tarjeta — una barra que casi no se ve. Y el
- * #e87fa6 del tema oscuro general se va por el otro lado (L 0.78).
+ * Cada empresa elige su acento en Ajustes (rosa, vino, terracota o
+ * ciruela) y la interfaz entera lo toma… salvo las gráficas, que iban
+ * siempre en rosa: se cambiaba a terracota y los botones cambiaban,
+ * pero las barras del panel no.
  *
- * Así que el gráfico lleva su propio paso de vino por modo, validado
- * contra su superficie y contra el azul con el que convive:
- *   claro  #b02a5c → L 0.47, contraste 5.3:1, ΔE 29.3 frente al azul
- *   oscuro #c9407a → L 0.58, contraste 3.6:1, ΔE 17.7 frente al azul
- * Sigue siendo el vino de la marca; es el mismo tono, en el paso que
- * la superficie admite.
+ * El `--accent-500` del tema no sirve tal cual como color de serie (en
+ * oscuro se va a luminosidades de 0.7–0.78, fuera de la banda 0.48–0.67
+ * en la que una barra se lee bien junto al azul). Así que cada acento
+ * lleva su paso de gráfica por modo, VALIDADO con el script de la guía
+ * de visualización contra su superficie (#fbf6f2 / #211619) y contra el
+ * azul de SERIES con el que convive. Los ocho pasan todo:
+ *   rosa      claro #b02a5c · oscuro #c9407a
+ *   vino      claro #8f2e46 · oscuro #c25a70
+ *   terracota claro #b04d2b · oscuro #c9683d
+ *   ciruela   claro #8e4569 · oscuro #b0529a
  */
-export const CHART_ACCENT = {
-  claro: '#b02a5c',
-  oscuro: '#c9407a',
-} as const;
+export type TemaAcento = Acento;
+
+export const ACENTO_GRAFICA: Record<TemaAcento, { claro: string; oscuro: string }> = {
+  rose: { claro: '#b02a5c', oscuro: '#c9407a' },
+  wine: { claro: '#8f2e46', oscuro: '#c25a70' },
+  terracotta: { claro: '#b04d2b', oscuro: '#c9683d' },
+  plum: { claro: '#8e4569', oscuro: '#b0529a' },
+};
+
+/** Compatibilidad: el acento rosa, que es el de por defecto. */
+export const CHART_ACCENT = ACENTO_GRAFICA.rose;
+
+/** El acento que ha elegido la empresa (ver lib/acento.ts). */
+export function temaAcento(): TemaAcento {
+  return acentoActual();
+}
 
 export type ModoGrafica = 'claro' | 'oscuro';
 
@@ -81,15 +99,13 @@ export function modoGrafica(): ModoGrafica {
 }
 
 /**
- * El acento con el que se pinta una serie.
- *
- * Se llama igual que antes porque lo usan varias páginas, pero ya no
- * lee `--accent-500`: devuelve el paso validado del modo activo (ver
- * CHART_ACCENT). El `fallback` se respeta sólo en servidor.
+ * El acento con el que se pinta una serie: el de la empresa, en el paso
+ * validado para el modo activo (ver ACENTO_GRAFICA). El `fallback` se
+ * respeta sólo en servidor.
  */
-export function resolveAccent(fallback = CHART_ACCENT.claro): string {
+export function resolveAccent(fallback: string = ACENTO_GRAFICA.rose.claro): string {
   if (typeof window === 'undefined') return fallback;
-  return CHART_ACCENT[modoGrafica()];
+  return ACENTO_GRAFICA[temaAcento()][modoGrafica()];
 }
 
 /** Colores por estado de factura. */
@@ -157,18 +173,40 @@ export function compactEuro(value: number): string {
   return String(Math.round(value));
 }
 
+/** Mezcla dos colores #rrggbb: t = 0 da `a`, t = 1 da `b`. */
+export function mezclar(a: string, b: string, t: number): string {
+  const ca = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const cb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  return '#' + ca.map((v, i) => Math.round(v + (cb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * RAMPA SECUENCIAL — magnitud en un solo tono, de claro a oscuro
  *
- * Para mapas de calor y la rejilla de días: más oscuro es más. Es el vino
- * de la casa en cinco pasos, uno por modo, porque en oscuro el orden se
- * invierte: lo que se acerca a «nada» se funde con la tarjeta, que allí
- * es casi negra. El paso 4 de cada rampa es el acento validado de
- * CHART_ACCENT, así que el tono fuerte coincide con el de las barras.
+ * Para mapas de calor y la rejilla de días: más intenso es más. Se genera
+ * a partir del acento de la empresa, así que sigue al tema igual que las
+ * barras: cuatro pasos que van de la superficie de la tarjeta al acento
+ * validado, y un quinto más allá (más oscuro en claro, más luminoso en
+ * oscuro, porque allí «nada» es casi negro y el orden se invierte).
+ * El cuarto paso ES el color de las barras.
  */
+export function rampaSecuencial(modo: ModoGrafica = modoGrafica(), tema: TemaAcento = temaAcento()): string[] {
+  const acento = ACENTO_GRAFICA[tema][modo];
+  const superficie = modo === 'oscuro' ? '#211619' : '#fbf6f2';
+  const extremo = modo === 'oscuro' ? mezclar(acento, '#ffffff', 0.38) : mezclar(acento, '#000000', 0.32);
+  return [
+    mezclar(superficie, acento, modo === 'oscuro' ? 0.28 : 0.2),
+    mezclar(superficie, acento, modo === 'oscuro' ? 0.48 : 0.42),
+    mezclar(superficie, acento, 0.7),
+    acento,
+    extremo,
+  ];
+}
+
+/** Compatibilidad: la rampa del acento rosa. */
 export const SECUENCIAL: Record<ModoGrafica, readonly string[]> = {
-  claro: ['#f2d9e2', '#e3a9bf', '#cf7298', '#b02a5c', '#7a1a3f'],
-  oscuro: ['#4a2231', '#74304b', '#a13a66', '#c9407a', '#ef8db4'],
+  claro: rampaSecuencial('claro', 'rose'),
+  oscuro: rampaSecuencial('oscuro', 'rose'),
 };
 
 /** Celda sin dato: un paso sobre la tarjeta, que se vea el hueco sin gritar. */
@@ -176,3 +214,28 @@ export const CELDA_VACIA: Record<ModoGrafica, string> = {
   claro: '#f0e6e1',
   oscuro: '#2d2024',
 };
+
+/**
+ * LOS COLORES DE LA GRÁFICA, EN VIVO
+ *
+ * Las gráficas leían el acento y el modo una sola vez, al montarse: si la
+ * empresa cambiaba de acento en Ajustes o se pasaba a modo oscuro, las
+ * barras se quedaban con el color de antes hasta recargar. Aquí se
+ * escuchan los dos —la clase del acento en <body> y `data-theme` en
+ * <html>— y la gráfica se repinta sola.
+ */
+function suscribirseAColores(alCambiar: () => void): () => void {
+  if (typeof MutationObserver === 'undefined') return () => {};
+  const html = new MutationObserver(alCambiar);
+  html.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  const quitarAcento = suscribirseAlAcento(alCambiar);
+  return () => { html.disconnect(); quitarAcento(); };
+}
+const instantaneaColores = () => `${temaAcento()}|${modoGrafica()}`;
+const instantaneaServidor = () => 'rose|claro';
+
+export function useColoresGrafica() {
+  const clave = useSyncExternalStore(suscribirseAColores, instantaneaColores, instantaneaServidor);
+  const [tema, modo] = clave.split('|') as [TemaAcento, ModoGrafica];
+  return { tema, modo, accent: ACENTO_GRAFICA[tema][modo], ink: resolveInk(modo) };
+}
