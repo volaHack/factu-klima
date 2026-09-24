@@ -37,6 +37,7 @@ import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateIn
 import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
 import { registrarActividad } from './perfilesCliente';
+import { totalAPagar } from './retenciones';
 
 function supabase() {
   return createClient();
@@ -4360,7 +4361,9 @@ export async function saveCobroPago(cobroPago: CobroPago): Promise<CobroPago> {
 
     const currentPaid = inv.paidAmount || 0;
     const newPaid = Number((currentPaid + item.importeAplicado).toFixed(2));
-    const isTotal = newPaid >= (inv.total - 0.01);
+    // Con retención de IRPF lo que llega es el total menos lo retenido: eso
+    // ya es la factura cobrada entera.
+    const isTotal = newPaid >= (totalAPagar(inv.total, inv.subtotal, inv.retencionPct) - 0.01);
     const newStatus = isTotal
       ? InvoiceStatus.PAGADA
       : (newPaid > 0 ? InvoiceStatus.PARCIAL : inv.status);
@@ -4395,7 +4398,7 @@ export async function deleteCobroPago(id: string): Promise<void> {
     if (!inv) continue;
 
     const newPaid = Math.max(0, Number(((inv.paidAmount || 0) - item.importeAplicado).toFixed(2)));
-    const newStatus = newPaid >= (inv.total - 0.01)
+    const newStatus = newPaid >= (totalAPagar(inv.total, inv.subtotal, inv.retencionPct) - 0.01)
       ? InvoiceStatus.PAGADA
       : (newPaid > 0 ? InvoiceStatus.PARCIAL : InvoiceStatus.EMITIDA);
 

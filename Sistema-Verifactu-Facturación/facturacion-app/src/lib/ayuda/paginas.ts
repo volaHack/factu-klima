@@ -408,7 +408,24 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
       'Filtra por cliente para ver toda su deuda de un vistazo.',
     ],
     saber: ['Marcar una factura como cobrada aquí es lo que hace que deje de contar como pendiente en el panel de inicio.'],
-    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
+    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }, { ruta: '/conciliacion', texto: 'Conciliación bancaria' }],
+  },
+  {
+    ruta: '/conciliacion',
+    titulo: 'Conciliación bancaria',
+    paraQue: 'Casar los movimientos del banco con las facturas y los gastos, sin ir uno por uno.',
+    pasos: [
+      'Descarga el extracto en la banca online, mejor en Norma 43 (Cuaderno 43). Si no, en CSV.',
+      'Súbelo aquí: cada movimiento sale con la factura o el gasto que le corresponde.',
+      'Confirma de golpe los que están claros y revisa el resto uno a uno.',
+      'Los cargos sin pareja se apuntan como gasto desde la misma lista.',
+    ],
+    saber: [
+      'Confirmar crea el cobro o el pago en Tesorería: la factura queda pagada y la contabilidad lleva su asiento contra bancos.',
+      'Si vuelves a subir el mismo extracto, lo ya conciliado sale como tal. No se duplica nada.',
+      'El fichero se lee en el navegador; no se guarda en ningún servidor.',
+    ],
+    relacionadas: [{ ruta: '/tesoreria', texto: 'Tesorería' }, { ruta: '/gastos', texto: 'Gastos' }],
   },
   {
     ruta: '/gastos',
