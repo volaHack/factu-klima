@@ -14563,3 +14563,21 @@ body {
 .apunte-libre > .btn { align-self: flex-start; }
 .apunte-previa { margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-tertiary); display: flex; flex-direction: column; gap: 4px; }
 .apunte-problema { margin: var(--space-2) 0 0; color: var(--color-danger); font-size: var(--text-sm); }
+
+/* Panel de inicio a gusto de cada uno (ver lib/panel.ts, `colocar`). */
+.panel-bloque { margin-top: var(--space-4); }
+.panel-cifra-enlace { display: block; color: inherit; text-decoration: none; }
+.panel-cifra-enlace .kpi-card { height: 100%; transition: border-color var(--transition-fast, .15s); }
+.panel-cifra-enlace:hover .kpi-card { border-color: var(--accent-500); }
+.ficha-vacia { margin: 0; padding: var(--space-2) 0; font-size: var(--text-sm); color: var(--text-muted); }
+.ficha-valor { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; color: var(--text-primary); }
+.ficha-valor.is-aviso { color: var(--color-warning); }
+.ficha-valor.is-peligro { color: var(--color-danger); }
+.ficha-mas { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--text-muted); }
+@media (max-width: 1024px) {
+  .panel-pareja { display: flex; flex-direction: column; gap: var(--space-4); }
+  .panel-pareja > .stack { display: contents; }
+}
+/* Una tabla ancha (Últimas facturas) no puede ensanchar la columna: se
+   desplaza dentro de su tarjeta. */
+.panel-pareja > .stack, .panel-pareja > .stack > * { min-width: 0; max-width: 100%; }
