@@ -35,6 +35,8 @@ interface FakeChain {
   eq: () => FakeChain;
   in: () => FakeChain;
   order: () => FakeChain;
+  limit: () => FakeChain;
+  maybeSingle: () => Promise<{ data: Row | null; error: null }>;
   is: () => FakeChain;
   not: () => FakeChain;
   single: () => Promise<{ data: Row | null; error: null }>;
@@ -44,7 +46,14 @@ interface FakeChain {
   then: (resolve: (v: ChainResult) => unknown) => unknown;
 }
 
+/** Lo que la emisión exige de quien emite: NIF bueno, nombre y domicilio. */
+const AJUSTES_EMPRESA: Row = {
+  user_id: 'u1', business_name: 'Emisora Test S.A.', nif: 'A12345674', address: 'Calle Mayor 1', city: 'Madrid',
+  invoice_series: 'FAC', next_invoice_number: 1,
+};
+
 function makeSupabase(store: Store) {
+  store.company_settings ??= [AJUSTES_EMPRESA];
   const chain = (table: string): FakeChain => {
     const rows = () => store[table] ?? [];
     const obj: FakeChain = {
@@ -52,6 +61,8 @@ function makeSupabase(store: Store) {
       eq: () => obj,
       in: () => obj,
       order: () => obj,
+      limit: () => obj,
+      maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
       is: () => obj,
       not: () => obj,
       single: async () => ({ data: rows()[0] ?? null, error: null }),
@@ -83,8 +94,8 @@ function buildInvoice(overrides: Partial<Invoice> = {}): Invoice {
     number: 'FAC-2026-0025',
     series: 'FAC',
     clientId: 'c1',
-    clientName: 'Cliente Test',
-    clientNif: 'B12345678',
+    clientName: 'Cliente Test S.L.',
+    clientNif: 'B12345674',
     clientAddress: 'Calle 1, 28000 Madrid',
     issueDate: '2026-01-15',
     dueDate: '2026-02-15',
@@ -165,6 +176,25 @@ describe('issueInvoice — emisión', () => {
     );
 
     await expect(issueInvoice(buildInvoice())).rejects.toThrow(/ya está emitida/);
+  });
+
+  it('no sella si el NIF del cliente no cuadra con su nombre, y no toca nada', async () => {
+    const store: Store = { invoices: [buildInvoiceRow(InvoiceStatus.BORRADOR)] };
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    // Un DNI con el nombre de una S.L.: la factura saldría a nombre de otro.
+    await expect(issueInvoice(buildInvoice({ clientNif: '12345678Z' }))).rejects.toThrow(/persona física/);
+    expect(store.invoices[0].status).toBe(InvoiceStatus.BORRADOR);
+  });
+
+  it('no sella si el NIF de la propia empresa está mal', async () => {
+    const store: Store = {
+      invoices: [buildInvoiceRow(InvoiceStatus.BORRADOR)],
+      company_settings: [{ ...AJUSTES_EMPRESA, nif: 'A12345678' }],
+    };
+    (createClient as Mock).mockReturnValue(makeSupabase(store));
+
+    await expect(issueInvoice(buildInvoice())).rejects.toThrow(/tu empresa/);
   });
 
   it('persiste el número reasignado al emitir (colisión con otra factura)', async () => {

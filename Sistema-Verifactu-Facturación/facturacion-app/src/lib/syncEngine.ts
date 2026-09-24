@@ -4,6 +4,7 @@
 // ============================================================
 
 import { createClient } from '@/lib/supabase/client';
+import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
 import {
   getSyncQueue,
   removeSyncItem,
@@ -364,13 +365,16 @@ async function processItem(supabase: any, item: SyncQueueItem): Promise<void> {
       // y reinician los contadores de numeración (choques de número). Por eso
       // se resuelve la fila existente y se actualiza.
       const { data } = await supabase.from(table).select('id').order('updated_at', { ascending: false }).limit(1);
-      if (data?.length) {
-        const { error } = await supabase.from(table).update(item.data).eq('id', data[0].id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from(table).insert(item.data);
-        if (error) throw error;
-      }
+      // Si falta alguna columna (migración sin aplicar), se quita ésa y se
+      // sigue: si no, el reintento fallaría para siempre y no se guardaría
+      // nada de lo demás.
+      const { error } = await escribirQuitandoColumnasQueFaltan(
+        payload => (data?.length
+          ? supabase.from(table).update(payload).eq('id', data[0].id)
+          : supabase.from(table).insert(payload)),
+        item.data,
+      );
+      if (error) throw error;
     } else {
       const { error } = await supabase.from(table).upsert(item.data);
       if (error) throw error;

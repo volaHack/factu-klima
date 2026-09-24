@@ -22,6 +22,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { descuentoEfectivo, unidadesTotales } from '@/lib/documentos';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
+import { avisadorDeNavegador, repasarAntesDeEmitir } from '@/lib/validation/antesDeEmitir';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import EmitidaPor from '@/components/perfiles/EmitidaPor';
 
@@ -105,7 +106,9 @@ export default function InvoiceDetailPage() {
 
     setIssuing(true);
     try {
-      const issued = await issueInvoice(invoice);
+      const revisada = await repasarAntesDeEmitir(invoice, avisadorDeNavegador(toastError));
+      if (!revisada) return;
+      const issued = await issueInvoice(revisada);
       setInvoice(issued);
       success('Factura emitida y sellada', `Huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…`);
     } catch (err) {

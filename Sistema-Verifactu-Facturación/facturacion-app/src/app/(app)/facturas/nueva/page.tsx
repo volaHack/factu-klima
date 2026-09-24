@@ -24,6 +24,7 @@ import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
 import type { PlanId } from '@/lib/plans';
 import { esOperacionIntracomunitaria, tipoOperacion349 } from '@/lib/intracomunitarias';
 import { useToast } from '@/hooks/useToast';
+import { avisadorDeNavegador, repasarAntesDeEmitir } from '@/lib/validation/antesDeEmitir';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import SubscriptionPaywallModal from '@/components/ui/SubscriptionPaywallModal';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
@@ -241,7 +242,11 @@ export default function NuevaFacturaPage() {
         // líneas como borrador y después el servidor sella la cabecera.
         // Al revés, la factura quedaría sellada antes de tener líneas y
         // el servidor rechazaría escribirlas.
-        const issued = await issueInvoice(invoice);
+        // Repaso con la persona delante: avisos, y NIF + nombre contra el
+        // censo de la AEAT si hay certificado. Puede corregir el nombre.
+        const revisada = await repasarAntesDeEmitir(invoice, avisadorDeNavegador(error));
+        if (!revisada) return;
+        const issued = await issueInvoice(revisada);
 
         let abonoNote = '';
         let cobrada = cobradaAlEmitir;

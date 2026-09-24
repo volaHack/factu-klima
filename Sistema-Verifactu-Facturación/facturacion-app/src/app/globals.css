@@ -14299,3 +14299,29 @@ body {
   .cat-seleccion-todas input, .cat-casilla { width: 22px; height: 22px; }
   .cat-casilla-hueco { width: 22px; }
 }
+
+/* ============================================================
+   NIF ↔ NOMBRE EN LA FICHA DE CLIENTE
+   ============================================================ */
+.identidad {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+.identidad-linea {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  font-size: var(--text-xs); line-height: 1.5; color: var(--text-secondary);
+}
+.identidad-linea > svg { flex-shrink: 0; margin-top: 2px; }
+.identidad-linea--error { color: var(--color-danger); }
+.identidad-linea--aviso { color: var(--color-warning); }
+.identidad-linea--ok { color: var(--color-success); }
+.identidad-censo { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.identidad-nota { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary); }
+.btn-enlace {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 600;
+  color: var(--accent-500); text-decoration: underline; cursor: pointer;
+}

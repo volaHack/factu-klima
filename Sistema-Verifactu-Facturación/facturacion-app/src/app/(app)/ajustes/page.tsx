@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ComprobacionIdentidad from '@/components/clientes/ComprobacionIdentidad';
 import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -507,6 +508,15 @@ export default function AjustesPage() {
             <input className="form-input" type="email" value={settings.email} onChange={e => updateField('email', e.target.value)} />
           </div>
         </div>
+        {/* El NIF de quien emite sale en TODAS las facturas: si está mal,
+            no se deja emitir ninguna. Mejor verlo aquí que el día de emitir. */}
+        <ComprobacionIdentidad
+          nif={settings.nif}
+          nombre={settings.businessName}
+          pais="ES"
+          quien="tu empresa"
+          onUsarNombre={n => updateField('businessName', n)}
+        />
         <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
           <div className="form-group">
             <label className="form-label">Teléfono</label>

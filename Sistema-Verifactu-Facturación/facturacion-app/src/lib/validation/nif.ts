@@ -8,26 +8,39 @@ export type NifType = 'NIF' | 'NIE' | 'CIF' | 'UNKNOWN';
 // Tabla de control para NIF/NIE
 const NIF_LETTERS = 'TRWAGMYFPDXBNJZSQVHLCKE';
 
-// Letras permitidas para CIF según tipo
+// Qué tipo de entidad indica la primera letra del NIF de una persona
+// jurídica (Orden EHA/451/2008). `letter` es la tabla del control en letra.
 const CIF_CONTROL: Record<string, { type: string; letter: string }> = {
-  A: { type: 'Sociedades anónimas', letter: 'JABCDEFGHI' },
-  B: { type: 'Sociedades limitadas', letter: 'JABCDEFGHI' },
-  C: { type: 'Sociedades generales', letter: 'JABCDEFGHI' },
-  D: { type: 'Comunidades de bienes', letter: 'JABCDEFGHI' },
-  E: { type: 'Comunidades de propietarios', letter: 'JABCDEFGHI' },
-  F: { type: 'Corporaciones locales', letter: 'JABCDEFGHI' },
-  G: { type: 'Establecimientos públicos', letter: 'JABCDEFGHI' },
-  H: { type: 'Comunidades de bienes', letter: 'JABCDEFGHI' },
-  J: { type: 'Civiles', letter: 'JABCDEFGHI' },
-  N: { type: 'Extranjeros', letter: 'JABCDEFGHI' },
-  P: { type: 'Corporación ENTES públicos', letter: 'JABCDEFGHI' },
-  Q: { type: 'Otros no definidos', letter: 'JABCDEFGHI' },
-  R: { type: 'Congreso de Diputados', letter: 'JABCDEFGHI' },
-  S: { type: 'Consejo de Ministros', letter: 'JABCDEFGHI' },
-  U: { type: 'Órganos constitucionales', letter: 'JABCDEFGHI' },
-  V: { type: 'Otros tipo no residente', letter: 'JABCDEFGHI' },
-  W: { type: 'Establecimientos permanentes', letter: 'JABCDEFGHI' },
+  A: { type: 'sociedad anónima', letter: 'JABCDEFGHI' },
+  B: { type: 'sociedad de responsabilidad limitada', letter: 'JABCDEFGHI' },
+  C: { type: 'sociedad colectiva', letter: 'JABCDEFGHI' },
+  D: { type: 'sociedad comanditaria', letter: 'JABCDEFGHI' },
+  E: { type: 'comunidad de bienes o herencia yacente', letter: 'JABCDEFGHI' },
+  F: { type: 'sociedad cooperativa', letter: 'JABCDEFGHI' },
+  G: { type: 'asociación o fundación', letter: 'JABCDEFGHI' },
+  H: { type: 'comunidad de propietarios', letter: 'JABCDEFGHI' },
+  J: { type: 'sociedad civil', letter: 'JABCDEFGHI' },
+  N: { type: 'entidad extranjera', letter: 'JABCDEFGHI' },
+  P: { type: 'corporación local', letter: 'JABCDEFGHI' },
+  Q: { type: 'organismo público', letter: 'JABCDEFGHI' },
+  R: { type: 'congregación o institución religiosa', letter: 'JABCDEFGHI' },
+  S: { type: 'órgano de la Administración', letter: 'JABCDEFGHI' },
+  U: { type: 'unión temporal de empresas', letter: 'JABCDEFGHI' },
+  V: { type: 'otro tipo de entidad', letter: 'JABCDEFGHI' },
+  W: { type: 'establecimiento permanente de no residente', letter: 'JABCDEFGHI' },
 };
+
+/** Qué tipo de entidad indica un NIF de persona jurídica («B…» → sociedad limitada). */
+export function tipoDeEntidad(nif: string): string | null {
+  const clean = nif.toUpperCase().replace(/[\s\-\.]/g, '');
+  if (detectNifType(clean) !== 'CIF') return null;
+  return CIF_CONTROL[clean[0]]?.type ?? null;
+}
+
+/** Entidades cuyo control es siempre letra: públicas, religiosas, extranjeras y establecimientos permanentes. */
+const CIF_SOLO_LETRA = 'PQRSNW';
+/** Entidades cuyo control es siempre cifra: sociedades anónimas y limitadas, comunidades. */
+const CIF_SOLO_CIFRA = 'ABEH';
 
 /**
  * Detecta el tipo de documento: NIF, NIE o CIF
@@ -36,6 +49,9 @@ export function detectNifType(nif: string): NifType {
   const clean = nif.toUpperCase().trim();
 
   if (/^\d{8}[A-Z]$/.test(clean)) return 'NIF';
+  // K (menores de 14), L (residentes que salen) y M (extranjeros sin NIE):
+  // personas físicas con NIF especial; la letra se calcula como en el DNI.
+  if (/^[KLM]\d{7}[A-Z]$/.test(clean)) return 'NIF';
   if (/^[XYZ]\d{7}[A-Z]$/.test(clean)) return 'NIE';
   if (/^[ABCDEFGHJKLMNPQRSUVW]\d{7}[0-9A-Z]$/.test(clean)) return 'CIF';
 
@@ -46,10 +62,16 @@ export function detectNifType(nif: string): NifType {
  * Valida el dígito de control de un NIF o NIE
  */
 function validateNifChecksum(value: string): boolean {
+  const especial = value.match(/^[KLM](\d{7})([A-Z])$/);
+  if (especial) return NIF_LETTERS[parseInt(especial[1], 10) % 23] === especial[2];
+
   const match = value.match(/^([XYZ])?(\d{7,8})([A-Z])$/);
   if (!match) return false;
 
   const [, prefix, digits, letter] = match;
+  // Sin prefijo tienen que ser 8 cifras; con X/Y/Z, 7.
+  if (!prefix && digits.length !== 8) return false;
+  if (prefix && digits.length !== 7) return false;
   const prefixMap: Record<string, string> = { X: '0', Y: '1', Z: '2' };
   const numericPrefix = prefix ? prefixMap[prefix] : '';
   const num = parseInt(numericPrefix + digits, 10);
@@ -83,11 +105,17 @@ function validateCifChecksum(value: string): boolean {
   }
 
   const unitDigit = (10 - (sum % 10)) % 10;
-  const controlLetter = CIF_CONTROL[type].letter;
-  const validControl =
-    (control === String(unitDigit)) || (controlLetter.includes(control));
+  // El control es UNA cifra o UNA letra concretas, no cualquiera de la
+  // tabla: antes se aceptaba cualquier letra de «JABCDEFGHI», así que un
+  // CIF con el control mal puesto pasaba por bueno.
+  const letraBuena = CIF_CONTROL[type].letter[unitDigit];
+  const cifraBuena = String(unitDigit);
 
-  return validControl;
+  // Unas entidades llevan siempre letra de control, otras siempre cifra,
+  // y el resto cualquiera de las dos (Orden EHA/451/2008).
+  if (CIF_SOLO_LETRA.includes(type)) return control === letraBuena;
+  if (CIF_SOLO_CIFRA.includes(type)) return control === cifraBuena;
+  return control === letraBuena || control === cifraBuena;
 }
 
 /**
