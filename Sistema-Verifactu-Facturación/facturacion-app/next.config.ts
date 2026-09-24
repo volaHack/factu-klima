@@ -17,6 +17,20 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // El APK de Android: con su tipo, el navegador del móvil lo ofrece
+        // para instalar en vez de guardarlo como un fichero cualquiera.
+        source: '/descargas/:archivo*.apk',
+        headers: [
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+          { key: 'Content-Disposition', value: 'attachment' },
+        ],
+      },
+      {
+        // La otra mitad del acuerdo entre la web y la app de Android.
+        source: '/.well-known/assetlinks.json',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      },
+      {
         source: '/aprobar/:path*',
         headers: [
           // El portal público SÍ necesita protección anti-clickjacking:

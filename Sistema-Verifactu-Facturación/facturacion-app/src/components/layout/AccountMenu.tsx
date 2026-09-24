@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
 import { processSyncQueue } from '@/lib/syncEngine';
+import { olvidarPantallas } from '@/lib/pwa/sinConexion';
 import { UserProfile } from '@/lib/types';
 
 function initialsFrom(name: string, email: string): string {
@@ -72,6 +73,9 @@ export default function AccountMenu() {
       // Si ni siquiera se puede mirar la cola, se sigue: el botón de salir
       // no puede quedarse sin hacer nada.
     }
+    // Las pantallas guardadas para usar sin conexión llevan datos de esta
+    // cuenta: fuera también.
+    void olvidarPantallas().catch(() => {});
     try {
       await createClient().auth.signOut();
     } catch {

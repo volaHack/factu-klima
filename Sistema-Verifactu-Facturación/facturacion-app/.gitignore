@@ -31,7 +31,9 @@ nul
 # no dentro del repositorio.
 electron/dist/
 electron/.electron-cache/
-public/descargas/
+public/descargas/*
+# El APK de Android sí: pesa 4 MB y /instalar lo ofrece directamente.
+!public/descargas/*.apk
 
 # debug
 npm-debug.log*

@@ -385,7 +385,13 @@ export async function enqueueSyncAction(
     retries: 0,
   };
   await put('syncQueue', item);
+  // Aviso al motor de sincronización (syncEngine lo escucha). Va por un
+  // evento y no por una llamada porque syncEngine ya importa este módulo.
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_COLA));
 }
+
+/** Se dispara cada vez que entra algo en la cola de sincronización. */
+export const EVENTO_COLA = 'klima:cola-sincronizacion';
 
 export async function getSyncQueue(): Promise<SyncQueueItem[]> {
   const db = await openDB();

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Los de la web (globals.css): la app no debe parecer otra. -->
+    <color name="barra">#B02A5C</color>
+    <color name="barra_oscura">#191013</color>
+    <color name="fondo">#F2E7E0</color>
+    <color name="fondo_oscuro">#191013</color>
+</resources>

@@ -12872,3 +12872,224 @@ body.nav-abierta { overflow: hidden; }
   .imp-mapeo-fila { grid-template-columns: 1fr; }
   .imp-mapeo-campo { grid-row: auto; }
 }
+
+/* ============================================================
+   /instalar · LA APP DE ANDROID
+   Un móvil que enseña lo que promete el texto: vende sin cobertura
+   y, al volver la red, sube lo guardado. El ciclo dura 9 s y se
+   repite; con «reducir movimiento» se queda en «Todo sincronizado».
+   ============================================================ */
+.apk {
+  position: relative;
+  padding: clamp(56px, 8vw, 104px) var(--space-6);
+  background:
+    radial-gradient(900px 480px at 18% 30%, var(--accent-glow), transparent 70%),
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-secondary) 70%, transparent) 30%, transparent);
+}
+.apk-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(36px, 6vw, 80px);
+  align-items: center;
+}
+
+/* ── El móvil ── */
+.apk-escena { position: relative; display: grid; place-items: center; min-height: 560px; }
+.apk-halo {
+  position: absolute; inset: 12% 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-500) 28%, transparent), transparent 65%);
+  filter: blur(30px);
+}
+.apk-movil {
+  position: relative;
+  width: 272px; height: 552px;
+  padding: 12px;
+  border-radius: 46px;
+  background: linear-gradient(145deg, #2b1a20, #0f0a0c);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.08) inset,
+    0 40px 80px -30px rgba(40, 10, 20, 0.65),
+    0 18px 40px -20px rgba(40, 10, 20, 0.5);
+  animation: apkFlota 7s ease-in-out infinite;
+}
+@keyframes apkFlota { 50% { transform: translateY(-10px) rotate(-0.6deg); } }
+.apk-camara {
+  position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+  width: 12px; height: 12px; border-radius: 50%; background: #050304; z-index: 2;
+  box-shadow: 0 0 0 3px #161013;
+}
+.apk-pantalla {
+  height: 100%;
+  border-radius: 36px;
+  overflow: hidden;
+  background: #fbf6f2;
+  color: #1a1216;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 44px 14px 16px;
+  font-family: inherit;
+}
+.apk-barra {
+  position: absolute; top: 20px; left: 36px; right: 36px;
+  display: flex; justify-content: space-between;
+  font-size: 11px; font-weight: 600; color: #4a3a40;
+}
+.apk-barra-red { animation: apkRed 9s infinite; }
+@keyframes apkRed { 0%, 44% { opacity: 1; } 48%, 100% { opacity: 0; } }
+.apk-app-cabeza { display: flex; align-items: center; gap: 10px; }
+.apk-app-cabeza img { border-radius: 8px; }
+.apk-app-cabeza strong { display: block; font-size: 14px; }
+.apk-app-cabeza span { font-size: 11px; color: #6f5d63; }
+
+.apk-estado { position: relative; height: 30px; }
+.apk-estado > span {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 10px; font-size: 11.5px; font-weight: 600;
+  opacity: 0;
+}
+.apk-estado-off { background: #fdf0d5; color: #92660a; animation: apkFase1 9s infinite; }
+.apk-estado-sube { background: #f4e6dd; color: #9c2856; animation: apkFase2 9s infinite; }
+.apk-estado-sube svg { animation: apkGira 1s linear infinite; }
+.apk-estado-ok { background: #dff2e6; color: #1e7a45; animation: apkFase3 9s infinite; }
+@keyframes apkFase1 { 0%, 44% { opacity: 1; } 48%, 100% { opacity: 0; } }
+@keyframes apkFase2 { 0%, 46% { opacity: 0; } 50%, 70% { opacity: 1; } 74%, 100% { opacity: 0; } }
+@keyframes apkFase3 { 0%, 72% { opacity: 0; } 76%, 97% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes apkGira { to { transform: rotate(360deg); } }
+
+.apk-venta {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-radius: 12px;
+  background: #fff; box-shadow: 0 1px 2px rgba(76, 26, 40, 0.08);
+}
+.apk-venta strong { display: block; font-size: 12.5px; }
+.apk-venta span { font-size: 10.5px; color: #6f5d63; font-family: var(--font-mono); }
+.apk-venta b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.apk-venta-marca {
+  position: absolute; top: 8px; right: 8px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #d99e1a;
+  animation: apkMarca 9s infinite;
+}
+@keyframes apkMarca { 0%, 60% { background: #d99e1a; } 66%, 100% { background: #1e7a45; } }
+.apk-cobrar {
+  margin-top: auto;
+  padding: 13px; border-radius: 14px; text-align: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #c9407a, #9c2856);
+  box-shadow: 0 8px 18px -10px #9c2856;
+}
+
+.apk-chip {
+  position: absolute;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  background: var(--bg-elevated); color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+.apk-chip svg { color: var(--accent-500); }
+.apk-chip--a { top: 22%; left: -4%; animation: apkFlota 6s ease-in-out infinite reverse; }
+.apk-chip--b { bottom: 18%; right: -2%; animation: apkFlota 8s ease-in-out infinite; }
+
+/* ── Texto ── */
+.apk-titulo {
+  font-size: clamp(2rem, 4vw, 2.9rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: var(--tracking-display);
+  margin: 0 0 var(--space-4);
+}
+.apk-lead { font-size: var(--text-lg); line-height: 1.6; color: var(--text-secondary); max-width: 48ch; }
+
+.apk-descarga {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin: var(--space-6) 0;
+}
+.apk-boton { gap: 10px; }
+.apk-boton small {
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px; font-weight: 600;
+}
+.apk-qr { display: flex; align-items: center; gap: 12px; max-width: 220px; }
+.apk-qr img {
+  padding: 8px; border-radius: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border-color);
+}
+.apk-qr span { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.45; }
+
+.apk-pasos {
+  counter-reset: paso;
+  list-style: none;
+  display: grid; gap: 10px;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+}
+.apk-pasos li {
+  counter-increment: paso;
+  position: relative;
+  padding-left: 40px;
+  font-size: var(--text-base);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.apk-pasos li::before {
+  content: counter(paso);
+  position: absolute; left: 0; top: -1px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: var(--accent-gradient);
+}
+.apk-pasos b { color: var(--text-primary); }
+.apk-pasos em { font-style: normal; font-weight: 600; color: var(--text-primary); }
+
+.apk-ventajas {
+  list-style: none; padding: 0; margin: 0 0 var(--space-5);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.apk-ventajas li {
+  display: flex; gap: 12px;
+  padding: 14px; border-radius: var(--radius-lg);
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+}
+.apk-ventaja-icono {
+  flex-shrink: 0; display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--accent-glow); color: var(--accent-500);
+}
+.apk-ventajas strong { display: block; font-size: var(--text-sm); color: var(--text-primary); margin-bottom: 2px; }
+.apk-ventajas p { margin: 0; font-size: var(--text-xs); line-height: 1.5; color: var(--text-secondary); }
+
+.apk-letra {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-size: 11.5px; color: var(--text-muted);
+}
+.apk-letra code { font-family: var(--font-mono); font-size: 11px; }
+
+@media (max-width: 900px) {
+  .apk-inner { grid-template-columns: 1fr; }
+  .apk-escena { order: 2; min-height: 520px; }
+  .apk-chip--a { left: 2%; }
+  .apk-chip--b { right: 2%; }
+}
+@media (max-width: 520px) {
+  .apk { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .apk-ventajas { grid-template-columns: 1fr; }
+  .apk-boton { width: 100%; }
+  /* En el propio teléfono, «escanéalo con el móvil» no tiene sentido. */
+  .apk-qr { display: none; }
+  .apk-movil { transform: scale(0.92); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .apk-movil, .apk-chip, .apk-estado > span, .apk-venta-marca, .apk-barra-red, .apk-estado-sube svg { animation: none !important; }
+  .apk-estado-ok { opacity: 1; }
+  .apk-venta-marca { background: #1e7a45; }
+  .apk-barra-red { opacity: 0; }
+}
+@media print { .apk { display: none; } }

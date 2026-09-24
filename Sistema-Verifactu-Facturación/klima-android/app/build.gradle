@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+}
+
+// La web que abre la app. Es la misma de siempre: la app de Android no es
+// un segundo programa, es esta web con el motor de Chrome, sin barra de
+// direcciones y con su icono. Por eso funciona igual sin conexión: el
+// service worker y la base de datos local (IndexedDB) son los mismos.
+def dominio = 'facturacion-app-mocha.vercel.app'
+def inicio = "https://${dominio}/dashboard"
+
+// Las claves de firma NO están en el repositorio: van en un fichero aparte
+// (claves.properties, ignorado por git) o en variables de entorno.
+def claves = new Properties()
+def ficheroClaves = rootProject.file('claves.properties')
+if (ficheroClaves.exists()) { ficheroClaves.withInputStream { claves.load(it) } }
+def clave = { String k -> claves.getProperty(k) ?: System.getenv(k) }
+
+android {
+    namespace 'es.klima.facturacion'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'es.klima.facturacion'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+
+        resValue 'string', 'app_name', 'Klima'
+        // Declaración de que esta app y la web son del mismo dueño (Digital
+        // Asset Links). La web publica la otra mitad en
+        // /.well-known/assetlinks.json; con las dos, Chrome quita la barra
+        // de direcciones.
+        resValue 'string', 'asset_statements',
+            '[{ \\"relation\\": [\\"delegate_permission/common.handle_all_urls\\"], \\"target\\": {\\"namespace\\": \\"web\\", \\"site\\": \\"https://' + dominio + '\\"}}]'
+        manifestPlaceholders = [hostName: dominio, defaultUrl: inicio]
+    }
+
+    signingConfigs {
+        release {
+            if (clave('KLIMA_KEYSTORE')) {
+                storeFile file(clave('KLIMA_KEYSTORE'))
+                storePassword clave('KLIMA_KEYSTORE_PASSWORD')
+                keyAlias clave('KLIMA_KEY_ALIAS') ?: 'klima'
+                keyPassword clave('KLIMA_KEY_PASSWORD') ?: clave('KLIMA_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
+}

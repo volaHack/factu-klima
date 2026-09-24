@@ -11,6 +11,7 @@ import {
   getSyncQueueCount,
   getMeta,
   setMeta,
+  EVENTO_COLA,
   type SyncQueueItem,
   type SyncTable,
 } from './offlineDb';
@@ -469,9 +470,40 @@ export function initAutoSync(): void {
     if (Array.isArray(v) && v.length) updateState({ rejections: v as SyncRejection[] });
   });
 
-  // Process queue when coming back online
-  window.addEventListener('online', () => {
-    setTimeout(() => processSyncQueue(), 500);
+  // SUBIR EN CUANTO HAYA CONEXIÓN, NO «CUANDO SALTE EL EVENTO»
+  //
+  // Sólo se escuchaba el evento `online`. En Android no es fiable: salta al
+  // conectarse a una wifi aunque esa wifi aún no dé internet (la del bar
+  // que pide aceptar condiciones), y no vuelve a saltar cuando por fin lo
+  // da; y con la app en segundo plano el sistema congela los temporizadores
+  // y el evento se pierde. Lo hecho sin conexión se quedaba en el teléfono
+  // hasta la siguiente recarga.
+  //
+  // Ahora se intenta en cuatro momentos: al volver la red, al volver a la
+  // app (pantalla encendida o pestaña visible), al recuperar el foco y,
+  // mientras quede algo pendiente, cada 15 segundos. `processSyncQueue`
+  // no hace nada si ya está trabajando o si no hay red, así que llamarlo
+  // de más no cuesta nada.
+  const intentar = () => { if (navigator.onLine) void processSyncQueue(); };
+
+  window.addEventListener('online', () => setTimeout(intentar, 500));
+  window.addEventListener('focus', intentar);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') intentar();
+  });
+  // El service worker también avisa (sincronización en segundo plano).
+  navigator.serviceWorker?.addEventListener('message', (e: MessageEvent) => {
+    if (e.data?.type === 'SYNC_REQUESTED') intentar();
+  });
+  setInterval(() => {
+    if (currentState.pendingCount > 0) intentar();
+  }, 15_000);
+  // Cada cambio que entra en la cola, en cuanto entra. Se agrupan los de
+  // un mismo guardado (la factura y sus líneas llegan seguidas).
+  let agrupar: ReturnType<typeof setTimeout> | null = null;
+  window.addEventListener(EVENTO_COLA, () => {
+    if (agrupar) clearTimeout(agrupar);
+    agrupar = setTimeout(() => { agrupar = null; avisarCambioPendiente(); }, 250);
   });
 
   // Update pending count on load
@@ -480,7 +512,22 @@ export function initAutoSync(): void {
   });
 
   // Initial sync if online
+  intentar();
+}
+
+/**
+ * Avisa de que hay algo nuevo en la cola: si hay red, se sube ya; si no,
+ * se pide al service worker una sincronización en segundo plano, que
+ * Chrome lanza en cuanto vuelve la conexión aunque la app esté cerrada.
+ */
+export function avisarCambioPendiente(): void {
+  if (typeof window === 'undefined') return;
+  void getSyncQueueCount().then(n => updateState({ pendingCount: n }));
   if (navigator.onLine) {
-    processSyncQueue();
+    void processSyncQueue();
+    return;
   }
+  navigator.serviceWorker?.ready
+    .then(reg => (reg as ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } }).sync?.register('sync-queue'))
+    .catch(() => { /* sin Background Sync: lo cubren los otros avisos */ });
 }

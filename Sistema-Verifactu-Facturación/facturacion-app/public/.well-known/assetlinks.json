@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "es.klima.facturacion",
+      "sha256_cert_fingerprints": [
+        "31:44:64:98:29:65:93:4C:56:1A:4A:E9:4C:1E:3F:49:60:A5:83:D9:E5:FE:18:26:75:20:8C:C5:1E:68:72:FC"
+      ]
+    }
+  }
+]

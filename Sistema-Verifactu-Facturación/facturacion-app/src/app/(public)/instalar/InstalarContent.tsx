@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import {
-  Smartphone, Tablet, Monitor, Printer, WifiOff, ArrowRight,
+  Smartphone, Tablet, Monitor, Printer, WifiOff, ArrowRight, Download,
 } from 'lucide-react';
 
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
 import Reveal from '@/components/public/Reveal';
+import { APP_ANDROID } from '@/lib/descargas';
+
+import AppAndroid from './AppAndroid';
 
 /* ------------------------------------------------------------------ *
  * /instalar
@@ -107,16 +110,18 @@ export default function InstalarContent() {
             Tu acceso a Klima, listo<br />para <em className="accent-serif">imprimir</em>
           </h1>
           <p className="instalar-lead">
-            Sin Google Play ni App Store: se instala directamente desde el navegador,
-            ocupa lo que ocupa una página web y sigue emitiendo tickets aunque te
-            quedes sin conexión.
+            App para Android en un toque, y en iPhone y Windows desde el navegador.
+            Guarda los datos en el dispositivo, sigue emitiendo tickets aunque te
+            quedes sin conexión y lo sincroniza todo en cuanto vuelve.
           </p>
 
           <div className="instalar-hero-actions">
-            <button type="button" className="btn-primary btn-lg" onClick={() => window.print()}>
+            <a href="#android" className="btn-primary btn-lg">
+              <Download size={17} /> App para Android
+            </a>
+            <button type="button" className="btn-ghost btn-lg" onClick={() => window.print()}>
               <Printer size={17} /> Imprimir el cartel del QR
             </button>
-            <a href="#pasos" className="btn-ghost btn-lg">Ver los pasos de mi dispositivo</a>
           </div>
         </div>
 
@@ -163,6 +168,8 @@ export default function InstalarContent() {
         </div>
       </header>
 
+      <AppAndroid />
+
       {/* ─────────────── Pasos por plataforma ─────────────── */}
       <section id="pasos" className="instalar-platforms" aria-labelledby="pasos-title">
         <h2 id="pasos-title" className="instalar-h2 instalar-pasos-title">Tres toques y ya está</h2>
@@ -185,9 +192,11 @@ export default function InstalarContent() {
         <div className="instalar-panel" role="tabpanel">
           {platform === 'android' && (
             <ol className="instalar-panel-steps">
-              <li>Abre esta página en <b>Chrome</b>.</li>
-              <li>Toca el menú <b>⋮</b> de la esquina superior derecha.</li>
-              <li>Elige <b>«Instalar app»</b> (o «Añadir a pantalla de inicio»).</li>
+              <li>
+                <a href={APP_ANDROID.ruta} download><b>Descarga la app</b></a> ({APP_ANDROID.tamanoMb.toLocaleString('es-ES')} MB).
+              </li>
+              <li>Ábrela y, si Android lo pregunta, <b>permite instalar apps de Chrome</b>.</li>
+              <li>Entra con tu cuenta <b>una vez con conexión</b>: después funciona también sin ella.</li>
             </ol>
           )}
           {platform === 'ios' && (
@@ -219,14 +228,14 @@ export default function InstalarContent() {
 
       {/* ─────────────── Por qué no hay tienda ─────────────── */}
       <Reveal className="instalar-porque">
-        <h2 className="instalar-h2">¿Por qué no está en Google Play?</h2>
+        <h2 className="instalar-h2">¿Por qué se descarga aquí y no en Google Play?</h2>
         <div className="instalar-porque-grid">
           <div>
-            <h3>Porque no hace falta</h3>
+            <h3>Porque no hace falta esperar a nadie</h3>
             <p>
-              Klima es una aplicación web instalable. El navegador la guarda en el
-              dispositivo con su icono, su pantalla completa y su base de datos local:
-              lo mismo que haría una tienda, sin la tienda por medio.
+              La app de Android se descarga directamente de esta página, firmada por
+              Klima. En iPhone y en el ordenador se instala desde el navegador con su
+              icono, su pantalla completa y su base de datos local.
             </p>
           </div>
           <div>
@@ -296,7 +305,7 @@ export default function InstalarContent() {
         <p className="instalar-print-claim">Escanea para abrir la caja</p>
         <p className="instalar-print-url">{urlLimpia}</p>
         <p className="instalar-print-steps">
-          Android: menú ⋮ → «Instalar app» · iPhone: Compartir → «Añadir a pantalla de inicio»
+          Android: descarga la app en esta página · iPhone: Safari → Compartir → «Añadir a pantalla de inicio»
         </p>
       </div>
     </div>
