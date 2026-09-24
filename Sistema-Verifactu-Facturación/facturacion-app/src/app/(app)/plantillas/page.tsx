@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, Copy, Download, Eye, FileUp, LayoutTemplate, Loader2, Pencil,
-  Save, Sparkles, Star, Trash2, X,
+  Save, FilePlus, Star, Trash2, X,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import RevisorPlantilla, { type CambioAnalisis } from '@/components/plantillas/RevisorPlantilla';
@@ -532,7 +532,7 @@ export default function PlantillasPage() {
             {analizando ? 'Analizando el documento…' : 'Subir documento en PDF'}
           </button>
           <button className="btn btn-secondary" onClick={() => setEligiendoOficio(true)} disabled={analizando}>
-            <Sparkles size={16} /> Empezar desde cero
+            <FilePlus size={16} /> Empezar desde cero
           </button>
         </div>
       </div>
@@ -552,7 +552,7 @@ export default function PlantillasPage() {
                 <FileUp size={16} /> Subir factura en PDF
               </button>
               <button className="btn btn-secondary" onClick={() => setEligiendoOficio(true)} disabled={analizando}>
-                <Sparkles size={16} /> Empezar desde cero
+                <FilePlus size={16} /> Empezar desde cero
               </button>
             </div>
           </div>
@@ -672,7 +672,7 @@ function ElegirOficio({ sector, onElegir, onCerrar }: {
     <div className="modal-overlay" onClick={onCerrar}>
       <div className="modal plantilla-modal-oficios" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><Sparkles size={18} /> ¿A qué te dedicas?</h2>
+          <h2>¿A qué te dedicas?</h2>
           <button className="btn-icon" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button>
         </div>
         <div className="modal-body">

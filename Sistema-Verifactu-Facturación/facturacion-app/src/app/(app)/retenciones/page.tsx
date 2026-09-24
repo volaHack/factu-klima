@@ -375,7 +375,7 @@ export default function RetencionesPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          style={{ '--kpi-color': '#8b5cf6' } as React.CSSProperties}
+          style={{ '--kpi-color': '#7c3a5c' } as React.CSSProperties}
         >
           <div className="kpi-card-header">
             <span className="kpi-card-label">Tipo medio de retención</span>
@@ -558,7 +558,7 @@ export default function RetencionesPage() {
                           className="badge"
                           style={{
                             background: 'rgba(139, 92, 246, 0.12)',
-                            color: '#8b5cf6',
+                            color: '#7c3a5c',
                             fontWeight: 700,
                           }}
                         >

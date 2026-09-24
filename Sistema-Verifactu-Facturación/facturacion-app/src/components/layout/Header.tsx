@@ -110,14 +110,14 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           style={{
             // El resto (display, tamaños) va en el CSS: escrito aquí,
             // `display` anulaba la regla que la esconde en el móvil.
-            background: !isSubActive ? 'var(--color-danger-bg)' : planId === 'sin_limite' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--accent-50)',
-            color: !isSubActive ? 'var(--color-danger)' : planId === 'sin_limite' ? '#ffffff' : 'var(--accent-500)',
+            background: !isSubActive ? 'var(--color-danger-bg)' : 'var(--accent-50)',
+            color: !isSubActive ? 'var(--color-danger)' : 'var(--accent-500)',
             border: !isSubActive ? '1px solid var(--color-danger)' : '1px solid var(--border-color)',
           }}
-          title="Ver nivel de membresía y cambiar de plan"
+          title="Ver tu plan o cambiarlo"
         >
           {!isSubActive ? <Lock size={12} /> : planId === 'sin_limite' ? <Zap size={12} /> : <Crown size={12} />}
-          <span className="header-plan-texto">{isSubActive ? planName : 'Sin Suscripción'}</span>
+          <span className="header-plan-texto">{isSubActive ? planName : 'Sin suscripción'}</span>
         </Link>
 
         {verifactuActive && (
@@ -158,7 +158,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           title="Dejar una propina o invitar un café al desarrollo del software vía Stripe"
         >
           <Heart size={13} style={{ color: '#e11d48', fill: '#e11d48' }} />
-          <span>Tip ☕</span>
+          <span>Propina</span>
         </button>
 
         <ChipPerfil />

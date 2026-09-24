@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Heart, Coffee, Pizza, Rocket, Star, Loader2, X, ShieldCheck, Sparkles } from 'lucide-react';
+import { Heart, Coffee, Croissant, UtensilsCrossed, Utensils, Loader2, X, ShieldCheck } from 'lucide-react';
 
 interface TipModalProps {
   isOpen: boolean;
@@ -10,10 +10,10 @@ interface TipModalProps {
 }
 
 const PRESET_AMOUNTS = [
-  { amount: 3, label: '3 €', icon: Coffee, title: 'Un café', emoji: '☕', color: '#f59e0b' },
-  { amount: 5, label: '5 €', icon: Pizza, title: 'Una pizza', emoji: '🍕', color: '#ef4444' },
-  { amount: 15, label: '15 €', icon: Rocket, title: 'Un cohete', emoji: '🚀', color: '#8b5cf6' },
-  { amount: 30, label: '30 €', icon: Star, title: 'Super Fan', emoji: '🌟', color: '#ec4899' },
+  { amount: 3, label: '3 €', icon: Coffee, title: 'Un café' },
+  { amount: 5, label: '5 €', icon: Croissant, title: 'Café y tostada' },
+  { amount: 15, label: '15 €', icon: UtensilsCrossed, title: 'Un menú del día' },
+  { amount: 30, label: '30 €', icon: Utensils, title: 'Comida para el equipo' },
 ];
 
 export default function TipModal({ isOpen, onClose }: TipModalProps) {
@@ -177,7 +177,6 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               marginBottom: '10px',
             }}
           >
-            <Sparkles size={13} fill="#ffd700" color="#ffd700" />
             <span>Apoyo a FactuKlima</span>
           </div>
 
@@ -190,7 +189,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               lineHeight: 1.25,
             }}
           >
-            ¡Invítanos a un café! ☕💖
+            Invítanos a un café
           </h2>
           <p
             style={{
@@ -200,7 +199,7 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
               lineHeight: 1.45,
             }}
           >
-            Tu donación voluntaria nos ayuda a mantener el software siempre actualizado con Hacienda y sin límites molestos.
+            Es voluntario. Lo que aportes nos ayuda a mantener el programa al día con lo que pide Hacienda.
           </p>
         </div>
 
@@ -265,10 +264,10 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.15s ease',
-                      boxShadow: isSelected ? '0 0 16px var(--accent-glow)' : 'none',
+                      boxShadow: 'none',
                     }}
                   >
-                    <span style={{ fontSize: '1.4rem' }}>{preset.emoji}</span>
+                    <preset.icon size={20} aria-hidden="true" style={{ flexShrink: 0, color: isSelected ? 'var(--accent-500)' : 'var(--text-secondary)' }} />
                     <div style={{ minWidth: 0 }}>
                       <div
                         style={{
@@ -370,12 +369,12 @@ export default function TipModal({ isOpen, onClose }: TipModalProps) {
                 marginBottom: '6px',
               }}
             >
-              Dedicatoria / Mensaje (opcional)
+              Mensaje (opcional)
             </label>
             <input
               type="text"
               className="form-input"
-              placeholder="¡Gracias por las actualizaciones! / Excelente trabajo"
+              placeholder="Por ejemplo: gracias por el cierre de caja"
               value={note}
               onChange={e => setNote(e.target.value)}
               maxLength={150}

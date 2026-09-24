@@ -31,7 +31,7 @@ import {
   AlertTriangle, AlignCenter, AlignEndHorizontal, AlignHorizontalJustifyCenter,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignVerticalJustifyCenter,
   Bold, Check, Copy, Eraser, Eye, EyeOff, GripVertical, Image as ImageIcon,
-  Info, Italic, Layers, Lock, Maximize2, Move, Plus, Redo2, Search, Sparkles,
+  Info, Italic, Layers, Lock, Maximize2, Move, Plus, Redo2, Search, MousePointerClick,
   Rows3,
   CalendarClock,
   QrCode,
@@ -1324,7 +1324,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
         {seleccion.length === 0 && (
           <div className="card plantilla-vacio">
-            <Sparkles size={18} />
+            <MousePointerClick size={18} />
             <div>
               <strong>Nada seleccionado</strong>
               <p>

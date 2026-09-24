@@ -34,8 +34,8 @@ const CLAVE_FILTER_OPTIONS: { value: ClaveFilter; label: string; keyName: string
   { value: 'E', label: 'Entregas (E)', keyName: 'E', color: 'var(--color-success, #10b981)' },
   { value: 'A', label: 'Adquisiciones (A)', keyName: 'A', color: 'var(--color-info, #06b6d4)' },
   { value: 'S', label: 'Servicios prestados (S)', keyName: 'S', color: 'var(--color-warning, #f59e0b)' },
-  { value: 'I', label: 'Servicios adquiridos (I)', keyName: 'I', color: '#8b5cf6' },
-  { value: 'T', label: 'Triangulares (T)', keyName: 'T', color: '#ec4899' },
+  { value: 'I', label: 'Servicios adquiridos (I)', keyName: 'I', color: '#7c3a5c' },
+  { value: 'T', label: 'Triangulares (T)', keyName: 'T', color: '#d55181' },
 ];
 
 function claveLabel(clave: string): string {
@@ -72,13 +72,13 @@ function claveBadgeStyle(clave: string): { bg: string; text: string; border: str
     case 'I':
       return {
         bg: 'rgba(139, 92, 246, 0.12)',
-        text: '#8b5cf6',
+        text: '#7c3a5c',
         border: 'rgba(139, 92, 246, 0.3)',
       };
     case 'T':
       return {
         bg: 'rgba(236, 72, 153, 0.12)',
-        text: '#ec4899',
+        text: '#d55181',
         border: 'rgba(236, 72, 153, 0.3)',
       };
     default:
@@ -436,7 +436,7 @@ export default function IntracomunitariasPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          style={{ '--kpi-color': '#8b5cf6' } as React.CSSProperties}
+          style={{ '--kpi-color': '#7c3a5c' } as React.CSSProperties}
         >
           <div className="kpi-card-header">
             <span className="kpi-card-label">Servicios (S / I)</span>
@@ -508,7 +508,7 @@ export default function IntracomunitariasPage() {
                 initial={{ width: 0 }}
                 animate={{ width: `${pctServicios}%` }}
                 transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ background: '#8b5cf6', height: '100%' }}
+                style={{ background: '#7c3a5c', height: '100%' }}
                 title={`Servicios (S/I): ${pctServicios.toFixed(1)}%`}
               />
             )}
@@ -524,7 +524,7 @@ export default function IntracomunitariasPage() {
               Adquisiciones: <strong>{pctAdquisiciones.toFixed(1)}%</strong> ({formatCurrency(resumen.totalAdquisiciones)})
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8b5cf6' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#7c3a5c' }} />
               Servicios: <strong>{pctServicios.toFixed(1)}%</strong> ({formatCurrency(resumen.totalServicios)})
             </span>
           </div>

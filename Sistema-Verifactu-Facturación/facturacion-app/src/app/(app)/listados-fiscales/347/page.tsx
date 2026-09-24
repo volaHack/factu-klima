@@ -173,7 +173,7 @@ export default function Modelo347Page() {
               <AlertTriangle size={14} />
               <span>{e.mensaje}</span>
               {e.referencia?.tipo === 'empresa' && (
-                <Link href="/ajustes">Ir a Ajustes <ChevronRight size={13} /></Link>
+                <Link href="/ajustes">Ir a ajustes <ChevronRight size={13} /></Link>
               )}
               {e.referencia?.tipo === 'cliente' && (
                 <Link href={`/clientes?buscar=${encodeURIComponent(e.referencia.id)}`}>

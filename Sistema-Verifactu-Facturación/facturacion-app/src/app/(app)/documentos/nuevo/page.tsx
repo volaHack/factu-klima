@@ -251,7 +251,7 @@ function NuevoDocumentoContent() {
       const guardado = await saveDocumento(doc);
       await actualizarContadorSerie(settings, `${tipo}_${sentido}`, guardado.number);
 
-      success(`${etiquetaTipo(tipo)} ${guardado.number} creado correctamente`);
+      success(`Guardado: ${etiquetaTipo(tipo)} ${guardado.number}`);
       router.push(`/documentos/${guardado.id}`);
     } catch (e) {
       toastError(e instanceof Error ? e.message : 'Error al guardar el documento');

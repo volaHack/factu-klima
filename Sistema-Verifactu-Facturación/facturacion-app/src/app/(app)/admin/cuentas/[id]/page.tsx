@@ -120,7 +120,7 @@ export default async function AdminFichaCuenta({ params }: { params: Promise<{ i
             </div>
             <div style={{ fontSize: '0.9375rem', fontWeight: 500, marginTop: '0.25rem' }}>
               {c.esAdmin ? (
-                <span className="apple-pill apple-pill-purple">Cuenta de Sistema</span>
+                <span className="apple-pill apple-pill-purple">Cuenta del sistema</span>
               ) : c.fila?.origen === 'stripe' ? (
                 <span className="apple-pill apple-pill-blue">
                   <CreditCard size={12} />

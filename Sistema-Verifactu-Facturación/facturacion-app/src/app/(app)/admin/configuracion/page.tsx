@@ -26,7 +26,7 @@ export default async function AdminConfiguracionPage() {
       <div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
           <Sliders size={14} className="text-blue-500" />
-          <span>Administración de Plataforma</span>
+          <span>Administración de la plataforma</span>
         </div>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.035em', margin: 0, color: 'var(--text-primary)' }}>
           Configuración Fiscal & Facturación

@@ -132,7 +132,7 @@ function DocumentosContent() {
     <div className="page-container">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
-          <h1 className="page-title">Gestión de Documentos</h1>
+          <h1 className="page-title">Documentos</h1>
           <p className="page-subtitle">Presupuestos, pedidos, albaranes y facturas de venta y compra</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
@@ -186,7 +186,7 @@ function DocumentosContent() {
               onChange={e => setSentidoFiltro(e.target.value)}
               style={{ width: 'auto' }}
             >
-              <option value="todos">Venta y Compra</option>
+              <option value="todos">Venta y compra</option>
               <option value="venta">Solo Ventas</option>
               <option value="compra">Solo Compras</option>
             </select>

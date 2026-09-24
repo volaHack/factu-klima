@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
-  Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Sparkles, Package,
+  Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Package,
   BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -11,7 +11,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
-import { useColoresGrafica } from '@/components/charts/theme';
+import { useColoresGrafica, SERIES } from '@/components/charts/theme';
 import {
   getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
   getCompanyCategories, addCustomCategory, deleteCustomCategory, updateCustomCategory, getCompanySettings,
@@ -342,7 +342,7 @@ export default function ProductosPage() {
   const { accent } = useColoresGrafica();
 
   const categoryDistributionData = useMemo(() => {
-    const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'];
+    const colors = SERIES;
     return categories.map((cat, idx) => {
       const count = products.filter(p => p.category === cat.value).length;
       return {
@@ -366,7 +366,7 @@ export default function ProductosPage() {
   }, [products, categories]);
 
   if (!mounted) {
-    return <PageSkeleton variant="list" label="Cargando Productos y Categorías" />;
+    return <PageSkeleton variant="list" label="Cargando Productos y categorías" />;
   }
 
   const totalInventoryValue = products.reduce((sum, p) => sum + (p.unitPrice * (p.stockQuantity ?? 1)), 0);
@@ -377,7 +377,7 @@ export default function ProductosPage() {
       <div className="page-header">
         <div className="page-header-left">
           <p className="page-eyebrow"><Package /> Catálogo e Inventario</p>
-          <h1 className="page-title">Productos y Categorías</h1>
+          <h1 className="page-title">Productos y categorías</h1>
           {products.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
@@ -456,14 +456,14 @@ export default function ProductosPage() {
               </ChartCard>
 
               <ChartCard
-                title="Distribución de Productos"
+                title="Distribución de productos"
                 subtitle="Número de referencias registradas en cada categoría"
                 height={220}
                 isEmpty={categoryDistributionData.length === 0}
                 emptyLabel="Sin datos"
                 tableColumns={[
                   { key: 'name', label: 'Categoría' },
-                  { key: 'value', label: 'Número de Productos', align: 'right' },
+                  { key: 'value', label: 'Número de productos', align: 'right' },
                 ]}
                 tableRows={categoryDistributionData}
                 legend={
@@ -723,7 +723,7 @@ export default function ProductosPage() {
                   <input className="form-input mono" value={form.ref} onChange={e => updateForm('ref', e.target.value)} placeholder="PRD-001" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Referencia del Proveedor</label>
+                  <label className="form-label">Referencia del proveedor</label>
                   <input className="form-input mono" value={form.supplierRef} onChange={e => updateForm('supplierRef', e.target.value)} placeholder="Ej: PROV-REF-99" />
                 </div>
               </div>
@@ -747,7 +747,7 @@ export default function ProductosPage() {
                   <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => updateForm('unitPrice', e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Unidad de Medida</label>
+                  <label className="form-label">Unidad de medida</label>
                   <select className="form-select" value={form.unit} onChange={e => updateForm('unit', e.target.value)}>
                     {UNITS_OF_MEASURE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                   </select>
@@ -812,7 +812,7 @@ export default function ProductosPage() {
                   <input className="form-input" type="number" value={form.stockQuantity} onChange={e => updateForm('stockQuantity', e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Umbral de Alerta de Stock Bajo</label>
+                  <label className="form-label">Avisar cuando el stock baje de</label>
                   <input className="form-input" type="number" value={form.lowStockThreshold} onChange={e => updateForm('lowStockThreshold', e.target.value)} />
                 </div>
               </div>

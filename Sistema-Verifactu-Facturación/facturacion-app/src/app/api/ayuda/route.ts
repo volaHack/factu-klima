@@ -44,7 +44,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 import { createClient } from '@/lib/supabase/server';
 import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
-import { instruccionesAsistencia } from '@/lib/asistencia/enunciado';
+import { instruccionesAsistencia, SIN_TICS } from '@/lib/asistencia/enunciado';
 import { acotarSituacion } from '@/lib/asistencia/contexto';
 
 /** Tope de la pregunta. Nadie escribe una novela detrás del mostrador. */
@@ -147,14 +147,13 @@ function instruccionesDuda(pregunta: string, ctx: ContextoTpv): string {
     'TU FORMA DE HABLAR:',
     '- En castellano, de tú. Máximo 3 frases, pero que suenen naturales,',
     '  como si las dijeras en voz alta. Nada de listas de viñetas frías.',
-    '- Puedes usar expresiones coloquiales tipo «mira», «lo que tienes que',
-    '  hacer es…», «ojo que…», «tranqui, es fácil».',
     '- Si hay pasos, numéralos, pero con el nombre EXACTO del botón o tecla.',
     '- Usa SOLO lo que aparece en la lista de abajo. Si algo no se puede',
     '  hacer, dilo con naturalidad («eso de momento no se puede, pero lo que',
     '  sí puedes hacer es…»). Nunca inventes botones ni funciones.',
-    '- No empieces con «Hola» ni «Claro» ni «Por supuesto». Ve al grano',
-    '  pero con tono humano.',
+    '- No empieces con «Hola» ni «Claro» ni «Por supuesto». Ve al grano.',
+    '',
+    ...SIN_TICS,
     '',
     'LO QUE ESTE TPV SABE HACER:',
     ...LO_QUE_HACE_EL_TPV,
@@ -200,8 +199,8 @@ function instruccionesTurno(r: ResumenTurno): string {
     'TU FORMA DE HABLAR:',
     '- En castellano, de tú. 3 o 4 frases que suenen a conversación, no a',
     '  informe. Nada de listas ni saludos.',
-    '- Puedes decir cosas como «pues ha ido bien», «oye, el descuadre es',
-    '  mínimo», «yo echaría un ojo a…». Que suene a persona.',
+    '- Habla como se habla al salir del trabajo, sin frases hechas ni',
+    '  exclamaciones. Nada de emojis.',
     '',
     'QUÉ DECIR, EN ESTE ORDEN:',
     '1. Cómo ha ido el turno en una frase (ventas y reparto entre formas de pago).',
@@ -243,16 +242,15 @@ function instruccionesPagina(pregunta: string, p: ContextoPagina): string {
     '',
     'TU FORMA DE HABLAR:',
     '- En castellano, de tú. Máximo 4 frases, con tono natural y cercano.',
-    '- Puedes usar expresiones como «mira, lo que tienes que hacer es…»,',
-    '  «fíjate en…», «eso es sencillo». Que suene a persona, no a manual.',
     '- Usa SOLO lo que aparece en la documentación de abajo. Si la respuesta',
     '  no está ahí, dilo con naturalidad («eso no va en esta pantalla, pero',
     '  creo que lo encuentras en…») y, si sabes qué pantalla lo hace,',
     '  mándale a ella.',
     '- No inventes botones, pantallas, campos ni funciones.',
     '- Si hay pasos, dilo en orden con el nombre exacto del botón.',
-    '- No empieces con saludos ni despedidas. Ve al grano, pero con',
-    '  calidez.',
+    '- No empieces con saludos ni despedidas. Ve al grano.',
+    '',
+    ...SIN_TICS,
     '',
     `DOCUMENTACIÓN DE LA PANTALLA «${p.titulo}»:`,
     `Para qué sirve: ${p.paraQue}`,

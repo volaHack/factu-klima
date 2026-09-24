@@ -3,7 +3,7 @@ import { exigirAdminCon2fa } from '@/lib/admin/dal';
 import { listarCuentas } from '@/lib/admin/datos';
 import { getPlan } from '@/lib/plans';
 import { formatDate } from '@/lib/utils';
-import { Search, ChevronRight, UserCheck, Shield, Sparkles, Download, CreditCard, Gift } from 'lucide-react';
+import { Search, ChevronRight, UserCheck, Shield, Download, CreditCard, Gift } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +114,7 @@ export default async function AdminCuentas({
                   <th>Usuario / Empresa</th>
                   <th>Plan Actual</th>
                   <th>Estado</th>
-                  <th>Método de Facturación</th>
+                  <th>Método de facturación</th>
                   <th>Vencimiento / Renovación</th>
                   <th style={{ textAlign: 'right' }}>Facturas / Mes</th>
                   <th style={{ textAlign: 'right' }}>Último Acceso</th>

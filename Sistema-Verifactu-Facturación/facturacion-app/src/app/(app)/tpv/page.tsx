@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair, Sparkles } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair, CircleHelp } from 'lucide-react';
 import TpvProductGrid from '@/components/tpv/TpvProductGrid';
 import TpvCart from '@/components/tpv/TpvCart';
 import TpvCheckout from '@/components/tpv/TpvCheckout';
@@ -577,7 +577,7 @@ export default function TpvPage() {
     if (!planCheck.allowed) {
       setCheckoutOpen(false);
       setPaywallState({
-        title: 'Límite de Plan Alcanzado',
+        title: 'Has llegado al límite de tu plan',
         description: planCheck.reason || 'Suscripción inactiva o límite de facturación alcanzado.',
         requiredPlan: planCheck.requiredPlan || 'pro',
       });
@@ -805,7 +805,7 @@ export default function TpvPage() {
             onClick={() => setAyudaOpen(true)}
             title="Pregunta lo que necesites sobre el mostrador"
           >
-            <Sparkles size={15} />
+            <CircleHelp size={15} />
             <span>Ayuda</span>
           </button>
           <button

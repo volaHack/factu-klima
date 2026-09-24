@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   WalletCards, ArrowDownLeft, ArrowUpRight, Calendar, Users,
   CheckCircle2, Clock, AlertCircle, Plus, Search, Filter,
-  FileText, CreditCard, DollarSign, Download, Printer, RefreshCw,
+  FileText, CreditCard, Euro, Download, Printer, RefreshCw,
   Trash2, ChevronRight, AlertTriangle
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -266,7 +266,7 @@ export default function TesoreriaPage() {
         }
       }
 
-      success(`${isCobro ? 'Cobro' : 'Pago'} ${record.number} por ${formatCurrency(record.importeTotal)} registrado con éxito`);
+      success(`${isCobro ? 'Cobro' : 'Pago'} ${record.number} por ${formatCurrency(record.importeTotal)} anotado`);
       setShowModal(false);
       await loadData();
     } catch (err) {
@@ -316,31 +316,31 @@ export default function TesoreriaPage() {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'var(--color-success-bg)', color: 'var(--color-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowDownLeft size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>PENDIENTE DE COBRO (CLIENTES)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Por cobrar a clientes</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-success)' }}>{formatCurrency(totalPendienteCobro)}</div>
           </div>
         </div>
 
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowUpRight size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>PENDIENTE DE PAGO (PROVEEDORES)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Por pagar a proveedores</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-danger)' }}>{formatCurrency(totalPendientePago)}</div>
           </div>
         </div>
 
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'rgba(99, 102, 241, 0.12)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Clock size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>FACTURAS VENCIDAS O PENDIENTES</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Facturas vencidas o pendientes</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{vencimientos.length} facturas</div>
           </div>
         </div>
@@ -543,7 +543,7 @@ export default function TesoreriaPage() {
                   <th>Nº Cobro</th>
                   <th>Fecha</th>
                   <th>Cliente</th>
-                  <th>Método de Pago</th>
+                  <th>Método de pago</th>
                   <th>Facturas Liquidadas</th>
                   <th style={{ textAlign: 'right' }}>Importe Cobrado</th>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -602,7 +602,7 @@ export default function TesoreriaPage() {
                   <th>Nº Pago</th>
                   <th>Fecha</th>
                   <th>Proveedor</th>
-                  <th>Método de Pago</th>
+                  <th>Método de pago</th>
                   <th>Facturas Liquidadas</th>
                   <th style={{ textAlign: 'right' }}>Importe Pagado</th>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -655,7 +655,7 @@ export default function TesoreriaPage() {
       {activeTab === 'extractos' && (
         <div>
           <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
-            <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Consulta de Extracto y Relación de Documentos</h3>
+            <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Extracto y documentos relacionados</h3>
             <div className="form-row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div className="form-group" style={{ flex: 2, minWidth: 260, margin: 0 }}>
                 <label className="form-label">Cliente / Proveedor</label>
@@ -799,7 +799,7 @@ export default function TesoreriaPage() {
 
               <div className="form-row">
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Fecha de Cobro/Pago *</label>
+                  <label className="form-label">Fecha de cobro o pago *</label>
                   <input
                     type="date"
                     className="form-input"
@@ -810,7 +810,7 @@ export default function TesoreriaPage() {
                 </div>
 
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Método de Pago *</label>
+                  <label className="form-label">Método de pago *</label>
                   <select
                     className="form-select"
                     value={paymentMethod}

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import {
-  Sparkles, Package, TrendingUp, TrendingDown, CalendarDays, Users,
+  Activity, Package, TrendingUp, TrendingDown, CalendarDays, Users,
   Boxes, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { buildAvisosData } from '@/lib/insights';
@@ -44,10 +44,10 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
       <div className="tendencias-header">
         <div className="tendencias-heading">
           <h2 className="tendencias-title">
-            <Sparkles size={16} /> Avisos y tendencias IA
+            <Activity size={16} /> Avisos y tendencias
           </h2>
           <p className="tendencias-subtitle">
-            Análisis local de tus facturas y stock · sin enviar datos a internet
+            Calculado en este equipo con tus facturas y tu stock, sin enviar nada fuera
           </p>
         </div>
         <div className="tendencias-chips">
@@ -119,7 +119,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
               {data.growing.length > 0 && (
                 <div>
                   <div className="trend-column-title up">
-                    <TrendingUp size={13} /> En crecimiento
+                    <TrendingUp size={13} /> Al alza
                   </div>
                   <div className="stats-list">
                     {data.growing.map(item => (
@@ -130,7 +130,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
                             <div className="stats-item-detail">{formatCurrency(item.previous)} → {formatCurrency(item.current)}</div>
                           </div>
                         </div>
-                        <span className="trend-change up">+{Math.round(item.changePct)}%</span>
+                        <span className="trend-change up">{item.previous === 0 ? 'Nuevo' : `+${Math.round(item.changePct)} %`}</span>
                       </div>
                     ))}
                   </div>
@@ -139,7 +139,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
               {data.declining.length > 0 && (
                 <div>
                   <div className="trend-column-title down">
-                    <TrendingDown size={13} /> En declive
+                    <TrendingDown size={13} /> A la baja
                   </div>
                   <div className="stats-list">
                     {data.declining.map(item => (
@@ -150,7 +150,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
                             <div className="stats-item-detail">{formatCurrency(item.previous)} → {formatCurrency(item.current)}</div>
                           </div>
                         </div>
-                        <span className="trend-change down">{Math.round(item.changePct)}%</span>
+                        <span className="trend-change down">{item.current === 0 ? 'Sin ventas' : `${Math.round(item.changePct)} %`}</span>
                       </div>
                     ))}
                   </div>

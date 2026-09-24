@@ -11,7 +11,6 @@ import {
   Receipt,
   Landmark,
   Building2,
-  Sparkles,
   Lock,
 } from 'lucide-react';
 
@@ -77,7 +76,7 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
         throw new Error(data.error || 'Error al guardar la configuración');
       }
 
-      setMensajeExito('Configuración de la plataforma actualizada y registrada en auditoría con éxito.');
+      setMensajeExito('Configuración guardada. El cambio queda anotado en el registro de auditoría.');
       setForm(prev => ({ ...prev, motivo: '' }));
       router.refresh();
     } catch (err) {

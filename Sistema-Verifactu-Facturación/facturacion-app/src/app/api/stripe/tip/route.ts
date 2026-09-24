@@ -45,7 +45,7 @@ export async function POST(request: Request) {
             currency: 'eur',
             unit_amount: Math.round(numAmount * 100),
             product_data: {
-              name: '☕ Propina / Apoyo al desarrollo de FactuKlima',
+              name: 'Propina para el desarrollo de FactuKlima',
               description: note ? `Mensaje: ${note.substring(0, 200)}` : 'Aportación voluntaria para el soporte y mejoras del software.',
             },
           },

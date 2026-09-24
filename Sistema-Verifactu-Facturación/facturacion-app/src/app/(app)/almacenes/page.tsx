@@ -263,7 +263,7 @@ export default function AlmacenesPage() {
       };
 
       await saveTraspaso(traspaso);
-      success(`Traspaso ${traspaso.number} realizado con éxito`);
+      success(`Traspaso ${traspaso.number} hecho`);
       setShowTraspasoModal(false);
       await loadData();
     } catch {
@@ -355,7 +355,7 @@ export default function AlmacenesPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Warehouse size={28} color="var(--color-primary)" /> Control de Almacenes y Stock
+            <Warehouse size={28} color="var(--color-primary)" /> Almacenes y stock
           </h1>
           <p className="page-subtitle">Multi-localización, movimientos entre almacenes y regularizaciones de inventario</p>
         </div>
@@ -870,7 +870,7 @@ export default function AlmacenesPage() {
               </div>
 
               <div style={{ marginTop: 'var(--space-3)', marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" style={{ margin: 0 }}>Productos a Traspasar</label>
+                <label className="form-label" style={{ margin: 0 }}>Productos a traspasar</label>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleAddTraspasoLine}>
                   <Plus size={14} /> Añadir producto
                 </button>

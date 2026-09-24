@@ -612,10 +612,10 @@ export default function AsistenciaPage() {
           </button>
           <span className="asis-orbe" aria-hidden="true"><Sparkles size={16} /></span>
           <div className="asis-cabeza-texto">
-            <strong>{sesion ? sesion.titulo : 'Asistencia IA'}</strong>
+            <strong>{sesion ? sesion.titulo : 'Asistente'}</strong>
             <span className="asis-estado">
               <i className="asis-estado-punto" />
-              {retrato ? `Conectada a tus datos · al día ${haceCuanto(actualizadoEn, ahora)}` : 'Cargando tus datos…'}
+              {retrato ? `Conectado a tus datos · al día ${haceCuanto(actualizadoEn, ahora)}` : 'Cargando tus datos…'}
             </span>
           </div>
           {!sinChat && (
@@ -628,7 +628,6 @@ export default function AsistenciaPage() {
         <div className="asis-scroll" ref={cajaRef}>
           {sinChat ? (
             <div className="asis-bienvenida">
-              <span className="asis-orbe asis-orbe--grande" aria-hidden="true"><Sparkles size={26} /></span>
               <h1 className="asis-saludo">{nombre ? <>Hola, <em>{nombre}</em></> : 'Hola'}</h1>
               <p className="asis-saludo-sub">
                 Pregúntame lo que quieras de tu negocio. Escribe o pulsa el micrófono y habla:

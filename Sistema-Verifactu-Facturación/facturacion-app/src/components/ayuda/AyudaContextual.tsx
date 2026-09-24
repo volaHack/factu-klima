@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  CircleHelp, X, Sparkles, Loader2, CornerDownLeft, ArrowRight,
+  CircleHelp, X, Sparkles, Loader2, CornerDownLeft, ArrowRight, BookOpen,
   Compass, Lightbulb,
 } from 'lucide-react';
 import { ayudaDe } from '@/lib/ayuda/paginas';
@@ -125,7 +125,7 @@ function ModalAyuda({
         <div className="ayuda-apple-header">
           <div className="ayuda-apple-header-info">
             <div className="ayuda-apple-pill">
-              <Sparkles size={12} className="ayuda-sparkle-anim" />
+              <BookOpen size={12} />
               <span>Guía rápida</span>
             </div>
             <h2 className="ayuda-apple-title">{ayuda.titulo}</h2>
@@ -212,12 +212,12 @@ function ModalAyuda({
             </div>
           )}
 
-          {/* Asistente inteligente IA */}
+          {/* Asistente */}
           <div className="ayuda-ai-card">
             <div className="ayuda-ai-header">
               <div className="ayuda-ai-badge">
                 <Sparkles size={13} />
-                <span>Asistente inteligente</span>
+                <span>Pregúntale al asistente</span>
               </div>
               <span className="ayuda-ai-sub">¿Tienes otra duda sobre esta pantalla?</span>
             </div>

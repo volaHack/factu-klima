@@ -41,14 +41,24 @@ export const SERIES = [
   '#008300', // 6 · verde
 ] as const;
 
-/** Paleta de estado. Reservada: jamás se usa para identificar una serie. */
+/**
+ * Paleta de estado. Reservada: jamás se usa para identificar una serie.
+ *
+ * Antes era la de fábrica (verde #0ca30c, amarillo #fab219, azul #3987e5):
+ * saturada, ajena al blush y con el amarillo a 1,7:1 sobre la tarjeta. El
+ * donut de «Reparto por estado» era lo primero que se veía y parecía de
+ * plantilla. Estos tonos son más sobrios y, validados sobre #fbf6f2 con
+ * todos los pares: banda de luminosidad PASS, daltonismo PASS (peor par
+ * vencido↔cobrado ΔE 8.0 deutan), visión normal PASS (≥ 15,6). El gris
+ * del borrador no llega al croma mínimo a propósito: es gris.
+ */
 export const STATUS = {
-  good: '#0ca30c',
-  warning: '#fab219',
-  serious: '#ec835a',
-  critical: '#d03b3b',
-  neutral: '#3987e5',
-  muted: '#8b8b93',
+  good: '#17876f',
+  warning: '#cc8b0f',
+  serious: '#d9652e',
+  critical: '#cc3f48',
+  neutral: '#3570c8',
+  muted: '#a7a3ad',
 } as const;
 
 /**
