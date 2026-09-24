@@ -492,6 +492,27 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     relacionadas: [{ ruta: '/verifactu', texto: 'Veri*Factu' }],
   },
   {
+    ruta: '/contabilidad',
+    titulo: 'Contabilidad',
+    paraQue: 'La contabilidad de la empresa en el Plan General Contable, hecha sola a partir de facturas, compras, gastos, cobros, pagos y ventas del TPV.',
+    pasos: [
+      'Elige el ejercicio y, si quieres, un trimestre.',
+      'En Resumen tienes el resultado, el IVA del periodo, lo que te deben y lo que debes.',
+      'Libro diario, Mayor y Sumas y saldos son los libros de siempre; Cuentas anuales, la cuenta de pérdidas y ganancias y el balance.',
+      'Exporta el diario en CSV para tu gestoría: lo importan A3, Sage o ContaSol.',
+    ],
+    saber: [
+      'No hay que contabilizar nada: el asiento existe desde que emites, compras, gastas o cobras. Si corriges un gasto, su asiento cambia con él.',
+      'Cuadres revisa cada vez que entras que el diario y el balance cuadren, que lo que deben los clientes coincida con las facturas pendientes y que el IVA sea el del modelo trimestral.',
+      'Nóminas con Seguridad Social, amortizaciones y préstamos no pasan por el programa: los añade tu gestoría sobre el diario exportado.',
+    ],
+    relacionadas: [
+      { ruta: '/listados-fiscales', texto: 'Modelos fiscales' },
+      { ruta: '/gastos', texto: 'Registrar gastos' },
+      { ruta: '/tesoreria', texto: 'Cobros y pagos' },
+    ],
+  },
+  {
     ruta: '/listados-fiscales',
     titulo: 'Listados fiscales',
     paraQue: 'Los modelos de Hacienda calculados con tus datos: 303, 390, 347, 349, 130, 131, 111, 190 y, en Canarias, 420, 415 y 425.',

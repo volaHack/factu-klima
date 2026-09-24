@@ -80,6 +80,31 @@ const CAPACIDADES = [
   ['Portal de aprobación', 'Un enlace público por pedido para que el cliente revise y confirme antes de que emitas.'],
 ];
 
+/** El ejemplo de la sección de contabilidad: una factura y su cobro, ya asentados. */
+const ASIENTOS_EJEMPLO = [
+  {
+    n: 14, fecha: '14/01', concepto: 'Factura FAC-2026-0014 · Frutería Pepe',
+    lineas: [
+      { cuenta: '43000008', nombre: 'Frutería Pepe', debe: '991,27', haber: '' },
+      { cuenta: '70000000', nombre: 'Ventas de mercaderías', debe: '', haber: '819,23' },
+      { cuenta: '47700021', nombre: 'H.P. IVA repercutido 21 %', debe: '', haber: '172,04' },
+    ],
+  },
+  {
+    n: 15, fecha: '21/01', concepto: 'Cobro COB-2026-0003 · Frutería Pepe',
+    lineas: [
+      { cuenta: '57200000', nombre: 'Bancos c/c', debe: '991,27', haber: '' },
+      { cuenta: '43000008', nombre: 'Frutería Pepe', debe: '', haber: '991,27' },
+    ],
+  },
+];
+
+const CONTABILIDAD = [
+  ['Los libros de verdad', 'Libro diario, mayor, sumas y saldos, pérdidas y ganancias y balance de situación, con la estructura del Plan General Contable de PYMES.'],
+  ['Cuadra sola, y lo comprueba', 'Cada vez que la abres revisa que el diario y el balance cuadren, que lo que te deben los clientes sea lo de las facturas pendientes y que el IVA coincida con el del 303.'],
+  ['Tu gestoría la recibe en un clic', 'El diario sale en CSV con subcuentas de 8 cifras, una por cliente y proveedor: lo importan A3, Sage o ContaSol sin teclear nada.'],
+];
+
 const FAQS = [
   {
     q: '¿Qué es la huella SHA-256 y por qué la exige la ley?',
@@ -96,6 +121,10 @@ const FAQS = [
   {
     q: '¿Y si me quedo sin conexión?',
     a: 'Klima es una PWA con base de datos en el propio dispositivo. Sigues emitiendo y cobrando sin línea; las operaciones se encolan y suben solas, en orden y sin duplicar, en cuanto vuelve la conexión.',
+  },
+  {
+    q: '¿Lleva también la contabilidad?',
+    a: 'Sí, y sin trabajo extra. Cada factura, compra, gasto, cobro y venta del TPV genera su asiento en el Plan General Contable en el momento en que ocurre. Tienes libro diario, mayor, sumas y saldos, pérdidas y ganancias y balance, y el diario se exporta para tu gestoría. Lo que no pasa por el programa —nóminas con Seguridad Social, amortizaciones, préstamos— lo añade tu gestoría sobre ese diario.',
   },
   {
     q: '¿Hay permanencia?',
@@ -238,6 +267,52 @@ export default function HomePage() {
             ))}
           </ol>
         </div>
+      </Reveal>
+
+      {/* ────────────────────── Contabilidad ──────────────────────
+          Lo que más cambia respecto a un programa de facturación normal:
+          allí la contabilidad la hace otra persona después, tecleando las
+          facturas. Aquí se enseña un asiento real, no una promesa. */}
+      <Reveal className="home-conta" id="contabilidad">
+        <div className="home-conta-copy">
+          <p className="home-conta-kicker">Contabilidad incluida</p>
+          <h2 className="home-h2">La contabilidad se hace <em className="accent-serif">sola</em></h2>
+          <p className="home-lead">
+            En la mayoría de programas de facturación la contabilidad empieza cuando acaba el trimestre: alguien
+            recoge las facturas y las vuelve a teclear. Aquí cada factura, compra, gasto y cobro genera su asiento en
+            el momento en que ocurre.
+          </p>
+          <dl className="home-conta-lista">
+            {CONTABILIDAD.map(([titulo, texto]) => (
+              <div key={titulo}>
+                <dt>{titulo}</dt>
+                <dd>{texto}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <figure className="home-conta-libro" aria-label="Ejemplo del libro diario: una factura y su cobro">
+          <figcaption>Libro diario · generado, no tecleado</figcaption>
+          {ASIENTOS_EJEMPLO.map(a => (
+            <div key={a.n} className="home-conta-asiento">
+              <p className="home-conta-asiento-cab"><span>Nº {a.n}</span><span>{a.fecha}</span><span>{a.concepto}</span></p>
+              <table>
+                <tbody>
+                  {a.lineas.map(l => (
+                    <tr key={l.cuenta + l.debe}>
+                      <td className="home-conta-cuenta">{l.cuenta}</td>
+                      <td>{l.nombre}</td>
+                      <td className="home-conta-num">{l.debe}</td>
+                      <td className="home-conta-num">{l.haber}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          <p className="home-conta-cuadra">Debe = Haber · cuadrado</p>
+        </figure>
       </Reveal>
 
       {/* ────────────────────── Capacidades ────────────────────── */}

@@ -45,6 +45,7 @@ const EXACTAS: Record<string, string> = {
   '/sii': 'SII',
   '/intracomunitarias': 'Intracomunitarias',
   '/informes': 'Informes',
+  '/contabilidad': 'Contabilidad',
   '/listados-fiscales': 'Modelos fiscales',
   '/listados': 'Listados',
   '/plantillas': 'Plantillas',

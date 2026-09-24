@@ -689,6 +689,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               <FilaIgual etiqueta="Dashboard analítico">{SI}</FilaIgual>
               <FilaIgual etiqueta="Cobro online Stripe">{SI}</FilaIgual>
               <FilaIgual etiqueta="Informes fiscales">{SI}</FilaIgual>
+              <FilaIgual etiqueta="Contabilidad automática (PGC)">{SI}</FilaIgual>
 
               <FilaSeccion icono={Store}>Terminal Punto de Venta</FilaSeccion>
               {/* El TPV no mira el plan por ningún lado: lo enciende el
