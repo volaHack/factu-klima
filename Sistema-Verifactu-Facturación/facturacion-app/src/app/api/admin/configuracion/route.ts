@@ -33,7 +33,6 @@ export async function POST(request: Request) {
       regimen_igic,
       cobrar_impuesto,
       stripe_tax_rate_igic,
-      cobros_abiertos,
       actividad_desde,
       motivo,
     } = body;
@@ -60,7 +59,6 @@ export async function POST(request: Request) {
       ...(regimen_igic ? { regimen_igic } : {}),
       ...(typeof cobrar_impuesto === 'boolean' ? { cobrar_impuesto } : {}),
       ...(stripe_tax_rate_igic !== undefined ? { stripe_tax_rate_igic: stripe_tax_rate_igic ? String(stripe_tax_rate_igic).trim() : null } : {}),
-      ...(typeof cobros_abiertos === 'boolean' ? { cobros_abiertos } : {}),
       ...(actividad_desde !== undefined ? { actividad_desde: actividad_desde || null } : {}),
     };
 
@@ -77,7 +75,7 @@ export async function POST(request: Request) {
     await db.from('admin_registro').insert({
       admin_user_id: admin.user.id,
       accion: 'configuracion_plataforma',
-      motivo: `Actualización de configuración: ${motivo.trim()} (régimen ${anterior?.regimen_igic} → ${regimen_igic ?? anterior?.regimen_igic}; cobros ${anterior?.cobros_abiertos ? 'abiertos' : 'cerrados'} → ${(cobros_abiertos ?? anterior?.cobros_abiertos) ? 'abiertos' : 'cerrados'}; alta ${anterior?.actividad_desde ?? '—'} → ${(actividad_desde === undefined ? anterior?.actividad_desde : actividad_desde) || '—'})`,
+      motivo: `Actualización de configuración: ${motivo.trim()} (régimen ${anterior?.regimen_igic} → ${regimen_igic ?? anterior?.regimen_igic}; alta ${anterior?.actividad_desde ?? '—'} → ${(actividad_desde === undefined ? anterior?.actividad_desde : actividad_desde) || '—'})`,
     });
 
     return NextResponse.json({ ok: true });

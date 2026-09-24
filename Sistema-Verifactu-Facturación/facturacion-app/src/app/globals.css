@@ -5220,41 +5220,6 @@ a.stats-item:focus-visible {
   border-left: 3px solid var(--accent-500);
   border-radius: var(--radius-lg);
 }
-/* Fase piloto: en lugar del cupón, el aviso de que ahora es gratis */
-.pricing-piloto {
-  max-width: 600px;
-  margin: 0 auto var(--space-6);
-  padding: var(--space-4) var(--space-5);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  text-align: left;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--accent-500);
-  border-radius: var(--radius-lg);
-}
-.pricing-piloto p {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-.pricing-piloto p strong { color: var(--text-primary); font-weight: 600; }
-.pricing-piloto-etiqueta {
-  flex-shrink: 0;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent-600, var(--accent-500));
-  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
-}
-@media (max-width: 520px) {
-  .pricing-piloto { flex-direction: column; gap: var(--space-2); }
-}
 .pricing-promo-oferta {
   display: flex;
   align-items: baseline;

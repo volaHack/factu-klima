@@ -61,7 +61,6 @@ export default async function AdminHacienda() {
   const ingresos = (ingresosRes.data ?? []) as (Ingreso & { id: string; factura?: { number?: string } | null })[];
   const libro = resumenIngresos(ingresos);
   const actividadDesde: string | null = cfg?.actividad_desde ?? null;
-  const cobrosAbiertos = cfg?.cobros_abiertos === true;
   // Lo que el botón puede facturar: pendientes cobrados ya con el alta puesta.
   const facturables = actividadDesde
     ? ingresos.filter(i => i.estado === 'pendiente_alta' && i.fecha >= actividadDesde).length
@@ -179,9 +178,6 @@ export default async function AdminHacienda() {
               Cada cobro de Stripe (suscripciones, propinas y devoluciones) queda apuntado aquí, se haya facturado o no · {etiqueta}
             </p>
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-              <span className={`apple-pill ${cobrosAbiertos ? 'apple-pill-emerald' : 'apple-pill-amber'}`}>
-                {cobrosAbiertos ? 'Cobros abiertos' : 'Fase piloto · sin cobros'}
-              </span>
               <span className={`apple-pill ${actividadDesde ? 'apple-pill-blue' : 'apple-pill-slate'}`}>
                 {actividadDesde ? `De alta desde ${formatDate(actividadDesde)}` : 'Sin fecha de alta'}
               </span>
@@ -221,7 +217,7 @@ export default async function AdminHacienda() {
           <div style={{ padding: '2rem 1rem 2.5rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
             <p style={{ fontSize: '0.95rem', fontWeight: 500, margin: 0 }}>Ningún cobro este trimestre.</p>
             <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-              {cobrosAbiertos ? 'Los cobros de Stripe se apuntarán aquí solos.' : 'En fase piloto no se cobra: abre los cobros en Configuración cuando estés de alta.'}
+              Los cobros de Stripe se apuntarán aquí solos.
             </p>
           </div>
         ) : (

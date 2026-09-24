@@ -22,7 +22,6 @@ interface PlataformaConfig {
   regimen_igic: 'general' | 'pequeno_empresario';
   cobrar_impuesto: boolean;
   stripe_tax_rate_igic: string | null;
-  cobros_abiertos?: boolean;
   actividad_desde?: string | null;
   updated_at?: string;
 }
@@ -39,7 +38,6 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
     regimen_igic: initialConfig.regimen_igic || 'pequeno_empresario',
     cobrar_impuesto: initialConfig.cobrar_impuesto ?? false,
     stripe_tax_rate_igic: initialConfig.stripe_tax_rate_igic || '',
-    cobros_abiertos: initialConfig.cobros_abiertos ?? false,
     actividad_desde: initialConfig.actividad_desde || '',
     motivo: '',
   });
@@ -69,7 +67,6 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
           regimen_igic: form.regimen_igic,
           cobrar_impuesto: form.cobrar_impuesto,
           stripe_tax_rate_igic: form.stripe_tax_rate_igic.trim() || null,
-          cobros_abiertos: form.cobros_abiertos,
           actividad_desde: form.actividad_desde || null,
           motivo: form.motivo.trim(),
         }),
@@ -130,37 +127,21 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
         </div>
       )}
 
-      {/* Tarjeta 0: Actividad y cobros — lo que decide si la plataforma cobra y factura */}
+      {/* Tarjeta 0: Alta en Hacienda — desde cuándo se facturan los cobros */}
       <div className="apple-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1rem' }}>
           <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(176, 42, 92, 0.12)', color: 'var(--accent-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Landmark size={18} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 650 }}>Actividad y cobros</h3>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 650 }}>Alta en Hacienda</h3>
             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Mientras no estés de alta en Hacienda, la plataforma no cobra ni emite facturas a tu nombre.
+              Desde qué día se emiten facturas a tu nombre por lo que cobra la plataforma.
             </p>
           </div>
         </div>
 
         <div style={{ display: 'grid', gap: '1rem' }}>
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={form.cobros_abiertos}
-              onChange={e => setForm({ ...form, cobros_abiertos: e.target.checked })}
-              style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--accent-500)' }}
-            />
-            <span>
-              <strong style={{ display: 'block', fontSize: '0.9rem' }}>Cobros abiertos</strong>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Apagado = fase piloto: /precios ofrece «Probar gratis», no hay propinas y las rutas de pago rechazan cualquier cobro.
-                Da acceso a los negocios del piloto con una cortesía desde Cuentas.
-              </span>
-            </span>
-          </label>
-
           <div>
             <label className="form-label" htmlFor="actividad_desde" style={{ fontWeight: 600 }}>Actividad dada de alta desde</label>
             <input
@@ -177,11 +158,6 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
             </p>
           </div>
 
-          {form.cobros_abiertos && !form.actividad_desde && (
-            <div style={{ display: 'flex', gap: '0.5rem', padding: '0.75rem 1rem', borderRadius: 12, background: 'rgba(245, 158, 11, 0.1)', color: '#92400e', fontSize: '0.8rem', fontWeight: 600 }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} /> Vas a abrir los cobros sin fecha de alta: se cobrará sin emitir facturas. Pon la fecha antes de abrir.
-            </div>
-          )}
         </div>
       </div>
 
