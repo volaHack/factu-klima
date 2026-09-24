@@ -34,7 +34,7 @@ export default function DeleteInvoiceModal({
     setSubmitting(true);
     try {
       await deleteInvoice(invoice.id);
-      onSuccess(`Borrador ${invoice.number} eliminado correctamente.`);
+      onSuccess(`Borrador ${invoice.number} eliminado.`);
       onClose();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Error al eliminar el borrador.');
@@ -97,7 +97,7 @@ export default function DeleteInvoiceModal({
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 600 }}>
-                {sealed ? 'Comprobante de Anulación' : 'Eliminar Borrador'}
+                {sealed ? 'Comprobante de anulación' : 'Eliminar Borrador'}
               </h3>
               <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.8 }}>
                 {invoice.number} · {invoice.clientName}

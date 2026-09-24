@@ -573,7 +573,7 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   },
   {
     ruta: '/asistencia',
-    titulo: 'Asistencia IA',
+    titulo: 'Asistente',
     paraQue: 'Preguntar dudas del programa —escribiendo o dictando— y que la respuesta venga con tus propios números: cuántas facturas tienes sin cobrar, qué te falta por configurar.',
     pasos: [
       'Escribe la pregunta con tus palabras, o pulsa «Dictar» y háblale.',
@@ -586,7 +586,7 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
       'No da consejos fiscales: para eso, tu gestoría.',
       'Si el servicio de IA no está configurado en el servidor, lo dice en vez de inventarse la respuesta.',
     ],
-    relacionadas: [{ ruta: '/dashboard', texto: 'Dashboard' }, { ruta: '/ajustes', texto: 'Ajustes' }],
+    relacionadas: [{ ruta: '/dashboard', texto: 'Panel' }, { ruta: '/ajustes', texto: 'Ajustes' }],
   },
   {
     ruta: '/plantillas',

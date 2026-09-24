@@ -80,6 +80,12 @@
       "skillPath": "skills/gpt-image-2/SKILL.md",
       "computedHash": "1748298d7cffd47c5e943f76a7e2f36bd96188198db6a25708033bf522d5794a"
     },
+    "humanizer-zh": {
+      "source": "op7418/humanizer-zh",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "9813f49a01497e18c091593b44f98a26a5a6e278c1c3c73eaee76b5b701bc4d7"
+    },
     "hyperframes": {
       "source": "heygen-com/hyperframes",
       "sourceType": "github",

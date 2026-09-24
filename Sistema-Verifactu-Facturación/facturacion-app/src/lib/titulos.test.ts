@@ -3,7 +3,7 @@ import { tituloDePagina } from './titulos';
 
 describe('tituloDePagina', () => {
   it('las rutas exactas, incluidas las que antes salían en blanco', () => {
-    expect(tituloDePagina('/dashboard')).toBe('Dashboard');
+    expect(tituloDePagina('/dashboard')).toBe('Panel');
     expect(tituloDePagina('/tesoreria')).toBe('Tesorería');
     expect(tituloDePagina('/albaranes')).toBe('Albaranes');
     expect(tituloDePagina('/facturas/nueva')).toBe('Nueva factura');

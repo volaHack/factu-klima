@@ -236,7 +236,7 @@ export default function SiiPage() {
             icon: <Clock size={18} />,
             subtitle: resumen.diasHastaVencimiento !== null
               ? resumen.diasHastaVencimiento <= 0
-                ? '⚠️ Plazo vencido'
+                ? 'Plazo vencido'
                 : `${resumen.diasHastaVencimiento} días hasta vencimiento`
               : undefined,
             subtitleDanger: resumen.diasHastaVencimiento !== null && resumen.diasHastaVencimiento <= 1,

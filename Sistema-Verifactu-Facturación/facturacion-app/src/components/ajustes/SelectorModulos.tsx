@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, Lock, Sparkles } from 'lucide-react';
+import { ChevronDown, Lock } from 'lucide-react';
 import {
   MODULOS, GRUPOS_MODULO, encender, apagar, modulosPorDefecto, type ModuloId, type GrupoModulo,
 } from '@/lib/modulos';
@@ -113,7 +113,7 @@ export default function SelectorModulos({ activos, sector, onCambiar }: Props) {
                         <span className="modulos-nombre">
                           {m.nombre}
                           {!m.disponible && (
-                            <span className="modulos-pronto"><Sparkles size={11} /> En camino</span>
+                            <span className="modulos-pronto">En camino</span>
                           )}
                         </span>
                         <span className="modulos-desc">{m.descripcion}</span>

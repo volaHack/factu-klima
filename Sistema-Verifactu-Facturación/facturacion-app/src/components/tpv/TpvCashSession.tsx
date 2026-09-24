@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Lock, Unlock, Banknote, Sparkles, CheckCircle2, Coins } from 'lucide-react';
+import { Loader2, Lock, Unlock, Banknote, CheckCircle2, Coins, ChartNoAxesColumn } from 'lucide-react';
 import TpvDialogo from './TpvDialogo';
 import { PosSession } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
@@ -127,7 +127,7 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
           <>
             <button type="button" className="tpvd-boton" onClick={props.onSkip} disabled={submitting}>Vender sin turno</button>
             <button type="submit" form="tpv-abrir" className="tpvd-boton tpvd-boton--principal" style={{ flex: 1 }} disabled={submitting}>
-              {submitting ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />} Abrir con {formatCurrency(value)}
+              {submitting ? <Loader2 size={18} className="spin" /> : <Unlock size={18} />} Abrir con {formatCurrency(value)}
             </button>
           </>
         }
@@ -216,7 +216,7 @@ export default function TpvCashSession(props: TpvCashSessionProps) {
 
           {datosTurno && !resumenFallido && (
             <div className="tpv-turno-resumen">
-              <div className="tpv-turno-resumen-titulo"><Sparkles size={13} /> Cómo ha ido el turno</div>
+              <div className="tpv-turno-resumen-titulo"><ChartNoAxesColumn size={13} /> Cómo ha ido el turno</div>
               {resumen
                 ? <p className="tpv-turno-resumen-texto">{resumen}</p>
                 : <p className="tpv-turno-resumen-texto" style={{ opacity: 0.7 }}>Repasando el turno…</p>}

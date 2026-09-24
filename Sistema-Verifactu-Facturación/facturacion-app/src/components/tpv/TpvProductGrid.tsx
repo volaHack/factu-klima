@@ -100,7 +100,7 @@ export default function TpvProductGrid({
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
             title="Dar de alta un producto en el catálogo (F5)"
           >
-            <Tag size={16} style={{ color: '#3b82f6' }} />
+            <Tag size={16} />
             <span>+ Nuevo (F5)</span>
           </button>
         )}

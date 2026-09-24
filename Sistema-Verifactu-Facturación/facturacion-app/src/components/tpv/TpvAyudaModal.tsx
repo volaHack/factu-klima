@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Loader2, CornerDownLeft } from 'lucide-react';
+import { CircleHelp, Loader2, CornerDownLeft } from 'lucide-react';
 import TpvDialogo from './TpvDialogo';
 
 export interface ContextoAyuda {
@@ -93,7 +93,7 @@ export default function TpvAyudaModal({ contexto, onClose }: Props) {
     <TpvDialogo
       titulo="Ayuda"
       subtitulo="Pregunta lo que necesites: sabe cómo tienes el mostrador ahora mismo."
-      icono={<Sparkles size={20} />}
+      icono={<CircleHelp size={20} />}
       ancho="md"
       onClose={onClose}
       className="tpva"

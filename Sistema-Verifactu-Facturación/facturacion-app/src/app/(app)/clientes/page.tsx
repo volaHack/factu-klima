@@ -183,7 +183,7 @@ export default function ClientesPage() {
       methodCounts.set(pm, (methodCounts.get(pm) || 0) + 1);
     });
 
-    const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+    const colors = SERIES;
     const pmLabels: Record<string, string> = {
       transferencia: 'Transferencia bancaria',
       tarjeta: 'Tarjeta de crédito',
@@ -643,7 +643,7 @@ export default function ClientesPage() {
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Tarifa de Precios</label>
+                  <label className="form-label">Tarifa de precios</label>
                   <select
                     className="form-select"
                     value={form.tarifaId}

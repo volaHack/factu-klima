@@ -3,8 +3,8 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
-  TrendingUp, TrendingDown, DollarSign, Clock, Users, AlertTriangle,
-  ArrowRight, Eye, ShieldCheck, Sparkles, Package, FileText, Crown
+  TrendingUp, TrendingDown, Euro, Clock, Users, AlertTriangle,
+  ArrowRight, Eye, ShieldCheck, Plus, Package, FileText, Crown
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -280,7 +280,7 @@ export default function DashboardPage() {
           ]}
           tableRows={pagos}
         >
-          <RankedBars data={pagos} color={SERIES[0]} />
+          <RankedBars data={pagos} />
         </ChartCard>
     </div>
   ) : null;
@@ -329,7 +329,7 @@ export default function DashboardPage() {
             </div>
           )}
           <Link href="/facturas/nueva" className="btn btn-primary btn-lg">
-            <Sparkles size={16} />
+            <Plus size={16} />
             Nueva factura
           </Link>
         </div>
@@ -340,10 +340,11 @@ export default function DashboardPage() {
         const planCheck = evaluatePlanLimit(settings, invoices);
         const isInactive = settings?.subscriptionStatus === 'inactive' || settings?.subscriptionStatus === 'canceled';
         const limitStr = isInactive
-          ? '0 facturas disponibles (Requiere activar suscripción)'
+          ? 'Activa la suscripción para volver a emitir facturas.'
           : planCheck.limit !== null
-            ? `${planCheck.currentCount} / ${planCheck.limit} facturas emitidas este mes`
-            : `${planCheck.currentCount} facturas emitidas este mes (Sin límite)`;
+            ? `${planCheck.currentCount} de ${planCheck.limit} facturas este mes`
+            : `${planCheck.currentCount} facturas este mes, sin tope`;
+        const conMedidor = isInactive || planCheck.limit !== null;
 
         const pct = isInactive
           ? 100
@@ -361,31 +362,33 @@ export default function DashboardPage() {
                 <div className="plan-banner-name">
                   <span>{planCheck.planName}</span>
                   <span className={`badge ${isInactive ? 'badge-danger' : 'badge-success'}`}>
-                    {isInactive ? 'Sin Suscripción / Inactiva' : 'Suscripción Activa'}
+                    {isInactive ? 'Sin suscripción' : 'Activa'}
                   </span>
                 </div>
                 <div className="plan-banner-usage">
-                  Uso del período: <strong>{limitStr}</strong>
+                  {limitStr}
                 </div>
               </div>
             </div>
 
             <div className="plan-banner-meter-wrap">
-              <div className="plan-banner-meter">
-                <div className="plan-banner-meter-label">
-                  <span>CAPACIDAD</span>
-                  <span>{isInactive ? 'BLOQUEADO' : `${pct}%`}</span>
+              {conMedidor && (
+                <div className="plan-banner-meter">
+                  <div className="plan-banner-meter-label">
+                    <span>Usado este mes</span>
+                    <span>{isInactive ? 'Parado' : `${pct} %`}</span>
+                  </div>
+                  <div className="plan-banner-meter-track">
+                    <div
+                      className={`plan-banner-meter-fill ${isInactive || pct >= 90 ? 'is-critical' : ''}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="plan-banner-meter-track">
-                  <div
-                    className={`plan-banner-meter-fill ${isInactive || pct >= 90 ? 'is-critical' : ''}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
+              )}
 
-              <Link href="/precios" className="btn btn-primary btn-sm">
-                <Crown size={14} /> {isInactive ? 'Activar suscripción' : 'Ver planes'}
+              <Link href="/precios" className={`btn btn-sm ${isInactive ? 'btn-primary' : 'btn-secondary'}`}>
+                {isInactive ? 'Activar suscripción' : 'Ver planes'}
               </Link>
             </div>
           </div>
@@ -402,67 +405,67 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       <div className="kpi-grid">
         {enPanel('facturado_mes') && (
-        <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
+        <div className="kpi-card">
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
-              <DollarSign size={20} />
+              <Euro size={20} />
             </div>
             {kpis.monthChange !== 0 && (
               <div className={`kpi-card-change ${kpis.monthChange >= 0 ? 'positive' : 'negative'}`}>
                 {kpis.monthChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {Math.abs(kpis.monthChange).toFixed(1)}%
+                {Math.abs(kpis.monthChange).toFixed(1).replace('.', ',')} %
               </div>
             )}
           </div>
           <div className="kpi-card-value">{formatCurrency(kpis.monthTotal)}</div>
-          <div className="kpi-card-label">Ventas este mes ({kpis.monthInvoices} facturas)</div>
+          <div className="kpi-card-label">Vendido este mes · {kpis.monthInvoices} facturas</div>
         </div>
         )}
 
         {enPanel('pendiente_cobro') && (
-        <div className="kpi-card" style={{ '--kpi-color': 'var(--color-warning)', '--kpi-bg': 'var(--color-warning-bg)' } as React.CSSProperties}>
+        <div className="kpi-card">
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
               <Clock size={20} />
             </div>
           </div>
           <div className="kpi-card-value">{formatCurrency(kpis.pendingTotal)}</div>
-          <div className="kpi-card-label">{kpis.pendingCount} facturas pendientes de cobro</div>
+          <div className="kpi-card-label">Por cobrar · {kpis.pendingCount} facturas</div>
         </div>
         )}
 
         {enPanel('vencido') && (
-        <div className="kpi-card" style={{ '--kpi-color': 'var(--color-danger)', '--kpi-bg': 'var(--color-danger-bg)' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--kpi-icon': kpis.overdueCount > 0 ? 'var(--color-danger)' : undefined } as React.CSSProperties}>
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
               <AlertTriangle size={20} />
             </div>
           </div>
           <div className="kpi-card-value">{formatCurrency(kpis.overdueTotal)}</div>
-          <div className="kpi-card-label">{kpis.overdueCount} facturas vencidas</div>
+          <div className="kpi-card-label">Vencido · {kpis.overdueCount} facturas</div>
         </div>
         )}
 
         {/* Estos dos no son fichas del catálogo: son el recuento de la
             cartera y del catálogo, y van siempre. */}
-        <div className="kpi-card" style={{ '--kpi-color': 'var(--color-info)', '--kpi-bg': 'var(--color-info-bg)' } as React.CSSProperties}>
+        <div className="kpi-card">
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
               <Users size={20} />
             </div>
           </div>
           <div className="kpi-card-value">{kpis.activeClients}</div>
-          <div className="kpi-card-label">Clientes activos en cartera</div>
+          <div className="kpi-card-label">Clientes activos</div>
         </div>
 
-        <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-400)', '--kpi-bg': 'var(--accent-glow)' } as React.CSSProperties}>
+        <div className="kpi-card">
           <div className="kpi-card-header">
             <div className="kpi-card-icon">
               <Package size={20} />
             </div>
           </div>
           <div className="kpi-card-value">{kpis.totalProducts}</div>
-          <div className="kpi-card-label">{kpis.activeProducts} productos activos en catálogo</div>
+          <div className="kpi-card-label">Productos en catálogo · {kpis.activeProducts} activos</div>
         </div>
       </div>
 
@@ -571,7 +574,7 @@ export default function DashboardPage() {
                     hint="Las cinco más recientes se listan solas en cuanto emitas la primera."
                     action={
                       <Link href="/facturas/nueva" className="btn btn-primary btn-sm">
-                        <Sparkles size={14} /> Crear la primera factura
+                        <Plus size={14} /> Crear la primera factura
                       </Link>
                     }
                   />

@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   Check, X, MessageSquare, Clock, AlertTriangle,
   Building2, Package, Send, CheckCircle2, XCircle,
-  Minus, Plus, ShieldCheck, CreditCard, Sparkles
+  Minus, Plus, ShieldCheck, CreditCard
 } from 'lucide-react';
 import { Invoice, OrderApproval, CompanySettings } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
@@ -160,11 +160,11 @@ export default function ApprovalContent() {
       const errMsg = data.error || 'La empresa emisora no tiene configurado el cobro online con tarjeta.';
       setPaymentInlineError(
         responseWasSaved 
-          ? `⚠️ ${errMsg} Tu confirmación de pedido ha sido enviada correctamente. Puedes coordinar el pago posterior con la empresa.`
-          : `⚠️ ${errMsg}`
+          ? `${errMsg} Tu confirmación del pedido sí se ha enviado; el pago puedes acordarlo después con la empresa.`
+          : errMsg
       );
     } catch (e) {
-      setPaymentInlineError('⚠️ No se pudo conectar con el servidor de pago. Por favor, reinténtalo.');
+      setPaymentInlineError('No se pudo conectar con el servidor de pago. Vuelve a intentarlo.');
     }
     return false;
   };
@@ -258,14 +258,14 @@ export default function ApprovalContent() {
           {canPayOnline && (
             <button
               className="approval-submit-btn"
-              style={{ marginTop: 'var(--space-3)', background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
+              style={{ marginTop: 'var(--space-3)' }}
               onClick={handleRetryPayment}
               disabled={retryingPayment}
             >
               {retryingPayment ? (
                 <>
                   <div className="approval-spinner-sm" />
-                  Conectando con Stripe...
+                  Conectando con Stripe…
                 </>
               ) : (
                 <>
@@ -284,10 +284,10 @@ export default function ApprovalContent() {
       <div className="approval-portal">
         <div className="approval-success-card">
           <CheckCircle2 size={56} />
-          <h2>¡Revisión enviada!</h2>
+          <h2>Revisión enviada</h2>
           <p>
             {rejectedCount === 0 && !hasAdjustments
-              ? 'Has aceptado todos los productos del pedido. Tu proveedor procederá con la entrega.'
+              ? 'Has aceptado todos los productos del pedido. Tu proveedor seguirá con la entrega.'
               : `Has aceptado ${acceptedCount} producto${acceptedCount !== 1 ? 's' : ''} y rechazado ${rejectedCount}. Tu proveedor ajustará el pedido.`
             }
           </p>
@@ -342,7 +342,7 @@ export default function ApprovalContent() {
       <div className="approval-info-banner">
         <AlertTriangle size={18} style={{ flexShrink: 0 }} />
         <div>
-          <strong>Revisión y Conformidad de Pedido</strong>
+          <strong>Revisa y confirma el pedido</strong>
           <p>Confirma los productos que aceptas o indica ajustes en las cantidades antes de la entrega. Así garantizamos un proceso sin devoluciones.</p>
         </div>
       </div>
@@ -527,37 +527,36 @@ export default function ApprovalContent() {
         {company?.stripeEnabled !== false && (
           <button
             className="approval-submit-btn"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}
             onClick={() => handleSubmit(true)}
             disabled={submitting}
           >
             {submitting ? (
               <>
                 <div className="approval-spinner-sm" />
-                Conectando con Stripe...
+                Conectando con Stripe…
               </>
             ) : (
               <>
-                <CreditCard size={16} /> Confirmar y pagar pedido online
+                <CreditCard size={16} /> Confirmar y pagar ahora
               </>
             )}
           </button>
         )}
 
         <button
-          className="approval-submit-btn"
+          className={`approval-submit-btn ${company?.stripeEnabled !== false ? 'approval-submit-btn--secundario' : ''}`}
           onClick={() => handleSubmit(false)}
           disabled={submitting}
         >
           {submitting ? (
             <>
               <div className="approval-spinner-sm" />
-              Enviando respuesta...
+              Enviando…
             </>
           ) : (
             <>
               <Send size={18} />
-              Confirmar revisión del pedido (pago posterior)
+              {company?.stripeEnabled !== false ? 'Confirmar y pagar más tarde' : 'Confirmar el pedido'}
             </>
           )}
         </button>

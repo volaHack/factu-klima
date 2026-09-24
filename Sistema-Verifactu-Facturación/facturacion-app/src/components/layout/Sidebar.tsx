@@ -60,16 +60,16 @@ function SidebarLink({ item, pathname, onClose, collapsed }: {
 // siempre: facturar, cobrar y los clientes son el suelo del programa, no un
 // módulo que se pueda apagar.
 const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo?: ModuloId }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/asistencia', label: 'Asistencia IA', icon: Sparkles },
+  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+  { href: '/asistencia', label: 'Asistente', icon: Sparkles },
   { href: '/facturas', label: 'Facturas', icon: FileText },
   { href: '/documentos', label: 'Documentos', icon: Files },
-  { href: '/tesoreria', label: 'Tesorería y Cobros', icon: WalletCards },
-  { href: '/clientes', label: 'Clientes y Prov.', icon: Users },
+  { href: '/tesoreria', label: 'Tesorería y cobros', icon: WalletCards },
+  { href: '/clientes', label: 'Clientes y proveedores', icon: Users },
   { href: '/productos', label: 'Productos', icon: Package },
-  { href: '/almacenes', label: 'Almacenes y Stock', icon: Warehouse, modulo: 'almacenes' },
+  { href: '/almacenes', label: 'Almacenes y stock', icon: Warehouse, modulo: 'almacenes' },
   { href: '/albaranes', label: 'Albaranes', icon: ClipboardList, modulo: 'albaranes' },
-  { href: '/devoluciones', label: 'Abonos y Devoluciones', icon: RotateCcw, modulo: 'rectificativas' },
+  { href: '/devoluciones', label: 'Abonos y devoluciones', icon: RotateCcw, modulo: 'rectificativas' },
   { href: '/gastos', label: 'Gastos', icon: Receipt, modulo: 'gastos' },
   { href: '/comisiones', label: 'Comisiones', icon: TrendingUp, modulo: 'comisiones' },
   { href: '/obras', label: 'Obras y expedientes', icon: Briefcase, modulo: 'obras' },

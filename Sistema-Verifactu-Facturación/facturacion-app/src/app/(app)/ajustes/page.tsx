@@ -316,7 +316,7 @@ export default function AjustesPage() {
       // de la app se quedan con los ajustes de antes de guardar hasta que
       // alguien recargue la página a mano.
       window.dispatchEvent(new CustomEvent('klima-settings-updated', { detail: settings }));
-      success('Configuración guardada', 'Los cambios y personalización se han aplicado correctamente');
+      success('Ajustes guardados');
     } catch (err) {
       toastError('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -544,7 +544,7 @@ export default function AjustesPage() {
       <div className="settings-section">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Crown size={18} style={{ color: 'var(--accent-500)' }} />
-          <h2 className="settings-section-title">Plan de Suscripción y Membresía</h2>
+          <h2 className="settings-section-title">Plan y suscripción</h2>
         </div>
         <p className="settings-section-subtitle">Tu plan, su estado y la próxima renovación</p>
 
@@ -603,8 +603,8 @@ export default function AjustesPage() {
         </div>
 
         {/* IGIC / Canarias Switch */}
-        <div className="status-panel" style={{ marginTop: 'var(--space-4)', background: 'rgba(59, 130, 246, 0.06)', borderColor: 'rgba(59, 130, 246, 0.25)', alignItems: 'center' }}>
-          <span className="status-panel-icon" style={{ background: 'rgba(59, 130, 246, 0.16)', color: '#3b82f6' }}>
+        <div className="status-panel" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
+          <span className="status-panel-icon">
             <Building2 size={19} />
           </span>
           <div className="status-panel-body">
@@ -862,11 +862,11 @@ export default function AjustesPage() {
         />
       </div>
 
-      {/* Vendedores y Series Comerciales */}
+      {/* Vendedores y series */}
       <div className="settings-section">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <UserCheck size={18} />
-          <h2 className="settings-section-title">Vendedores y Series Comerciales</h2>
+          <h2 className="settings-section-title">Vendedores y series</h2>
         </div>
         <p className="settings-section-subtitle">Define vendedores comerciales con series de facturación propias</p>
 
@@ -1021,11 +1021,11 @@ export default function AjustesPage() {
         )}
       </div>
 
-      {/* Tarifas de Precios */}
+      {/* Tarifas de precios */}
       <div className="settings-section">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Tag size={18} />
-          <h2 className="settings-section-title">Tarifas de Precios</h2>
+          <h2 className="settings-section-title">Tarifas de precios</h2>
         </div>
         <p className="settings-section-subtitle">Define tarifas para clientes (Mayorista, Distribuidor, Especial...) con precios o márgenes dedicados</p>
 

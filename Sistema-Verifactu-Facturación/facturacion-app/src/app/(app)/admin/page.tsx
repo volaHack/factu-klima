@@ -17,7 +17,6 @@ import {
   Activity,
   Zap,
   Calendar,
-  Sparkles,
   Download,
   Sliders,
   FileSpreadsheet,
@@ -58,11 +57,10 @@ export default async function AdminResumen() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
-            <Sparkles size={14} className="text-amber-500" />
-            <span>Centro de Control de Operaciones</span>
+            <span>Administración</span>
           </div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.035em', margin: 0, color: 'var(--text-primary)' }}>
-            Panel de Administración
+            Panel de administración
           </h1>
           <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
             Monitorización en tiempo real de cuentas, ingresos recurrentes y fiscalidad del software.
@@ -101,7 +99,7 @@ export default async function AdminResumen() {
               </div>
             </div>
             <Link href="/admin/hacienda" className="apple-pill apple-pill-amber" style={{ textDecoration: 'none', fontWeight: 600 }}>
-              <span>Ir a Liquidaciones</span>
+              <span>Ir a liquidaciones</span>
               <ArrowRight size={14} />
             </Link>
           </div>
@@ -203,21 +201,21 @@ export default async function AdminResumen() {
           {pctBasico > 0 && (
             <div
               className="apple-bar-segment"
-              style={{ width: `${pctBasico}%`, background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)' }}
+              style={{ width: `${pctBasico}%`, background: 'var(--accent-200)' }}
               title={`Básico: ${r.activasPorPlan.basico} (${pctBasico.toFixed(0)}%)`}
             />
           )}
           {pctPro > 0 && (
             <div
               className="apple-bar-segment"
-              style={{ width: `${pctPro}%`, background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)' }}
+              style={{ width: `${pctPro}%`, background: 'var(--accent-500)' }}
               title={`Pro: ${r.activasPorPlan.pro} (${pctPro.toFixed(0)}%)`}
             />
           )}
           {pctSinLimite > 0 && (
             <div
               className="apple-bar-segment"
-              style={{ width: `${pctSinLimite}%`, background: 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)' }}
+              style={{ width: `${pctSinLimite}%`, background: 'var(--accent-700)' }}
               title={`Sin límite: ${r.activasPorPlan.sin_limite} (${pctSinLimite.toFixed(0)}%)`}
             />
           )}
@@ -226,7 +224,7 @@ export default async function AdminResumen() {
         {/* Leyenda y métricas detalladas por plan */}
         <div className="apple-legend-grid">
           <div className="apple-legend-item">
-            <div className="apple-legend-dot" style={{ backgroundColor: '#10b981' }} />
+            <div className="apple-legend-dot" style={{ backgroundColor: 'var(--accent-200)' }} />
             <div>
               <div style={{ fontWeight: 600 }}>Básico ({r.activasPorPlan.basico})</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{pctBasico.toFixed(0)}% de activas</div>
@@ -234,7 +232,7 @@ export default async function AdminResumen() {
           </div>
 
           <div className="apple-legend-item">
-            <div className="apple-legend-dot" style={{ backgroundColor: '#3b82f6' }} />
+            <div className="apple-legend-dot" style={{ backgroundColor: 'var(--accent-500)' }} />
             <div>
               <div style={{ fontWeight: 600 }}>Pro ({r.activasPorPlan.pro})</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{pctPro.toFixed(0)}% de activas</div>
@@ -242,7 +240,7 @@ export default async function AdminResumen() {
           </div>
 
           <div className="apple-legend-item">
-            <div className="apple-legend-dot" style={{ backgroundColor: '#8b5cf6' }} />
+            <div className="apple-legend-dot" style={{ backgroundColor: 'var(--accent-700)' }} />
             <div>
               <div style={{ fontWeight: 600 }}>Sin límite ({r.activasPorPlan.sin_limite})</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{pctSinLimite.toFixed(0)}% de activas</div>
@@ -321,7 +319,7 @@ export default async function AdminResumen() {
         <div className="apple-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Estado del Sistema</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Estado del sistema</h3>
               <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
                 Verificación de servicios críticos y pasarelas conectadas.
               </p>
@@ -338,7 +336,7 @@ export default async function AdminResumen() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Zap size={18} className="text-blue-500" />
                 <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Stripe Webhook e Idempotencia</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Webhook de Stripe</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
                     {pendientes.length === 0 ? 'Sin incidencias pendientes' : `${pendientes.length} eventos requieren revisión`}
                   </div>
@@ -388,7 +386,7 @@ export default async function AdminResumen() {
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <FileSpreadsheet size={14} className="text-emerald-500" />
-              <span>Gestión de Datos & Informes</span>
+              <span>Datos e informes</span>
             </div>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: '0.25rem 0 0 0', letterSpacing: '-0.02em' }}>
               Exportación Oficial & Configuración del Software
@@ -432,11 +430,11 @@ export default async function AdminResumen() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '0.875rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle, rgba(0,0,0,0.06))' }}>
           <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Codificación de Exportación</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Codificación al exportar</div>
             <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>UTF-8 con BOM (Excel nativo)</div>
           </div>
           <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Separador de Columnas</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Separador de columnas</div>
             <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>Punto y coma (;) estándar ES</div>
           </div>
           <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: 'rgba(0,0,0,0.02)' }}>

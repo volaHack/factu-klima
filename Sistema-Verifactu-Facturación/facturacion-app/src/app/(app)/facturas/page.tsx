@@ -475,7 +475,7 @@ export default function FacturasPage() {
           </ChartCard>
 
           <ChartCard
-            title="Distribución por Estado de Cobro"
+            title="Facturas por estado de cobro"
             subtitle="Recuento total de facturas por estado de tramitación"
             height={220}
             isEmpty={statusDistributionData.length === 0}

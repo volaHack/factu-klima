@@ -33,7 +33,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     if (!query) {
       return {
         pages: [
-          { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+          { title: 'Panel', url: '/dashboard', icon: LayoutDashboard },
           { title: 'Ver Facturas', url: '/facturas', icon: FileText },
           { title: 'Crear Nueva factura', url: '/facturas/nueva', icon: FileText },
           { title: 'Clientes', url: '/clientes', icon: Users },

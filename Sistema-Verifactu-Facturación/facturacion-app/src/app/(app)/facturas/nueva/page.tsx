@@ -178,7 +178,7 @@ export default function NuevaFacturaPage() {
     const check = evaluatePlanLimit(settings, existingInvoices);
     if (!check.allowed) {
       setPaywallState({
-        title: 'Límite de Plan Alcanzado',
+        title: 'Has llegado al límite de tu plan',
         description: check.reason || 'Has alcanzado el límite de uso de tu plan.',
         requiredPlan: check.requiredPlan || 'pro',
       });

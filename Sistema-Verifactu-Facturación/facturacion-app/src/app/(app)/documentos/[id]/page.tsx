@@ -313,7 +313,7 @@ export default function DocumentoDetallePage() {
       <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
-            {esCompra ? 'Datos del Proveedor' : 'Datos del Cliente'}
+            {esCompra ? 'Datos del proveedor' : 'Datos del cliente'}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <div style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>{documento.clientName}</div>
@@ -323,7 +323,7 @@ export default function DocumentoDetallePage() {
         </div>
 
         <div className="card">
-          <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Condiciones y Fechas</h3>
+          <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Condiciones y fechas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <div><strong>Fecha de emisión:</strong> {formatDate(documento.issueDate)}</div>
             {documento.dueDate && <div><strong>Fecha de vencimiento:</strong> {formatDate(documento.dueDate)}</div>}

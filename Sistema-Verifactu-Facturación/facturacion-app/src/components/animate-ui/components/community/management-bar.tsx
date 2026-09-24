@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Plus, Search, RefreshCw, Heart, ShieldCheck, ChevronUp, ChevronDown,
-  LayoutDashboard, FileText, Users, Package, Sparkles, Zap
+  LayoutDashboard, FileText, Users, Package, Zap
 } from 'lucide-react';
 import TipModal from '@/components/ui/TipModal';
 import { notifyDataUpdate } from '@/lib/storage';
@@ -84,7 +84,7 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
     },
     {
       id: 'tip',
-      label: 'Dejar propina ☕',
+      label: 'Dejar propina',
       icon: Heart,
       action: () => setShowTipModal(true),
       badge: 'Tip',
@@ -143,7 +143,6 @@ export const ManagementBar: React.FC<ManagementBarProps> = ({ className = '' }) 
               }}
               title="Expandir barra de gestión rápida"
             >
-              <Sparkles size={14} color="var(--accent-500, #b02a5c)" />
               <span>Gestión rápida</span>
               <ChevronUp size={14} />
             </button>

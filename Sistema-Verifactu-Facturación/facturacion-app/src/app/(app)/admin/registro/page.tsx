@@ -24,7 +24,7 @@ export default async function AdminRegistro() {
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
             <History size={14} />
-            <span>Auditoría de Seguridad</span>
+            <span>Auditoría de seguridad</span>
           </div>
           <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.03em', margin: 0 }}>
             Registro de Acciones
@@ -52,7 +52,7 @@ export default async function AdminRegistro() {
             <table className="apple-table">
               <thead>
                 <tr>
-                  <th>Fecha y Hora</th>
+                  <th>Fecha y hora</th>
                   <th>Operación</th>
                   <th>Cuenta Afectada</th>
                   <th>Motivo Justificado</th>

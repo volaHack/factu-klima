@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import {
-  Sparkles, ArrowRight, ArrowLeft, Building2, Palette, FileText,
-  Rocket, Check, Upload, User, Image as ImageIcon, Trash2
+  ArrowRight, ArrowLeft, Building2, Palette, FileText, Hand,
+  ClipboardCheck, Check, Upload, User, Image as ImageIcon, Trash2
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CompanySettings, BusinessSector, AccentTheme } from '@/lib/types';
@@ -19,11 +19,11 @@ interface OnboardingModalProps {
 }
 
 const STEPS = [
-  { title: 'Bienvenida', icon: Sparkles },
-  { title: 'Tu Empresa', icon: Building2 },
+  { title: 'Bienvenida', icon: Hand },
+  { title: 'Empresa', icon: Building2 },
   { title: 'Personalización', icon: Palette },
   { title: 'Facturación', icon: FileText },
-  { title: '¡Listo!', icon: Rocket },
+  { title: 'Resumen', icon: ClipboardCheck },
 ];
 
 export default function OnboardingModal({ settings: initialSettings, onComplete }: OnboardingModalProps) {
@@ -106,36 +106,24 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
           {/* Step 0: Welcome */}
           {step === 0 && (
             <div className="onboarding-step onboarding-welcome">
-              <div className="onboarding-welcome-icon">
-                <Sparkles size={40} />
-              </div>
-              <h2>¡Bienvenido a tu Sistema de facturación!</h2>
+              <h2>Antes de la primera factura</h2>
               <p>
-                Configura tu empresa en menos de 2 minutos. Podrás cambiar todo esto
-                después en Ajustes.
+                Necesitamos los datos que salen impresos en cada factura. Son unos dos
+                minutos, y todo se puede cambiar después en Ajustes.
               </p>
-              <div className="onboarding-welcome-features">
-                <div className="onboarding-feature">
-                  <Building2 size={20} />
-                  <span>Datos de tu empresa</span>
-                </div>
-                <div className="onboarding-feature">
-                  <Palette size={20} />
-                  <span>Personaliza tu marca</span>
-                </div>
-                <div className="onboarding-feature">
-                  <FileText size={20} />
-                  <span>Configura facturación</span>
-                </div>
-              </div>
+              <ol className="onboarding-pasos">
+                <li><strong>Tu empresa</strong><span>Razón social, NIF y dirección.</span></li>
+                <li><strong>Tu marca</strong><span>Logotipo y color del panel.</span></li>
+                <li><strong>Cómo facturas</strong><span>Serie, plazo y forma de pago.</span></li>
+              </ol>
             </div>
           )}
 
           {/* Step 1: Company Data */}
           {step === 1 && (
             <div className="onboarding-step">
-              <h2>Datos de tu Empresa</h2>
-              <p className="onboarding-subtitle">Esta información aparecerá en tus facturas</p>
+              <h2>Datos de tu empresa</h2>
+              <p className="onboarding-subtitle">Así aparecerás en tus facturas.</p>
 
               <div className="onboarding-form">
                 <div className="form-group">
@@ -203,8 +191,8 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
           {/* Step 2: Personalization */}
           {step === 2 && (
             <div className="onboarding-step">
-              <h2>Personaliza tu Marca</h2>
-              <p className="onboarding-subtitle">Elige los colores de tu panel y añade tu logotipo</p>
+              <h2>Tu marca</h2>
+              <p className="onboarding-subtitle">El logotipo sale en las facturas y en el menú; el color es sólo del panel.</p>
 
               <div className="onboarding-form">
                 <div className="form-group">
@@ -336,7 +324,7 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
           {step === 3 && (
             <div className="onboarding-step">
               <h2>Configuración de facturación</h2>
-              <p className="onboarding-subtitle">Define cómo se generarán tus facturas</p>
+              <p className="onboarding-subtitle">La serie numera tus facturas; el resto se propone al crear cada una.</p>
 
               <div className="onboarding-form">
                 <div className="onboarding-form-row">
@@ -417,11 +405,8 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
           {/* Step 4: Done */}
           {step === 4 && (
             <div className="onboarding-step onboarding-done">
-              <div className="onboarding-done-icon">
-                <Rocket size={44} />
-              </div>
-              <h2>¡Todo listo!</h2>
-              <p>Tu sistema de facturación está configurado y listo para empezar.</p>
+              <h2>Revisa antes de empezar</h2>
+              <p>El NIF y la serie salen en cada factura. Si algo no cuadra, vuelve atrás y corrígelo.</p>
 
               {settings.logoUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -449,7 +434,7 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
                   <span className="onboarding-summary-label">Sector</span>
                   <span className="onboarding-summary-value" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <CategoryIcon name={BUSINESS_SECTORS.find(s => s.value === settings.sector)?.icon || 'Package'} size={14} />
-                    {BUSINESS_SECTORS.find(s => s.value === settings.sector)?.label}
+                    {BUSINESS_SECTORS.find(s => s.value === settings.sector)?.label ?? 'Sin elegir'}
                   </span>
                 </div>
               </div>
@@ -484,7 +469,7 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
               onClick={handleFinish}
               disabled={saving}
             >
-              {saving ? 'Guardando...' : <><Rocket size={16} /> Empezar a Facturar</>}
+              {saving ? 'Guardando…' : <>Ir al panel <ArrowRight size={16} /></>}
             </button>
           )}
         </div>

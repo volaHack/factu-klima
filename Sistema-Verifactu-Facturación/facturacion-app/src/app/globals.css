@@ -81,7 +81,7 @@
   --accent-700: #7a1f44;
   --accent-800: #5c1735;
   --accent-glow: rgba(176, 42, 92, 0.16);
-  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
   --color-primary: var(--accent-500);
 
   /* Tono vino — bloques hero/destacados, no vive en la escala de acento
@@ -233,28 +233,28 @@ body.theme-wine {
   --accent-300: #5c1420; --accent-400: #7a1f2c; --accent-500: #7a2436;
   --accent-600: #641d2c; --accent-700: #4c1622; --accent-800: #380f19;
   --accent-glow: rgba(122, 36, 54, 0.16);
-  --accent-gradient: linear-gradient(135deg, #93304a, #641d2c);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
 }
 body.theme-terracotta {
   --accent-50: #fdf0ea; --accent-100: #fad9c9; --accent-200: #f0ac8c;
   --accent-300: #7a3016; --accent-400: #9c4523; --accent-500: #b5502e;
   --accent-600: #96421f; --accent-700: #78350f; --accent-800: #5c2809;
   --accent-glow: rgba(181, 80, 46, 0.16);
-  --accent-gradient: linear-gradient(135deg, #c76239, #96421f);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
 }
 body.theme-plum {
   --accent-50: #f7eef4; --accent-100: #ecd4e3; --accent-200: #d5a3c1;
   --accent-300: #4f2540; --accent-400: #6b3357; --accent-500: #7c3a5c;
   --accent-600: #672f4a; --accent-700: #4f2540; --accent-800: #391a2f;
   --accent-glow: rgba(124, 58, 92, 0.16);
-  --accent-gradient: linear-gradient(135deg, #954a71, #672f4a);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
 }
 body.theme-rose {
   --accent-50: #fdeef2; --accent-100: #fbd7e3; --accent-200: #f0a8c4;
   --accent-300: #8f1f4f; --accent-400: #b8306a; --accent-500: #b02a5c;
   --accent-600: #9c2856; --accent-700: #7a1f44; --accent-800: #5c1735;
   --accent-glow: rgba(176, 42, 92, 0.16);
-  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
   --color-primary: var(--accent-500);
 }
 
@@ -315,7 +315,7 @@ body.theme-rose {
   --accent-700: #c04674;
   --accent-800: #9c3159;
   --accent-glow: rgba(232, 127, 166, 0.20);
-  --accent-gradient: linear-gradient(135deg, #ef9ab9 0%, #c04674 100%);
+  --accent-gradient: linear-gradient(180deg, var(--accent-700), var(--accent-800));
 
   --wine-500: #3d1520;
   --wine-600: #2c0f18;
@@ -371,28 +371,28 @@ body.theme-rose {
   --accent-300: #f0b4bd; --accent-400: #e79aa6; --accent-500: #dd8090;
   --accent-600: #c85f72; --accent-700: #ac4557; --accent-800: #8b3242;
   --accent-glow: rgba(221, 128, 144, 0.20);
-  --accent-gradient: linear-gradient(135deg, #e79aa6, #ac4557);
+  --accent-gradient: linear-gradient(180deg, var(--accent-700), var(--accent-800));
 }
 :root[data-theme="dark"] body.theme-terracotta {
   --accent-50: #2d1810; --accent-100: #3e2015; --accent-200: #63321f;
   --accent-300: #f8bfa2; --accent-400: #f2a884; --accent-500: #e89066;
   --accent-600: #d1714a; --accent-700: #b25835; --accent-800: #8d4327;
   --accent-glow: rgba(232, 144, 102, 0.20);
-  --accent-gradient: linear-gradient(135deg, #f2a884, #b25835);
+  --accent-gradient: linear-gradient(180deg, var(--accent-700), var(--accent-800));
 }
 :root[data-theme="dark"] body.theme-plum {
   --accent-50: #281628; --accent-100: #371e36; --accent-200: #572d53;
   --accent-300: #eeb4e0; --accent-400: #e59ad4; --accent-500: #d67fc4;
   --accent-600: #bd5faa; --accent-700: #a0468e; --accent-800: #7f3271;
   --accent-glow: rgba(214, 127, 196, 0.20);
-  --accent-gradient: linear-gradient(135deg, #e59ad4, #a0468e);
+  --accent-gradient: linear-gradient(180deg, var(--accent-700), var(--accent-800));
 }
 :root[data-theme="dark"] body.theme-rose {
   --accent-50: #2a171f; --accent-100: #3a1e29; --accent-200: #5c2b3d;
   --accent-300: #f5b3ca; --accent-400: #ef9ab9; --accent-500: #e87fa6;
   --accent-600: #d95f8d; --accent-700: #c04674; --accent-800: #9c3159;
   --accent-glow: rgba(232, 127, 166, 0.20);
-  --accent-gradient: linear-gradient(135deg, #ef9ab9 0%, #c04674 100%);
+  --accent-gradient: linear-gradient(180deg, var(--accent-700), var(--accent-800));
   --color-primary: var(--accent-500);
 }
 
@@ -475,7 +475,7 @@ body.theme-rose {
   --accent-700: #7a1f44;
   --accent-800: #5c1735;
   --accent-glow: rgba(176, 42, 92, 0.16);
-  --accent-gradient: linear-gradient(135deg, #c9407a 0%, #9c2856 100%);
+  --accent-gradient: linear-gradient(180deg, var(--accent-500), var(--accent-600));
 
   --wine-500: #4c1a28;
   --wine-600: #3a1420;
@@ -526,7 +526,6 @@ body.theme-rose {
      caja, tapando el del body, y el color de texto vuelto a resolver
      aquí para cortar la herencia. */
   background:
-    radial-gradient(1100px 560px at 14% -8%, var(--accent-glow), transparent 60%),
     radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.4), transparent 55%),
     var(--bg-primary);
   background-attachment: fixed;
@@ -547,10 +546,10 @@ html {
 
 body {
   font-family: var(--font-family);
-  /* Resplandor ambiental muy tenue, fijo en la esquina superior, para
-     que el blush no se lea como un bloque de color plano. */
+  /* Una luz blanca muy tenue arriba a la derecha para que el blush no se
+     lea como un bloque plano. Había otra rosa a la izquierda: fuera, el
+     fondo no tiene por qué ir del color del acento. */
   background:
-    radial-gradient(1100px 560px at 14% -8%, var(--accent-glow), transparent 60%),
     radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.4), transparent 55%),
     var(--bg-primary);
   background-attachment: fixed;
@@ -656,7 +655,6 @@ a:hover { color: var(--accent-300); }
   display: flex; align-items: center; justify-content: center;
   color: white; font-weight: 800; font-size: var(--text-base);
   flex-shrink: 0;
-  box-shadow: 0 2px 8px var(--accent-glow);
 }
 
 /* Con logotipo subido, el recuadro deja de ser una pastilla de color con la
@@ -892,7 +890,7 @@ a:hover { color: var(--accent-300); }
   color: white; border: none;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px var(--accent-glow), 0 0 0 3px var(--bg-secondary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 0 0 3px var(--bg-secondary);
   transition: all var(--transition-fast);
   margin-top: -24px;
 }
@@ -943,11 +941,15 @@ a:hover { color: var(--accent-300); }
 .btn svg { width: 15px; height: 15px; }
 .btn:active:not(:disabled) { transform: scale(0.97); }
 
+/* Relleno casi plano y sombra de objeto, no halo de color: el botón
+   principal se distingue por ser el único con fondo de acento, no por
+   brillar. Al pasar el ratón oscurece; no salta. */
 .btn-primary {
   background: var(--accent-gradient); color: white; border: none;
-  box-shadow: 0 1px 3px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12);
 }
-.btn-primary:hover:not(:disabled) { box-shadow: 0 4px 16px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.15); transform: translateY(-1px); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-600); }
+:root[data-theme="dark"] .btn-primary:hover:not(:disabled) { background: var(--accent-800); }
 
 .btn-secondary {
   background: var(--bg-tertiary); color: var(--text-primary);
@@ -1111,7 +1113,6 @@ a:hover { color: var(--accent-300); }
 .toggle-switch input:checked + .toggle-slider {
   background: var(--accent-gradient);
   border-color: var(--accent-500);
-  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
@@ -1151,28 +1152,21 @@ a:hover { color: var(--accent-300); }
   transition: all var(--transition-base);
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-.kpi-card::before {
-  /* Antes era una línea plana de 2px. Un resplandor difuso lee como la
-     fuente de luz del propio color del KPI en vez de un adorno pegado
-     encima — el mismo lenguaje que usan los paneles tipo Linear/Vercel. */
-  content: ''; position: absolute; top: -40%; left: 10%; right: 10%; height: 80px;
-  background: radial-gradient(closest-side, var(--kpi-color, var(--accent-500)), transparent 75%);
-  opacity: 0.22; filter: blur(18px); pointer-events: none;
-}
-.kpi-card:hover {
-  border-color: var(--border-color-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
+/* Sin resplandor de color detrás ni salto al pasar el ratón: la tarjeta
+   no se puede pulsar, y un halo distinto en cada una convertía la fila en
+   un arcoíris que competía con la cifra. */
 
 .kpi-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+/* Icono de apoyo, en gris: dice de qué va la cifra, no la colorea. Quien
+   necesite avisar (lo vencido) lo pide con `--kpi-icon`. */
 .kpi-card-icon {
-  width: 36px; height: 36px; border-radius: var(--radius-md);
+  width: 32px; height: 32px; border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
-  background: var(--kpi-bg, var(--color-success-bg));
-  color: var(--kpi-color, var(--accent-500));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--kpi-icon, var(--text-tertiary));
 }
+.kpi-card-icon svg { width: 16px; height: 16px; }
 .kpi-card-change {
   display: flex; align-items: center; gap: 3px;
   font-size: var(--text-xs); font-weight: 700;
@@ -2387,7 +2381,7 @@ a:hover { color: var(--accent-300); }
 }
 
 .onboarding-step-dot.active { background: var(--accent-glow); color: var(--accent-400); }
-.onboarding-step-dot.current { background: var(--accent-500); color: white; box-shadow: 0 0 16px var(--accent-glow); }
+.onboarding-step-dot.current { background: var(--accent-500); color: white; }
 
 .onboarding-content { padding: var(--space-8) var(--space-6); }
 
@@ -2397,28 +2391,29 @@ a:hover { color: var(--accent-300); }
 .onboarding-form { display: flex; flex-direction: column; gap: var(--space-4); }
 .onboarding-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 
-/* Welcome */
-.onboarding-welcome { text-align: center; }
-.onboarding-welcome-icon {
-  width: 80px; height: 80px; margin: 0 auto var(--space-5);
-  background: var(--accent-glow);
-  border-radius: var(--radius-xl);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--accent-400);
-  animation: pulse 2s ease-in-out infinite;
+/* Bienvenida: texto alineado a la izquierda y los tres pasos como una
+   lista numerada, que es lo que son. Antes: icono de chispas latiendo
+   dentro de un cuadro y tres píldoras centradas, el saludo de plantilla. */
+.onboarding-pasos {
+  list-style: none; counter-reset: paso;
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--border-color);
 }
-.onboarding-welcome-features {
-  display: flex; justify-content: center; gap: var(--space-4);
-  margin-top: var(--space-6);
+.onboarding-pasos li {
+  counter-increment: paso;
+  display: grid; grid-template-columns: 28px 1fr; column-gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--text-sm);
 }
-.onboarding-feature {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: var(--text-xs); font-weight: 600;
+.onboarding-pasos li::before {
+  content: counter(paso);
+  grid-row: span 2;
+  font-variant-numeric: tabular-nums; font-weight: 600;
+  color: var(--text-tertiary);
 }
+.onboarding-pasos strong { color: var(--text-primary); font-weight: 600; }
+.onboarding-pasos span { color: var(--text-secondary); }
 
 /* Sector Grid */
 .onboarding-sector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
@@ -2454,7 +2449,6 @@ a:hover { color: var(--accent-300); }
 .onboarding-theme-check { position: absolute; top: 6px; right: 6px; color: var(--accent-400); }
 
 /* Done */
-.onboarding-done { text-align: center; }
 .onboarding-done-icon {
   width: 80px; height: 80px; margin: 0 auto var(--space-5);
   background: var(--accent-glow);
@@ -2517,10 +2511,10 @@ a:hover { color: var(--accent-300); }
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 .approval-loading p { color: var(--text-secondary, #64748b); font-size: var(--text-sm); font-weight: 500; }
-.approval-error-card { color: #ef4444; }
+.approval-error-card { color: var(--color-danger); }
 .approval-error-card h2 { color: var(--text-primary, #0f172a); font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.02em; }
 .approval-error-card p { color: var(--text-secondary, #64748b); font-size: var(--text-sm); max-width: 360px; line-height: 1.6; }
-.approval-success-card { color: #10b981; }
+.approval-success-card { color: var(--color-success); }
 .approval-success-card h2 { color: var(--text-primary, #0f172a); font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.02em; }
 .approval-success-card p { color: var(--text-secondary, #64748b); font-size: var(--text-sm); max-width: 400px; line-height: 1.6; }
 
@@ -2539,11 +2533,10 @@ a:hover { color: var(--accent-300); }
 .approval-logo { width: 44px; height: 44px; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-sm); }
 .approval-logo-placeholder {
   width: 44px; height: 44px;
-  background: linear-gradient(135deg, var(--accent-500, #4f46e5), #06b6d4);
+  background: var(--accent-gradient);
   border-radius: var(--radius-lg);
   display: flex; align-items: center; justify-content: center;
   color: white; font-weight: 800; font-size: var(--text-lg);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 .approval-header-badge {
   display: inline-flex; align-items: center; gap: 5px;
@@ -2620,9 +2613,9 @@ a:hover { color: var(--accent-300); }
   cursor: pointer; transition: all var(--transition-fast);
   color: var(--text-secondary, #64748b);
 }
-.approval-action-btn:hover { border-color: #cbd5e1; transform: translateY(-1px); }
-.approval-action-btn.accept.active { background: #10b981; border-color: #10b981; color: white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
-.approval-action-btn.reject.active { background: #ef4444; border-color: #ef4444; color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); }
+.approval-action-btn:hover { border-color: var(--border-color-hover); }
+.approval-action-btn.accept.active { background: var(--color-success); border-color: var(--color-success); color: white; }
+.approval-action-btn.reject.active { background: var(--color-danger); border-color: var(--color-danger); color: white; }
 
 .approval-item-adjust {
   display: flex; align-items: center; gap: var(--space-3);
@@ -2695,21 +2688,29 @@ a:hover { color: var(--accent-300); }
   resize: vertical; background: var(--bg-secondary, white); color: var(--text-primary, #0f172a);
   box-shadow: var(--shadow-sm); transition: all var(--transition-fast);
 }
-.approval-comments textarea:focus { outline: none; border-color: var(--accent-500, #3b82f6); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+.approval-comments textarea:focus { outline: none; border-color: var(--accent-500); box-shadow: 0 0 0 3px var(--accent-glow); }
 
 .approval-submit-btn {
   display: flex; align-items: center; justify-content: center; gap: var(--space-2);
   width: 100%; max-width: 680px; margin: 0 auto;
   padding: var(--space-4);
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--accent-gradient);
   color: white; border: none; border-radius: var(--radius-xl);
   font-family: var(--font-family);
   font-size: var(--text-md); font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
-  transition: all var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18);
+  transition: background var(--transition-fast);
 }
-.approval-submit-btn:hover { box-shadow: 0 6px 24px rgba(16, 185, 129, 0.35); transform: translateY(-1px); }
+.approval-submit-btn:hover { background: var(--accent-600); }
+:root[data-theme="dark"] .approval-submit-btn:not(.approval-submit-btn--secundario):hover { background: var(--accent-800); }
+/* Con pago en línea, confirmar sin pagar es la segunda opción y se ve
+   como tal: dos botones iguales obligaban a leer los dos para elegir. */
+.approval-submit-btn--secundario {
+  background: var(--bg-secondary); color: var(--text-primary);
+  border: 1px solid var(--border-color); box-shadow: none;
+}
+.approval-submit-btn--secundario:hover { background: var(--bg-card-hover); }
 .approval-submit-btn:active { transform: scale(0.98); }
 .approval-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
@@ -2737,7 +2738,6 @@ a:hover { color: var(--accent-300); }
   .line-items-header, .line-item-row { grid-template-columns: 1fr 70px 90px 90px 70px 90px 36px; }
   .invoice-preview { padding: 28px; }
   .onboarding-theme-grid { grid-template-columns: repeat(2, 1fr); }
-  .onboarding-welcome-features { flex-direction: column; align-items: center; }
 }
 
 /* --- Tablet ---
@@ -3682,7 +3682,6 @@ a.pricing-nav-cta {
   margin: 0 auto var(--space-4);
   border-radius: var(--radius-lg);
   display: block;
-  box-shadow: 0 8px 24px var(--accent-glow);
 }
 
 .login-title {
@@ -4056,8 +4055,7 @@ a:focus-visible {
   }
 
   .login-bg-glow--1,
-  .login-bg-glow--2,
-  .onboarding-welcome-icon {
+  .login-bg-glow--2 {
     animation: none !important;
   }
 }
@@ -4414,14 +4412,6 @@ a:focus-visible {
 :root[data-theme="dark"] .hero-panel {
   --hero-accent: var(--accent-300, #f5b3ca);
 }
-/* Misma fuente de luz que las tarjetas KPI, pero rasante y por la
-   izquierda, para que la marca del negocio quede iluminada. */
-.hero-panel::before {
-  content: ''; position: absolute;
-  top: -60%; left: -5%; width: 45%; height: 200%;
-  background: radial-gradient(closest-side, var(--accent-glow), transparent 70%);
-  opacity: 0.55; filter: blur(26px); pointer-events: none;
-}
 .hero-panel-body { position: relative; min-width: 0; }
 .hero-panel-sector {
   display: inline-flex; align-items: center; gap: 7px;
@@ -4543,6 +4533,7 @@ a:focus-visible {
 @media (max-width: 480px) {
   .plan-banner-meter-wrap { flex: none; width: 100%; flex-direction: column; align-items: stretch; gap: var(--space-3); }
   .plan-banner-meter { width: 100%; }
+  .plan-banner-meter-wrap .btn { justify-content: center; }
 }
 
 /* ============================================================
@@ -7965,6 +7956,14 @@ a.stats-item:focus-visible {
   box-shadow: 0 16px 34px -14px rgba(76, 26, 40, 0.8);
   color: #fff;
 }
+
+/* Estas reglas son de la web pública, pero `.btn-primary` es la misma
+   clase que usa el panel y le llegaban la sombra larga y el salto al
+   pasar el ratón. Dentro de la app (`.btn`) el botón se queda quieto y
+   con la sombra corta de su regla original. */
+.btn.btn-primary { box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12); }
+.btn.btn-ghost:hover { transform: none; }
+.btn.btn-primary:hover:not(:disabled) { transform: none; box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12); }
 
 /* Secundario sobre fondo claro. */
 .btn-ghost {
@@ -12304,7 +12303,7 @@ body.nav-abierta { overflow: hidden; }
   font-weight: 600;
   color: var(--text-inverse);
   background: var(--accent-gradient);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 4px 12px -4px var(--accent-glow);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px rgba(26, 18, 22, 0.18);
   transition: transform 160ms var(--asis-ease), filter 160ms var(--asis-ease);
 }
 .asis-nueva:active { transform: scale(0.97); }
@@ -12399,7 +12398,6 @@ body.nav-abierta { overflow: hidden; }
   min-width: 0;
   min-height: 0;
   background:
-    radial-gradient(1200px 400px at 50% -220px, var(--accent-glow), transparent 70%),
     var(--bg-card);
 }
 
@@ -12461,14 +12459,14 @@ body.nav-abierta { overflow: hidden; }
   border-radius: 11px;
   color: #fff;
   background: var(--accent-gradient);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 6px 16px -6px var(--accent-500);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset;
 }
 .asis-orbe--grande { width: 56px; height: 56px; border-radius: 18px; }
 .asis-orbe--mini { width: 28px; height: 28px; border-radius: 9px; margin-top: 2px; }
 .asis-orbe--vivo { animation: asisLatido 1.6s var(--asis-ease) infinite; }
 @keyframes asisLatido {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow), 0 6px 16px -6px var(--accent-500); }
-  50% { box-shadow: 0 0 0 6px transparent, 0 6px 16px -6px var(--accent-500); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 0 6px transparent; }
 }
 
 .asis-scroll {
@@ -14051,9 +14049,7 @@ body {
   padding: calc(var(--space-6) + var(--safe-top)) var(--space-4) calc(var(--space-6) + var(--safe-bottom));
   overflow-y: auto;
   /* Opaco: detrás está la cuenta, y hasta elegir perfil no se enseña. */
-  background:
-    radial-gradient(900px 500px at 50% 0%, var(--accent-glow), transparent 60%),
-    var(--bg-primary);
+  background: var(--bg-primary);
   animation: perfilEntra 220ms var(--ease-settle) both;
 }
 @keyframes perfilEntra { from { opacity: 0; } to { opacity: 1; } }
@@ -14084,7 +14080,7 @@ body {
   cursor: pointer; font: inherit;
   transition: transform 160ms var(--ease-settle), border-color 160ms, box-shadow 160ms;
 }
-.perfil-tarjeta:hover { transform: translateY(-2px); border-color: var(--accent-500); box-shadow: 0 10px 28px -12px var(--accent-glow); }
+.perfil-tarjeta:hover { transform: translateY(-2px); border-color: var(--accent-500); box-shadow: var(--shadow-md); }
 .perfil-tarjeta:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
 .perfil-tarjeta.is-actual { border-color: var(--accent-500); }
 .perfil-tarjeta-nombre { font-weight: 650; font-size: var(--text-md); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

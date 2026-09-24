@@ -17,8 +17,8 @@
  */
 
 const EXACTAS: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/asistencia': 'Asistencia IA',
+  '/dashboard': 'Panel',
+  '/asistencia': 'Asistente',
   '/facturas': 'Facturas',
   '/facturas/nueva': 'Nueva factura',
   '/documentos': 'Documentos',

@@ -181,7 +181,7 @@ export default async function AdminHacienda() {
               <span className={`apple-pill ${actividadDesde ? 'apple-pill-blue' : 'apple-pill-slate'}`}>
                 {actividadDesde ? `De alta desde ${formatDate(actividadDesde)}` : 'Sin fecha de alta'}
               </span>
-              <Link href="/admin/configuracion" className="apple-pill apple-pill-slate" style={{ textDecoration: 'none' }}>Cambiar en Configuración →</Link>
+              <Link href="/admin/configuracion" className="apple-pill apple-pill-slate" style={{ textDecoration: 'none' }}>Cambiar en configuración →</Link>
             </div>
           </div>
           <AccionesIngresos desde={inicio} hasta={fin} facturables={facturables} conAlta={Boolean(actividadDesde)} />
