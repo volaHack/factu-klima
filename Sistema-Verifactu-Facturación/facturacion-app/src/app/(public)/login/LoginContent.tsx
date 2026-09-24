@@ -21,7 +21,8 @@ export default function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
+  // `?modo=registro` (desde /precios en fase piloto) abre directamente el alta.
+  const [isLogin, setIsLogin] = useState(searchParams.get('modo') !== 'registro');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   /**

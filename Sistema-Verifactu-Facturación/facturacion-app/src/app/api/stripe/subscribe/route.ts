@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { cobrosAbiertos, MENSAJE_COBROS_CERRADOS } from '@/lib/plataforma/estado';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { getPlan } from '@/lib/plans';
@@ -13,6 +14,10 @@ import { zonaFiscal } from '@/lib/plataforma/impuestos';
  * docs/plans/2026-08-08-precios-suscripciones-stripe-design.md).
  */
 export async function POST(request: Request) {
+  // Fase piloto: sin cobros hasta que la actividad esté dada de alta.
+  if (!(await cobrosAbiertos())) {
+    return NextResponse.json({ error: MENSAJE_COBROS_CERRADOS, piloto: true }, { status: 403 });
+  }
   const allowed = await checkRateLimit(`subscribe:${clientIpFromRequest(request)}`, 10, 3600);
   if (!allowed) {
     return NextResponse.json({ error: 'Demasiados intentos. Inténtalo más tarde.' }, { status: 429 });

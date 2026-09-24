@@ -200,7 +200,10 @@ const faqs = [
  * enseña el plan sin botón. La página nunca ofrece cobrar algo que la
  * pasarela todavía no sabe cobrar.
  */
-export default function PricingContent({ tpvDisponible = false }: { tpvDisponible?: boolean }) {
+export default function PricingContent({
+  tpvDisponible = false,
+  cobrosAbiertos = false,
+}: { tpvDisponible?: boolean; cobrosAbiertos?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [billing, setBilling] = useState<BillingCycle>('monthly');
@@ -239,6 +242,13 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
   const annualSavings = (plan: (typeof plans)[number]) => plan.priceMonthly * 12 - plan.priceAnnual;
 
   const handleSelectPlan = async (planId: PlanId) => {
+    // FASE PILOTO: todavía no se cobra (ver lib/plataforma/estado.ts). El
+    // botón lleva a crear la cuenta, y el acceso se da gratis desde
+    // Administración mientras dura el piloto.
+    if (!cobrosAbiertos) {
+      router.push(`/login?modo=registro&piloto=1&plan=${planId}`);
+      return;
+    }
     setApiError('');
     setLoadingPlan(planId);
     try {
@@ -310,6 +320,16 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               Cinco maneras de decir «date prisa» no convencen más que una:
               convencen menos, porque quien lee eso ya sabe que le están
               vendiendo. El descuento es real y se dice una vez. */}
+          {!cobrosAbiertos ? (
+            <div className="pricing-piloto" role="note">
+              <span className="pricing-piloto-etiqueta">Fase piloto</span>
+              <p>
+                <strong>Ahora mismo, Klima es gratis.</strong> Estamos probándolo con los primeros
+                negocios: crea tu cuenta y te damos acceso completo, sin tarjeta. Los precios de abajo
+                son los que tendrá cuando abramos.
+              </p>
+            </div>
+          ) : (
           <div className="pricing-promo">
             <div className="pricing-promo-oferta">
               <span className="pricing-promo-pct">−50%</span>
@@ -338,6 +358,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               {couponCopied === 'fallo' ? `No se pudo copiar. El cupón es ${CUPON}.` : ''}
             </span>
           </div>
+          )}
 
           {wasCancelled && (
             <div className="pricing-alert pricing-alert--info" role="status">
@@ -463,7 +484,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
                 disabled={loadingPlan !== null}
                 aria-busy={isLoading}
               >
-                {isLoading ? <Loader2 size={16} className="spin" /> : <>{plan.cta}<ArrowRight size={16} /></>}
+                {isLoading ? <Loader2 size={16} className="spin" /> : <>{cobrosAbiertos ? plan.cta : 'Probar gratis'}<ArrowRight size={16} /></>}
               </button>
 
               <div className="pricing-card-divider" />
@@ -535,7 +556,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> {PLAN_MOSTRADOR.invoiceLimit} facturas completas al mes, para quien te la pida</li>
               <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Cierre de caja, arqueo e informes del día</li>
             </ul>
-            {tpvDisponible ? (
+            {tpvDisponible || !cobrosAbiertos ? (
               <button
                 type="button"
                 className="pricing-otro-cta"
@@ -545,7 +566,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               >
                 {loadingPlan === PLAN_MOSTRADOR.id
                   ? <Loader2 size={16} className="spin" />
-                  : <>Empezar con el TPV<ArrowRight size={16} /></>}
+                  : <>{cobrosAbiertos ? 'Empezar con el TPV' : 'Probar el TPV gratis'}<ArrowRight size={16} /></>}
               </button>
             ) : (
               <p className="pricing-otro-nota">Disponible en cuanto terminemos de configurar el cobro.</p>

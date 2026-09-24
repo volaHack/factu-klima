@@ -4,13 +4,44 @@ import { getPlan } from '@/lib/plans';
 import { filaDesdeSuscripcion } from './suscripciones';
 import { facturaDeSuscripcion, facturaDePropina } from '@/lib/plataforma/facturas';
 import type { RegimenIgic } from '@/lib/plataforma/impuestos';
+import { nuevoIngreso, type Ingreso } from '@/lib/plataforma/ingresos';
 
 const fechaIso = (segundos: number) => new Date(segundos * 1000).toISOString().slice(0, 10);
 
 async function configPlataforma(db: SupabaseClient) {
   const { data } = await db.from('plataforma_config').select('*').single();
   if (!data) throw new Error('REVISAR: falta la fila de plataforma_config (migración 042).');
-  return data as { serie_suscripciones: string; serie_propinas: string; regimen_igic: RegimenIgic };
+  return data as {
+    serie_suscripciones: string; serie_propinas: string; regimen_igic: RegimenIgic;
+    actividad_desde: string | null;
+  };
+}
+
+/**
+ * Apunta un cobro en el libro de ingresos y, si toca, emite su factura.
+ *
+ * Idempotente: Stripe reintenta los avisos, y un mismo cobro no se apunta
+ * dos veces ni se factura dos veces (si ya tiene factura, no se toca).
+ */
+async function apuntarIngreso(db: SupabaseClient, ingreso: Ingreso, factura?: unknown): Promise<void> {
+  const { data: previo } = await db.from('ingresos_plataforma')
+    .select('id, invoice_id').eq('stripe_ref', ingreso.stripe_ref).maybeSingle();
+  if (previo?.invoice_id) return;
+
+  // La factura va guardada aunque no se emita: si el cobro es de antes
+  // del alta, se podrá facturar luego desde Administración → Hacienda.
+  let fila: Ingreso & { factura_propuesta?: unknown } = { ...ingreso, factura_propuesta: factura ?? null };
+  if (ingreso.estado === 'facturado' && factura) {
+    const { data: invoiceId, error } = await db.rpc('fn_emitir_factura_plataforma', { p: factura });
+    if (error) {
+      fila = { ...ingreso, estado: 'revisar', nota: `No se pudo emitir la factura: ${error.message}` };
+    } else {
+      fila = { ...ingreso, invoice_id: typeof invoiceId === 'string' ? invoiceId : null };
+    }
+  }
+  const { error } = await db.from('ingresos_plataforma').upsert(fila, { onConflict: 'stripe_ref' });
+  if (error) throw new Error(`No se pudo apuntar el ingreso ${ingreso.stripe_ref}: ${error.message}`);
+  if (fila.estado === 'revisar') throw new Error(`REVISAR: ${fila.nota}`);
 }
 
 export async function procesarEvento(event: Stripe.Event, db: SupabaseClient): Promise<void> {
@@ -68,9 +99,22 @@ export async function procesarEvento(event: Stripe.Event, db: SupabaseClient): P
         },
         serie: cfg.serie_suscripciones, regimen: cfg.regimen_igic,
       });
-      if ('revisar' in r) throw new Error(`REVISAR: ${r.revisar}`);
-      const { error } = await db.rpc('fn_emitir_factura_plataforma', { p: r });
-      if (error) throw new Error(error.message);
+      const cobrado = inv.amount_paid / 100;
+      const ingreso = nuevoIngreso({
+        stripeRef: `stripe:${inv.id}`,
+        tipo: 'suscripcion',
+        fecha: fechaIso(inv.status_transitions.paid_at ?? event.created),
+        importe: cobrado,
+        tipoImpositivo: 'revisar' in r ? 0 : r.lineas[0].tipo,
+        concepto: 'revisar' in r ? `Suscripción ${getPlan(sus.plan_id)?.name ?? sus.plan_id}` : r.lineas[0].concepto,
+        cliente: { nombre: aj?.business_name, nif: aj?.nif, userId: sus.user_id },
+        actividadDesde: cfg.actividad_desde,
+      });
+      if ('revisar' in r && ingreso.estado === 'facturado') {
+        await apuntarIngreso(db, { ...ingreso, estado: 'revisar', nota: r.revisar });
+        return;
+      }
+      await apuntarIngreso(db, ingreso, 'revisar' in r ? undefined : r);
       return;
     }
 
@@ -91,23 +135,43 @@ export async function procesarEvento(event: Stripe.Event, db: SupabaseClient): P
       // Propinas
       if (session.mode === 'payment' && session.metadata?.tipo === 'tip_apoyo' && session.payment_status === 'paid') {
         const cfg = await configPlataforma(db);
-        const { error } = await db.rpc('fn_emitir_factura_plataforma', {
-          p: facturaDePropina({
-            sessionId: session.id,
-            fecha: fechaIso(event.created),
-            cobrado: (session.amount_total ?? 0) / 100,
-            serie: cfg.serie_propinas,
-            regimen: cfg.regimen_igic,
-          }),
+        const fecha = fechaIso(event.created);
+        const cobrado = (session.amount_total ?? 0) / 100;
+        const factura = facturaDePropina({
+          sessionId: session.id, fecha, cobrado, serie: cfg.serie_propinas, regimen: cfg.regimen_igic,
         });
-        if (error) throw new Error(error.message);
+        await apuntarIngreso(db, nuevoIngreso({
+          stripeRef: `stripe:${session.id}`,
+          tipo: 'propina',
+          fecha,
+          importe: cobrado,
+          tipoImpositivo: factura.lineas[0].tipo,
+          concepto: factura.lineas[0].concepto,
+          cliente: { nombre: session.customer_details?.name ?? null },
+          actividadDesde: cfg.actividad_desde,
+        }), factura);
       }
       return;
     }
 
     case 'credit_note.created': {
       const cn = event.data.object as Stripe.CreditNote;
-      throw new Error(`REVISAR: devolución de ${cn.invoice} por ${cn.total / 100} €, emitir la rectificativa a mano.`);
+      const cfg = await configPlataforma(db);
+      const ingreso = nuevoIngreso({
+        stripeRef: `stripe:${cn.id}`,
+        tipo: 'devolucion',
+        fecha: fechaIso(cn.created),
+        importe: -(cn.total / 100),
+        tipoImpositivo: 0,
+        concepto: `Devolución de ${typeof cn.invoice === 'string' ? cn.invoice : cn.invoice?.id ?? 'un cobro'}`,
+        actividadDesde: cfg.actividad_desde,
+      });
+      // Con actividad, la devolución pide una factura rectificativa, que
+      // se emite a mano desde la factura original: se deja «revisar».
+      await apuntarIngreso(db, ingreso.estado === 'facturado'
+        ? { ...ingreso, estado: 'revisar', nota: 'Emitir la factura rectificativa a mano desde la factura original.' }
+        : ingreso);
+      return;
     }
 
     default:

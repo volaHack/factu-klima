@@ -33,8 +33,15 @@ export async function POST(request: Request) {
       regimen_igic,
       cobrar_impuesto,
       stripe_tax_rate_igic,
+      cobros_abiertos,
+      actividad_desde,
       motivo,
     } = body;
+
+    if (actividad_desde !== undefined && actividad_desde !== null && actividad_desde !== ''
+        && !/^\d{4}-\d{2}-\d{2}$/.test(String(actividad_desde))) {
+      return NextResponse.json({ error: 'La fecha de alta tiene que ser AAAA-MM-DD.' }, { status: 400 });
+    }
 
     if (!motivo?.trim()) {
       return NextResponse.json({ error: 'Debes indicar un motivo para guardar los cambios de configuración.' }, { status: 400 });
@@ -53,6 +60,8 @@ export async function POST(request: Request) {
       ...(regimen_igic ? { regimen_igic } : {}),
       ...(typeof cobrar_impuesto === 'boolean' ? { cobrar_impuesto } : {}),
       ...(stripe_tax_rate_igic !== undefined ? { stripe_tax_rate_igic: stripe_tax_rate_igic ? String(stripe_tax_rate_igic).trim() : null } : {}),
+      ...(typeof cobros_abiertos === 'boolean' ? { cobros_abiertos } : {}),
+      ...(actividad_desde !== undefined ? { actividad_desde: actividad_desde || null } : {}),
     };
 
     const { error: errorUpdate } = await db
@@ -68,7 +77,7 @@ export async function POST(request: Request) {
     await db.from('admin_registro').insert({
       admin_user_id: admin.user.id,
       accion: 'configuracion_plataforma',
-      motivo: `Actualización de configuración: ${motivo.trim()} (antes: ${anterior?.regimen_igic}, ahora: ${regimen_igic ?? anterior?.regimen_igic})`,
+      motivo: `Actualización de configuración: ${motivo.trim()} (régimen ${anterior?.regimen_igic} → ${regimen_igic ?? anterior?.regimen_igic}; cobros ${anterior?.cobros_abiertos ? 'abiertos' : 'cerrados'} → ${(cobros_abiertos ?? anterior?.cobros_abiertos) ? 'abiertos' : 'cerrados'}; alta ${anterior?.actividad_desde ?? '—'} → ${(actividad_desde === undefined ? anterior?.actividad_desde : actividad_desde) || '—'})`,
     });
 
     return NextResponse.json({ ok: true });
