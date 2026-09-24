@@ -85,7 +85,13 @@ export async function POST(request: Request) {
     // aquí con el código en el portapapeles, sin ningún sitio donde
     // pegarlo, y pagaba el precio entero: la página prometía −50% y la
     // pasarela cobraba el 100%.
-    allow_promotion_codes: true,
+    //
+    // SÓLO EN MENSUAL. LANZAMIENTO50 promete «−50 % el primer mes», y un
+    // cupón de una sola vez aplicado a un plan anual descuenta el 50 % del
+    // AÑO entero (595 € en Sin límite). Stripe no deja limitar un cupón por
+    // intervalo, así que el campo sólo sale al pagar mensual; el anual ya
+    // trae sus dos meses gratis.
+    allow_promotion_codes: interval === 'month',
     tax_id_collection: { enabled: true },
     ...(customer ? { customer_update: { name: 'auto' as const, address: 'auto' as const } } : {}),
     metadata: { userId: user.id, planId: plan.id },

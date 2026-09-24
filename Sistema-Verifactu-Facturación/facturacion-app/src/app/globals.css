@@ -11869,18 +11869,46 @@ body.nav-abierta { overflow: hidden; }
 }
 
 .pricing-otro {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-6);
+  padding: var(--space-8);
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--accent-500);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
+  /* La misma altura que las tarjetas de los planes: antes eran planas y
+     con un filete a un lado, y parecían una nota al pie de la página. */
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-/* La de gestorías todavía no se puede contratar: filete apagado, para
-   que se lea como «esto viene» y no como «esto es lo mismo». */
-.pricing-otro--gestoria { border-left-color: var(--border-color-hover); }
+.pricing-otro--tpv {
+  background: var(--bg-elevated);
+  border-color: color-mix(in srgb, var(--accent-500) 40%, var(--border-color));
+}
+/* La de gestorías todavía no se puede contratar: se lee como «esto
+   viene» (etiqueta y tono más tranquilo), no como «esto es lo mismo». */
+.pricing-otro--gestoria {
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+.pricing-otro-cabeza { display: flex; align-items: center; gap: var(--space-3); }
+.pricing-otro-cabeza .pricing-otro-etiqueta { display: block; margin-bottom: 2px; }
+.pricing-otro-icono {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--accent-gradient); color: #fff;
+  box-shadow: 0 8px 18px -10px var(--accent-500);
+}
+.pricing-otro--gestoria .pricing-otro-icono {
+  background: var(--bg-tertiary); color: var(--text-secondary); box-shadow: none;
+  border: 1px solid var(--border-color);
+}
+.pricing-otro-pronto {
+  position: absolute; top: var(--space-5); right: var(--space-5);
+  padding: 3px 10px; border-radius: var(--radius-full);
+  font-size: var(--text-2xs); font-weight: 700; letter-spacing: var(--tracking-caps); text-transform: uppercase;
+  background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border-color);
+}
 
 .pricing-otro-etiqueta {
   font-size: var(--text-2xs);
@@ -11929,6 +11957,15 @@ body.nav-abierta { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+.pricing-otro--tpv .pricing-otro-cta {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 8px 20px -10px var(--accent-500);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pricing-otro--tpv .pricing-otro-cta:hover { background: var(--accent-gradient); opacity: 0.92; transform: translateY(-1px); box-shadow: 0 10px 24px -10px var(--accent-500); }
 }
 .pricing-otro-cta {
   display: inline-flex;

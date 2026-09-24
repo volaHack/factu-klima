@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check, ArrowRight, Star, Loader2, Copy, Plus,
   FileText, Users, BarChart3, Plug, Store, Download, Headphones,
-  Fingerprint, QrCode, Palette, FileDown, WifiOff, CreditCard, ClipboardCheck, Send,
+  Fingerprint, QrCode, Palette, FileDown, WifiOff, CreditCard, ClipboardCheck, Send, Briefcase,
   type LucideIcon,
 } from 'lucide-react';
 import { PLANS, PLAN_MOSTRADOR, ANNUAL_MONTHS_FREE, type PlanId, type PlanFacturacionId } from '@/lib/plans';
@@ -504,9 +504,14 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
         </p>
 
         <div className="pricing-otros-grid">
-          <article className="pricing-otro">
-            <span className="pricing-otro-etiqueta">Solo mostrador</span>
-            <h3 className="pricing-otro-nombre">{PLAN_MOSTRADOR.name}</h3>
+          <article className="pricing-otro pricing-otro--tpv">
+            <div className="pricing-otro-cabeza">
+              <span className="pricing-otro-icono" aria-hidden="true"><Store size={20} /></span>
+              <div>
+                <span className="pricing-otro-etiqueta">Solo mostrador</span>
+                <h3 className="pricing-otro-nombre">{PLAN_MOSTRADOR.name}</h3>
+              </div>
+            </div>
             <p className="pricing-otro-pitch">
               Para el bar, la tienda o la peluquería: cobras, sale el ticket y se acabó.
               Cada ticket lleva su huella encadenada y su QR de cotejo, como cualquier factura.
@@ -519,6 +524,11 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
                   : (PLAN_MOSTRADOR.priceAnnual / 12).toFixed(2).replace('.', ',')}
               </span>
               <span className="pricing-card-period">/mes</span>
+            </div>
+            <div className="pricing-card-annual-note">
+              {billing === 'annual'
+                ? <>Facturado como {PLAN_MOSTRADOR.priceAnnual}€/año · <span className="pricing-card-savings">Ahorras {PLAN_MOSTRADOR.priceMonthly * 12 - PLAN_MOSTRADOR.priceAnnual}€</span></>
+                : <>Cambia a anual y ahorra {PLAN_MOSTRADOR.priceMonthly * 12 - PLAN_MOSTRADOR.priceAnnual}€/año</>}
             </div>
             <ul className="pricing-otro-lista">
               <li><Check size={15} className="pricing-feature-icono" aria-hidden="true" /> Tickets ilimitados, también sin conexión</li>
@@ -543,8 +553,14 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
           </article>
 
           <article className="pricing-otro pricing-otro--gestoria">
-            <span className="pricing-otro-etiqueta">Gestorías</span>
-            <h3 className="pricing-otro-nombre">Gestoría</h3>
+            <span className="pricing-otro-pronto">Próximamente</span>
+            <div className="pricing-otro-cabeza">
+              <span className="pricing-otro-icono" aria-hidden="true"><Briefcase size={20} /></span>
+              <div>
+                <span className="pricing-otro-etiqueta">Gestorías</span>
+                <h3 className="pricing-otro-nombre">Gestoría</h3>
+              </div>
+            </div>
             <p className="pricing-otro-pitch">
               Tus clientes te invitan y ves sus libros desde tu cuenta, sin pedirles claves
               ni esperar a que te manden un ZIP a final de trimestre.
