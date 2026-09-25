@@ -7,6 +7,7 @@ import {
   sistemaInformaticoDe, type FilaFactura, type FilaRegistro,
 } from '@/lib/verifactu/mapeo';
 import { estadoLocalDe, parsearRespuestaAeat, resumirRespuesta } from '@/lib/verifactu/respuestaAeat';
+import { productorDePlataforma } from '@/lib/plataforma/productor';
 
 const TAMANO_LOTE = 100;
 
@@ -45,6 +46,8 @@ export async function enviarPendientes(
     .from('company_settings')
     .select('business_name, nif, igic_enabled')
     .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (!ajustes?.nif?.trim() || !ajustes.business_name?.trim()) {
@@ -57,9 +60,23 @@ export async function enviarPendientes(
     };
   }
 
+  // El productor del software es la plataforma para todas las cuentas: si
+  // está configurado en Administración, manda sobre lo que tenga la cuenta.
+  const productor = await productorDePlataforma();
+  const configSistema = productor?.nombre && productor.nif
+    ? {
+      ...config,
+      productor_nombre: productor.nombre,
+      productor_nif: productor.nif,
+      nombre_sistema: productor.sistemaNombre,
+      id_sistema: productor.sistemaId,
+      version_sistema: productor.sistemaVersion,
+    }
+    : config;
+
   let sistema;
   try {
-    sistema = sistemaInformaticoDe(config, userId);
+    sistema = sistemaInformaticoDe(configSistema, userId);
   } catch (e) {
     return {
       estado: 400,

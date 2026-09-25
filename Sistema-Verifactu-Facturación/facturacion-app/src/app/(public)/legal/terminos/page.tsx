@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 
 import PaginaLegal from '@/components/public/PaginaLegal';
-import { TITULAR, dato } from '@/lib/legal/datos';
+import { dato } from '@/lib/legal/datos';
+import { titularActual } from '@/lib/legal/titular';
 
 export const metadata: Metadata = {
   title: 'Términos y condiciones',
@@ -10,19 +11,24 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/terminos' },
 };
 
-export default function Terminos() {
+// Los datos del titular se editan en Administración: se leen en cada visita.
+export const dynamic = 'force-dynamic';
+
+export default async function Terminos() {
+  const t = await titularActual();
   return (
     <PaginaLegal
+      completo={t.completo}
       titulo="Términos y condiciones"
       entradilla="Qué contratas, qué se paga, cómo se cancela y de qué responde cada uno."
     >
       <section className="legal-seccion">
         <h2>Quién presta el servicio</h2>
         <p>
-          {dato(TITULAR.titular, 'nombre o razón social')}, NIF{' '}
-          {dato(TITULAR.nif, 'NIF')}, con domicilio en{' '}
-          {dato(TITULAR.domicilio, 'domicilio fiscal')} y contacto en{' '}
-          {dato(TITULAR.email, 'email de contacto')}.
+          {dato(t.titular, 'nombre o razón social')}, NIF{' '}
+          {dato(t.nif, 'NIF')}, con domicilio en{' '}
+          {dato(t.domicilio, 'domicilio fiscal')} y contacto en{' '}
+          {dato(t.email, 'email de contacto')}.
         </p>
       </section>
 

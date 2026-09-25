@@ -14593,3 +14593,78 @@ body {
   border: 1px solid var(--border-color); border-radius: var(--radius-sm, 6px); padding: 3px 6px;
 }
 .tpvt-impresora-auto input { width: 15px; height: 15px; accent-color: var(--accent-500); }
+
+/* ============================================================
+   SOPORTE: botón discreto abajo a la derecha y su chat
+   ============================================================ */
+.soporte-boton {
+  position: fixed; z-index: 80;
+  right: calc(20px + var(--safe-right, 0px)); bottom: calc(20px + var(--safe-bottom, 0px));
+  width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .35);
+  cursor: pointer; transition: color .15s, border-color .15s, transform .15s;
+}
+.soporte-boton:hover, .soporte-boton.is-abierto { color: var(--accent-500); border-color: var(--accent-500); }
+.soporte-boton:active { transform: scale(.96); }
+.soporte-punto {
+  position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--accent-500); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.soporte-panel {
+  position: fixed; z-index: 81;
+  right: calc(20px + var(--safe-right, 0px)); bottom: calc(78px + var(--safe-bottom, 0px));
+  width: min(360px, calc(100vw - 32px)); height: min(500px, calc(100vh - 160px));
+  display: flex; flex-direction: column;
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, .35); overflow: hidden;
+  animation: soporte-entra .16s ease-out both;
+}
+@keyframes soporte-entra { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .soporte-panel { animation: none; } }
+.soporte-cabeza { display: flex; justify-content: space-between; gap: 8px; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--border-color); }
+.soporte-cabeza strong { display: block; font-size: var(--text-sm); }
+.soporte-cabeza span { display: block; font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+.soporte-cerrar { background: none; border: 0; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 6px; height: fit-content; }
+.soporte-cerrar:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+.soporte-mensajes { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.soporte-vacio { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+.soporte-msg { max-width: 85%; display: flex; flex-direction: column; gap: 2px; }
+.soporte-msg p { margin: 0; padding: 8px 11px; border-radius: 14px; font-size: var(--text-sm); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.soporte-msg time { font-size: 10.5px; color: var(--text-muted); padding: 0 4px; }
+.soporte-msg.is-mio { align-self: flex-end; align-items: flex-end; }
+.soporte-msg.is-mio p { background: var(--accent-500); color: #fff; border-bottom-right-radius: 4px; }
+.soporte-msg.is-admin { align-self: flex-start; }
+.soporte-msg.is-admin p { background: var(--bg-tertiary); color: var(--text-primary); border-bottom-left-radius: 4px; }
+.soporte-escribir { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--border-color); }
+.soporte-escribir textarea {
+  flex: 1; resize: none; max-height: 120px; font: inherit; font-size: var(--text-sm); line-height: 1.4;
+  padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-secondary, var(--bg-card)); color: var(--text-primary);
+}
+.soporte-escribir textarea:focus { outline: none; border-color: var(--accent-500); }
+.soporte-enviar { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; border: 0; background: var(--accent-500); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.soporte-enviar:disabled { opacity: .45; cursor: default; }
+.soporte-fallo { margin: 0; padding: 0 12px 10px; font-size: var(--text-xs); color: var(--color-danger); }
+/* En el móvil, por encima de la barra de navegación de abajo. */
+@media (max-width: 768px) {
+  .soporte-boton { bottom: calc(var(--mobile-nav-height, 64px) + 14px + var(--safe-bottom, 0px)); right: 14px; width: 42px; height: 42px; }
+  .soporte-panel { right: 12px; left: 12px; width: auto; bottom: calc(var(--mobile-nav-height, 64px) + 66px + var(--safe-bottom, 0px)); height: min(460px, calc(100vh - 220px)); }
+}
+@media print { .soporte-boton, .soporte-panel { display: none !important; } }
+/* Bandeja de soporte en Administración */
+.soporte-admin { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.soporte-admin-lista { max-height: 70vh; overflow-y: auto; }
+.soporte-admin-nada { display: flex; align-items: center; gap: 8px; padding: 1.25rem; margin: 0; color: var(--text-tertiary, var(--text-muted)); font-size: .875rem; }
+.soporte-admin-conv { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: .75rem 1rem; border: 0; border-top: 1px solid var(--border-color); background: none; cursor: pointer; color: inherit; }
+.soporte-admin-conv:hover { background: var(--bg-tertiary); }
+.soporte-admin-conv.is-activa { background: var(--bg-tertiary); box-shadow: inset 3px 0 0 var(--accent-500); }
+.soporte-admin-quien { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: .875rem; }
+.soporte-admin-asunto { font-size: .8125rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soporte-admin-cuando { font-size: .75rem; color: var(--text-tertiary, var(--text-muted)); }
+.soporte-admin-hilo { display: flex; flex-direction: column; min-height: 420px; max-height: 70vh; padding: 0; overflow: hidden; }
+.soporte-admin-hilo-cabeza { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .875rem 1rem; border-bottom: 1px solid var(--border-color); }
+.soporte-admin-hilo-cabeza strong { display: block; }
+.soporte-admin-hilo-cabeza span { font-size: .8125rem; color: var(--text-secondary); }
+.soporte-admin-mensajes { min-height: 240px; }
+@media (max-width: 860px) { .soporte-admin { grid-template-columns: 1fr; } }

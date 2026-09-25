@@ -17,10 +17,13 @@ export default function PaginaLegal({
   titulo,
   entradilla,
   children,
+  completo = datosCompletos,
 }: {
   titulo: string;
   entradilla: string;
   children: ReactNode;
+  /** Si los datos del titular están completos (ver lib/legal/titular.ts). */
+  completo?: boolean;
 }) {
   return (
     <div className="site-page legal-page">
@@ -33,12 +36,12 @@ export default function PaginaLegal({
           <p className="legal-doc-fecha">Última revisión: {ULTIMA_REVISION}</p>
         </header>
 
-        {!datosCompletos && (
+        {!completo && (
           <div className="legal-aviso" role="status">
             <strong>Documento pendiente de completar.</strong> Faltan los datos
             identificativos del titular (nombre o razón social, NIF, domicilio
             fiscal y dirección de contacto). Hasta que se rellenen en
-            <code> src/lib/legal/datos.ts</code>, este texto no es válido para
+            Administración → Configuración, este texto no es válido para
             cumplir con la normativa.
           </div>
         )}

@@ -69,6 +69,16 @@ export const ENCARGADOS = [
     ubicacion: 'EE. UU., con cláusulas contractuales tipo',
   },
   {
+    nombre: 'Resend, Inc.',
+    papel: 'Envío de correos: recordatorios de cobro a clientes y avisos de soporte, sólo si se usan',
+    ubicacion: 'EE. UU., con cláusulas contractuales tipo',
+  },
+  {
+    nombre: 'Proveedor del modelo de inteligencia artificial',
+    papel: 'Asistente y lectura de tickets: recibe sólo la pregunta o la foto que el usuario envía, sin guardarla',
+    ubicacion: 'Según el proveedor contratado (Google o OpenRouter), con cláusulas contractuales tipo',
+  },
+  {
     nombre: 'Agencia Estatal de Administración Tributaria',
     papel: 'Recepción de los registros de facturación (Veri*Factu)',
     ubicacion: 'España — no es un encargado: es una obligación legal',
@@ -76,4 +86,4 @@ export const ENCARGADOS = [
 ] as const;
 
 /** La última vez que se revisaron estos textos. */
-export const ULTIMA_REVISION = '22 de septiembre de 2026';
+export const ULTIMA_REVISION = '25 de septiembre de 2026';
