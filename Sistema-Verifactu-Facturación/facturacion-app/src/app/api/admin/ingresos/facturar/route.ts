@@ -45,7 +45,7 @@ export async function POST() {
   }
 
   await db.from('admin_registro').insert({
-    admin_user_id: admin.user.id,
+    admin_id: admin.user.id,
     accion: 'facturar_ingresos_pendientes',
     motivo: `Emitidas ${emitidas} facturas de cobros pendientes${fallos.length ? `; ${fallos.length} con error` : ''}.`,
   });

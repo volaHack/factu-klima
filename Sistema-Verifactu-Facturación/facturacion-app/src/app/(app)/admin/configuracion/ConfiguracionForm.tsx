@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import TarjetaProductor from './TarjetaProductor';
 import {
   Sliders,
   ShieldAlert,
@@ -10,7 +11,6 @@ import {
   Save,
   Receipt,
   Landmark,
-  Building2,
   Lock,
 } from 'lucide-react';
 
@@ -50,27 +50,6 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
     actividad_desde: initialConfig.actividad_desde || '',
     motivo: '',
   });
-  const [productor, setProductor] = useState({
-    nombre: initialConfig.productor_nombre || '',
-    nif: initialConfig.productor_nif || '',
-    domicilio: initialConfig.productor_domicilio || '',
-    email: initialConfig.productor_email || '',
-    soporte_email: initialConfig.soporte_email || '',
-    sistema_nombre: initialConfig.sistema_nombre || 'FactuKlima',
-    sistema_id: initialConfig.sistema_id || 'FK',
-    sistema_version: initialConfig.sistema_version || '1.0',
-    lugar: initialConfig.declaracion_lugar || '',
-    fecha: initialConfig.declaracion_fecha || '',
-  });
-  const campoProductor = (k: keyof typeof productor, etiqueta: string, ayuda?: string, tipo = 'text') => (
-    <div>
-      <label className="form-label" htmlFor={`prod-${k}`} style={{ fontWeight: 600 }}>{etiqueta}</label>
-      <input id={`prod-${k}`} type={tipo} className="form-input" value={productor[k]}
-        onChange={e => setProductor({ ...productor, [k]: k === 'nif' || k === 'sistema_id' ? e.target.value.toUpperCase() : e.target.value })} />
-      {ayuda && <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{ayuda}</p>}
-    </div>
-  );
-
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +77,6 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
           stripe_tax_rate_igic: form.stripe_tax_rate_igic.trim() || null,
           actividad_desde: form.actividad_desde || null,
           motivo: form.motivo.trim(),
-          productor,
         }),
       });
 
@@ -192,32 +170,19 @@ export default function ConfiguracionForm({ initialConfig }: Props) {
       </div>
 
       {/* Tarjeta 0b: Productor del software y declaración responsable */}
-      <div className="apple-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1rem' }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Building2 size={18} />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 650 }}>Productor del software y declaración responsable</h3>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Tú, como fabricante. Estos datos van en cada registro Veri*Factu de todas las cuentas y en la{' '}
-              <a href="/legal/declaracion-responsable" target="_blank" rel="noreferrer">declaración responsable</a> pública.
-            </p>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: '1rem' }}>
-          {campoProductor('nombre', 'Nombre o razón social', 'Como figura en Hacienda.')}
-          {campoProductor('nif', 'NIF')}
-          {campoProductor('domicilio', 'Domicilio de contacto', 'Dirección postal completa: la pide la declaración.')}
-          {campoProductor('email', 'Correo de contacto', undefined, 'email')}
-          {campoProductor('sistema_nombre', 'Nombre del programa', 'Hasta 30 caracteres; es el que ve la AEAT.')}
-          {campoProductor('sistema_id', 'Código del programa', 'Dos letras o cifras que lo identifican (p. ej. FK).')}
-          {campoProductor('sistema_version', 'Versión')}
-          {campoProductor('lugar', 'Lugar de firma de la declaración')}
-          {campoProductor('fecha', 'Fecha de firma', 'Vacía mientras no la hayas firmado: la página pública sale como borrador.', 'date')}
-          {campoProductor('soporte_email', 'Correo para avisos de soporte', 'Aquí llega un aviso cuando alguien escribe al chat (con el correo de Resend configurado).', 'email')}
-        </div>
-      </div>
+      {/* El productor va aparte: se guarda solo al escribir, sin motivo. */}
+      <TarjetaProductor inicial={{
+        nombre: initialConfig.productor_nombre || '',
+        nif: initialConfig.productor_nif || '',
+        domicilio: initialConfig.productor_domicilio || '',
+        email: initialConfig.productor_email || '',
+        soporte_email: initialConfig.soporte_email || '',
+        sistema_nombre: initialConfig.sistema_nombre || 'FactuKlima',
+        sistema_id: initialConfig.sistema_id || 'FK',
+        sistema_version: initialConfig.sistema_version || '1.0',
+        lugar: initialConfig.declaracion_lugar || '',
+        fecha: initialConfig.declaracion_fecha || '',
+      }} />
 
       {/* Tarjeta 1: Series de Facturación */}
       <div className="apple-card">
