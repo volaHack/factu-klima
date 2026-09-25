@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Printer, Plus, Mail, MessageCircle, CloudOff, CheckCircle2 } from 'lucide-react';
 import TpvDialogo from './TpvDialogo';
 import { Invoice, CompanySettings } from '@/lib/types';
@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { getTaxLabel } from '@/lib/constants';
 import { generarQrVerifactu, validarDatosQr } from '@/lib/verifactu/qr';
 import { LEYENDA_LARGA, ROTULO_QR } from '@/lib/verifactu/qrFactura';
+import { guardarAjustesImpresion, imprimirTicket, leerAjustesImpresion, type AjustesImpresion, type Papel } from '@/lib/tpv/impresion';
 
 interface TpvTicketProps {
   invoice: Invoice;
@@ -13,6 +14,8 @@ interface TpvTicketProps {
   cashGiven?: number;
   onNewSale: () => void;
   onClose?: () => void;
+  /** Recién cobrada (no una reimpresión): si el equipo lo tiene puesto, se imprime sola. */
+  recienCobrada?: boolean;
 }
 
 /** La hora de la venta; vacía si no se sabe (antes salía «Invalid Date»). */
@@ -21,8 +24,15 @@ function horaDeVenta(creada?: string): string {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
-export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onClose }: TpvTicketProps) {
-  const change = cashGiven != null ? cashGiven - invoice.total : undefined;
+export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onClose, recienCobrada }: TpvTicketProps) {
+  // Redondeado a céntimos y sin negativos: 58,31 − 58,31 daba «-0,00 €» en el ticket.
+  const change = cashGiven != null ? Math.max(0, Math.round((cashGiven - invoice.total) * 100) / 100) : undefined;
+  const ticketRef = useRef<HTMLDivElement>(null);
+  // La impresora es de este equipo: se lee al montar (en el servidor no hay localStorage).
+  const [impresion, setImpresion] = useState<AjustesImpresion | null>(null);
+  useEffect(() => { queueMicrotask(() => setImpresion(leerAjustesImpresion())); }, []);
+  const cambiarImpresion = (a: AjustesImpresion) => { setImpresion(a); guardarAjustesImpresion(a); };
+  const imprimir = () => { if (ticketRef.current) void imprimirTicket(ticketRef.current, impresion?.papel); };
 
   /**
    * EL QR TRIBUTARIO DEL TICKET
@@ -55,6 +65,15 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
     generarQrVerifactu(datosQr).then(imagen => { if (vivo) setQr(imagen); }).catch(() => { /* sin QR antes que con uno roto */ });
     return () => { vivo = false; };
   }, [sePuedeCodificar, datosQr]);
+
+  // Imprimir al cobrar: una sola vez, y cuando el QR ya está (o no va a estar).
+  const yaImpreso = useRef(false);
+  const qrListo = !sePuedeCodificar || !!qr;
+  useEffect(() => {
+    if (!recienCobrada || !impresion?.alCobrar || !qrListo || yaImpreso.current || !ticketRef.current) return;
+    yaImpreso.current = true;
+    void imprimirTicket(ticketRef.current, impresion.papel);
+  }, [recienCobrada, impresion, qrListo]);
 
   const getTicketTextSummary = () => {
     const header = `${settings.tradeName || settings.businessName}\nTicket N.º ${invoice.number}\nFecha: ${formatDate(invoice.issueDate)}\n------------------------\n`;
@@ -98,7 +117,7 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
           <button type="button" className="tpvd-boton tpvt-compartir" onClick={shareEmail} title="Enviar por correo">
             <Mail size={17} /> <span>Email</span>
           </button>
-          <button type="button" className="tpvd-boton" onClick={() => window.print()}>
+          <button type="button" className="tpvd-boton" onClick={imprimir}>
             <Printer size={17} /> Imprimir
           </button>
           <button type="button" className="tpvd-boton tpvd-boton--principal tpvt-nueva" onClick={onNewSale} data-autofocus>
@@ -117,7 +136,7 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
       )}
 
         <div className="tpv-ticket-print-area">
-          <div className="tpv-ticket">
+          <div className="tpv-ticket" ref={ticketRef}>
             {/* Al principio del ticket, antes de nada: es donde la
                 especificación de la AEAT lo pide en formato vertical. */}
             {sePuedeCodificar && qr && (
@@ -169,6 +188,23 @@ export default function TpvTicket({ invoice, settings, cashGiven, onNewSale, onC
             </p>
           </div>
         </div>
+
+        {impresion && (
+          <div className="tpvt-impresora">
+            <label>
+              Papel de este equipo
+              <select value={impresion.papel} onChange={e => cambiarImpresion({ ...impresion, papel: e.target.value as Papel })}>
+                <option value="80">Ticket 80 mm</option>
+                <option value="58">Ticket 58 mm</option>
+                <option value="a4">Folio A4</option>
+              </select>
+            </label>
+            <label className="tpvt-impresora-auto">
+              <input type="checkbox" checked={impresion.alCobrar} onChange={e => cambiarImpresion({ ...impresion, alCobrar: e.target.checked })} />
+              Imprimir solo al cobrar
+            </label>
+          </div>
+        )}
 
     </TpvDialogo>
   );

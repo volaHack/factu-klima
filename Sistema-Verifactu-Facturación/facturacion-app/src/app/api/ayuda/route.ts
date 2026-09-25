@@ -122,6 +122,7 @@ const LO_QUE_HACE_EL_TPV = [
   '- Cobrar en efectivo, tarjeta o Bizum (F2 o Espacio abre el cobro; 1, 2 y 3 eligen forma de pago).',
   '- En efectivo: teclado numérico, botón «Exacto», sumas rápidas de 5/10/20/50 € y cálculo del cambio.',
   '- Imprimir o compartir el ticket por WhatsApp o email al terminar la venta.',
+  '- Elegir, debajo del ticket, el papel de la impresora de ese equipo (80 mm, 58 mm o folio A4) y que el ticket se imprima solo al cobrar.',
   '- Abrir y cerrar caja, contando el efectivo y viendo el descuadre.',
   '- «Ventas de hoy»: lista de los tickets del día, con opción de verlos.',
   '- «Resumen»: lo más vendido, las horas punta y qué conviene reponer.',
