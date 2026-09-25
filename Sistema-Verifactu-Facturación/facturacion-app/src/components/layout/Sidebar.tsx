@@ -8,7 +8,7 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe, ListOrdered, Landmark, Tag, Sparkles, BookOpenCheck, BellRing,
+  Send, Globe, ListOrdered, Landmark, Tag, Sparkles, BookOpenCheck, BellRing, UsersRound,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
@@ -101,6 +101,7 @@ const controlItems = [
   { href: '/plantillas', label: 'Diseño de documentos', icon: LayoutTemplate },
   { href: '/integridad', label: 'Integridad', icon: ShieldCheck },
   { href: '/verifactu', label: 'Verifactu', icon: Plug },
+  { href: '/equipo', label: 'Equipo', icon: UsersRound },
   { href: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
 

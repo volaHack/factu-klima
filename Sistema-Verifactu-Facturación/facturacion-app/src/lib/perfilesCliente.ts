@@ -35,6 +35,7 @@ import { createClient } from './supabase/client';
 import {
   hashPin, nuevaSal, ordenarPerfiles, type AccionPerfil, type Perfil, type RolPerfil,
 } from './perfiles';
+import { terminarSesionDeEsteEquipo } from './sesionesPerfiles';
 
 const CLAVE_CACHE = 'klima-perfiles';
 const CLAVE_ACTIVO = 'klima-perfil-activo';
@@ -270,12 +271,21 @@ export function entrarComo(perfil: Perfil): void {
   registrarActividad('entrada', {}, perfil);
 }
 
+/** Cuándo se eligió el perfil activo en este equipo: identifica la sesión. */
+const inicioDeEstaVisita = new Date().toISOString();
+export function inicioDelPerfilActivo(): string {
+  const a = leer<{ cuenta: string; id: string; desde?: string }>(CLAVE_ACTIVO);
+  return a?.desde && !Number.isNaN(Date.parse(a.desde)) ? a.desde : inicioDeEstaVisita;
+}
+
 /** Deja el equipo sin perfil: la siguiente persona tiene que elegir el suyo. */
-export function cerrarPerfil(): void {
+export function cerrarPerfil({ detalle }: { detalle?: string } = {}): void {
   const anterior = perfilActivo();
-  if (anterior) registrarActividad('salida', {}, anterior);
+  if (anterior) registrarActividad('salida', { detalle }, anterior);
   try { localStorage.removeItem(CLAVE_ACTIVO); } catch { /* */ }
   fijar({ activoId: null });
+  // Fuera de la lista de «trabajando ahora» de la titular.
+  void terminarSesionDeEsteEquipo(estado.cuenta);
 }
 
 /** Minutos sin tocar nada tras los que se pide el perfil otra vez (0 = nunca). Por equipo. */

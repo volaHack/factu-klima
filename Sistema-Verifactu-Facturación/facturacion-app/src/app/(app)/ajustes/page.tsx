@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import ComprobacionIdentidad from '@/components/clientes/ComprobacionIdentidad';
 import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -13,7 +14,6 @@ import {
 } from '@/lib/storage';
 import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
 import AccesoGestoria from '@/components/ajustes/AccesoGestoria';
-import EquipoPerfiles from '@/components/ajustes/EquipoPerfiles';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -1146,7 +1146,12 @@ export default function AjustesPage() {
           <UsersRound size={18} />
           <h2 className="settings-section-title">Equipo</h2>
         </div>
-        <EquipoPerfiles />
+        <p className="equipo-nota" style={{ marginTop: 0 }}>
+          Los perfiles de cada persona (titular, empleado, cajero) y quién está trabajando ahora tienen su propia pantalla.
+        </p>
+        <Link href="/equipo" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 'var(--space-2)' }}>
+          <UsersRound size={16} /> Abrir Equipo
+        </Link>
       </div>
 
       {/* Justo antes de «tus datos son tuyos» a propósito: las dos

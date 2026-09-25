@@ -44,8 +44,9 @@ export default function EquipoPerfiles() {
   const [borrador, setBorrador] = useState<Borrador | null>(null);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
-  // Es un ajuste de ESTE equipo (localStorage); Ajustes sólo se pinta en cliente.
-  const [bloqueo, setBloqueo] = useState(() => minutosDeBloqueo());
+  // Es un ajuste de ESTE equipo (localStorage): se lee al montar, no en el servidor.
+  const [bloqueo, setBloqueo] = useState(0);
+  useEffect(() => { queueMicrotask(() => setBloqueo(minutosDeBloqueo())); }, []);
   const [actividad, setActividad] = useState<ApunteLeido[] | null>(null);
 
   useEffect(() => {

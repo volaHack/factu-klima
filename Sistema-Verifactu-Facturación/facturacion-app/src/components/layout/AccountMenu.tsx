@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun, Users } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun, Users, UsersRound } from 'lucide-react';
 import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } from '@/lib/tema';
 import { cerrarPerfil, pedirCambioDePerfil, usePerfiles } from '@/lib/perfilesCliente';
+import { terminarSesionDeEsteEquipo } from '@/lib/sesionesPerfiles';
 import { iniciales as inicialesPerfil, nombreRol } from '@/lib/perfiles';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
@@ -35,7 +36,7 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
   const temaActual = useSyncExternalStore(suscribirseAlTema, leerTemaEfectivo, leerTemaEnServidor);
   // Perfil de trabajo: su avatar en el botón, y los ajustes y el plan sólo
   // para el titular (o para todos si la cuenta no usa perfiles).
-  const { activo: perfilActivo } = usePerfiles();
+  const { activo: perfilActivo, cuenta: cuentaPerfiles } = usePerfiles();
   const esTitular = !perfilActivo || perfilActivo.rol === 'titular';
   const [open, setOpen] = useState(false);
   const [cerrando, setCerrando] = useState(false);
@@ -94,6 +95,12 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
     // Las pantallas guardadas para usar sin conexión llevan datos de esta
     // cuenta: fuera también.
     void olvidarPantallas().catch(() => {});
+    // Quien estuviera trabajando aquí deja de salir como «trabajando ahora».
+    if (perfilActivo) {
+      cerrarPerfil();
+      // Antes de soltar la sesión de Supabase: después ya no se podría borrar la fila.
+      await Promise.race([terminarSesionDeEsteEquipo(cuentaPerfiles), new Promise(listo => setTimeout(listo, 2000))]);
+    }
     try {
       await createClient().auth.signOut();
     } catch {
@@ -288,6 +295,11 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
               {esAdmin && esTitular && (
                 <Link href="/admin" className="account-dropdown-item" onClick={() => setOpen(false)}>
                   <Shield size={16} /> Administración
+                </Link>
+              )}
+              {esTitular && (
+                <Link href="/equipo" className="account-dropdown-item" onClick={() => setOpen(false)}>
+                  <UsersRound size={16} /> Equipo y sesiones
                 </Link>
               )}
               {esTitular && (

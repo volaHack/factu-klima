@@ -625,6 +625,23 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   // CONFIGURACIÓN
   // ============================================================
   {
+    ruta: '/equipo',
+    titulo: 'Equipo',
+    paraQue: 'Dar a cada persona del negocio su perfil y ver quién está usando el programa ahora mismo.',
+    pasos: [
+      'Crea primero tu perfil de titular y ponle un PIN, para que nadie más entre como tú.',
+      'Añade a cada persona con su rol: empleado (el día a día) o cajero (sólo el TPV).',
+      'En cada equipo se elige quién está delante; la cabecera y el TPV lo enseñan.',
+      'En «Trabajando ahora» ves cada equipo con perfil, en qué pantalla está y desde cuándo. Puedes cerrar la sesión de otro equipo.',
+    ],
+    saber: [
+      'Los perfiles no son cuentas nuevas: todos entran con la cuenta del negocio y luego eligen su perfil.',
+      'Las facturas, tickets y cierres de caja quedan a nombre de quien los hizo.',
+      'Ponle nombre a cada equipo («Mostrador», «Oficina») para reconocerlo en la lista.',
+    ],
+    relacionadas: [{ ruta: '/tpv', texto: 'TPV' }, { ruta: '/ajustes', texto: 'Ajustes' }],
+  },
+  {
     ruta: '/ajustes',
     titulo: 'Ajustes',
     paraQue: 'Los datos de tu empresa, tu logotipo, las series de numeración y qué partes del programa quieres ver.',

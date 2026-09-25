@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair, CircleHelp } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, List, X, Store, Settings as SettingsIcon, Keyboard, PlusCircle, Receipt, ScanBarcode, TrendingUp, Armchair, CircleHelp, UsersRound } from 'lucide-react';
 import TpvProductGrid from '@/components/tpv/TpvProductGrid';
 import TpvCart from '@/components/tpv/TpvCart';
 import TpvCheckout from '@/components/tpv/TpvCheckout';
@@ -61,7 +61,7 @@ function persistHeldSales(sales: PosHeldSale[]) {
 }
 
 export default function TpvPage() {
-  const { activo: perfilTpv } = usePerfiles();
+  const { activo: perfilTpv, enUso: perfilesEnUso, cargado: perfilesCargados } = usePerfiles();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -796,6 +796,12 @@ export default function TpvPage() {
           )}
           {/* Quién cobra: a la vista, y desde aquí se cambia de cajero. */}
           <ChipPerfil directo />
+          {/* Sin perfiles todavía: el camino para dar a cada cajero el suyo. */}
+          {perfilesCargados && !perfilesEnUso && !isTpvKiosk && (
+            <Link href="/equipo" className="btn btn-sm btn-ghost tpv-cajeros-link" title="Da a cada persona su perfil para saber quién cobra cada ticket">
+              <UsersRound size={16} /> <span>Cajeros</span>
+            </Link>
+          )}
           {/* La ayuda va la primera de la barra y con su propio color: es
               el botón que se busca cuando algo no se sabe hacer, y buscarlo
               entre seis botones grises es justo lo que no se puede pedir
