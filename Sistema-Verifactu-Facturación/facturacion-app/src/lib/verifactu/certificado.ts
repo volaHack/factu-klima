@@ -29,6 +29,7 @@
  */
 
 import crypto from 'node:crypto';
+import { avisoNifDistinto, certificadoValeParaNif } from './titular';
 import tls from 'node:tls';
 
 export interface DatosCertificado {
@@ -135,9 +136,8 @@ export function avisosDelCertificado(datos: DatosCertificado, nifEmpresa?: strin
     avisos.push(`El emisor del certificado (${datos.issuerName}) no está entre las autoridades que sabemos reconocer. Puede ser válido igualmente, pero comprueba que sea un certificado admitido por la AEAT.`);
   }
 
-  const nif = nifEmpresa?.trim().toUpperCase();
-  if (nif && datos.nifTitular && datos.nifTitular !== nif) {
-    avisos.push(`El certificado es de ${datos.nifTitular} y tus facturas las emite ${nif}. La AEAT rechazará el envío salvo que actúes como representante de esa otra empresa.`);
+  if (nifEmpresa && certificadoValeParaNif(datos.subjectName, nifEmpresa) === false) {
+    avisos.push(avisoNifDistinto(datos.subjectName, nifEmpresa));
   }
 
   return avisos;

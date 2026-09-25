@@ -23,6 +23,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
 import Link from 'next/link';
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Plug,
@@ -259,7 +260,11 @@ export default function VerifactuPage() {
 
   // Si la plataforma ya dice quién produce el programa, no se le pregunta a la cuenta.
   const faltaProductor = !productorPlataforma && (!config.productorNombre.trim() || !config.productorNif.trim());
-  const listoParaEnviar = config.activo && !!activeCertificate && !faltaProductor;
+  // El certificado tiene que ser del que factura: con otro NIF, la AEAT
+  // rechaza el envío en la cabecera y el registro ya no tiene arreglo.
+  const nifNoCoincide = !!activeCertificate
+    && certificadoValeParaNif(activeCertificate.subjectName, companySettings.nif) === false;
+  const listoParaEnviar = config.activo && !!activeCertificate && !faltaProductor && !nifNoCoincide;
 
   return (
     <div className="animate-fade-in">
@@ -318,6 +323,12 @@ export default function VerifactuPage() {
               <ul className="status-panel-text" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                 {!activeCertificate && <li>Sube tu certificado digital, aquí abajo.</li>}
                 {faltaProductor && <li>Rellena quién produce el software (nombre y NIF): la AEAT lo exige en cada registro.</li>}
+                {nifNoCoincide && activeCertificate && (
+                  <li>
+                    <strong>{avisoNifDistinto(activeCertificate.subjectName, companySettings.nif)}</strong>{' '}
+                    <Link href="/ajustes">Ir a Ajustes</Link>
+                  </li>
+                )}
                 {!config.activo && <li>Activa el envío en la configuración de abajo.</li>}
               </ul>
             </div>

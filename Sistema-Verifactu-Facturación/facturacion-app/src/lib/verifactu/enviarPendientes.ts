@@ -8,6 +8,7 @@ import {
 } from '@/lib/verifactu/mapeo';
 import { estadoLocalDe, parsearRespuestaAeat, resumirRespuesta } from '@/lib/verifactu/respuestaAeat';
 import { productorDePlataforma } from '@/lib/plataforma/productor';
+import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
 
 const TAMANO_LOTE = 100;
 
@@ -90,7 +91,7 @@ export async function enviarPendientes(
   // ---------- Certificado ----------
   const { data: cert } = await db
     .from('verifactu_certificates')
-    .select('id, certificate_data, certificate_password_encrypted')
+    .select('id, certificate_data, certificate_password_encrypted, subject_name')
     .eq('user_id', userId)
     .eq('is_valid', true)
     .eq('is_revoked', false)
@@ -105,6 +106,15 @@ export async function enviarPendientes(
         ok: false,
         error: 'No hay ningún certificado cargado. Súbelo en la pantalla de Veri*Factu.',
       },
+    };
+  }
+  // Con el certificado de otro NIF la AEAT rechaza el envío entero en la
+  // cabecera (4104). Mejor decirlo aquí, sin gastar un envío, y sin que el
+  // envío automático lo reintente cada noche.
+  if (certificadoValeParaNif(cert.subject_name, ajustes.nif) === false) {
+    return {
+      estado: 400,
+      cuerpo: { ok: false, error: avisoNifDistinto(cert.subject_name, ajustes.nif) },
     };
   }
   if (!cert.certificate_password_encrypted) {

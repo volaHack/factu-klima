@@ -162,7 +162,10 @@ export function estadoLocalDe(estado: EstadoRegistro): EstadoLocal {
 
 /** Un resumen en castellano para enseñárselo al usuario. */
 export function resumirRespuesta(r: RespuestaAeat): string {
-  if (r.fallo) return `La AEAT ha devuelto un error: ${r.fallo.mensaje}`;
+  if (r.fallo) {
+    const explicacion = explicarFallo(r.fallo.mensaje);
+    return `La AEAT ha devuelto un error: ${r.fallo.mensaje}${explicacion ? ` ${explicacion}` : ''}`;
+  }
 
   const aceptadas = r.lineas.filter(l => l.estado === 'Correcto').length;
   const conErrores = r.lineas.filter(l => l.estado === 'AceptadoConErrores').length;
@@ -175,4 +178,16 @@ export function resumirRespuesta(r: RespuestaAeat): string {
 
   if (partes.length === 0) return 'La AEAT no ha devuelto ninguna línea de respuesta.';
   return partes.join(', ');
+}
+
+/**
+ * Lo que quiere decir, en cristiano, un rechazo de cabecera. Los mensajes
+ * de la AEAT dicen QUÉ campo falla pero no qué hay que tocar.
+ */
+export function explicarFallo(mensaje: string): string | null {
+  if (/Codigo\[4104\]/i.test(mensaje)) {
+    return 'Qué hacer: Hacienda no reconoce ese NIF con ese nombre. En Ajustes, el NIF y la razón social tienen que ser '
+      + 'exactamente los del censo (si eres autónomo, tus apellidos y nombre) y los del titular del certificado.';
+  }
+  return null;
 }
