@@ -14581,3 +14581,15 @@ body {
 /* Una tabla ancha (Últimas facturas) no puede ensanchar la columna: se
    desplaza dentro de su tarjeta. */
 .panel-pareja > .stack, .panel-pareja > .stack > * { min-width: 0; max-width: 100%; }
+
+/* Impresora del TPV: el papel es de cada equipo (ver lib/tpv/impresion.ts). */
+.tpvt-impresora {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 18px;
+  font-size: 12px; color: var(--text-secondary); margin-top: 4px;
+}
+.tpvt-impresora label { display: inline-flex; align-items: center; gap: 6px; }
+.tpvt-impresora select {
+  font: inherit; color: var(--text-primary); background: var(--bg-card);
+  border: 1px solid var(--border-color); border-radius: var(--radius-sm, 6px); padding: 3px 6px;
+}
+.tpvt-impresora-auto input { width: 15px; height: 15px; accent-color: var(--accent-500); }

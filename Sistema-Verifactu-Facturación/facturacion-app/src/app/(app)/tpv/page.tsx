@@ -83,7 +83,7 @@ export default function TpvPage() {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [weightProduct, setWeightProduct] = useState<Product | null>(null);
   const [cashModalMode, setCashModalMode] = useState<'open' | 'close' | null>(null);
-  const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number } | null>(null);
+  const [lastSale, setLastSale] = useState<{ invoice: Invoice; cashGiven?: number; recienCobrada?: boolean } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // --- Mesas (modo restaurante) ---
@@ -732,7 +732,7 @@ export default function TpvPage() {
       }
     }
 
-    setLastSale({ invoice: issued, cashGiven });
+    setLastSale({ invoice: issued, cashGiven, recienCobrada: true });
     setCheckoutOpen(false);
 
     if (!linesOverride) {
@@ -1026,6 +1026,7 @@ export default function TpvPage() {
           invoice={lastSale.invoice}
           settings={settings}
           cashGiven={lastSale.cashGiven}
+          recienCobrada={lastSale.recienCobrada}
           onNewSale={() => setLastSale(null)}
         />
       )}
