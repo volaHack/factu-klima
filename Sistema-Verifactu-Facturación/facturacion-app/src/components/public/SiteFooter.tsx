@@ -48,6 +48,7 @@ export default function SiteFooter() {
           <Link href="/legal/privacidad">Privacidad</Link>
           <Link href="/legal/terminos">Términos y condiciones</Link>
           <Link href="/legal/cookies">Cookies</Link>
+          <Link href="/legal/declaracion-responsable">Declaración responsable</Link>
         </nav>
       </div>
 

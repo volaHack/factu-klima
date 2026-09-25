@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 
 import PaginaLegal from '@/components/public/PaginaLegal';
-import { TITULAR, dato } from '@/lib/legal/datos';
+import { dato } from '@/lib/legal/datos';
+import { titularActual } from '@/lib/legal/titular';
 
 export const metadata: Metadata = {
   title: 'Política de cookies',
@@ -10,9 +11,14 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/cookies' },
 };
 
-export default function Cookies() {
+// Los datos del titular se editan en Administración: se leen en cada visita.
+export const dynamic = 'force-dynamic';
+
+export default async function Cookies() {
+  const t = await titularActual();
   return (
     <PaginaLegal
+      completo={t.completo}
       titulo="Política de cookies"
       entradilla="Lo que se guarda en tu navegador, que es poco y todo necesario."
     >
@@ -68,7 +74,7 @@ export default function Cookies() {
 
       <section className="legal-seccion">
         <h2>Dudas</h2>
-        <p>Escribe a {dato(TITULAR.email, 'email de contacto')}.</p>
+        <p>Escribe a {dato(t.email, 'email de contacto')}.</p>
       </section>
     </PaginaLegal>
   );

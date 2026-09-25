@@ -21,6 +21,7 @@ import { usePerfiles } from '@/lib/perfilesCliente';
 import { puedeEntrar } from '@/lib/perfiles';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 import { prepararPendientes } from '@/lib/recurrentes';
+import Soporte from '@/components/soporte/Soporte';
 
 /**
  * Rutas que exigen sesión pero se dibujan a pantalla completa, sin sidebar,
@@ -185,6 +186,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       <ControlPerfiles />
       <ManagementBar />
+      <Soporte />
       {showOnboarding && settingsForOnboarding && (
         <OnboardingModal
           settings={settingsForOnboarding}

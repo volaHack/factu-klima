@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 
 import PaginaLegal from '@/components/public/PaginaLegal';
-import { ENCARGADOS, TITULAR, dato } from '@/lib/legal/datos';
+import { ENCARGADOS, dato } from '@/lib/legal/datos';
+import { titularActual } from '@/lib/legal/titular';
 
 export const metadata: Metadata = {
   title: 'Política de privacidad',
@@ -10,19 +11,24 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/privacidad' },
 };
 
-export default function Privacidad() {
+// Los datos del titular se editan en Administración: se leen en cada visita.
+export const dynamic = 'force-dynamic';
+
+export default async function Privacidad() {
+  const t = await titularActual();
   return (
     <PaginaLegal
+      completo={t.completo}
       titulo="Política de privacidad"
       entradilla="Qué datos tratamos, para qué, quién los toca y qué puedes exigirnos."
     >
       <section className="legal-seccion">
         <h2>Quién es el responsable</h2>
         <p>
-          {dato(TITULAR.titular, 'nombre o razón social')}, con NIF{' '}
-          {dato(TITULAR.nif, 'NIF')} y domicilio en{' '}
-          {dato(TITULAR.domicilio, 'domicilio fiscal')}. Para cualquier cosa
-          relacionada con tus datos: {dato(TITULAR.email, 'email de contacto')}.
+          {dato(t.titular, 'nombre o razón social')}, con NIF{' '}
+          {dato(t.nif, 'NIF')} y domicilio en{' '}
+          {dato(t.domicilio, 'domicilio fiscal')}. Para cualquier cosa
+          relacionada con tus datos: {dato(t.email, 'email de contacto')}.
         </p>
       </section>
 
@@ -109,7 +115,7 @@ export default function Privacidad() {
           quieras, sin pedir permiso).
         </p>
         <p>
-          Escribe a {dato(TITULAR.email, 'email de contacto')} y te
+          Escribe a {dato(t.email, 'email de contacto')} y te
           contestamos. Si crees que no lo hacemos bien, puedes reclamar ante la
           Agencia Española de Protección de Datos (aepd.es).
         </p>

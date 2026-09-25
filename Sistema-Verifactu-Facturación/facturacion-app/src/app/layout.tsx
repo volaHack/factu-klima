@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import RegistroErrores from '@/components/RegistroErrores';
 import AuthWrapper from '@/components/AuthWrapper';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import { ToastProvider } from '@/hooks/useToast';
@@ -69,6 +70,7 @@ export default function RootLayout({
           <AuthWrapper>{children}</AuthWrapper>
         </ToastProvider>
         <ServiceWorkerRegistrar />
+        <RegistroErrores />
       </body>
     </html>
   );

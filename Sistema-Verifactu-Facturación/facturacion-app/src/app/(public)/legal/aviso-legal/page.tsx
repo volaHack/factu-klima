@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 
 import PaginaLegal from '@/components/public/PaginaLegal';
-import { TITULAR, dato } from '@/lib/legal/datos';
+import { dato } from '@/lib/legal/datos';
+import { titularActual } from '@/lib/legal/titular';
 
 export const metadata: Metadata = {
   title: 'Aviso legal',
@@ -9,20 +10,25 @@ export const metadata: Metadata = {
   alternates: { canonical: '/legal/aviso-legal' },
 };
 
-export default function AvisoLegal() {
+// Los datos del titular se editan en Administración: se leen en cada visita.
+export const dynamic = 'force-dynamic';
+
+export default async function AvisoLegal() {
+  const t = await titularActual();
   return (
     <PaginaLegal
+      completo={t.completo}
       titulo="Aviso legal"
       entradilla="Quién hay detrás de este sitio, como exige la Ley 34/2002."
     >
       <section className="legal-seccion">
         <h2>Titular</h2>
         <ul className="legal-lista">
-          <li><strong>Denominación:</strong> {dato(TITULAR.titular, 'nombre o razón social')}</li>
-          <li><strong>NIF:</strong> {dato(TITULAR.nif, 'NIF')}</li>
-          <li><strong>Domicilio:</strong> {dato(TITULAR.domicilio, 'domicilio fiscal')}</li>
-          <li><strong>Contacto:</strong> {dato(TITULAR.email, 'email de contacto')}</li>
-          {TITULAR.registro && <li><strong>Registro mercantil:</strong> {TITULAR.registro}</li>}
+          <li><strong>Denominación:</strong> {dato(t.titular, 'nombre o razón social')}</li>
+          <li><strong>NIF:</strong> {dato(t.nif, 'NIF')}</li>
+          <li><strong>Domicilio:</strong> {dato(t.domicilio, 'domicilio fiscal')}</li>
+          <li><strong>Contacto:</strong> {dato(t.email, 'email de contacto')}</li>
+          {t.registro && <li><strong>Registro mercantil:</strong> {t.registro}</li>}
         </ul>
       </section>
 

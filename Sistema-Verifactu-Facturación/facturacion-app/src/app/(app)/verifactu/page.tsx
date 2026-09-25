@@ -81,6 +81,7 @@ export default function VerifactuPage() {
   const [mounted, setMounted] = useState(false);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [config, setConfig] = useState<ConfigVerifactu | null>(null);
+  const [productorPlataforma, setProductorPlataforma] = useState<{ nombre: string; nif: string; sistema: string; version: string } | null>(null);
   const [registros, setRegistros] = useState<RegistroVerifactu[]>([]);
   const [activeCertificate, setActiveCertificate] = useState<VerifactuCertificate | null>(null);
 
@@ -114,6 +115,11 @@ export default function VerifactuPage() {
   useEffect(() => {
     (async () => {
       await cargar();
+      try {
+        const r = await fetch('/api/plataforma/productor');
+        const p = await r.json();
+        if (p?.configurado) setProductorPlataforma(p);
+      } catch { /* sin conexión: se piden a la cuenta, como antes */ }
       setMounted(true);
     })();
   }, [cargar]);
@@ -251,7 +257,8 @@ export default function VerifactuPage() {
     return <PageSkeleton variant="list" label="Cargando el envío a la AEAT" />;
   }
 
-  const faltaProductor = !config.productorNombre.trim() || !config.productorNif.trim();
+  // Si la plataforma ya dice quién produce el programa, no se le pregunta a la cuenta.
+  const faltaProductor = !productorPlataforma && (!config.productorNombre.trim() || !config.productorNif.trim());
   const listoParaEnviar = config.activo && !!activeCertificate && !faltaProductor;
 
   return (
@@ -396,7 +403,17 @@ export default function VerifactuPage() {
             </div>
           </div>
 
-          {/* Datos del productor: lo único que no se puede deducir. */}
+          {/* Datos del productor: los pone la plataforma; si no, la cuenta. */}
+          {productorPlataforma ? (
+            <div className="form-group">
+              <label className="form-label">Quién produce el software</label>
+              <p className="form-hint" style={{ marginTop: 0 }}>
+                {productorPlataforma.nombre} · NIF {productorPlataforma.nif} · {productorPlataforma.sistema} {productorPlataforma.version}.
+                {' '}Lo pone el fabricante del programa y va en cada registro que se envía.
+                {' '}<Link href="/legal/declaracion-responsable" target="_blank">Ver la declaración responsable</Link>.
+              </p>
+            </div>
+          ) : (
           <div className="form-group">
             <label className="form-label required">Quién produce el software</label>
             <p className="form-hint" style={{ marginTop: 0 }}>
@@ -418,6 +435,7 @@ export default function VerifactuPage() {
               onChange={e => cambiarConfig({ productorNif: e.target.value.toUpperCase() })}
             />
           </div>
+          )}
 
           <label className="switch-row" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 'var(--space-4) 0' }}>
             <input
