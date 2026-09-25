@@ -63,17 +63,27 @@ export async function enviarPendientes(
 
   // El productor del software es la plataforma para todas las cuentas: si
   // está configurado en Administración, manda sobre lo que tenga la cuenta.
+  // Sólo el de la plataforma: lo que cada cuenta hubiera escrito en su
+  // pantalla (de cuando se le preguntaba) no vale, porque el productor es
+  // el fabricante del programa y no quien lo usa.
   const productor = await productorDePlataforma();
-  const configSistema = productor?.nombre && productor.nif
-    ? {
-      ...config,
-      productor_nombre: productor.nombre,
-      productor_nif: productor.nif,
-      nombre_sistema: productor.sistemaNombre,
-      id_sistema: productor.sistemaId,
-      version_sistema: productor.sistemaVersion,
-    }
-    : config;
+  if (!productor?.nombre || !productor.nif) {
+    return {
+      estado: 400,
+      cuerpo: {
+        ok: false,
+        error: 'Falta que el fabricante del programa complete sus datos de productor (Administración → Configuración). Sin ellos la AEAT rechaza el registro.',
+      },
+    };
+  }
+  const configSistema = {
+    ...config,
+    productor_nombre: productor.nombre,
+    productor_nif: productor.nif,
+    nombre_sistema: productor.sistemaNombre,
+    id_sistema: productor.sistemaId,
+    version_sistema: productor.sistemaVersion,
+  };
 
   let sistema;
   try {

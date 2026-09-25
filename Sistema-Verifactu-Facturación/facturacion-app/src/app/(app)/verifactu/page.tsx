@@ -258,8 +258,9 @@ export default function VerifactuPage() {
     return <PageSkeleton variant="list" label="Cargando el envío a la AEAT" />;
   }
 
-  // Si la plataforma ya dice quién produce el programa, no se le pregunta a la cuenta.
-  const faltaProductor = !productorPlataforma && (!config.productorNombre.trim() || !config.productorNif.trim());
+  // El productor es el fabricante de FactuKlima, el mismo para todas las
+  // cuentas: lo pone Administración. Al cliente no se le pregunta.
+  const faltaProductor = !productorPlataforma;
   // El certificado tiene que ser del que factura: con otro NIF, la AEAT
   // rechaza el envío en la cabecera y el registro ya no tiene arreglo.
   const nifNoCoincide = !!activeCertificate
@@ -322,7 +323,7 @@ export default function VerifactuPage() {
               <div className="status-panel-title">Todavía falta algo para poder enviar</div>
               <ul className="status-panel-text" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                 {!activeCertificate && <li>Sube tu certificado digital, aquí abajo.</li>}
-                {faltaProductor && <li>Rellena quién produce el software (nombre y NIF): la AEAT lo exige en cada registro.</li>}
+                {faltaProductor && <li>Falta que el fabricante del programa complete sus datos de productor (van en cada registro). No depende de ti.</li>}
                 {nifNoCoincide && activeCertificate && (
                   <li>
                     <strong>{avisoNifDistinto(activeCertificate.subjectName, companySettings.nif)}</strong>{' '}
@@ -425,27 +426,13 @@ export default function VerifactuPage() {
               </p>
             </div>
           ) : (
-          <div className="form-group">
-            <label className="form-label required">Quién produce el software</label>
-            <p className="form-hint" style={{ marginTop: 0 }}>
-              La AEAT exige identificar en cada registro a quien fabrica el programa, no a quien lo usa.
-              Si el programa te lo han vendido, pon los datos de quien te lo vende; si es de desarrollo
-              propio, los tuyos.
-            </p>
-            <input
-              className="form-input"
-              placeholder="Nombre o razón social del productor"
-              value={config.productorNombre}
-              onChange={e => cambiarConfig({ productorNombre: e.target.value })}
-              style={{ marginBottom: 'var(--space-2)' }}
-            />
-            <input
-              className="form-input"
-              placeholder="NIF del productor"
-              value={config.productorNif}
-              onChange={e => cambiarConfig({ productorNif: e.target.value.toUpperCase() })}
-            />
-          </div>
+            <div className="form-group">
+              <label className="form-label">Quién produce el software</label>
+              <p className="form-hint" style={{ marginTop: 0 }}>
+                Lo pone el fabricante del programa y aparecerá aquí en cuanto lo complete. No tienes que rellenar nada:
+                mientras tanto, las facturas se sellan y encadenan igual y se envían cuando esté.
+              </p>
+            </div>
           )}
 
           <label className="switch-row" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 'var(--space-4) 0' }}>
