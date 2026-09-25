@@ -54,7 +54,7 @@ export const nombreRol = (rol: RolPerfil) => ROLES.find(r => r.id === rol)?.nomb
  * agregado y lo fiscal. Por prefijo de ruta.
  */
 const VEDADO_EMPLEADO = [
-  '/ajustes', '/admin', '/importar', '/plantillas', '/gestoria', '/verifactu',
+  '/ajustes', '/equipo', '/admin', '/importar', '/plantillas', '/gestoria', '/verifactu',
   '/informes', '/contabilidad', '/listados-fiscales', '/tesoreria', '/conciliacion', '/recordatorios', '/comisiones', '/sii',
 ];
 

@@ -14240,6 +14240,25 @@ body {
 .equipo-pin { max-width: 180px; letter-spacing: 0.3em; }
 .equipo-pin-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .equipo-form-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+/* Pantalla Equipo: quién trabaja ahora y las personas del negocio. */
+.equipo-pagina { display: flex; flex-direction: column; gap: var(--space-5); }
+.equipo-bloque { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-5); min-width: 0; }
+.equipo-bloque-titulo { display: flex; align-items: center; gap: 8px; font-size: var(--text-md); font-weight: 650; color: var(--text-primary); margin: 0; }
+.sesiones { display: flex; flex-direction: column; gap: var(--space-2); }
+.sesiones-refrescar { align-self: flex-start; }
+.sesion.is-inactiva { opacity: 0.7; }
+.sesion-avatar { position: relative; flex-shrink: 0; display: inline-flex; }
+.sesion-punto { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted); box-shadow: 0 0 0 2px var(--bg-card); }
+.sesion-punto.is-en-linea { background: var(--color-success); }
+.sesion-detalle { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.sesion-este { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--text-sm); color: var(--text-secondary); }
+.sesion-este .form-input { max-width: 260px; flex: 1 1 180px; }
+@media (max-width: 560px) {
+  .equipo-bloque { padding: var(--space-4); }
+  .sesion-accion-texto { display: none; }
+}
+.tpv-cajeros-link { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 1200px) { .tpv-cajeros-link span { display: none; } }
 /* En el TPV el chip dice quién cobra; en pantallas medias, sólo el avatar. */
 .tpv-topbar .perfil-chip-boton { height: 38px; }
 @media (max-width: 1200px) {

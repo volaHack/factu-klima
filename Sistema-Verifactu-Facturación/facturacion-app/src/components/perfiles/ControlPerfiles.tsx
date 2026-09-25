@@ -6,8 +6,9 @@ import { ShieldOff, Users } from 'lucide-react';
 import SelectorPerfil from './SelectorPerfil';
 import { inicioDe, nombreRol, puedeEntrar, type Perfil } from '@/lib/perfiles';
 import {
-  cerrarPerfil, EVENTO_CAMBIAR_PERFIL, minutosDeBloqueo, pedirCambioDePerfil, usePerfiles,
+  cerrarPerfil, EVENTO_CAMBIAR_PERFIL, inicioDelPerfilActivo, minutosDeBloqueo, pedirCambioDePerfil, usePerfiles,
 } from '@/lib/perfilesCliente';
+import { LATIDO_MS, latido } from '@/lib/sesionesPerfiles';
 
 /**
  * Quién está delante del equipo, en todas las pantallas.
@@ -21,7 +22,7 @@ import {
  * Si la cuenta no usa perfiles, no hace nada: la app es la de siempre.
  */
 export default function ControlPerfiles() {
-  const { cargado, enUso, activo } = usePerfiles();
+  const { cargado, enUso, activo, cuenta } = usePerfiles();
   const pathname = usePathname();
   const router = useRouter();
   const [pedido, setPedido] = useState(false);
@@ -38,12 +39,30 @@ export default function ControlPerfiles() {
     const min = minutosDeBloqueo();
     if (!min) return;
     let t: ReturnType<typeof setTimeout>;
-    const reiniciar = () => { clearTimeout(t); t = setTimeout(() => cerrarPerfil(), min * 60_000); };
+    const reiniciar = () => { clearTimeout(t); t = setTimeout(() => cerrarPerfil({ detalle: 'Por inactividad' }), min * 60_000); };
     const eventos = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
     eventos.forEach(e => window.addEventListener(e, reiniciar, { passive: true }));
     reiniciar();
     return () => { clearTimeout(t); eventos.forEach(e => window.removeEventListener(e, reiniciar)); };
   }, [activo]);
+
+  // «Sigo aquí»: la titular ve en Equipo quién trabaja, en qué equipo y en
+  // qué pantalla. Si ella cierra esta sesión a distancia, se obedece aquí.
+  useEffect(() => {
+    if (!activo || !cuenta) return;
+    let vivo = true;
+    const latir = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const cerrar = await latido(cuenta, activo, window.location.pathname, inicioDelPerfilActivo());
+      if (vivo && cerrar) cerrarPerfil({ detalle: 'Cerrada desde otro equipo' });
+    };
+    void latir();
+    const t = setInterval(() => void latir(), LATIDO_MS);
+    const alVolver = () => { if (document.visibilityState === 'visible') void latir(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { vivo = false; clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
+    // La pantalla también cuenta: al cambiar de página se avisa al momento.
+  }, [activo, cuenta, pathname]);
 
   useEffect(() => {
     if (activo?.rol === 'cajero' && !puedeEntrar('cajero', pathname)) router.replace('/tpv');
