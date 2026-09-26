@@ -31,7 +31,7 @@ export type FichaId =
   | 'compras_pendientes'
   | 'evolucion_ventas' | 'reparto_estado' | 'reparto_impuestos' | 'analisis_negocio'
   | 'facturado_cobrado' | 'formas_pago'
-  | 'estado_verifactu'
+  | 'estado_verifactu' | 'hacienda_trimestre'
   | 'gastos_mes'
   | 'obras_abiertas'
   | 'ordenes_atrasadas'
@@ -113,6 +113,8 @@ export const FICHAS: Ficha[] = [
     explica: 'Lo que caduca en los próximos siete días y todavía queda en el almacén.' },
 
   // --- Cumplimiento ---
+  { id: 'hacienda_trimestre', nombre: 'Para Hacienda este trimestre', tamano: 'mediana',
+    explica: 'Cuánto de lo que tienes en el banco es IVA (o IGIC) e IRPF que habrá que pagar, y hasta qué día.' },
   // La barra de Veri*Factu ocupa todo el ancho: va como «grande».
   { id: 'estado_verifactu', nombre: 'Estado Veri*Factu', tamano: 'grande',
     explica: 'Si la cadena de huellas está intacta y qué queda por enviar.' },
@@ -135,6 +137,7 @@ export const PANEL_POR_DEFECTO: FichaId[] = [
   'pendiente_cobro',
   'vencido',
   'estado_verifactu',
+  'hacienda_trimestre',
   'evolucion_ventas',
   'reparto_estado',
   'ultimas_facturas',

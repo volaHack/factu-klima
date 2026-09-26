@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { apartarParaHacienda } from '@/lib/fiscal/apartarHacienda';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
@@ -88,7 +89,7 @@ export default function DashboardPage() {
         (ids.some(id => puestas.has(id)) ? leer().catch(() => [] as T[]) : Promise.resolve([] as T[]));
       const [albaranes, gastos, obras, ordenes, lotes] = await Promise.all([
         si(['albaranes_sin_facturar'], getAlbaranes),
-        si(['gastos_mes'], getGastos),
+        si(['gastos_mes', 'hacienda_trimestre'], getGastos),
         si(['obras_abiertas'], getObras),
         si(['ordenes_atrasadas'], getOrdenesTrabajo),
         si(['lotes_caducando'], getLotes),
@@ -466,6 +467,30 @@ export default function DashboardPage() {
             <RankedBars data={topProducts} />
           </ChartCard>
         );
+      case 'hacienda_trimestre': {
+        const h = apartarParaHacienda({ facturas: invoices, gastos: extras.gastos, nif: settings?.nif, igic: settings?.igicEnabled }, new Date(`${hoy}T12:00:00`));
+        const plazo = new Date(`${h.plazo}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+        const cerca = h.diasParaPlazo <= 10;
+        return (
+          <FichaLista
+            titulo="Para Hacienda este trimestre"
+            subtitulo={`${h.trimestre}.º trimestre · hasta el ${plazo} (${h.diasParaPlazo === 1 ? 'queda 1 día' : `quedan ${h.diasParaPlazo} días`}). Estimación con lo apuntado hasta hoy.`}
+            href="/listados-fiscales"
+            enlace="Modelos"
+            vacio="Sin datos del trimestre todavía."
+            filas={[
+              ...h.conceptos.map(c => ({
+                key: c.modelo,
+                principal: `${c.nombre} · modelo ${c.modelo}`,
+                detalle: c.importe >= 0 ? 'A pagar' : 'Sale a tu favor: a compensar o devolver',
+                valor: formatCurrency(c.importe),
+                href: `/listados-fiscales/${c.modelo}`,
+              })),
+              { key: 'total', principal: 'Apártalo ya', detalle: 'No es tuyo aunque esté en tu cuenta', valor: formatCurrency(h.total), tono: cerca && h.total > 0 ? 'aviso' as const : undefined },
+            ]}
+          />
+        );
+      }
       case 'reparto_impuestos': {
         const t = impuestosTrimestre(invoices, hoy);
         const imp = settings?.igicEnabled ? 'IGIC' : 'IVA';
