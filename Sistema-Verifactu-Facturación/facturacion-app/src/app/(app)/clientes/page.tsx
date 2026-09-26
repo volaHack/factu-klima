@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -68,6 +69,9 @@ export default function ClientesPage() {
       window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
     };
   }, []);
+
+  // Al volver a la pestaña y cada rato: lo de otros equipos sale solo.
+  useRevisarAlVolver(['clients', 'invoices']);
 
   // Declaración, no constante: el escuchador de eventos de arriba la usa
   // antes de esta línea. Con `const` se quedaba con la versión del primer

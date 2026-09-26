@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import {
   WalletCards, ArrowDownLeft, ArrowUpRight, Calendar, Users,
   CheckCircle2, Clock, AlertCircle, Plus, Search, Filter,
@@ -66,8 +67,8 @@ export default function TesoreriaPage() {
 
   const { success, error: toastError } = useToast();
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     try {
       const [allInvs, allCobros, allClients, st] = await Promise.all([
         getInvoices(),
@@ -93,7 +94,14 @@ export default function TesoreriaPage() {
 
   useEffect(() => {
     loadData();
+    // Cobros, facturas o clientes cambiados (aquí o en otro equipo): se repinta sin el «cargando».
+    const alCambiar = () => { void loadData(true); };
+    const avisos = ['klima-invoices-updated', 'klima-clients-updated', 'klima-cobros_pagos-updated'];
+    avisos.forEach(a => window.addEventListener(a, alCambiar));
+    return () => avisos.forEach(a => window.removeEventListener(a, alCambiar));
   }, []);
+
+  useRevisarAlVolver(['invoices', 'clients']);
 
   // Cargar extracto cuando cambia la contraparte o fechas
   useEffect(() => {

@@ -47,23 +47,74 @@ function supabase() {
 // BACKGROUND REFRESH HELPER
 // ============================================================
 
-async function backgroundRefresh<T>(
+const refrescandoAlmacen = new Map<string, Promise<void>>();
+
+/** Lo mismo ordenado igual: dos lecturas iguales dan la misma firma. */
+function firmaDeFilas(filas: unknown[]): string {
+  return filas
+    .map(f => JSON.stringify(f))
+    .sort()
+    .join('\n');
+}
+
+/**
+ * Trae del servidor y reemplaza la copia local. Si lo que llega es distinto
+ * de lo que había, avisa (`klima-<almacén>-updated`) para que las pantallas
+ * abiertas se repinten solas: antes se guardaba en silencio y la pantalla
+ * seguía enseñando lo viejo hasta recargar. Una sola petición por almacén a
+ * la vez, y sin cambios no hay aviso, así que repintar no hace bucle.
+ */
+function backgroundRefresh<T>(
   storeName: string,
   supabaseQuery: () => Promise<{ data: T[] | null; error: unknown }>,
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   mapper?: (item: any) => T,
 ): Promise<void> {
-  if (!navigator.onLine) return;
-  try {
-    const { data, error } = await supabaseQuery();
-    if (!error && data) {
-      const mapped = mapper ? data.map(mapper) : data;
-      await clearStore(storeName);
-      await putMany(storeName, mapped);
+  if (!navigator.onLine) return Promise.resolve();
+  const enCurso = refrescandoAlmacen.get(storeName);
+  if (enCurso) return enCurso;
+  const tarea = (async () => {
+    try {
+      const { data, error } = await supabaseQuery();
+      if (!error && data) {
+        const mapped = mapper ? data.map(mapper) : data;
+        const antes = firmaDeFilas(await getAll<unknown>(storeName));
+        await clearStore(storeName);
+        await putMany(storeName, mapped);
+        if (antes !== firmaDeFilas(mapped) && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(`klima-${storeName}-updated`));
+          window.dispatchEvent(new CustomEvent('klima-data-updated', { detail: { type: storeName } }));
+        }
+      }
+    } catch {
+      // Silently fail — offline data is still valid
+    } finally {
+      refrescandoAlmacen.delete(storeName);
     }
-  } catch {
-    // Silently fail — offline data is still valid
-  }
+  })();
+  refrescandoAlmacen.set(storeName, tarea);
+  return tarea;
+}
+
+/** Las consultas de refresco, compartidas por la carga y la revisión periódica. */
+const consultaClientes = async () =>
+  soloDe(supabase().from('clients').select('*'), await idParaLeer()).order('business_name', { ascending: true });
+const consultaProductos = () => supabase().from('products').select('*').order('name', { ascending: true });
+
+export type DatosRevisables = 'invoices' | 'clients' | 'products';
+
+/**
+ * Vuelve a mirar el servidor por si algo cambió fuera de esta pestaña
+ * (otro equipo, el TPV, lo que se emite solo). Si hay cambios, llega el
+ * aviso de siempre y cada pantalla se repinta con lo suyo.
+ */
+export async function revisarDatos(tipos: DatosRevisables[]): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (!(await isOfflineDbAvailable())) return;
+  await Promise.all(tipos.map(t =>
+    t === 'invoices' ? revisarFacturas()
+      : t === 'clients' ? backgroundRefresh('clients', consultaClientes)
+        : backgroundRefresh('products', consultaProductos)));
 }
 
 /**
@@ -858,9 +909,7 @@ export async function getClients(): Promise<Client[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('clients');
     if (cached.length > 0) {
-      backgroundRefresh('clients', async () =>
-        soloDe(supabase().from('clients').select('*'), await idParaLeer()).order('business_name', { ascending: true })
-      );
+      void backgroundRefresh('clients', consultaClientes);
       return cached.map(mapClientFromDb);
     }
   }
@@ -1505,9 +1554,7 @@ export async function getProducts(): Promise<Product[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('products');
     if (cached.length > 0) {
-      backgroundRefresh('products', () =>
-        supabase().from('products').select('*').order('name', { ascending: true })
-      );
+      void backgroundRefresh('products', consultaProductos);
       return cached.map(mapProductFromDb);
     }
   }

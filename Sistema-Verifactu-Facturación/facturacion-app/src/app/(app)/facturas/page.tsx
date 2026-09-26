@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
@@ -14,7 +15,7 @@ import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { ComparisonBarChart, StatusDonut, ChartLegend } from '@/components/charts/Charts';
 import { INVOICE_STATUS_COLOR, SERIES, useColoresGrafica } from '@/components/charts/theme';
-import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed, revisarFacturas } from '@/lib/storage';
+import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
 import { isFactura } from '@/lib/documentos';
@@ -114,24 +115,15 @@ export default function FacturasPage() {
       load();
     };
     window.addEventListener('klima-invoices-updated', handleAutoRefresh);
-
-    // Lo que cambia fuera de esta pestaña (el TPV en otro equipo, las
-    // recurrentes que se emiten solas, el estado de cobro): se mira al
-    // volver a la pestaña y cada medio minuto mientras está a la vista.
-    // Si hay cambios, llega el aviso de arriba y la lista se repinta.
-    const revisar = () => { if (document.visibilityState === 'visible') void revisarFacturas(); };
-    const cada = setInterval(revisar, 30_000);
-    document.addEventListener('visibilitychange', revisar);
-    window.addEventListener('focus', revisar);
-    window.addEventListener('online', revisar);
     return () => {
       window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
-      clearInterval(cada);
-      document.removeEventListener('visibilitychange', revisar);
-      window.removeEventListener('focus', revisar);
-      window.removeEventListener('online', revisar);
     };
   }, []);
+
+  // Lo que cambia fuera de esta pestaña (el TPV en otro equipo, las
+  // recurrentes que se emiten solas, el estado de cobro): si hay cambios,
+  // llega el aviso de arriba y la lista se repinta.
+  useRevisarAlVolver(['invoices']);
 
   // El menú de fila se quedaba abierto hasta volver a pulsar su propio
   // botón: al hacer clic en cualquier otro sitio seguía flotando sobre

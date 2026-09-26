@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Package,
@@ -131,6 +132,9 @@ export default function ProductosPage() {
       window.removeEventListener('klima-invoices-updated', handleAutoRefresh);
     };
   }, []);
+
+  // Al volver a la pestaña y cada rato: stock y precios cambiados en otro equipo salen solos.
+  useRevisarAlVolver(['products', 'invoices']);
 
   const reloadProducts = async () => {
     setRefreshing(true);

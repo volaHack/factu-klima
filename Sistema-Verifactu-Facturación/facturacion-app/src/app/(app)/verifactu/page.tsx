@@ -23,6 +23,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { hayAceptadosEnProduccion, pendienteEn, soloEnviadosAPruebas } from '@/lib/verifactu/entorno';
 import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
 import Link from 'next/link';
 import {
@@ -73,7 +74,6 @@ const ESTADOS: Record<RegistroVerifactu['estado'], { texto: string; clase: strin
   },
 };
 
-const PENDIENTES: RegistroVerifactu['estado'][] = ['pendiente', 'error_envio', 'rechazado'];
 
 export default function VerifactuPage() {
   const { success, warning, error: showError } = useToast();
@@ -125,8 +125,24 @@ export default function VerifactuPage() {
     })();
   }, [cargar]);
 
-  const pendientes = registros.filter(r => PENDIENTES.includes(r.estado));
-  const aceptados = registros.filter(r => r.estado === 'aceptado' || r.estado === 'aceptado_con_errores');
+  // En Producción, lo que sólo llegó a Pruebas también está pendiente (lib/verifactu/entorno.ts).
+  const entornoActual = config?.entorno === 'produccion' ? 'produccion' : 'pruebas';
+  const pendientes = registros.filter(r => pendienteEn(entornoActual, r));
+  const aceptados = registros.filter(r => (r.estado === 'aceptado' || r.estado === 'aceptado_con_errores') && !pendienteEn(entornoActual, r));
+  const bloqueadoEnProduccion = hayAceptadosEnProduccion(registros);
+
+  const pasarAProduccion = () => {
+    if (config?.entorno === 'produccion') return;
+    const enPruebas = soloEnviadosAPruebas(registros);
+    if (enPruebas > 0 && !confirm(
+      `Tienes ${enPruebas} ${enPruebas === 1 ? 'registro enviado' : 'registros enviados'} sólo a Pruebas. `
+      + 'Al pasar a Producción se mandarán también a la AEAT real, desde el primero y en orden: son facturas que emitiste de verdad '
+      + 'y la cadena tiene que estar completa en Hacienda.\n\n'
+      + 'Si eran facturas de prueba que no deberían constar, no pases esta cuenta a Producción: usa una cuenta nueva para facturar de verdad.\n\n'
+      + '¿Pasar a Producción? Después no se puede volver a Pruebas.',
+    )) return;
+    cambiarConfig({ entorno: 'produccion' });
+  };
   const rechazados = registros.filter(r => r.estado === 'rechazado');
 
   // ---------- Configuración ----------
@@ -394,7 +410,9 @@ export default function VerifactuPage() {
                 type="button"
                 className={`choice-card ${config.entorno === 'pruebas' ? 'active' : ''}`}
                 onClick={() => cambiarConfig({ entorno: 'pruebas' })}
-                style={{ padding: 'var(--space-3)' }}
+                disabled={bloqueadoEnProduccion}
+                title={bloqueadoEnProduccion ? 'Ya hay registros aceptados en Producción: no se puede volver a Pruebas.' : undefined}
+                style={{ padding: 'var(--space-3)', ...(bloqueadoEnProduccion ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
               >
                 <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>Pruebas</div>
                 <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-muted)' }}>
@@ -404,7 +422,7 @@ export default function VerifactuPage() {
               <button
                 type="button"
                 className={`choice-card ${config.entorno === 'produccion' ? 'active' : ''}`}
-                onClick={() => cambiarConfig({ entorno: 'produccion' })}
+                onClick={pasarAProduccion}
                 style={{ padding: 'var(--space-3)' }}
               >
                 <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--accent-500)' }}>Producción</div>
@@ -413,6 +431,11 @@ export default function VerifactuPage() {
                 </div>
               </button>
             </div>
+            <p className="form-hint" style={{ marginTop: 'var(--space-2)' }}>
+              {bloqueadoEnProduccion
+                ? 'Esta cuenta ya envía a la AEAT real. No se puede volver a Pruebas.'
+                : 'Las facturas que emitas mientras pruebas son reales: al pasar a Producción se envían también. Para hacer pruebas sin que consten, usa una cuenta aparte.'}
+            </p>
           </div>
 
           {/* Datos del productor: los pone la plataforma; si no, la cuenta. */}
