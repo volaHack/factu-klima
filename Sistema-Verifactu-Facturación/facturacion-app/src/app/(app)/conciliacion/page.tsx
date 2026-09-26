@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import BancoConectado from '@/components/banco/BancoConectado';
 import Link from 'next/link';
 import {
   Landmark, Upload, CheckCircle2, Sparkles, EyeOff, Undo2, Receipt, X, FileSpreadsheet, RefreshCw,
@@ -106,6 +107,18 @@ export default function ConciliacionPage() {
     }
   };
 
+  // Movimientos traídos del banco conectado: igual que un extracto subido.
+  const desdeBanco = useCallback((e: Extracto) => {
+    setExtracto(e);
+    setEleccion({});
+    setFiltro('pendientes');
+    try { localStorage.setItem(CLAVE_EXTRACTO, JSON.stringify(e)); } catch { /* muy grande: sólo en memoria */ }
+    success(`${e.movimientos.length} movimientos traídos del banco`, 'Listos para conciliar');
+  }, [success]);
+  const avisarBanco = useCallback((tipo: 'ok' | 'error', titulo: string, texto?: string) => {
+    if (tipo === 'ok') success(titulo, texto); else toastError(titulo, texto);
+  }, [success, toastError]);
+
   const cerrar = () => {
     setExtracto(null);
     try { localStorage.removeItem(CLAVE_EXTRACTO); } catch { /* nada */ }
@@ -196,6 +209,8 @@ export default function ConciliacionPage() {
         ref={entrada} type="file" hidden accept=".n43,.q43,.aeb,.txt,.csv,.tsv,text/csv,text/plain"
         onChange={e => { abrir(e.target.files?.[0]); e.target.value = ''; }}
       />
+
+      {!extracto && <BancoConectado onExtracto={desdeBanco} avisar={avisarBanco} />}
 
       {!extracto ? (
         <div

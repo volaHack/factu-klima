@@ -14766,3 +14766,13 @@ body {
 .cobro-online-estado { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-weight: 600; color: var(--text-secondary); }
 .cobro-online-estado.is-activo { color: var(--color-success); }
 .cobro-online-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Banco conectado (open banking) en la conciliación */
+.banco-conectado { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
+.banco-conectado-titulo { display: flex; align-items: center; gap: 8px; font-size: var(--text-md); font-weight: 650; margin: 0; }
+.banco-conectado-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.banco-conectado-form .form-select { max-width: 320px; }
+.banco-conectado-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.banco-conectado-cabeza { display: flex; align-items: center; gap: var(--space-2) var(--space-3); flex-wrap: wrap; }
+.banco-conectado-cabeza .banco-nota { flex: 1; min-width: 180px; margin: 0; }
+.banco-conectado-cuenta { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-top: var(--space-2); overflow-wrap: anywhere; }
