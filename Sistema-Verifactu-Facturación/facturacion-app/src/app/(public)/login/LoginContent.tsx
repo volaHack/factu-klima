@@ -61,7 +61,10 @@ export default function LoginContent() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
     }
-    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    // Sin randomUUID (navegadores viejos): igual de aleatorio, nunca Math.random.
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
   }
 
   async function pollDesktopSession(state: string, attempt = 0) {

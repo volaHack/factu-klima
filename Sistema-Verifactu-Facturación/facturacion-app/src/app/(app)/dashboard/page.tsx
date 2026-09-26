@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, Euro, Clock, Users, AlertTriangle,
@@ -102,7 +103,14 @@ export default function DashboardPage() {
       setMounted(true);
     };
     loadData();
+    // Una factura o un cliente nuevo (aquí o en otro equipo) cambian las cifras: se repinta solo.
+    const alCambiar = () => { void loadData(); };
+    const avisos = ['klima-invoices-updated', 'klima-clients-updated', 'klima-products-updated'];
+    avisos.forEach(a => window.addEventListener(a, alCambiar));
+    return () => avisos.forEach(a => window.removeEventListener(a, alCambiar));
   }, []);
+
+  useRevisarAlVolver(['invoices', 'clients', 'products'], 60_000);
 
   // KPI calculations
   const kpis = useMemo(() => {

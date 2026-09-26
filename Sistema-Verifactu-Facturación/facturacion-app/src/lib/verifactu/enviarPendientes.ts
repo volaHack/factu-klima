@@ -9,6 +9,7 @@ import {
 import { estadoLocalDe, parsearRespuestaAeat, resumirRespuesta } from '@/lib/verifactu/respuestaAeat';
 import { productorDePlataforma } from '@/lib/plataforma/productor';
 import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
+import { ESTADOS_PENDIENTES } from '@/lib/verifactu/entorno';
 
 const TAMANO_LOTE = 100;
 
@@ -42,6 +43,24 @@ export async function enviarPendientes(
   }
 
   const entorno: EntornoAeat = config.entorno === 'produccion' ? 'produccion' : 'pruebas';
+
+  // Con algo ya aceptado por la AEAT real no se vuelve a Pruebas: lo que
+  // se emitiera después no llegaría nunca a Hacienda (ver lib/verifactu/entorno.ts).
+  if (entorno === 'pruebas') {
+    const { count } = await db.from('verifactu_registros')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('entorno', 'produccion')
+      .in('estado', ['aceptado', 'aceptado_con_errores']);
+    if (count) {
+      return {
+        estado: 400,
+        cuerpo: {
+          ok: false,
+          error: 'Esta cuenta ya tiene registros aceptados en Producción y no puede volver a enviar a Pruebas. Cambia el entorno a Producción.',
+        },
+      };
+    }
+  }
 
   const { data: ajustes } = await db
     .from('company_settings')
@@ -158,7 +177,11 @@ export async function enviarPendientes(
     .from('verifactu_registros')
     .select('*')
     .eq('user_id', userId)
-    .in('estado', ['pendiente', 'error_envio', 'rechazado'])
+    // En Producción también lo que sólo llegó a Pruebas: la cadena tiene
+    // que estar entera en la AEAT real, desde el primer registro.
+    .or(entorno === 'produccion'
+      ? `estado.in.(${ESTADOS_PENDIENTES.join(',')}),entorno.eq.pruebas`
+      : `estado.in.(${ESTADOS_PENDIENTES.join(',')})`)
     .order('indice', { ascending: true })
     .limit(TAMANO_LOTE);
 
