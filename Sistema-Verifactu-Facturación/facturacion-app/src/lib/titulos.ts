@@ -34,6 +34,7 @@ const EXACTAS: Record<string, string> = {
   '/albaranes/nueva': 'Nuevo albarán',
   '/devoluciones': 'Devoluciones',
   '/gastos': 'Gastos',
+  '/gastos/buzon': 'Facturas de proveedores',
   '/comisiones': 'Comisiones',
   '/obras': 'Obras',
   '/ordenes-trabajo': 'Órdenes',

@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Receipt, Car, Plus, Trash2, Edit2, X, AlertTriangle, Layers, PieChart as PieChartIcon,
-  TrendingDown, Building, Truck, ChevronUp, ChevronDown, Camera, Loader2,
+  TrendingDown, Building, Truck, ChevronUp, ChevronDown, Camera, Loader2, Inbox,
 } from 'lucide-react';
+import Link from 'next/link';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import {
@@ -303,6 +304,9 @@ export default function GastosPage() {
               title="Haz una foto al ticket o elígela de la galería: se rellena el gasto solo">
               {leyendoTicket ? <Loader2 size={16} className="spin" /> : <Camera size={16} />} {leyendoTicket ? 'Leyendo el ticket…' : 'Desde una foto'}
             </button>
+            <Link href="/gastos/buzon" className="btn btn-secondary" title="Arrastra o reenvía por correo las facturas de tus proveedores: se leen solas">
+              <Inbox size={16} /> Facturas de proveedores
+            </Link>
             <button type="button" className="btn btn-primary" onClick={abrirNuevoGasto}>
               <Plus size={16} /> Nuevo gasto
             </button>
