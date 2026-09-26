@@ -18,6 +18,7 @@
  */
 
 import type { ItemTexto, LineaTexto, PaginaExtraida, SegmentoTexto } from './tipos';
+import { ponerPolyfillMapa } from '../polyfillMapa';
 
 const PT_A_MM = 25.4 / 72;
 
@@ -91,10 +92,13 @@ let pdfjsPromesa: Promise<PdfJs> | null = null;
  * `new URL(...)` funciona con webpack pero no siempre con Turbopack, y un
  * fichero estático se comporta igual en desarrollo, en Vercel y en Electron.
  */
-async function cargarPdfJs(): Promise<PdfJs> {
+export async function cargarPdfJs(): Promise<PdfJs> {
   if (!pdfjsPromesa) {
+    // pdf.js 6 usa Map.getOrInsertComputed, que muchos navegadores aún no
+    // tienen: el polyfill va antes, aquí y dentro del worker.
+    ponerPolyfillMapa();
     pdfjsPromesa = import('pdfjs-dist').then((pdfjs) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+      pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.compat.mjs';
       return pdfjs;
     });
   }

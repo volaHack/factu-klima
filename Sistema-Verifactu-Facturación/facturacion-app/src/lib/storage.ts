@@ -5790,3 +5790,41 @@ export async function renovarEnlacePortal(clientId: string): Promise<string> {
   if (error) throw new Error(error.message);
   return enlacePortal(clientId);
 }
+
+// ============================================================
+// BUZÓN DE FACTURAS DE PROVEEDORES (migración 057)
+// ============================================================
+
+export interface DocumentoBuzon {
+  id: string;
+  recibidoEn: string;
+  remitente: string | null;
+  asunto: string | null;
+  nombre: string;
+  mime: string;
+}
+
+/** Lo que ha llegado por correo y espera revisión (sin el fichero: pesa). */
+export async function getBandejaBuzon(): Promise<DocumentoBuzon[]> {
+  if (!navigator.onLine) return [];
+  const userId = await requireUserId();
+  const { data, error } = await supabase().from('buzon_documentos')
+    .select('id, recibido_en, remitente, asunto, nombre, mime')
+    .eq('user_id', userId).eq('estado', 'nuevo').order('recibido_en', { ascending: false }).limit(100);
+  if (error || !data) return [];
+  type Fila = { id: string; recibido_en: string; remitente: string | null; asunto: string | null; nombre: string; mime: string };
+  return (data as Fila[]).map(d => ({ id: d.id, recibidoEn: d.recibido_en, remitente: d.remitente, asunto: d.asunto, nombre: d.nombre, mime: d.mime }));
+}
+
+export async function contenidoBuzon(id: string): Promise<string> {
+  const { data, error } = await supabase().from('buzon_documentos').select('contenido').eq('id', id).single();
+  if (error || !data) throw new Error('No se ha podido abrir el documento.');
+  return data.contenido as string;
+}
+
+export async function marcarBuzon(id: string, estado: 'procesado' | 'descartado', gastoId?: string): Promise<void> {
+  const { error } = await supabase().from('buzon_documentos')
+    // El fichero se conserva: es la factura del proveedor, y hay que guardarla.
+    .update({ estado, gasto_id: gastoId ?? null }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
