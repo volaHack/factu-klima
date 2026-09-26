@@ -5751,3 +5751,42 @@ export async function fabricar(escandalloId: string, cantidad: number, almacenId
   await adjustStock(final.id, cantidad, almacenId);
   await saveProduct({ ...final, costePmp: Math.round(nuevoPmp * 10000) / 10000 });
 }
+
+// ============================================================
+// PORTAL DEL CLIENTE (migración 055)
+// ============================================================
+
+function tokenAleatorio(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * El enlace del portal de un cliente: el que ya tenga o uno nuevo. Es lo
+ * que se le manda para que vea sus facturas y las pague.
+ */
+export async function enlacePortal(clientId: string): Promise<string> {
+  const userId = await requireUserId();
+  const db = supabase();
+  const { data: vivo, error } = await db.from('portal_clientes')
+    .select('token').eq('user_id', userId).eq('client_id', clientId).is('revocado_en', null).maybeSingle();
+  if (error) throw new Error(error.message);
+  let token = vivo?.token as string | undefined;
+  if (!token) {
+    token = tokenAleatorio();
+    const { error: e } = await db.from('portal_clientes').insert({ token, user_id: userId, client_id: clientId });
+    if (e) throw new Error(e.message);
+  }
+  return `${window.location.origin}/portal/${token}`;
+}
+
+/** Anula el enlace de un cliente (deja de funcionar al momento) y da uno nuevo. */
+export async function renovarEnlacePortal(clientId: string): Promise<string> {
+  const userId = await requireUserId();
+  const { error } = await supabase().from('portal_clientes')
+    .update({ revocado_en: new Date().toISOString() })
+    .eq('user_id', userId).eq('client_id', clientId).is('revocado_en', null);
+  if (error) throw new Error(error.message);
+  return enlacePortal(clientId);
+}

@@ -24,6 +24,7 @@ const PINTA_EL_DASHBOARD: FichaId[] = [
   'pendiente_cobro',
   'vencido',
   'estado_verifactu',
+  'hacienda_trimestre',
   'evolucion_ventas',
   'reparto_estado',
   'ultimas_facturas',

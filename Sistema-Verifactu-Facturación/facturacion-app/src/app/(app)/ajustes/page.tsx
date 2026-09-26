@@ -14,6 +14,7 @@ import {
 } from '@/lib/storage';
 import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
 import AccesoGestoria from '@/components/ajustes/AccesoGestoria';
+import CobroOnline from '@/components/ajustes/CobroOnline';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -1138,6 +1139,15 @@ export default function AjustesPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Que los clientes paguen las facturas con tarjeta desde su enlace. */}
+      <div className="settings-section" id="cobro-online">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <CreditCard size={18} />
+          <h2 className="settings-section-title">Cobro online</h2>
+        </div>
+        <CobroOnline />
       </div>
 
       {/* Quién trabaja en el negocio: perfiles de titular, empleado y cajero. */}

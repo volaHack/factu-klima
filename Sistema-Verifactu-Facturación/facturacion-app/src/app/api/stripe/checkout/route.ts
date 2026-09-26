@@ -1,180 +1,138 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { supabaseServicio } from '@/lib/supabase/servicio';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
+import { aCentimos, pendienteDeCobro, sePuedePagarOnline } from '@/lib/cobroOnline/calculo';
+import { cuentaDeCobro, stripeServidor } from '@/lib/cobroOnline/servidor';
 
-const STRIPE_API_VERSION = '2026-01-28';
-
-type InvoiceRow = {
+type FilaFactura = {
   id: string;
   number: string;
   total: number;
+  subtotal: number;
+  retencion_pct: number | null;
+  paid_amount: number | null;
+  client_id: string | null;
   client_name: string;
   status: string;
   user_id: string;
 };
 
+const COLUMNAS = 'id, number, total, subtotal, retencion_pct, paid_amount, client_id, client_name, status, user_id';
+
 /**
- * Crea una sesión de pago de Stripe para una factura.
+ * Crea el pago con tarjeta (Stripe Checkout) de una factura.
  *
- * Nota de seguridad: el importe se toma SIEMPRE de la factura en base de
- * datos, nunca del cuerpo de la petición. Si el importe llegara desde el
- * cliente, cualquiera podría pagar 1 € una factura de 5.000 €.
+ * El importe sale SIEMPRE de la factura en la base de datos —lo que falta
+ * por cobrar—, nunca del cuerpo de la petición: si no, cualquiera podría
+ * pagar 1 € una factura de 5.000 €.
  *
- * Hay DOS formas legítimas de llegar aquí, y por tanto dos formas de probar
- * que quien pide el cobro tiene derecho a esa factura:
+ * El dinero va a la cuenta de Stripe DEL NEGOCIO (ver lib/cobroOnline/
+ * servidor.ts). Si el negocio no ha activado el cobro online, no se cobra:
+ * antes se creaba el pago en la cuenta de la plataforma.
  *
- * 1) Elena, autenticada, desde /facturas/[id] → se valida con su sesión de
- *    Supabase (RLS garantiza que sólo ve/cobra sus propias facturas).
- * 2) Su cliente, anónimo, desde el portal público /aprobar/[token] → NO
- *    tiene sesión de Elena (ni debe tenerla). Ahí la prueba de legitimidad
- *    es un `approvalToken` válido, no caducado, cuyo `invoice_id` coincide
- *    exactamente con la factura pedida. Se resuelve con la service role key
- *    (igual que el webhook) porque un usuario anónimo no tiene permisos RLS
- *    sobre `invoices`.
- *
- * Antes esta ruta exigía sesión de Supabase SIEMPRE, lo que rompía el botón
- * "Confirmar y pagar pedido online" del portal público: el cliente nunca
- * está logueado como Elena, así que la petición moría en un 401 y el pago
- * jamás llegaba a crear una sesión de Stripe.
+ * Tres formas legítimas de llegar, y cada una prueba su derecho a pagar:
+ *  1. El propio negocio, con su sesión (RLS: sólo ve sus facturas).
+ *  2. Su cliente desde /aprobar/[token]: el token apunta a ESA factura.
+ *  3. Su cliente desde el portal /portal/[token]: el token es de ese
+ *     cliente de ese negocio, y la factura tiene que ser suya.
  */
 export async function POST(request: Request) {
   try {
-    const { invoiceId, approvalToken } = await request.json();
+    const { invoiceId, approvalToken, portalToken } = await request.json();
+    const publico = (typeof approvalToken === 'string' && approvalToken.length > 0)
+      || (typeof portalToken === 'string' && portalToken.length > 0);
 
-    if (typeof approvalToken === 'string' && approvalToken.length > 0) {
-      const allowed = await checkRateLimit(`checkout-public:${clientIpFromRequest(request)}`, 10, 3600);
-      if (!allowed) {
-        return NextResponse.json({ error: 'Demasiados intentos. Inténtalo más tarde.' }, { status: 429 });
-      }
+    if (publico && !(await checkRateLimit(`checkout-public:${clientIpFromRequest(request)}`, 10, 3600))) {
+      return NextResponse.json({ error: 'Demasiados intentos. Inténtalo más tarde.' }, { status: 429 });
     }
-
     if (!invoiceId || typeof invoiceId !== 'string') {
       return NextResponse.json({ error: 'Falta invoiceId' }, { status: 400 });
     }
 
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    if (!secretKey) {
+    const stripe = stripeServidor();
+    if (!stripe) return NextResponse.json({ error: 'El pago online no está disponible ahora mismo.' }, { status: 503 });
+
+    const db = supabaseServicio();
+    let factura: FilaFactura | null = null;
+    const baseUrl = new URL(request.url).origin;
+    let vuelta: { ok: string; cancelado: string };
+
+    if (typeof approvalToken === 'string' && approvalToken.length > 0) {
+      const { data: aprobacion } = await db.from('order_approvals')
+        .select('invoice_id, expires_at').eq('token', approvalToken).single();
+      if (!aprobacion || aprobacion.invoice_id !== invoiceId) {
+        return NextResponse.json({ error: 'Enlace de pago no válido' }, { status: 403 });
+      }
+      if (new Date(aprobacion.expires_at) < new Date()) {
+        return NextResponse.json({ error: 'Este enlace ha caducado' }, { status: 403 });
+      }
+      ({ data: factura } = await db.from('invoices').select(COLUMNAS).eq('id', invoiceId).single<FilaFactura>());
+      vuelta = { ok: `${baseUrl}/aprobar/${approvalToken}?paid=true`, cancelado: `${baseUrl}/aprobar/${approvalToken}?cancelled=true` };
+    } else if (typeof portalToken === 'string' && portalToken.length > 0) {
+      const { data: enlace } = await db.from('portal_clientes')
+        .select('user_id, client_id, revocado_en').eq('token', portalToken).maybeSingle();
+      if (!enlace || enlace.revocado_en) return NextResponse.json({ error: 'Enlace no válido' }, { status: 403 });
+      ({ data: factura } = await db.from('invoices').select(COLUMNAS).eq('id', invoiceId).single<FilaFactura>());
+      // La factura tiene que ser de ESE cliente de ESE negocio.
+      if (factura && (factura.user_id !== enlace.user_id || factura.client_id !== enlace.client_id)) factura = null;
+      const portal = `${baseUrl}/portal/${portalToken}`;
+      vuelta = { ok: `${portal}?pagado=${invoiceId}`, cancelado: `${portal}?cancelado=${invoiceId}` };
+    } else {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+      ({ data: factura } = await supabase.from('invoices').select(COLUMNAS).eq('id', invoiceId).single<FilaFactura>());
+      vuelta = { ok: `${baseUrl}/facturas/${invoiceId}?paid=true`, cancelado: `${baseUrl}/facturas/${invoiceId}?cancelled=true` };
+    }
+
+    if (!factura) return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 });
+    if (factura.status === 'pagada') return NextResponse.json({ error: 'Esta factura ya está pagada' }, { status: 409 });
+    if (factura.status === 'anulada') return NextResponse.json({ error: 'Esta factura está anulada' }, { status: 409 });
+    if (!sePuedePagarOnline(factura)) {
+      return NextResponse.json({ error: 'Esta factura no se puede pagar online.' }, { status: 409 });
+    }
+
+    const cuenta = await cuentaDeCobro(db, factura.user_id);
+    if (!cuenta?.cobrosActivos) {
       return NextResponse.json(
-        { error: 'Stripe no está configurado. Define STRIPE_SECRET_KEY en el servidor.' },
-        { status: 500 },
+        { error: 'Este negocio todavía no tiene activado el cobro con tarjeta. Paga por transferencia o contacta con él.' },
+        { status: 409 },
       );
     }
 
-    let invoice: InvoiceRow | null = null;
-    const isPublicApprovalFlow = typeof approvalToken === 'string' && approvalToken.length > 0;
-
-    if (isPublicApprovalFlow) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!supabaseUrl || !serviceRoleKey) {
-        console.error('Checkout público rechazado: falta SUPABASE_SERVICE_ROLE_KEY.');
-        return NextResponse.json({ error: 'Pago online no disponible' }, { status: 500 });
-      }
-
-      const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
-
-      const { data: approval } = await admin
-        .from('order_approvals')
-        .select('invoice_id, expires_at')
-        .eq('token', approvalToken)
-        .single();
-
-      // El token debe existir y apuntar EXACTAMENTE a la factura pedida.
-      // Sin esto, alguien con un token de SU propio pedido podría intentar
-      // pagar el invoiceId de otro cliente cambiando sólo ese campo.
-      if (!approval || approval.invoice_id !== invoiceId) {
-        return NextResponse.json({ error: 'Enlace de pago no válido' }, { status: 403 });
-      }
-      if (new Date(approval.expires_at) < new Date()) {
-        return NextResponse.json({ error: 'Este enlace ha caducado' }, { status: 403 });
-      }
-
-      const { data } = await admin
-        .from('invoices')
-        .select('id, number, total, client_name, status, user_id')
-        .eq('id', invoiceId)
-        .single();
-      invoice = data;
-    } else {
-      // Cliente con la sesión del usuario: RLS garantiza que sólo pueda
-      // cobrar sus propias facturas.
-      const supabase = await createClient();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-      }
-
-      const { data } = await supabase
-        .from('invoices')
-        .select('id, number, total, client_name, status, user_id')
-        .eq('id', invoiceId)
-        .single();
-      invoice = data;
-    }
-
-    if (!invoice) {
-      return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 });
-    }
-    if (invoice.status === 'pagada') {
-      return NextResponse.json({ error: 'Esta factura ya está pagada' }, { status: 409 });
-    }
-    if (invoice.status === 'anulada') {
-      return NextResponse.json({ error: 'Esta factura está anulada' }, { status: 409 });
-    }
-
-    const amountCents = Math.round(Number(invoice.total) * 100);
-    if (!Number.isFinite(amountCents) || amountCents <= 0) {
-      return NextResponse.json({ error: 'El importe de la factura no es válido' }, { status: 400 });
-    }
-
-    const stripe = new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion });
-
-    // El origen se deriva de la petición, no de un campo que mande el
-    // cliente: así no se puede redirigir el pago a un dominio ajeno.
-    const baseUrl = new URL(request.url).origin;
-
-    // El destino tras pagar/cancelar depende de quién paga: Elena vuelve a
-    // su panel (autenticado); su cliente, anónimo, vuelve al portal público
-    // — si lo mandáramos a /facturas/[id] chocaría con el login y nunca
-    // vería confirmación de que su pago se recibió.
-    const successUrl = isPublicApprovalFlow
-      ? `${baseUrl}/aprobar/${approvalToken}?paid=true`
-      : `${baseUrl}/facturas/${invoice.id}?paid=true`;
-    const cancelUrl = isPublicApprovalFlow
-      ? `${baseUrl}/aprobar/${approvalToken}?cancelled=true`
-      : `${baseUrl}/facturas/${invoice.id}?cancelled=true`;
+    const importe = pendienteDeCobro(factura);
+    const metadata = { tipo: 'cobro_factura', invoiceId: factura.id, invoiceNumber: factura.number, userId: factura.user_id };
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
         price_data: {
           currency: 'eur',
-          product_data: {
-            name: `Factura ${invoice.number}`,
-            description: `Pago de la factura ${invoice.number} — ${invoice.client_name}`,
-          },
-          unit_amount: amountCents,
+          product_data: { name: `Factura ${factura.number}`, description: factura.client_name },
+          unit_amount: aCentimos(importe),
         },
         quantity: 1,
       }],
-      client_reference_id: invoice.id,
-      metadata: {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.number,
-        userId: invoice.user_id,
+      payment_intent_data: {
+        on_behalf_of: cuenta.stripeAccountId,
+        transfer_data: { destination: cuenta.stripeAccountId },
+        description: `Factura ${factura.number}`,
+        metadata,
       },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      client_reference_id: factura.id,
+      metadata,
+      success_url: vuelta.ok,
+      cancel_url: vuelta.cancelado,
+    });
+
+    await db.from('cobros_online').insert({
+      user_id: factura.user_id, invoice_id: factura.id, stripe_session_id: session.id, importe,
     });
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (err) {
-    console.error('Error creating Stripe Checkout session:', err);
-    return NextResponse.json({ error: 'Error al conectar con Stripe' }, { status: 500 });
+    console.error('Error creando el pago con Stripe:', err);
+    return NextResponse.json({ error: 'No se ha podido conectar con el sistema de pago.' }, { status: 500 });
   }
 }
