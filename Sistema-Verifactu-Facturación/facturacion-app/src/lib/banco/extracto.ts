@@ -25,7 +25,7 @@ export interface MovimientoBanco {
 }
 
 export interface Extracto {
-  formato: 'norma43' | 'csv';
+  formato: 'norma43' | 'csv' | 'banco';
   cuenta?: string;
   desde?: string;
   hasta?: string;
