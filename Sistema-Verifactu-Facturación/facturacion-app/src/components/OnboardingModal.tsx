@@ -12,6 +12,7 @@ import { BUSINESS_SECTORS, ACCENT_THEMES, PAYMENT_METHODS } from '@/lib/constant
 import { processLogoFile } from '@/lib/utils';
 import SelectorSector from '@/components/ajustes/SelectorSector';
 import { aplicarAcento } from '@/lib/acento';
+import { VolverAOtraEmpresa } from '@/components/empresas/Empresas';
 
 interface OnboardingModalProps {
   settings: CompanySettings;
@@ -473,6 +474,7 @@ export default function OnboardingModal({ settings: initialSettings, onComplete 
             </button>
           )}
         </div>
+        <VolverAOtraEmpresa />
       </div>
     </div>
   );

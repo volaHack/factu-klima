@@ -14801,3 +14801,41 @@ body {
 .buzon-campo-ancho { grid-column: span 2; }
 @media (max-width: 480px) { .buzon-campo-ancho { grid-column: auto; } }
 .buzon-item-pie { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ── Varias empresas: en el menú de la cuenta y su ventana ── */
+.menu-empresas-titulo {
+  padding: 6px var(--space-3) 2px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.menu-empresas-item.is-actual { color: var(--text-primary); cursor: default; }
+.menu-empresas-item.is-actual svg { color: var(--accent-500); }
+.menu-empresas-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gestion-empresas { max-width: 560px; }
+.gestion-empresas-lista { list-style: none; margin: var(--space-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.gestion-empresas-lista li {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+}
+.gestion-empresas-lista li.is-actual { border-color: color-mix(in srgb, var(--accent-500) 40%, transparent); background: var(--accent-glow); }
+.gestion-empresas-lista li > svg { flex-shrink: 0; color: var(--text-muted); }
+.gestion-empresas-dato { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.gestion-empresas-dato strong { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gestion-empresas-dato small { font-size: var(--text-xs); color: var(--text-muted); }
+.gestion-empresas-bloque { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--border-color); }
+.gestion-empresas-bloque h3 { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--text-sm); font-weight: 700; }
+.gestion-empresas-fila { display: flex; gap: var(--space-2); }
+.gestion-empresas-fila .form-input { flex: 1; min-width: 0; }
+.gestion-empresas-codigo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.gestion-empresas-codigo code { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.12em; padding: 4px 10px; border-radius: var(--radius-md); background: var(--bg-tertiary); }
+.gestion-empresas-codigo small { flex-basis: 100%; font-size: var(--text-xs); color: var(--text-muted); }
+@media (max-width: 480px) {
+  .gestion-empresas-fila { flex-direction: column; }
+}
+.onboarding-volver {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-color);
+  font-size: var(--text-xs); color: var(--text-muted);
+}
+.onboarding-volver .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

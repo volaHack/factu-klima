@@ -5,13 +5,11 @@ import Link from 'next/link';
 import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun, Users, UsersRound } from 'lucide-react';
 import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } from '@/lib/tema';
 import { cerrarPerfil, pedirCambioDePerfil, usePerfiles } from '@/lib/perfilesCliente';
-import { terminarSesionDeEsteEquipo } from '@/lib/sesionesPerfiles';
 import { iniciales as inicialesPerfil, nombreRol } from '@/lib/perfiles';
 import { createClient } from '@/lib/supabase/client';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
-import { clearOfflineCache, getSyncQueueCount } from '@/lib/offlineDb';
-import { processSyncQueue } from '@/lib/syncEngine';
-import { olvidarPantallas } from '@/lib/pwa/sinConexion';
+import { soltarPerfilYPantallas, subirPendientesOPreguntar, vaciarCache } from '@/lib/cuentas/soltarCuenta';
+import { EmpresasEnMenu, GestionEmpresas, cambiarDeEmpresa, useEmpresas } from '@/components/empresas/Empresas';
 import { UserProfile } from '@/lib/types';
 
 function initialsFrom(name: string, email: string): string {
@@ -48,6 +46,21 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
   const [saving, setSaving] = useState(false);
   const [esAdmin, setEsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Varias empresas: con más de una, la cabecera dice en cuál se está.
+  const { empresas, setEmpresas } = useEmpresas();
+  const empresaActual = empresas && empresas.length > 1 ? empresas.find(e => e.actual) ?? null : null;
+  const [cambiando, setCambiando] = useState<string | null>(null);
+  const [gestionando, setGestionando] = useState(false);
+  const perfilParaSalir = { activo: Boolean(perfilActivo), cuenta: cuentaPerfiles };
+  const cambiarA = async (id: string) => {
+    setCambiando(id);
+    try {
+      if (!(await cambiarDeEmpresa(id, perfilParaSalir))) setCambiando(null);
+    } catch (e) {
+      setCambiando(null);
+      alert(e instanceof Error ? e.message : 'No se ha podido cambiar de empresa.');
+    }
+  };
   const formSalir = useRef<HTMLFormElement>(null);
 
   /**
@@ -67,58 +80,15 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
     // que el formulario se coge de la ref, que sí sobrevive al await.
     const formulario = formSalir.current;
 
-    // LO QUE AÚN NO HA SUBIDO NO SE TIRA SIN AVISAR
-    //
-    // Salir vacía la caché del dispositivo, y en ella está la cola de lo
-    // hecho sin conexión. Un ticket cobrado sin internet que no ha llegado
-    // al servidor se perdía entero al cerrar sesión: ni en la base de
-    // datos ni en Hacienda. Primero se intenta subir; si no se puede, se
-    // pregunta.
-    try {
-      let pendientes = await getSyncQueueCount();
-      if (pendientes > 0 && navigator.onLine) {
-        await Promise.race([processSyncQueue(), new Promise(listo => setTimeout(listo, 8000))]);
-        pendientes = await getSyncQueueCount();
-      }
-      if (pendientes > 0) {
-        const salir = confirm(
-          `Hay ${pendientes} ${pendientes === 1 ? 'cambio hecho' : 'cambios hechos'} sin conexión que todavía no ` +
-          `${pendientes === 1 ? 'se ha' : 'se han'} subido (ventas, albaranes o fichas).\n\n` +
-          'Si sales ahora se perderán. Lo seguro es esperar a tener conexión y salir después.\n\n¿Salir igualmente?',
-        );
-        if (!salir) { setCerrando(false); return; }
-      }
-    } catch {
-      // Si ni siquiera se puede mirar la cola, se sigue: el botón de salir
-      // no puede quedarse sin hacer nada.
-    }
-    // Las pantallas guardadas para usar sin conexión llevan datos de esta
-    // cuenta: fuera también.
-    void olvidarPantallas().catch(() => {});
-    // Quien estuviera trabajando aquí deja de salir como «trabajando ahora».
-    if (perfilActivo) {
-      cerrarPerfil();
-      // Antes de soltar la sesión de Supabase: después ya no se podría borrar la fila.
-      await Promise.race([terminarSesionDeEsteEquipo(cuentaPerfiles), new Promise(listo => setTimeout(listo, 2000))]);
-    }
+    if (!(await subirPendientesOPreguntar('sales'))) { setCerrando(false); return; }
+    await soltarPerfilYPantallas(Boolean(perfilActivo), cuentaPerfiles);
     try {
       await createClient().auth.signOut();
     } catch {
       // Sin conexión no se puede avisar a Supabase; se sigue igualmente,
       // porque lo que no puede pasar es que el botón no haga nada.
     }
-    try {
-      // Con un tope: `clearOfflineCache` abre IndexedDB, y una conexión que
-      // otra pestaña deje bloqueada no rechaza la promesa, se queda esperando
-      // para siempre. Sin este tope, el botón volvería a no hacer nada, que
-      // es justo el fallo que se está arreglando.
-      await Promise.race([
-        clearOfflineCache(),
-        new Promise(listo => setTimeout(listo, 3000)),
-      ]);
-    } catch {
-      // Una caché que no se deja borrar tampoco puede dejarte dentro.
-    }
+    await vaciarCache();
     if (formulario) formulario.submit();
     else window.location.href = '/auth/signout';
   };
@@ -201,7 +171,9 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
         <span className={`account-avatar ${perfilActivo ? 'account-avatar--cuenta' : ''}`}>
           {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : initials}
         </span>
-        {displayName && <span className="account-trigger-name">{displayName}</span>}
+        {empresaActual
+          ? <span className="account-trigger-name" title={`Empresa: ${empresaActual.nombre}`}>{empresaActual.nombre}</span>
+          : displayName && <span className="account-trigger-name">{displayName}</span>}
         <ChevronDown size={14} className="account-trigger-flecha" style={{ color: 'var(--text-muted)' }} />
       </button>
 
@@ -213,7 +185,7 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
             </span>
             <div className="account-dropdown-identity">
               <div className="account-dropdown-name">{displayName || 'Sin nombre configurado'}</div>
-              <div className="account-dropdown-email">{email}</div>
+              <div className="account-dropdown-email">{empresaActual ? empresaActual.nombre : email}</div>
             </div>
           </div>
 
@@ -270,6 +242,14 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
                   </button>
                   <div className="account-dropdown-divider" />
                 </>
+              )}
+              {esTitular && (
+                <EmpresasEnMenu
+                  empresas={empresas}
+                  cambiando={cambiando}
+                  onCambiar={id => void cambiarA(id)}
+                  onGestionar={() => { setOpen(false); setGestionando(true); }}
+                />
               )}
               {plan && esTitular && (
                 <Link
@@ -354,6 +334,15 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
             </div>
           )}
         </div>
+      )}
+
+      {gestionando && empresas && (
+        <GestionEmpresas
+          empresas={empresas}
+          perfil={perfilParaSalir}
+          onCerrar={() => setGestionando(false)}
+          onCambio={setEmpresas}
+        />
       )}
     </div>
   );
