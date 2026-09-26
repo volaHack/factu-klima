@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
+import EnlacePortal from '@/components/portal/EnlacePortal';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
 import { useColoresGrafica, SERIES } from '@/components/charts/theme';
@@ -548,6 +549,7 @@ export default function ClientesPage() {
                       <Link href={`/clientes/${client.id}`} className="btn btn-ghost btn-xs" title="Ver ficha">
                         <Eye size={14} />
                       </Link>
+                      <EnlacePortal compacto clientId={client.id} clienteNombre={client.businessName} telefono={client.phone} email={client.email} />
                       <button className="btn btn-ghost btn-xs" onClick={() => openEditModal(client)} title="Editar">
                         <Edit size={14} />
                       </button>

@@ -14687,3 +14687,82 @@ body {
 .soporte-admin-hilo-cabeza span { font-size: .8125rem; color: var(--text-secondary); }
 .soporte-admin-mensajes { min-height: 240px; }
 @media (max-width: 860px) { .soporte-admin { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   PORTAL DEL CLIENTE (/portal/[token]) Y COBRO ONLINE
+   ============================================================ */
+.portal { max-width: 860px; margin: 0 auto; padding: var(--space-6) 16px var(--space-8); display: flex; flex-direction: column; gap: var(--space-5); color: var(--text-primary); }
+.portal--vacio { text-align: center; padding-top: 18vh; }
+.portal--vacio h1 { font-size: var(--text-xl); margin-bottom: var(--space-2); }
+.portal-cabecera { display: flex; align-items: center; gap: var(--space-3); }
+.portal-logo { width: 52px; height: 52px; object-fit: contain; border-radius: var(--radius-md); background: #fff; }
+.portal-inicial { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 1.3rem; color: #fff; background: var(--accent-500); flex-shrink: 0; }
+.portal-empresa { font-weight: 750; font-size: var(--text-lg); margin: 0; }
+.portal-dato { font-size: var(--text-sm); color: var(--text-muted); margin: 0; line-height: 1.5; }
+.portal-hola h1 { font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 750; letter-spacing: -0.02em; margin: 0 0 var(--space-2); }
+.portal-resumen { font-size: var(--text-md); color: var(--text-secondary); margin: 0; }
+.portal-aviso { display: flex; align-items: center; gap: 8px; padding: var(--space-3); border-radius: var(--radius-md); font-weight: 600; margin: 0 0 var(--space-3); }
+.portal-aviso--ok { background: var(--color-success-bg, #e7f6ec); color: var(--color-success); }
+.portal-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-card); overflow: hidden; }
+.portal-factura { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.portal-factura + .portal-factura { border-top: 1px solid var(--border-subtle, var(--border-color)); }
+.portal-factura-datos { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: inherit; text-decoration: none; }
+.portal-factura-datos span { display: flex; flex-direction: column; min-width: 0; }
+.portal-factura-datos small { color: var(--text-muted); font-size: var(--text-xs); }
+.portal-factura-datos:hover strong { text-decoration: underline; }
+.portal-importe { font-weight: 700; text-align: right; }
+.portal-pagar { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.portal-fallo { color: var(--color-danger); font-size: var(--text-xs); max-width: 260px; text-align: right; }
+.portal-transferencia { border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--space-4); background: var(--bg-card); display: flex; flex-direction: column; gap: var(--space-2); }
+.portal-transferencia h2 { display: flex; align-items: center; gap: 8px; font-size: var(--text-md); margin: 0; }
+.portal-iban { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--text-md); font-weight: 650; overflow-wrap: anywhere; }
+.portal-pie { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--text-xs); color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: var(--space-4); }
+.portal-pie a { display: inline-flex; align-items: center; gap: 4px; color: inherit; }
+.portal-marca { width: 100%; opacity: 0.8; }
+@media (max-width: 600px) {
+  .portal-factura { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'datos estado' 'datos importe' 'accion accion'; row-gap: 4px; }
+  .portal-factura-datos { grid-area: datos; }
+  .portal-factura .badge { grid-area: estado; justify-self: end; }
+  .portal-importe { grid-area: importe; }
+  .portal-accion { grid-area: accion; display: flex; justify-content: flex-end; }
+  .portal-accion:empty { display: none; }
+}
+
+.portal-doc-barra { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.portal-doc-acciones { display: inline-flex; gap: var(--space-2); flex-wrap: wrap; align-items: flex-start; }
+.portal-hoja { background: #fff; color: #1a1a1a; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: clamp(16px, 4vw, 40px); display: flex; flex-direction: column; gap: var(--space-5); }
+.portal-hoja .portal-dato { color: #555; }
+.portal-hoja-cabecera { display: flex; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.portal-hoja-titulo { text-align: right; margin-left: auto; }
+.portal-hoja-titulo h1 { font-size: var(--text-xl); margin: 0; text-transform: uppercase; letter-spacing: 0.04em; }
+.portal-hoja-cliente p { margin: 0; }
+.portal-tabla { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.portal-tabla th { text-align: left; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em; color: #666; border-bottom: 2px solid #222; padding: 6px 4px; }
+.portal-tabla td { padding: 8px 4px; border-bottom: 1px solid #e5e5e5; vertical-align: top; overflow-wrap: anywhere; }
+.portal-tabla .num { text-align: right; white-space: nowrap; }
+.portal-hoja-pie { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
+.portal-qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; text-align: center; max-width: 160px; }
+.portal-qr img { width: 120px; height: 120px; image-rendering: pixelated; }
+.portal-totales { margin: 0; min-width: min(320px, 100%); font-size: var(--text-sm); }
+.portal-totales > div { display: flex; justify-content: space-between; gap: var(--space-3); padding: 4px 0; }
+.portal-totales dt { color: #555; }
+.portal-totales dd { margin: 0; }
+.portal-total { border-top: 2px solid #222; margin-top: 4px; padding-top: 8px !important; font-weight: 800; font-size: var(--text-md); }
+.portal-total dt { color: #1a1a1a; }
+.portal-notas { white-space: pre-wrap; }
+@media print {
+  .portal-doc .no-print { display: none !important; }
+  .portal-doc { padding: 0; max-width: none; }
+  .portal-hoja { border: 0; padding: 0; border-radius: 0; }
+}
+
+.enlace-portal { max-width: 560px; }
+.enlace-portal-url { display: flex; gap: var(--space-2); margin: var(--space-3) 0; }
+.enlace-portal-url .form-input { flex: 1; min-width: 0; font-size: var(--text-xs); }
+.enlace-portal-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.enlace-portal-renovar { margin-top: var(--space-3); }
+
+.cobro-online { display: flex; flex-direction: column; gap: var(--space-3); max-width: 680px; }
+.cobro-online-estado { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-weight: 600; color: var(--text-secondary); }
+.cobro-online-estado.is-activo { color: var(--color-success); }
+.cobro-online-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }

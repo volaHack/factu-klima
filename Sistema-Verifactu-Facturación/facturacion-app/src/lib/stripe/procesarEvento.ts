@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { apuntarCobroOnline } from '@/lib/cobroOnline/servidor';
 import { getPlan } from '@/lib/plans';
 import { filaDesdeSuscripcion } from './suscripciones';
 import { facturaDeSuscripcion, facturaDePropina } from '@/lib/plataforma/facturas';
@@ -120,10 +121,16 @@ export async function procesarEvento(event: Stripe.Event, db: SupabaseClient): P
 
     case 'checkout.session.completed': {
       const session = event.data.object;
-      // Cobro de una factura de un inquilino (flujo /aprobar): lo de siempre.
-      const invoiceId = session.client_reference_id && session.mode === 'payment' && session.metadata?.tipo !== 'tip_apoyo'
+      // Pago online de la factura de un negocio: cobro en Tesorería y
+      // factura cobrada (lib/cobroOnline/servidor.ts).
+      if (session.mode === 'payment' && session.metadata?.tipo === 'cobro_factura') {
+        await apuntarCobroOnline(db, session);
+        return;
+      }
+      // Sesiones creadas antes del cobro online (sin `tipo`): lo de siempre.
+      const invoiceId = session.client_reference_id && session.mode === 'payment' && !session.metadata?.tipo
         ? session.client_reference_id
-        : session.metadata?.invoiceId;
+        : undefined;
       if (session.mode === 'payment' && invoiceId && session.payment_status === 'paid') {
         const { error } = await db.from('invoices')
           .update({ status: 'pagada', paid_date: new Date().toISOString().split('T')[0] })

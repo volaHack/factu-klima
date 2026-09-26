@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import EnlacePortal from '@/components/portal/EnlacePortal';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -310,6 +311,14 @@ export default function InvoiceDetailPage() {
               </button>
               <BotonRepetir factura={invoice} />
             </>
+          )}
+          {/* El enlace para que el cliente la vea y la pague (portal del cliente). */}
+          {sealed && invoice.clientId && invoice.status !== InvoiceStatus.ANULADA && invoice.status !== InvoiceStatus.PAGADA && (
+            <EnlacePortal
+              clientId={invoice.clientId}
+              clienteNombre={invoice.clientName}
+              factura={{ numero: invoice.number, importe: formatCurrency(invoice.total) }}
+            />
           )}
           {(invoice.status === InvoiceStatus.PENDIENTE || invoice.status === InvoiceStatus.EMITIDA || invoice.status === InvoiceStatus.VENCIDA) && (
             <button className="btn btn-primary" onClick={handleMarkPaid}>
