@@ -182,18 +182,56 @@ async function getInvoicesFromSupabase(): Promise<Invoice[]> {
       _lineItems: (lineItemsData || []).filter((li: { invoice_id: string }) => li.invoice_id === inv.id),
       _taxBreakdown: (taxData || []).filter((tb: { invoice_id: string }) => tb.invoice_id === inv.id),
     }));
+    // ¿Ha cambiado algo respecto a lo que la pantalla ya enseña? Si sí,
+    // se avisa al terminar: si no, la lista se quedaba con la copia vieja
+    // (una factura recién emitida, sin su número ni su estado definitivos)
+    // hasta que alguien recargaba a mano.
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const antes = firmaDeFacturas(await getAll<any>('invoices'));
     await clearStore('invoices');
     await putMany('invoices', enriched);
+    if (antes !== firmaDeFacturas(enriched)) cambiaronLasFacturas = true;
   }
 
   return invoices;
 }
 
-async function refreshInvoicesFromSupabase(): Promise<void> {
-  if (!navigator.onLine) return;
-  try {
-    await getInvoicesFromSupabase(); // This also caches
-  } catch { /* silent */ }
+/** Lo que, si cambia, cambia lo que se ve en una lista de facturas. */
+function firmaDeFacturas(filas: Record<string, unknown>[]): string {
+  return filas
+    .map(f => [f.id, f.status, f.number, f.total, f.updated_at, f.sealed_at, f.paid_amount, f.due_date,
+      Array.isArray(f._lineItems) ? f._lineItems.length : 0].join('|'))
+    .sort()
+    .join('\n');
+}
+
+let cambiaronLasFacturas = false;
+let refrescandoFacturas: Promise<void> | null = null;
+
+/**
+ * Trae las facturas del servidor y, si algo cambió, avisa a las pantallas
+ * abiertas (`klima-invoices-updated`) para que se repinten solas. Una sola
+ * petición a la vez: varias pantallas escuchando no multiplican las llamadas,
+ * y como sólo se avisa si hay cambios, repintar no provoca otra vuelta.
+ */
+function refreshInvoicesFromSupabase(): Promise<void> {
+  if (!navigator.onLine) return Promise.resolve();
+  if (refrescandoFacturas) return refrescandoFacturas;
+  refrescandoFacturas = (async () => {
+    try {
+      cambiaronLasFacturas = false;
+      await getInvoicesFromSupabase(); // This also caches
+      if (cambiaronLasFacturas) notifyDataUpdate('invoices');
+    } catch { /* silent */ } finally {
+      refrescandoFacturas = null;
+    }
+  })();
+  return refrescandoFacturas;
+}
+
+/** Vuelve a mirar el servidor (al volver a la pestaña, cada rato). */
+export function revisarFacturas(): Promise<void> {
+  return refreshInvoicesFromSupabase();
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | undefined> {
