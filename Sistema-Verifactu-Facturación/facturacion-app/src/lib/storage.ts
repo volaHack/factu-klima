@@ -989,6 +989,7 @@ export async function saveClient(client: Client): Promise<void> {
     grupo_id: client.grupoId || null,
     ruta_id: client.rutaId || null,
     vat_number: client.vatNumber || null,
+    dir3: client.dir3 && (client.dir3.oficinaContable || client.dir3.organoGestor || client.dir3.unidadTramitadora) ? client.dir3 : null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -3420,6 +3421,7 @@ export function mapClientFromDb(c: any): Client {
     vendedorId: c.vendedor_id || undefined,
     tarifaId: c.tarifa_id || undefined,
     vatNumber: c.vat_number || undefined,
+    dir3: c.dir3 && typeof c.dir3 === 'object' ? c.dir3 : undefined,
     defaultDiscounts: Array.isArray(c.default_discounts)
       ? [Number(c.default_discounts[0] ?? 0), Number(c.default_discounts[1] ?? 0), Number(c.default_discounts[2] ?? 0)]
       : undefined,

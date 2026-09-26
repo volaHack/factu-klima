@@ -19,6 +19,16 @@ import ComprobacionIdentidad, { problemasDeFicha } from '@/components/clientes/C
 import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identidad';
 import { useToast } from '@/hooks/useToast';
 
+/** Solo se guardan los DIR3 si hay alguno puesto. */
+function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
+  const limpio = {
+    oficinaContable: d.oficinaContable.trim() || undefined,
+    organoGestor: d.organoGestor.trim() || undefined,
+    unidadTramitadora: d.unidadTramitadora.trim() || undefined,
+  };
+  return limpio.oficinaContable || limpio.organoGestor || limpio.unidadTramitadora ? limpio : undefined;
+}
+
 export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
@@ -42,6 +52,7 @@ export default function ClientesPage() {
     notes: '', active: true, esProveedor: false, vendedorId: '',
     tarifaId: '',
     defaultDiscounts: [0, 0, 0] as [number, number, number],
+    dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
   });
 
   useEffect(() => {
@@ -217,6 +228,7 @@ export default function ClientesPage() {
       vendedorId: '',
       tarifaId: '',
       defaultDiscounts: [0, 0, 0],
+      dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
     });
     setShowModal(true);
   };
@@ -235,6 +247,11 @@ export default function ClientesPage() {
       vendedorId: client.vendedorId || '',
       tarifaId: client.tarifaId || '',
       defaultDiscounts: client.defaultDiscounts || [0, 0, 0],
+      dir3: {
+        oficinaContable: client.dir3?.oficinaContable || '',
+        organoGestor: client.dir3?.organoGestor || '',
+        unidadTramitadora: client.dir3?.unidadTramitadora || '',
+      },
     });
     setShowModal(true);
   };
@@ -258,6 +275,7 @@ export default function ClientesPage() {
       vendedorId: form.vendedorId || undefined,
       tarifaId: form.tarifaId || undefined,
       defaultDiscounts: form.defaultDiscounts,
+      dir3: limpiarDir3(form.dir3),
       createdAt: editingClient?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -670,6 +688,33 @@ export default function ClientesPage() {
                   </div>
                 )}
               </div>
+
+              <details style={{ marginTop: 'var(--space-3)' }} open={Boolean(form.dir3.oficinaContable || form.dir3.organoGestor || form.dir3.unidadTramitadora)}>
+                <summary style={{ cursor: 'pointer', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                  ¿Es una Administración pública? Códigos DIR3 para FACe
+                </summary>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', margin: 'var(--space-2) 0' }}>
+                  Ayuntamientos, diputaciones y ministerios solo aceptan la factura electrónica (Facturae) con sus tres códigos DIR3. Te los dan en el pedido o el contrato.
+                </p>
+                <div className="form-row">
+                  {([
+                    ['oficinaContable', 'Oficina contable'],
+                    ['organoGestor', 'Órgano gestor'],
+                    ['unidadTramitadora', 'Unidad tramitadora'],
+                  ] as const).map(([campo, etiqueta]) => (
+                    <div className="form-group" key={campo}>
+                      <label className="form-label">{etiqueta}</label>
+                      <input
+                        className="form-input mono"
+                        value={form.dir3[campo]}
+                        onChange={e => updateForm('dir3', { ...form.dir3, [campo]: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                        placeholder="L01460001"
+                        maxLength={20}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
                 <div className="form-group" style={{ flex: 1 }}>

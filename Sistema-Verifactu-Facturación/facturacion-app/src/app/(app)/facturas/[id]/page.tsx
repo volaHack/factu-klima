@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import EnlacePortal from '@/components/portal/EnlacePortal';
+import BotonFacturae from '@/components/facturae/BotonFacturae';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -335,6 +336,9 @@ export default function InvoiceDetailPage() {
             <button className="btn btn-danger" onClick={() => setBorrando(true)}>
               {sealed ? <><Ban size={16} /> Anular</> : <><Trash2 size={16} /> Eliminar borrador</>}
             </button>
+          )}
+          {sealed && invoice.status !== InvoiceStatus.ANULADA && ['factura', 'rectificativa', undefined].includes(invoice.tipo) && (
+            <BotonFacturae facturaId={invoice.id} numero={invoice.number} clientId={invoice.clientId} />
           )}
           <BotonVistaPreviaPdf tipo="factura" documento={invoice} />
           <BotonDescargarPdf tipo="factura" documento={invoice} />

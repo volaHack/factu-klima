@@ -927,6 +927,12 @@ export interface Client {
    * Si existe, la factura se clasifica automáticamente como intracomunitaria.
    */
   vatNumber?: string;
+
+  /**
+   * Unidades DIR3 si el cliente es una Administración Pública: van en la
+   * Facturae que se sube a FACe (migración 058).
+   */
+  dir3?: { oficinaContable?: string; organoGestor?: string; unidadTramitadora?: string };
 }
 
 export interface Vendedor {
