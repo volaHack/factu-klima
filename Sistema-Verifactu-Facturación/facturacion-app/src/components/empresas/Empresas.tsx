@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Building2, Check, Copy, KeyRound, Link2, Loader2, LogIn, Plus, Unlink, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import Portal from '@/components/ui/Portal';
 import { soltarPerfilYPantallas, subirPendientesOPreguntar, vaciarCache } from '@/lib/cuentas/soltarCuenta';
 
 /**
@@ -155,7 +156,17 @@ export function GestionEmpresas({ empresas, perfil, onCerrar, onCambio }: {
 
   const hora = miCodigo ? new Date(miCodigo.caduca).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
 
+  useEffect(() => {
+    const alPulsar = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onCerrar(); };
+    document.addEventListener('keydown', alPulsar);
+    return () => document.removeEventListener('keydown', alPulsar);
+  }, [onCerrar]);
+
+  // Se abre desde el menú de la cuenta, que vive en la cabecera, y la
+  // cabecera lleva `backdrop-filter`: sin el portal, la ventana se medía
+  // contra la cabecera en vez de contra la pantalla y salía recortada.
   return (
+    <Portal>
     <div className="modal-overlay animate-fade-in" onClick={onCerrar}>
       <div className="modal gestion-empresas" role="dialog" aria-label="Tus empresas" onClick={ev => ev.stopPropagation()}>
         <div className="modal-header">
@@ -176,16 +187,18 @@ export function GestionEmpresas({ empresas, perfil, onCerrar, onCambio }: {
                   <strong>{e.nombre}</strong>
                   <small>{e.actual ? 'Estás aquí' : e.sinConfigurar ? 'Sin datos todavía' : e.nif || ''}</small>
                 </span>
-                {!e.actual && (
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={!!ocupado} onClick={() => void hacer(`entrar-${e.id}`, async () => { await cambiarDeEmpresa(e.id, perfil); })}>
-                    {ocupado === `entrar-${e.id}` ? <Loader2 size={14} className="spin" /> : <LogIn size={14} />} Entrar
-                  </button>
-                )}
-                {empresas.length > 1 && (
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={!!ocupado} onClick={() => separarla(e)} title="Sacar del grupo" aria-label={`Sacar ${e.nombre} del grupo`}>
-                    <Unlink size={14} />
-                  </button>
-                )}
+                <span className="gestion-empresas-acciones">
+                  {!e.actual && (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={!!ocupado} aria-label={`Entrar en ${e.nombre}`} onClick={() => void hacer(`entrar-${e.id}`, async () => { await cambiarDeEmpresa(e.id, perfil); })}>
+                      {ocupado === `entrar-${e.id}` ? <Loader2 size={14} className="spin" /> : <LogIn size={14} />} <span className="btn-texto">Entrar</span>
+                    </button>
+                  )}
+                  {empresas.length > 1 && (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={!!ocupado} onClick={() => separarla(e)} title="Sacar del grupo" aria-label={`Sacar ${e.nombre} del grupo`}>
+                      <Unlink size={14} />
+                    </button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -233,7 +246,7 @@ export function GestionEmpresas({ empresas, perfil, onCerrar, onCambio }: {
                 className="form-input mono"
                 value={codigoAjeno}
                 onChange={ev => setCodigoAjeno(ev.target.value.toUpperCase())}
-                placeholder="Código de la otra cuenta"
+                placeholder="Ej.: K7PM-3QXA"
                 maxLength={12}
                 aria-label="Código de la otra cuenta"
               />
@@ -248,6 +261,7 @@ export function GestionEmpresas({ empresas, perfil, onCerrar, onCambio }: {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

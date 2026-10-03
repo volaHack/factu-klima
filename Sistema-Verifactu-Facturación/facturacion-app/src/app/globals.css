@@ -14839,3 +14839,22 @@ body {
   font-size: var(--text-xs); color: var(--text-muted);
 }
 .onboarding-volver .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* La ventana de empresas en pantallas pequeñas: cabecera siempre a la
+   vista, menos relleno y nombres largos en dos líneas en vez de cortados. */
+.gestion-empresas { display: flex; flex-direction: column; }
+.gestion-empresas .modal-header { position: sticky; top: 0; z-index: 1; background: var(--bg-secondary); }
+.gestion-empresas-acciones { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
+.gestion-empresas-dato strong {
+  white-space: normal;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+@media (max-width: 600px) {
+  .gestion-empresas .modal-header { padding: var(--space-4); }
+  .gestion-empresas .modal-body { padding: var(--space-4); }
+  .gestion-empresas-lista li { padding: 10px; gap: var(--space-2); }
+  .gestion-empresas-bloque { margin-top: var(--space-4); padding-top: var(--space-3); }
+}
+@media (max-width: 380px) {
+  .gestion-empresas-acciones .btn-texto { display: none; }
+}
