@@ -52,6 +52,7 @@ import type { Schema, Template } from '@pdfme/common';
 import { componerBloqueQr, invadenLaReserva } from '../verifactu/qrFactura';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
+import { formatoVigente } from './rotuloTipo';
 import type {
   AnalisisPdf,
   AvisoAnalisis,
@@ -654,7 +655,9 @@ function convertirEnEstatico(esquema: Schema, campo: CampoDetectado, nombre: str
   if (!campo.clave) return { ...esquema, readOnly: true } as Schema;
   return {
     ...esquema,
-    content: `{${campo.clave}}`,
+    // Con formato, lo que acompañaba al dato en el PDF se imprime con él:
+    // «{doc_tipo} VENTA» sale «ALBARÁN VENTA» en un albarán.
+    content: formatoVigente(campo) ?? `{${campo.clave}}`,
     readOnly: true,
     // El nombre sigue siendo único para que el revisor pueda localizarlo.
     name: nombre,

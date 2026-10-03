@@ -390,6 +390,10 @@ export function construirDatos(
 
     // Documento
     doc_tipo: tipoDocumento,
+    // Las mismas, en las mayúsculas en que venía el rótulo del PDF subido:
+    // «Factura venta» se imprime «Albarán venta», no «ALBARÁN venta».
+    doc_tipo_nombre: personalidad.etiqueta,
+    doc_tipo_minus: personalidad.etiqueta.toLocaleLowerCase('es'),
     doc_titulo: `${tipoDocumento} nº ${doc.number}`,
     doc_numero: doc.number || '',
     doc_serie: doc.series || '',

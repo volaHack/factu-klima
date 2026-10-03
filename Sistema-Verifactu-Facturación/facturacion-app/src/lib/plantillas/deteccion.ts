@@ -29,6 +29,7 @@ import {
   COLUMNAS_LINEAS, esColumnaPersonalizada,
   siguienteColumnaPersonalizada, totalDeColumna,
 } from './contrato';
+import { rotuloDeTipo } from './rotuloTipo';
 import type {
   Alineacion,
   AnalisisPdf,
@@ -1028,7 +1029,12 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
     registrar(campoDesde(linea.items, clave, confianza, motivo, ''), linea);
   }
 
-  // --- 6. Comprobaciones finales ---
+  // --- 6. El rótulo que dice qué documento es ---
+  //
+  // Va al final porque necesita saber cuál es la etiqueta del número.
+  detectarRotulosDeTipo(fuera, campos, pagina);
+
+  // --- 7. Comprobaciones finales ---
   if (!yaAsignadas.has('doc_numero')) {
     avisos.push({ nivel: 'aviso', texto: 'No se ha localizado el número de factura. Asígnalo antes de guardar o saldrá en blanco.' });
   }
@@ -1040,6 +1046,83 @@ export function detectar(pagina: PaginaExtraida, opciones: OpcionesDeteccion = {
   }
 
   return { pagina, campos, tabla, rejillas, avisos, zonasExtra: [], familia: familiaDominante(pagina.items) };
+}
+
+/**
+ * EL TIPO DE DOCUMENTO, CONVERTIDO EN CAMPO
+ *
+ * El rótulo «FACTURA VENTA», «Nº Factura:» o el «PRESUPUESTO» grande de
+ * arriba se quedaba impreso en el calco, y una plantilla subida desde una
+ * factura titulaba «FACTURA» también los albaranes y los presupuestos. Aquí
+ * se convierte en un campo con formato (`rotuloTipo.ts`) que imprime el
+ * tipo de lo que se esté generando, con lo que lo acompañaba intacto.
+ *
+ * Se aceptan tres casos, y sólo en la mitad de arriba de la hoja:
+ *   - la etiqueta del número del documento, ya reconocida como tal;
+ *   - otra etiqueta con dos puntos o «Nº», si anuncia un número de
+ *     documento («Nº Factura:»), nunca «Nº Pedido:», que en una factura es
+ *     la referencia del cliente;
+ *   - un título: sin dos puntos y más grande o en negrita que el texto
+ *     normal.
+ */
+function detectarRotulosDeTipo(
+  segmentos: SegmentoTexto[],
+  campos: CampoDetectado[],
+  pagina: PaginaExtraida,
+): void {
+  const tamanos = pagina.items.map(i => i.tamano).filter(t => t > 0);
+  const tamanoNormal = tamanos.length ? mediana(tamanos) : 0;
+  const etiquetasDelNumero = new Set(
+    campos.filter(c => c.clave === 'doc_numero' && c.etiquetaCercana).map(c => normalizar(c.etiquetaCercana)),
+  );
+  const pisaOtroCampo = (caja: { x: number; y: number; ancho: number; alto: number }) =>
+    campos.some(c => {
+      const solapeX = Math.min(c.x + c.ancho, caja.x + caja.ancho) - Math.max(c.x, caja.x);
+      const solapeY = Math.min(c.y + c.alto, caja.y + caja.alto) - Math.max(c.y, caja.y);
+      return solapeX > 0 && solapeY > 0 && solapeX * solapeY > 0.3 * caja.ancho * caja.alto;
+    });
+
+  let puestos = 0;
+  for (const segmento of segmentos) {
+    if (puestos >= 3) return;
+    if (segmento.y > pagina.alto * 0.5 || segmento.items.length === 0) continue;
+
+    // La parte del rótulo: el segmento entero o, si trae el valor pegado
+    // («Factura nº: 2026-001»), lo que va hasta los dos puntos incluidos.
+    let items = segmento.items;
+    const pareja = separarEtiquetaYValor(segmento);
+    if (pareja) {
+      const indice = segmento.items.findIndex(i => i.texto.includes(':'));
+      const conDosPuntos = segmento.items[indice];
+      const corte = conDosPuntos.texto.indexOf(':') + 1;
+      items = [
+        ...segmento.items.slice(0, indice),
+        { ...conDosPuntos, texto: conDosPuntos.texto.slice(0, corte), ancho: conDosPuntos.ancho * proporcionHasta(conDosPuntos, corte) },
+      ];
+    }
+    const texto = items.map(i => i.texto).join(' ').replace(/\s+/g, ' ').trim();
+    const sinDosPuntos = texto.replace(/[:\s]+$/, '');
+
+    const delNumero = etiquetasDelNumero.has(normalizar(sinDosPuntos));
+    const esEtiqueta = Boolean(pareja) || /:\s*$/.test(texto) || /\bn\.?\s?[ºo°]|\bnum(?:ero)?\b/i.test(texto);
+    const esTitulo = !esEtiqueta && segmento.items.some(i => i.negrita || i.tamano >= tamanoNormal * 1.15);
+    if (!delNumero && !esEtiqueta && !esTitulo) continue;
+
+    const rotulo = rotuloDeTipo(texto, esEtiqueta && !delNumero);
+    if (!rotulo) continue;
+
+    const campo = campoDesde(
+      items,
+      rotulo.clave,
+      delNumero ? 0.9 : esTitulo ? 0.85 : 0.8,
+      `Dice qué documento es («${rotulo.palabra}»): cada documento sale con su tipo, sea factura, albarán, pedido o presupuesto`,
+      '',
+    );
+    if (pisaOtroCampo(campo)) continue;
+    campo.formato = rotulo.formato;
+    campos.push(campo);
+    puestos++;
+  }
 }
 
 function familiaDominante(items: ItemTexto[]): 'sans' | 'serif' {

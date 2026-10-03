@@ -44,6 +44,7 @@ import {
   type TipoDocumentoPlantilla,
 } from '@/lib/plantillas/tiposDocumento';
 import { asegurarHuecoQr } from '@/lib/plantillas/huecoQr';
+import { aplicarFormato, formatoVigente } from '@/lib/plantillas/rotuloTipo';
 import { generateId } from '@/lib/utils';
 import type { BusinessSector, CompanySettings, Invoice } from '@/lib/types';
 
@@ -153,7 +154,7 @@ export default function PlantillasPage() {
       const tipo = detectado?.tipo ?? 'factura';
       const seguro = (detectado?.confianza ?? 0) >= 0.5;
       setAplicaA([tipo]);
-      setTipoReconocido(detectado ? { palabra: detectado.palabra, seguro } : null);
+      setTipoReconocido(detectado ? { palabra: detectado.rotulo, seguro } : null);
 
       // Si es de los que llevan QR, el recuadro entra ya con el análisis:
       // así se ve desde el primer momento dónde va a caer el código y se
@@ -401,6 +402,20 @@ export default function PlantillasPage() {
   if (sesion) {
     const sinAsignar = sesion.analisis.campos.filter(c => !c.clave && !c.fijo).length;
 
+    // El rótulo del tipo («FACTURA VENTA») ya está convertido en campo: se
+    // le enseña al usuario cómo saldrá en otro documento, para que sepa que
+    // la misma plantilla le vale para todos.
+    const rotuloTipo = sesion.analisis.campos.find(c => !c.fijo && formatoVigente(c) && c.clave?.startsWith('doc_tipo'));
+    const otroTipo: TipoDocumentoPlantilla = aplicaA.includes('albaran') ? 'factura' : 'albaran';
+    const otro = personalidadDe(otroTipo);
+    const ejemploOtroTipo = rotuloTipo
+      ? aplicarFormato(formatoVigente(rotuloTipo)!, {
+          doc_tipo: otro.tituloImpreso,
+          doc_tipo_nombre: otro.etiqueta,
+          doc_tipo_minus: otro.etiqueta.toLocaleLowerCase('es'),
+        })
+      : null;
+
     return (
       <div className="animate-fade-in">
         <div className="page-header">
@@ -453,6 +468,12 @@ export default function PlantillasPage() {
                 {tipoReconocido.seguro
                   ? <>Leído del documento: pone <strong>«{tipoReconocido.palabra}»</strong>. Cámbialo si no es eso.</>
                   : <>No está claro qué documento es. Dice <strong>«{tipoReconocido.palabra}»</strong>, pero en letra pequeña: confírmalo tú.</>}
+              </p>
+            )}
+            {rotuloTipo && ejemploOtroTipo && (
+              <p className="field-message">
+                El rótulo <strong>«{rotuloTipo.valorOriginal}»</strong> cambia solo según el documento:
+                en {otroTipo === 'albaran' ? 'un albarán' : 'una factura'} saldrá <strong>«{ejemploOtroTipo}»</strong>.
               </p>
             )}
             <div className="plantilla-tipos">

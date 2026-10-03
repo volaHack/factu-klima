@@ -67,6 +67,12 @@ describe('reconocer qué documento han subido', () => {
     expect(r?.palabra).toBe('factura rectificativa');
   });
 
+  it('enseña el rótulo tal como venía escrito', () => {
+    const r = reconocerTipo([{ texto: 'FACTURA  VENTA', tamano: 14, y: 20 }]);
+    expect(r?.palabra).toBe('factura');
+    expect(r?.rotulo).toBe('FACTURA VENTA');
+  });
+
   it('un titular grande da más confianza que una mención suelta', () => {
     const claro = reconocerTipo([titular('FACTURA')])!;
     const dudoso = reconocerTipo([letraPequena('adjuntamos la factura')])!;

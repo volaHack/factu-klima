@@ -117,6 +117,13 @@ export interface CampoDetectado {
    * texto sigue impreso en el calco.
    */
   texto?: string;
+  /**
+   * Cómo se imprime el valor, con marcadores: «{doc_tipo} VENTA». Lo usa el
+   * rótulo del tipo de documento, que conserva lo que lo acompañaba en el
+   * PDF y sólo cambia la palabra del tipo (ver `rotuloTipo.ts`). Sin él se
+   * imprime el valor de la clave a secas.
+   */
+  formato?: string;
   /** El texto que traía el PDF de muestra en esa posición. */
   valorOriginal: string;
   /** La etiqueta impresa que hay al lado, si se encontró («Nº factura:»). */

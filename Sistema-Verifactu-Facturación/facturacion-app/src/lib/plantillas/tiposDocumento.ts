@@ -173,8 +173,13 @@ export interface TextoDelDocumento {
 
 export interface TipoReconocido {
   tipo: TipoDocumentoPlantilla;
-  /** La palabra que lo delató, tal cual estaba escrita. */
+  /** La palabra que lo delató, normalizada («factura»). */
   palabra: string;
+  /**
+   * El texto entero donde estaba, tal cual («FACTURA VENTA»), para
+   * enseñárselo al usuario. Si era una frase larga, sólo la palabra.
+   */
+  rotulo: string;
   /**
    * De 0 a 1. Alto cuando la palabra sale en un titular grande y arriba;
    * bajo cuando aparece perdida en la letra pequeña, donde lo mismo es
@@ -234,7 +239,13 @@ export function reconocerTipo(
         );
 
         if (!mejor || confianza > mejor.confianza) {
-          mejor = { tipo, palabra, confianza: Number(confianza.toFixed(2)) };
+          const original = item.texto.replace(/\s+/g, ' ').trim();
+          mejor = {
+            tipo,
+            palabra,
+            rotulo: original.length <= 40 ? original : palabra,
+            confianza: Number(confianza.toFixed(2)),
+          };
         }
       }
     }

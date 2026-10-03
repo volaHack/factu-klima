@@ -50,6 +50,7 @@ import {
   redondearMm, rejillaNueva,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
+import { aplicarFormato, formatoVigente } from '@/lib/plantillas/rotuloTipo';
 import { tablaPorDefecto } from '@/lib/plantillas/plantilla';
 import { invadenLaReserva } from '@/lib/verifactu/qrFactura';
 import type {
@@ -1131,7 +1132,9 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               const activo = seleccionados.has(`campo:${campo.id}`);
               const valorMuestra = campo.fijo
                 ? (campo.texto ?? campo.valorOriginal)
-                : campo.clave ? (datosEjemplo[campo.clave] || campo.valorOriginal) : campo.valorOriginal;
+                : campo.clave
+                  ? (formatoVigente(campo) ? aplicarFormato(formatoVigente(campo)!, datosEjemplo) : (datosEjemplo[campo.clave] || campo.valorOriginal))
+                  : campo.valorOriginal;
 
               return (
                 <div
