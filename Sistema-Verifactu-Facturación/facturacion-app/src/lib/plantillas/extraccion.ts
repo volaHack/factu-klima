@@ -345,20 +345,45 @@ export function fondoAlrededor(
   alto: number,
   margen = 2,
 ): string {
-  const puntos: number[] = [];
-  const anota = (px: number, py: number) => {
+  // CADA LADO VOTA POR SEPARADO
+  //
+  // Antes se juntaba todo el contorno y ganaba el color más repetido. Un
+  // rótulo metido en la esquina de su recuadro («FACTURA VENTA» arriba a la
+  // izquierda de una caja) tiene el contorno encima de dos rayas, la de
+  // arriba y la de la izquierda, y con el antialias había un poco más de
+  // tinta que de papel: el hueco se tapaba de negro. Las rayas ocupan como
+  // mucho dos lados; el papel, los otros dos, y en el empate gana el claro.
+  const lados: number[][] = [[], [], [], []];
+  const anota = (lado: number, px: number, py: number) => {
     if (px < 0 || py < 0 || px >= pixeles.width || py >= pixeles.height) return;
     const i = (py * pixeles.width + px) * 4;
-    puntos.push(pixeles.data[i], pixeles.data[i + 1], pixeles.data[i + 2]);
+    lados[lado].push(pixeles.data[i], pixeles.data[i + 1], pixeles.data[i + 2]);
   };
 
   const x0 = Math.floor(x) - margen, x1 = Math.ceil(x + ancho) + margen;
   const y0 = Math.floor(y) - margen, y1 = Math.ceil(y + alto) + margen;
-  for (let px = x0; px <= x1; px++) { anota(px, y0); anota(px, y1); }
-  for (let py = y0; py <= y1; py++) { anota(x0, py); anota(x1, py); }
+  for (let px = x0; px <= x1; px++) { anota(0, px, y0); anota(1, px, y1); }
+  for (let py = y0; py <= y1; py++) { anota(2, x0, py); anota(3, x1, py); }
 
-  if (puntos.length === 0) return '#ffffff';
-  const fondo = colorDominante(Uint8Array.from(puntos), puntos.length / 3);
+  const conPuntos = lados.filter(l => l.length > 0);
+  if (conPuntos.length === 0) return '#ffffff';
+  const porLado = conPuntos.map(l => colorDominante(Uint8Array.from(l), l.length / 3));
+
+  // Gana el color que domina en más lados (con tolerancia: el mismo papel
+  // no sale idéntico en todos). Empate: el más claro, que en un impreso es
+  // el papel y no la raya.
+  const parecidos = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) =>
+    Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b) < 48;
+  const luz = (c: { r: number; g: number; b: number }) => c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
+  let fondo = porLado[0];
+  let votosFondo = -1;
+  for (const candidato of porLado) {
+    const votos = porLado.filter(otro => parecidos(candidato, otro)).length;
+    if (votos > votosFondo || (votos === votosFondo && luz(candidato) > luz(fondo))) {
+      fondo = candidato;
+      votosFondo = votos;
+    }
+  }
   return aHex(fondo.r, fondo.g, fondo.b);
 }
 

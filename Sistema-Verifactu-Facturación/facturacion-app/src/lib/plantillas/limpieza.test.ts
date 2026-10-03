@@ -53,6 +53,18 @@ describe('color con el que se tapa', () => {
     expect(fondoAlrededor(lienzo, 12, 12, 16, 6)).toBe('#ffffff');
   });
 
+  it('no tapa de negro un rótulo pegado a la raya de su recuadro', () => {
+    // La raya del recuadro pasa justo por encima del hueco: ocupa todo el
+    // lado de arriba, que es el largo. El papel está en los otros tres.
+    const lienzo = lienzoDePrueba(80, 40, [255, 255, 255], (_x, y) => (y === 8 ? [0, 0, 0] : null));
+    expect(fondoAlrededor(lienzo, 10, 10, 50, 6)).toBe('#ffffff');
+  });
+
+  it('en una esquina del recuadro (dos rayas) también gana el papel', () => {
+    const lienzo = lienzoDePrueba(80, 40, [255, 255, 255], (x, y) => (y === 8 || x === 8 ? [0, 0, 0] : null));
+    expect(fondoAlrededor(lienzo, 10, 10, 50, 6)).toBe('#ffffff');
+  });
+
   it('separa tinta de papel al muestrear un texto', () => {
     const lienzo = lienzoDePrueba(60, 40, [255, 255, 255], (x, y) =>
       y >= 14 && y <= 16 ? [17, 24, 39] : null,

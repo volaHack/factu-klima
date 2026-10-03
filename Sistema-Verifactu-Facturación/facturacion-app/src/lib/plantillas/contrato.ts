@@ -101,7 +101,9 @@ export const CAMPOS: CampoPlantilla[] = [
   { clave: 'cliente_direccion_completa', etiqueta: 'Dirección completa del cliente', descripcion: 'Dirección, CP, ciudad y provincia del cliente en un bloque de varias líneas', grupo: 'cliente', tipo: 'texto', ejemplo: 'Avenida del Puerto 45\n46023 Valencia (Valencia)' },
 
   // --- Documento ---
-  { clave: 'doc_tipo', etiqueta: 'Tipo de documento', descripcion: 'FACTURA o ALBARÁN, en mayúsculas', grupo: 'documento', tipo: 'texto', ejemplo: 'FACTURA' },
+  { clave: 'doc_tipo', etiqueta: 'Tipo de documento', descripcion: 'FACTURA, ALBARÁN, PEDIDO o PRESUPUESTO, en mayúsculas, según lo que se imprima', grupo: 'documento', tipo: 'texto', ejemplo: 'FACTURA' },
+  { clave: 'doc_tipo_nombre', etiqueta: 'Tipo de documento (Factura)', descripcion: 'El tipo con la primera en mayúscula: Factura, Albarán, Pedido, Presupuesto', grupo: 'documento', tipo: 'texto', ejemplo: 'Factura' },
+  { clave: 'doc_tipo_minus', etiqueta: 'Tipo de documento (factura)', descripcion: 'El tipo en minúsculas: factura, albarán, pedido, presupuesto', grupo: 'documento', tipo: 'texto', ejemplo: 'factura' },
   { clave: 'doc_titulo', etiqueta: 'Título del documento', descripcion: 'Encabezado largo, p. ej. «FACTURA nº FAC-2026-0001»', grupo: 'documento', tipo: 'texto', ejemplo: 'FACTURA nº FAC-2026-0001' },
   { clave: 'doc_numero', etiqueta: 'Número', descripcion: 'Número del documento', grupo: 'documento', tipo: 'texto', ejemplo: 'FAC-2026-0001' },
   { clave: 'doc_serie', etiqueta: 'Serie', descripcion: 'Serie del documento', grupo: 'documento', tipo: 'texto', ejemplo: 'FAC' },
