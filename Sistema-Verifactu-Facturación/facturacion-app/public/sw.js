@@ -20,7 +20,7 @@
 // Los datos NO pasan por aquí: viven en IndexedDB (lib/offlineDb.ts) y los
 // sube a Supabase el motor de sincronización (lib/syncEngine.ts).
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE_PAGINAS = `klima-paginas-${VERSION}`;
 const CACHE_CODIGO = `klima-codigo-${VERSION}`;
 const TOPE_RED_MS = 4000;

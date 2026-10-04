@@ -5,4 +5,6 @@
     <color name="barra_oscura">#191013</color>
     <color name="fondo">#F2E7E0</color>
     <color name="fondo_oscuro">#191013</color>
+    <!-- Fondo del icono adaptable (el mismo que el del icono de la web). -->
+    <color name="icono_fondo">#1A1216</color>
 </resources>

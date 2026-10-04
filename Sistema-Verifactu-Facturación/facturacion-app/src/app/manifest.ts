@@ -10,6 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     background_color: '#f2e7e0',
     theme_color: '#b02a5c',
+    // Los PNG salen de scripts/generar-iconos.mjs. Los «maskable» llevan margen:
+    // Android los recorta en círculo o en gota y, a sangre, la estrella se cortaba.
     icons: [
       {
         src: '/icon-192.png',
@@ -18,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'any',
       },
       {
-        src: '/icon-192.png',
+        src: '/icon-maskable-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
@@ -30,7 +32,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'any',
       },
       {
-        src: '/icon-512.png',
+        src: '/icon-maskable-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

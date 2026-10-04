@@ -4,8 +4,10 @@ la web (facturacion-app/public/icon-512.png), para que sean el mismo.
 
     python herramientas/iconos.py
 
-El icono de la web ya es cuadrado y a sangre (es «maskable»): Android lo
-recorta en círculo o en gota según el fabricante, así que se usa tal cual.
+Estos PNG solo los usan los Android anteriores al 8 (API 26). Del 8 en adelante
+manda el icono adaptable (mipmap-anydpi-v26/ic_launcher.xml, en vector), que
+genera facturacion-app/scripts/generar-iconos.mjs junto con los de la web:
+ejecuta primero ese y luego este.
 """
 
 from pathlib import Path
