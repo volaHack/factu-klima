@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import PaginaLegal from '@/components/public/PaginaLegal';
 import { productorDePlataforma } from '@/lib/plataforma/productor';
+import { pendientesDeclaracion } from '@/lib/plataforma/validarProductor';
 
 export const metadata: Metadata = {
   title: 'Declaración responsable del sistema informático de facturación',
@@ -28,7 +29,10 @@ const fechaLarga = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateStri
  */
 export default async function DeclaracionResponsable() {
   const p = await productorDePlataforma();
-  const firmada = Boolean(p?.nombre && p?.nif && p?.domicilio && p?.fecha);
+  const pendientes = pendientesDeclaracion({
+    nombre: p?.nombre ?? '', nif: p?.nif ?? '', domicilio: p?.domicilio ?? '', lugar: p?.lugar ?? '', fecha: p?.fecha ?? '',
+  });
+  const firmada = pendientes.length === 0;
 
   return (
     <PaginaLegal
@@ -38,8 +42,8 @@ export default async function DeclaracionResponsable() {
     >
       {!firmada && (
         <div className="legal-aviso" role="status">
-          <strong>Borrador pendiente de firma.</strong> Faltan datos del productor o la fecha de suscripción.
-          Se completan en Administración → Configuración.
+          <strong>Borrador pendiente de firma.</strong> Faltan datos del productor o el lugar y la fecha de
+          suscripción. Se completan en Administración → Configuración.
         </div>
       )}
 
@@ -99,7 +103,7 @@ export default async function DeclaracionResponsable() {
         <h2>4. Suscripción</h2>
         <p>
           {firmada
-            ? <>En {falta(p?.lugar, 'lugar')}, a {fechaLarga(p!.fecha!)}.</>
+            ? <>En {p!.lugar}, a {fechaLarga(p!.fecha!)}.</>
             : 'Pendiente de fecha y lugar de suscripción.'}
         </p>
       </section>

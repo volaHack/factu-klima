@@ -57,6 +57,23 @@ export function avisoNombreProductor(p: Pick<ProductorFormulario, 'nombre' | 'ni
   return null;
 }
 
+/**
+ * Lo que le falta a la declaración responsable para darla por firmada (no
+ * impide guardar). La Orden HAC/1177/2024 pide la dirección postal completa
+ * del productor y el lugar y la fecha de suscripción: una calle sin código
+ * postal ni municipio no sirve como dirección de contacto.
+ */
+export function pendientesDeclaracion(p: Pick<ProductorFormulario, 'nombre' | 'nif' | 'domicilio' | 'lugar' | 'fecha'>): string[] {
+  const falta: string[] = [];
+  if (!p.nombre.trim()) falta.push('el nombre o razón social');
+  if (!limpiarNif(p.nif)) falta.push('el NIF');
+  if (!p.domicilio.trim()) falta.push('el domicilio');
+  else if (!/\b\d{5}\b/.test(p.domicilio)) falta.push('el código postal y el municipio en el domicilio (p. ej. «Calle …, 10, 35001 Las Palmas de Gran Canaria»)');
+  if (!p.lugar.trim()) falta.push('el lugar de firma');
+  if (!p.fecha) falta.push('la fecha de firma');
+  return falta;
+}
+
 /** Las columnas de `plataforma_config` que salen del formulario. */
 export function columnasDelProductor(p: ProductorFormulario) {
   const txt = (v: string, max: number) => (v.trim() ? v.trim().slice(0, max) : null);

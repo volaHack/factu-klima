@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Building2, Check, Loader2 } from 'lucide-react';
 import {
-  avisoNombreProductor, erroresDelProductor, type ErroresProductor, type ProductorFormulario,
+  avisoNombreProductor, erroresDelProductor, pendientesDeclaracion, type ErroresProductor, type ProductorFormulario,
 } from '@/lib/plataforma/validarProductor';
 
 /** Cuánto se espera tras la última tecla para guardar. */
@@ -60,6 +60,7 @@ export default function TarjetaProductor({ inicial }: { inicial: ProductorFormul
   };
 
   const avisoNombre = avisoNombreProductor(productor);
+  const pendientes = pendientesDeclaracion(productor);
 
   const campo = (k: keyof ProductorFormulario, etiqueta: string, ayuda?: string, tipo = 'text', extra?: React.ReactNode) => (
     <div>
@@ -96,6 +97,14 @@ export default function TarjetaProductor({ inicial }: { inicial: ProductorFormul
           {estado.tipo === 'error' && <><AlertTriangle size={14} /> {estado.mensaje}</>}
         </span>
       </div>
+      <p role="status" style={{ margin: '0 0 1rem', padding: '0.6rem 0.8rem', borderRadius: 10, fontSize: '0.82rem', lineHeight: 1.45,
+        background: pendientes.length ? 'var(--color-warning-bg)' : 'var(--color-success-bg)',
+        color: 'var(--text-primary)' }}>
+        {pendientes.length
+          ? <><strong>La declaración sale como borrador.</strong> Falta {pendientes.join(', ')}. Con la fecha y el lugar puestos, la firmas tú:
+            no hace falta gestoría ni presentarla en Hacienda, basta con que esté publicada y se pueda consultar desde el programa.</>
+          : <><strong>Declaración firmada y publicada.</strong> Si cambias de versión del programa, pon la nueva y actualiza la fecha.</>}
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: '1rem' }}>
         {campo('nombre', 'Nombre o razón social', 'Exactamente como figura en Hacienda. Si eres autónomo: APELLIDO1 APELLIDO2 NOMBRE.', 'text',
           avisoNombre && <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: 'var(--color-warning)', fontWeight: 600 }}>{avisoNombre}</p>)}

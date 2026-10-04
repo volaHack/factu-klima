@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  avisoNombreProductor, columnasDelProductor, erroresDelProductor, productorDesdeJson, type ProductorFormulario,
+  avisoNombreProductor, columnasDelProductor, pendientesDeclaracion, erroresDelProductor, productorDesdeJson, type ProductorFormulario,
 } from './validarProductor';
 
 const base: ProductorFormulario = {
@@ -44,5 +44,18 @@ describe('columnasDelProductor', () => {
   it('lo que llega por la API se lee como texto', () => {
     expect(productorDesdeJson({ nombre: 'X', nif: 5 })?.nif).toBe('');
     expect(productorDesdeJson(null)).toBeNull();
+  });
+});
+
+describe('pendientesDeclaracion', () => {
+  const firmada = { nombre: 'KLIMASOFT SL', nif: 'B12345674', domicilio: 'Calle Mayor 10, 35001 Las Palmas de Gran Canaria', lugar: 'Las Palmas de Gran Canaria', fecha: '2026-10-05' };
+  it('con todo puesto, nada pendiente', () => {
+    expect(pendientesDeclaracion(firmada)).toEqual([]);
+  });
+  it('una calle sin código postal ni municipio no es una dirección completa', () => {
+    expect(pendientesDeclaracion({ ...firmada, domicilio: 'Calle la cuesta n10' })).toEqual([expect.stringMatching(/código postal/)]);
+  });
+  it('sin lugar no está firmada aunque tenga fecha', () => {
+    expect(pendientesDeclaracion({ ...firmada, lugar: '' })).toEqual(['el lugar de firma']);
   });
 });
