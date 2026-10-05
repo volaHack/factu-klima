@@ -3,6 +3,7 @@ import { exigirAdminCon2fa } from '@/lib/admin/dal';
 import { listarCuentas, eventosPendientes } from '@/lib/admin/datos';
 import { resumen } from '@/lib/admin/cuentas';
 import { proximoPlazo } from '@/lib/plataforma/plazos';
+import { alertasGraves24h } from '@/lib/seguridad/leer';
 import { getPlan, type PlanId } from '@/lib/plans';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import {
@@ -20,13 +21,14 @@ import {
   Download,
   Sliders,
   FileSpreadsheet,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminResumen() {
   await exigirAdminCon2fa();
-  const [cuentas, pendientes] = await Promise.all([listarCuentas(), eventosPendientes()]);
+  const [cuentas, pendientes, graves] = await Promise.all([listarCuentas(), eventosPendientes(), alertasGraves24h()]);
   const hoy = new Date();
   const r = resumen(cuentas, hoy);
   const plazo = proximoPlazo(hoy);
@@ -78,6 +80,30 @@ export default async function AdminResumen() {
           </Link>
         </div>
       </div>
+
+      {graves > 0 && (
+        <div className="apple-card" style={{ borderColor: 'rgba(225, 29, 72, 0.35)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(225, 29, 72, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e11d48', flexShrink: 0 }}>
+                <ShieldAlert size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+                  {graves} {graves === 1 ? 'aviso grave' : 'avisos graves'} de seguridad en las últimas 24 horas
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                  Intentos de ataque, firmas falsas o accesos no permitidos. Revisa de dónde vienen y bloquea si hace falta.
+                </div>
+              </div>
+            </div>
+            <Link href="/admin/seguridad" className="apple-pill apple-pill-rose" style={{ textDecoration: 'none', fontWeight: 600 }}>
+              <span>Ver seguridad</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Banner de aviso fiscal inteligente si está cerca el plazo */}
       {avisoPlazo && (

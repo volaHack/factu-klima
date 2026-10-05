@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 
 interface RespondBody {
   items: { lineItemId: string; accepted: boolean; adjustedQuantity?: number; rejectionReason?: string }[];
@@ -51,6 +52,7 @@ export async function POST(
     .from('order_approvals').select('*').eq('token', token).single();
 
   if (!approvalRow) {
+    avisar({ tipo: 'token_invalido', gravedad: 'media', ...origenDe(request), detalle: { portal: 'aprobación (respuesta)' } });
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   if (approvalRow.status !== 'pending') {
@@ -70,6 +72,8 @@ export async function POST(
   const ownLineItemIds = new Set((ownLineItems || []).map(li => li.id));
 
   if (body.items.some(item => !ownLineItemIds.has(item.lineItemId))) {
+    // Líneas de otra factura en la respuesta: sólo pasa manipulando la petición.
+    avisar({ tipo: 'manipulacion_peticion', gravedad: 'alta', ...origenDe(request), detalle: { portal: 'aprobación', motivo: 'líneas ajenas' } });
     return NextResponse.json({ error: 'Item de pedido no válido' }, { status: 400 });
   }
 

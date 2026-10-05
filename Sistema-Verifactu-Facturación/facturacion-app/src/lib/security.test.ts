@@ -22,6 +22,12 @@ describe('isSafeRedirectPath', () => {
     expect(isSafeRedirectPath('/\\sitio-malicioso.com')).toBe(false);
   });
 
+  it('rechaza caracteres de control, que algunos navegadores se saltan', () => {
+    expect(isSafeRedirectPath('/\t/sitio-malicioso.com')).toBe(false);
+    expect(isSafeRedirectPath('/\n/sitio-malicioso.com')).toBe(false);
+    expect(isSafeRedirectPath('/facturas\u0000')).toBe(false);
+  });
+
   it('rechaza cadenas vacías o no-string', () => {
     expect(isSafeRedirectPath('')).toBe(false);
     expect(isSafeRedirectPath(null)).toBe(false);

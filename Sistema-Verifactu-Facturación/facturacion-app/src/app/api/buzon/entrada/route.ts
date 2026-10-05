@@ -11,24 +11,20 @@
  */
 
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
 import { supabaseServicio } from '@/lib/supabase/servicio';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
+import { secretosIguales } from '@/lib/seguridad/secretos';
 import { leerCorreoPostmark } from '@/lib/buzon/correo';
 import { pareceFacturaElectronica } from '@/lib/facturaElectronica/leer';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-function secretoCorrecto(recibido: string | null): boolean {
-  const esperado = process.env.BUZON_WEBHOOK_SECRETO;
-  if (!esperado || !recibido) return false;
-  const a = Buffer.from(recibido);
-  const b = Buffer.from(esperado);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
+const secretoCorrecto = (recibido: string | null) => secretosIguales(recibido, process.env.BUZON_WEBHOOK_SECRETO);
 
 export async function POST(request: Request) {
   if (!secretoCorrecto(new URL(request.url).searchParams.get('secreto'))) {
+    avisar({ tipo: 'secreto_invalido', gravedad: 'alta', ...origenDe(request), detalle: { servicio: 'buzón de correo entrante' } });
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

@@ -3,7 +3,9 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { avisar, ipDe } from '@/lib/seguridad/eventos';
 
 interface Comprobacion { user: User | null; esAdmin: boolean; aal2: boolean; }
 
@@ -19,11 +21,30 @@ const comprobar = cache(async (): Promise<Comprobacion> => {
   return { user, esAdmin: esAdmin === true, aal2: claims?.claims?.aal === 'aal2' };
 });
 
+/**
+ * Una cuenta que no es de administración intentando entrar en el panel:
+ * no debería pasar nunca usando el programa, así que se apunta como ataque.
+ */
+const avisarUnaVez = cache(async (userId: string, email: string | null, tipo: 'admin_acceso_denegado' | 'admin_sin_2fa', via: 'pagina' | 'api') => {
+  const h = await headers();
+  avisar({
+    tipo, gravedad: tipo === 'admin_acceso_denegado' ? 'alta' : 'media', ip: ipDe(h), userId,
+    ruta: h.get('x-invoke-path') || h.get('referer') || null, navegador: h.get('user-agent'),
+    detalle: { email, via },
+  });
+});
+// El diseño y la página del panel comprueban los dos: un solo aviso por petición.
+const avisarIntento = (user: User, tipo: 'admin_acceso_denegado' | 'admin_sin_2fa', via: 'pagina' | 'api') =>
+  avisarUnaVez(user.id, user.email ?? null, tipo, via);
+
 /** Páginas: sin sesión a /login; si no es admin, 404 (no se confirma que exista). */
 export async function verificarAdmin() {
   const r = await comprobar();
   if (!r.user) redirect('/login');
-  if (!r.esAdmin) notFound();
+  if (!r.esAdmin) {
+    await avisarIntento(r.user, 'admin_acceso_denegado', 'pagina');
+    notFound();
+  }
   return { user: r.user, aal2: r.aal2 };
 }
 
@@ -39,6 +60,9 @@ export async function adminParaApi():
   Promise<{ ok: true; user: User } | { ok: false; respuesta: NextResponse }> {
   const r = await comprobar();
   if (!r.user) return { ok: false, respuesta: NextResponse.json({ error: 'No autenticado' }, { status: 401 }) };
-  if (!r.esAdmin || !r.aal2) return { ok: false, respuesta: NextResponse.json({ error: 'No autorizado' }, { status: 403 }) };
+  if (!r.esAdmin || !r.aal2) {
+    await avisarIntento(r.user, r.esAdmin ? 'admin_sin_2fa' : 'admin_acceso_denegado', 'api');
+    return { ok: false, respuesta: NextResponse.json({ error: 'No autorizado' }, { status: 403 }) };
+  }
   return { ok: true, user: r.user };
 }

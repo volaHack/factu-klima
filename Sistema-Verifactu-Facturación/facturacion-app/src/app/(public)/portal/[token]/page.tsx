@@ -13,6 +13,7 @@ import { headers } from 'next/headers';
 import { CheckCircle2, FileText, Landmark, Mail, Phone } from 'lucide-react';
 import { leerPortal } from '@/lib/portal/servidor';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { avisar } from '@/lib/seguridad/eventos';
 import { formatCurrency } from '@/lib/utils';
 import { BotonCopiar, BotonPagar } from '@/components/portal/BotonesPortal';
 
@@ -39,6 +40,7 @@ export default async function PortalPage({ params, searchParams }: {
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'desconocida';
   const permitido = await checkRateLimit(`portal:${ip}`, 120, 3600);
   const portal = permitido ? await leerPortal(token) : null;
+  if (permitido && !portal) avisar({ tipo: 'token_invalido', gravedad: 'media', ip, ruta: '/portal', navegador: h.get('user-agent'), detalle: { portal: 'portal del cliente' } });
 
   if (!portal) {
     return (

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
+import { cronAutorizado } from '@/lib/seguridad/secretos';
 import { enviarPendientes } from '@/lib/verifactu/enviarPendientes';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +8,7 @@ export const maxDuration = 120;
 
 /** Vercel Cron la llama con `Authorization: Bearer $CRON_SECRET`. */
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   const db = supabaseServicio();

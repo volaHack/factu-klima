@@ -1,4 +1,5 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { avisar } from '@/lib/seguridad/eventos';
 
 export function clientIpFromRequest(request: Request): string {
   const headers = request.headers;
@@ -45,5 +46,9 @@ export async function checkRateLimit(
     return true;
   }
 
+  if (data !== true) {
+    // Un límite superado una vez es un despiste; muchos, alguien probando a lo bruto.
+    avisar({ tipo: 'limite_superado', gravedad: 'baja', ip: /:(\d{1,3}\.){3}\d{1,3}$|:[0-9a-f:]+$/i.test(key) ? key.split(':').slice(1).join(':') : null, detalle: { clave: key.split(':')[0], limite: maxHits, segundos: windowSeconds } });
+  }
   return data === true;
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { decryptString } from '@/lib/encryption';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 
 /**
  * Webhook de Stripe específico para inquilinos (tenants).
@@ -56,6 +57,7 @@ export async function POST(
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     console.error(`Firma de webhook inválida para tenant ${userId}:`, err instanceof Error ? err.message : err);
+    avisar({ tipo: 'firma_webhook_invalida', gravedad: 'alta', ...origenDe(request), userId, detalle: { webhook: 'empresa' } });
     return NextResponse.json({ error: 'Firma inválida' }, { status: 400 });
   }
 
@@ -88,6 +90,7 @@ export async function POST(
         
       if (!invoice || invoice.user_id !== userId) {
         console.error(`Webhook: intento de pagar factura ${invoiceId} que no pertenece al tenant ${userId}`);
+        avisar({ tipo: 'pago_factura_ajena', gravedad: 'alta', ...origenDe(request), userId, detalle: { invoiceId } });
         return NextResponse.json({ received: true, ignored: 'factura no pertenece a este inquilino' });
       }
 

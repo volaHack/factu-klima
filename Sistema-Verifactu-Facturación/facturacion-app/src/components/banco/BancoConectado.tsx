@@ -46,6 +46,9 @@ export default function BancoConectado({ onExtracto, avisar }: {
     if (vuelta) {
       if (vuelta === 'conectado') avisar('ok', 'Banco conectado', 'Ya puedes traer los movimientos.');
       else if (vuelta === 'cancelado') avisar('error', 'No se ha conectado', 'Se canceló el permiso en la web del banco.');
+      else if (vuelta === 'otra_cuenta' || vuelta === 'sin_sesion') {
+        avisar('error', 'No se ha conectado', 'La conexión con el banco se empezó desde otra cuenta. Hazla desde aquí, con tu sesión abierta.');
+      }
       else avisar('error', 'No se ha podido conectar el banco', 'Inténtalo otra vez en un momento.');
       window.history.replaceState(null, '', window.location.pathname);
     }

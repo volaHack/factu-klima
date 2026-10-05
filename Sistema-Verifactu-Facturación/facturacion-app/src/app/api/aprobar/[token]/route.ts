@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 import {
   mapInvoiceFromDb, mapSettingsFromDb, mapApprovalFromDb,
 } from '@/lib/storage';
@@ -44,6 +45,7 @@ export async function GET(
     .single();
 
   if (!approvalRow) {
+    avisar({ tipo: 'token_invalido', gravedad: 'media', ...origenDe(request), detalle: { portal: 'aprobación' } });
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
@@ -62,15 +64,29 @@ export async function GET(
   const { data: settingsRow } = await admin
     .from('company_settings').select('*').eq('user_id', invRow.user_id).limit(1).single();
 
+  // Quien abre el enlace es el cliente (o cualquiera a quien se lo reenvíe):
+  // ve el pedido y quién lo emite, nada más. Ni el coste de cada línea (el
+  // margen del negocio) ni sus tarifas, series, almacenes o ajustes fiscales.
+  const invoice = mapInvoiceFromDb(invRow, lineItemsRows || [], taxBreakdownRows || []);
+  const s = settingsRow ? mapSettingsFromDb(settingsRow) : null;
   return NextResponse.json({
     approval: mapApprovalFromDb(approvalRow),
-    invoice: mapInvoiceFromDb(invRow, lineItemsRows || [], taxBreakdownRows || []),
+    invoice: {
+      ...invoice,
+      lineItems: invoice.lineItems.map(({ costPrice: _coste, customCols: _cols, ...l }) => { void _coste; void _cols; return l; }),
+      vendedorId: undefined, tarifaId: undefined, almacenId: undefined, obraId: undefined, posSessionId: undefined,
+      stripeSessionId: undefined, paymentRecordIds: undefined, datosExtras: undefined,
+    },
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     items: (itemsRows || []).map((i: any) => ({
       id: i.id, approvalId: i.approval_id, lineItemId: i.line_item_id,
       accepted: i.accepted, adjustedQuantity: i.adjusted_quantity ? Number(i.adjusted_quantity) : null,
       rejectionReason: i.rejection_reason || '',
     })),
-    companySettings: settingsRow ? mapSettingsFromDb(settingsRow) : null,
+    companySettings: s ? {
+      businessName: s.businessName, tradeName: s.tradeName, nif: s.nif, address: s.address, city: s.city,
+      postalCode: s.postalCode, province: s.province, email: s.email, phone: s.phone, website: s.website,
+      logoUrl: s.logoUrl, stripeEnabled: s.stripeEnabled, igicEnabled: s.igicEnabled,
+    } : null,
   });
 }

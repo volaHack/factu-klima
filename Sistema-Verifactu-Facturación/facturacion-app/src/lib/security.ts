@@ -8,5 +8,8 @@ export function isSafeRedirectPath(path: unknown): path is string {
   if (!path.startsWith('/')) return false;
   if (path.startsWith('//')) return false; // protocol-relative URL
   if (path.startsWith('/\\')) return false; // algunos navegadores tratan \ como /
+  // El navegador quita tabuladores y saltos de línea de una dirección:
+  // «/\t/otro.com» acabaría siendo «//otro.com», otra web.
+  if (/[\u0000-\u001f\u007f]/.test(path)) return false;
   return true;
 }
