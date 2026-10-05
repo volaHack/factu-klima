@@ -39,6 +39,21 @@ describe('leerCorreoPostmark', () => {
     expect(c.descartados).toBe(3);
   });
 
+  it('acepta facturas electrónicas aunque pesen poco o lleguen con cualquier tipo', () => {
+    const xml = Buffer.from('<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"/>').toString('base64');
+    const c = leerCorreoPostmark({
+      MailboxHash: CLAVE,
+      Attachments: [
+        { Name: 'F-77.xml', Content: xml, ContentType: 'application/octet-stream', ContentLength: 900 },
+        { Name: 'F-78.xsig', Content: xml, ContentType: 'application/octet-stream', ContentLength: 900 },
+        { Name: 'F-79.edi', Content: xml, ContentType: 'application/octet-stream', ContentLength: 900 },
+        { Name: 'leeme.txt', Content: xml, ContentType: 'text/plain', ContentLength: 900 },
+      ],
+    });
+    expect(c.adjuntos.map(a => a.mime)).toEqual(['application/xml', 'application/xml', 'text/plain']);
+    expect(c.descartados).toBe(1);
+  });
+
   it('una clave con otra forma no vale', () => {
     expect(leerCorreoPostmark({ MailboxHash: 'corta' }).clave).toBeNull();
   });

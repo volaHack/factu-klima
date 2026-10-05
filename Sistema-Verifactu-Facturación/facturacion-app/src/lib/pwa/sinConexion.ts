@@ -14,7 +14,7 @@ export const RUTAS_SIN_CONEXION = [
   '/dashboard', '/tpv', '/facturas', '/facturas/nueva', '/albaranes', '/albaranes/nueva',
   '/clientes', '/productos', '/documentos', '/documentos/nuevo', '/devoluciones', '/gastos', '/tesoreria',
   '/asistencia', '/ofertas', '/almacenes', '/lotes', '/obras', '/ordenes-trabajo',
-  '/rutas-reparto', '/informes', '/listados', '/verifactu', '/ajustes', '/importar',
+  '/rutas-reparto', '/informes', '/listados', '/verifactu', '/factura-electronica', '/ajustes', '/importar',
 ];
 
 const CLAVE = 'klima-precalentado';

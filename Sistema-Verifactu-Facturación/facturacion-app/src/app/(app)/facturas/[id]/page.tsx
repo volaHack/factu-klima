@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import EnlacePortal from '@/components/portal/EnlacePortal';
 import BotonFacturae from '@/components/facturae/BotonFacturae';
+import TarjetaFacturaElectronica from '@/components/facturaElectronica/TarjetaFacturaElectronica';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -606,6 +607,8 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
           )}
+
+          {sealed && ['factura', 'rectificativa', undefined].includes(invoice.tipo) && <TarjetaFacturaElectronica factura={invoice} />}
 
           {/* Info Card */}
           <div className="card detalle-registro">

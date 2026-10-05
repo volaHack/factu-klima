@@ -18,6 +18,7 @@ import { PAYMENT_METHODS, PROVINCES, PAISES_SELECTOR, esPaisUeNoEspana } from '@
 import ComprobacionIdentidad, { problemasDeFicha } from '@/components/clientes/ComprobacionIdentidad';
 import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identidad';
 import { useToast } from '@/hooks/useToast';
+import { NOMBRE_TIPO_FISCAL, tipoFiscalDe } from '@/lib/facturaElectronica/ambito';
 
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
@@ -53,6 +54,7 @@ export default function ClientesPage() {
     tarifaId: '',
     defaultDiscounts: [0, 0, 0] as [number, number, number],
     dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
+    tipoFiscal: '' as '' | NonNullable<Client['tipoFiscal']>,
   });
 
   useEffect(() => {
@@ -229,6 +231,7 @@ export default function ClientesPage() {
       tarifaId: '',
       defaultDiscounts: [0, 0, 0],
       dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
+      tipoFiscal: '',
     });
     setShowModal(true);
   };
@@ -252,6 +255,7 @@ export default function ClientesPage() {
         organoGestor: client.dir3?.organoGestor || '',
         unidadTramitadora: client.dir3?.unidadTramitadora || '',
       },
+      tipoFiscal: client.tipoFiscal ?? '',
     });
     setShowModal(true);
   };
@@ -276,6 +280,7 @@ export default function ClientesPage() {
       tarifaId: form.tarifaId || undefined,
       defaultDiscounts: form.defaultDiscounts,
       dir3: limpiarDir3(form.dir3),
+      tipoFiscal: form.tipoFiscal || undefined,
       createdAt: editingClient?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -688,6 +693,21 @@ export default function ClientesPage() {
                   </div>
                 )}
               </div>
+
+              {!form.esProveedor && (
+                <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
+                  <label className="form-label" htmlFor="cliente-tipo-fiscal">Tipo de cliente</label>
+                  <select id="cliente-tipo-fiscal" className="form-select" value={form.tipoFiscal}
+                    onChange={e => updateForm('tipoFiscal', e.target.value as typeof form.tipoFiscal)}>
+                    <option value="">Según el NIF ({NOMBRE_TIPO_FISCAL[tipoFiscalDe({ nif: form.nif, dir3: form.dir3 })].toLowerCase()})</option>
+                    {(Object.keys(NOMBRE_TIPO_FISCAL) as (keyof typeof NOMBRE_TIPO_FISCAL)[]).map(t => <option key={t} value={t}>{NOMBRE_TIPO_FISCAL[t]}</option>)}
+                  </select>
+                  <p className="form-hint">
+                    A empresas y autónomos se les factura con factura electrónica (obligatoria entre empresas). Con un DNI no se puede saber si es
+                    un particular o un autónomo: si es autónomo, márcalo aquí.
+                  </p>
+                </div>
+              )}
 
               <details style={{ marginTop: 'var(--space-3)' }} open={Boolean(form.dir3.oficinaContable || form.dir3.organoGestor || form.dir3.unidadTramitadora)}>
                 <summary style={{ cursor: 'pointer', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>

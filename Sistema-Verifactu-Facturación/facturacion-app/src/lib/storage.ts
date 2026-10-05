@@ -488,6 +488,10 @@ export async function anotarCobroEnFactura(
   } catch {
     await encolar();
   }
+  if (cobro.status === InvoiceStatus.PAGADA) {
+    const fecha = (cobro.paidDate || new Date().toISOString()).slice(0, 10);
+    void import('./facturaElectronica/almacen').then(m => m.comunicarCobroSiProcede(factura.id, fecha, factura.total)).catch(() => {});
+  }
 }
 
 export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
@@ -684,6 +688,9 @@ export async function issueInvoice(invoice: Invoice): Promise<Invoice> {
     documentoId: emitida.id,
     detalle: `${emitida.number} · ${formatearEuros(emitida.total)}`,
   });
+  // La factura electrónica (si el cliente es empresa o autónomo) va detrás y
+  // no espera: si no se puede generar ahora, la factura queda emitida igual.
+  void import('./facturaElectronica/almacen').then(m => m.prepararAlEmitir(emitida)).catch(() => {});
   return emitida;
 }
 
@@ -756,6 +763,7 @@ export async function cancelInvoice(id: string, reason: string): Promise<void> {
     .eq('id', id);
 
   if (error) throw new Error(translateDbError(error));
+  void import('./facturaElectronica/almacen').then(m => m.comunicarAnulacion(id, reason.trim())).catch(() => {});
   await refreshInvoicesFromSupabase();
   notifyDataUpdate('invoices');
 }
@@ -990,6 +998,7 @@ export async function saveClient(client: Client): Promise<void> {
     ruta_id: client.rutaId || null,
     vat_number: client.vatNumber || null,
     dir3: client.dir3 && (client.dir3.oficinaContable || client.dir3.organoGestor || client.dir3.unidadTramitadora) ? client.dir3 : null,
+    tipo_fiscal: client.tipoFiscal ?? null,
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -3078,6 +3087,7 @@ export async function saveCompanySettings(
     modulos: settings.modulos ?? null,
     panel: settings.panel ?? null,
     comision_base: settings.comisionBase ?? 'facturado',
+    factura_electronica: settings.facturaElectronica ?? null,
     // plan_id, subscription_plan y subscription_status ya no se escriben
     // desde el navegador: viven en `suscripciones` (migración 040).
   };
@@ -3422,6 +3432,7 @@ export function mapClientFromDb(c: any): Client {
     tarifaId: c.tarifa_id || undefined,
     vatNumber: c.vat_number || undefined,
     dir3: c.dir3 && typeof c.dir3 === 'object' ? c.dir3 : undefined,
+    tipoFiscal: ['empresa', 'autonomo', 'particular', 'administracion'].includes(c.tipo_fiscal) ? c.tipo_fiscal : undefined,
     defaultDiscounts: Array.isArray(c.default_discounts)
       ? [Number(c.default_discounts[0] ?? 0), Number(c.default_discounts[1] ?? 0), Number(c.default_discounts[2] ?? 0)]
       : undefined,
@@ -3539,6 +3550,7 @@ export function mapSettingsFromDb(s: any): CompanySettings {
     modulos: Array.isArray(s.modulos) ? s.modulos : undefined,
     panel: Array.isArray(s.panel) ? s.panel : undefined,
     comisionBase: s.comision_base === 'cobrado' ? 'cobrado' : 'facturado',
+    facturaElectronica: s.factura_electronica && typeof s.factura_electronica === 'object' ? s.factura_electronica : undefined,
     planId: s.plan_id || s.planId || 'basico',
     subscriptionStatus: s.subscription_status || s.subscriptionStatus || 'inactive',
     customCategories: Array.isArray(s.custom_categories)

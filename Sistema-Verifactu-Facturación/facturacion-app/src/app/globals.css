@@ -14858,3 +14858,53 @@ body {
 @media (max-width: 380px) {
   .gestion-empresas-acciones .btn-texto { display: none; }
 }
+
+/* ============================================================
+   FACTURA ELECTRÓNICA ENTRE EMPRESAS
+   ============================================================ */
+.fe-estado.is-generada { background: var(--color-neutral-bg); color: var(--color-neutral); }
+.fe-estado.is-enviada, .fe-estado.is-recibida { background: var(--color-info-bg); color: var(--color-info); }
+.fe-estado.is-aceptada, .fe-estado.is-pagada { background: var(--color-success-bg); color: var(--color-success); }
+.fe-estado.is-error, .fe-estado.is-rechazada, .fe-estado.is-impagada { background: var(--color-danger-bg); color: var(--color-danger); }
+.fe-estado.is-anulada { background: rgba(113, 113, 122, 0.08); color: var(--text-muted); text-decoration: line-through; }
+
+.fe-tarjeta { display: flex; flex-direction: column; gap: var(--space-3); }
+.fe-tarjeta-titulo { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); margin: 0; }
+.fe-tarjeta-titulo .badge { margin-left: auto; }
+.fe-tarjeta-texto { margin: 0; line-height: 1.5; }
+.fe-tarjeta-datos { display: grid; gap: 6px; margin: 0; font-size: var(--text-sm); }
+.fe-tarjeta-datos div { display: flex; justify-content: space-between; gap: var(--space-3); }
+.fe-tarjeta-datos dt { color: var(--text-tertiary); }
+.fe-tarjeta-datos dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.fe-tarjeta-motivo { margin: 0; font-size: var(--text-sm); color: var(--color-danger); }
+.fe-tarjeta-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.fe-tarjeta-enlace { font-size: var(--text-xs); color: var(--accent-400); }
+.fe-historial { list-style: none; margin: 0; padding: var(--space-2) 0 0; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 6px; }
+.fe-historial li { display: flex; flex-direction: column; font-size: var(--text-sm); }
+.fe-historial small { color: var(--text-muted); font-size: var(--text-xs); }
+
+.fe-pagina { display: flex; flex-direction: column; gap: var(--space-4); }
+.fe-pagina .tabs { margin-bottom: 0; }
+.fe-tareas .card-title { font-size: var(--text-sm); margin-bottom: var(--space-3); }
+.fe-tareas ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.fe-tareas li { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-tertiary); font-size: var(--text-sm); }
+.fe-tareas li > svg { flex-shrink: 0; color: var(--text-muted); }
+.fe-tareas li.is-urgente > svg { color: var(--color-warning); }
+.fe-tareas li > span:nth-of-type(1) { flex: 1; min-width: 0; }
+.fe-tareas-acciones { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.fe-tabla td { vertical-align: top; }
+.fe-sub { display: block; color: var(--text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.fe-acciones { white-space: nowrap; text-align: right; }
+.fe-vacio { display: flex; align-items: center; gap: var(--space-2); color: var(--text-tertiary); font-size: var(--text-sm); line-height: 1.6; }
+.fe-faltan-cabeza { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.fe-faltan-cabeza p { margin: 0; flex: 1; min-width: 240px; }
+.fe-dialogo { display: flex; flex-direction: column; gap: var(--space-3); }
+.fe-dialogo .form-label { display: flex; flex-direction: column; gap: 6px; }
+.fe-aviso { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-warning); font-size: var(--text-sm); }
+@media (max-width: 640px) {
+  .fe-tareas li { flex-wrap: wrap; }
+  .fe-tareas-acciones { width: 100%; justify-content: flex-end; }
+  .fe-acciones { white-space: normal; }
+}
+.buzon-partes { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-sm); }
+.buzon-partes small { color: var(--text-muted); font-size: var(--text-xs); }

@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { leerCorreoPostmark } from '@/lib/buzon/correo';
+import { pareceFacturaElectronica } from '@/lib/facturaElectronica/leer';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -34,6 +35,12 @@ export async function POST(request: Request) {
   let json: unknown;
   try { json = await request.json(); } catch { return NextResponse.json({ error: 'JSON no válido' }, { status: 400 }); }
   const correo = leerCorreoPostmark(json);
+  // Un XML o un .edi sólo se guarda si de verdad es una factura electrónica
+  // (los correos traen otros XML: metadatos, acuses de recibo…).
+  const antes = correo.adjuntos.length;
+  correo.adjuntos = correo.adjuntos.filter(a => (a.mime !== 'application/xml' && a.mime !== 'text/plain')
+    || !!pareceFacturaElectronica(Buffer.from(a.contenido, 'base64').toString('latin1')));
+  correo.descartados += antes - correo.adjuntos.length;
   if (!correo.clave || correo.adjuntos.length === 0) {
     return NextResponse.json({ ok: true, guardados: 0, descartados: correo.descartados });
   }

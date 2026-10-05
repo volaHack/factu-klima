@@ -32,6 +32,7 @@
     "@pdfme/schemas": "^6.1.12",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0",
+    "fast-xml-parser": "^5.11.2",
     "lucide-react": "^1.27.0",
     "motion": "^12.4.7",
     "next": "^16.3.4",

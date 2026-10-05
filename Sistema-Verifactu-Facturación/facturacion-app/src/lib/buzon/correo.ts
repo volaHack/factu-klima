@@ -5,14 +5,15 @@
  * webhook como JSON. Cada cuenta tiene su dirección con «+clave»:
  *   abc123+CLAVEDELACUENTA@inbound.postmarkapp.com
  * Postmark deja la parte de después del «+» en `MailboxHash`. De cada
- * correo sólo interesan los adjuntos que son una factura: PDF o foto.
+ * correo sólo interesan los adjuntos que son una factura: PDF, foto o
+ * factura electrónica (XML de UBL, Facturae o CII, y EDIFACT).
  *
  * Campos que se usan del JSON de Postmark: `MailboxHash`, `ToFull[].Email`,
  * `FromFull.Email`, `From`, `Subject` y `Attachments[]` con `Name`,
  * `Content` (base64), `ContentType` y `ContentLength`.
  */
 
-export const TIPOS_ADMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+export const TIPOS_ADMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/xml', 'text/plain'] as const;
 export type TipoAdmitido = (typeof TIPOS_ADMITIDOS)[number];
 
 /** Un adjunto de más de ~10 MB no es una factura (y no cabe en la bandeja). */
@@ -33,9 +34,14 @@ const claveValida = (c: string) => /^[A-Za-z0-9_-]{16,64}$/.test(c);
 /** El tipo de verdad: algunos correos mandan los PDF como «application/octet-stream». */
 function tipoDe(nombre: string, contentType: string): TipoAdmitido | null {
   const ct = contentType.toLowerCase().split(';')[0].trim();
+  const ext = nombre.toLowerCase().split('.').pop() ?? '';
+  // Factura electrónica: por la extensión, porque los correos la mandan con
+  // cualquier tipo. Un texto suelto (el cuerpo de un correo) no lo es.
+  if (ext === 'xml' || ext === 'xsig' || ct === 'text/xml' || ct === 'application/xml') return 'application/xml';
+  if (ext === 'edi' || ext === 'edifact') return 'text/plain';
+  if (ct === 'text/plain') return null;
   if ((TIPOS_ADMITIDOS as readonly string[]).includes(ct)) return ct as TipoAdmitido;
   if (ct === 'image/jpg') return 'image/jpeg';
-  const ext = nombre.toLowerCase().split('.').pop() ?? '';
   if (ext === 'pdf') return 'application/pdf';
   if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
   if (ext === 'png') return 'image/png';
@@ -61,7 +67,7 @@ export function leerCorreoPostmark(json: any): CorreoEntrante {
     const contenido = typeof a?.Content === 'string' ? a.Content.replace(/\s/g, '') : '';
     const bytes = Number(a?.ContentLength) || Math.floor(contenido.length * 0.75);
     // Los logos de las firmas del correo son imágenes pequeñas: no son facturas.
-    const logoDeFirma = mime !== 'application/pdf' && bytes < 15_000;
+    const logoDeFirma = !!mime && mime.startsWith('image/') && bytes < 15_000;
     if (!mime || !contenido || bytes > MAXIMO_BYTES || logoDeFirma) { descartados++; continue; }
     adjuntos.push({ nombre, mime, contenido });
   }
