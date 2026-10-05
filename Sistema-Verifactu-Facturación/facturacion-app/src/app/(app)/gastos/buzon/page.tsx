@@ -7,11 +7,16 @@
  * fotos de golpe (las del mes, por ejemplo) o reenviándolas al correo del
  * buzón. Cada una la lee la IA y queda rellena para revisar; con «Guardar»
  * pasa a Gastos. Nada se guarda sin que una persona lo vea.
+ *
+ * Las facturas electrónicas (UBL, Facturae, CII o EDIFACT) no pasan por la
+ * IA: los datos vienen escritos por el proveedor y se leen tal cual. Al
+ * guardarlas se conserva el fichero original (obligatorio) y queda lista
+ * para comunicar la aceptación y el pago en Factura electrónica.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, Copy, ExternalLink, FileText, Inbox, Loader2, Mail, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Copy, ExternalLink, FileCode2, FileText, Inbox, Loader2, Mail, Trash2, Upload } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useToast } from '@/hooks/useToast';
 import {
@@ -20,6 +25,10 @@ import {
 import { CATEGORIAS_GASTO, calcularGasto, gastoVacio } from '@/lib/gastos';
 import { blobDesdeBase64, imagenParaLeer, leerFactura } from '@/lib/buzon/leer';
 import type { Client, Gasto, GastoCategoria } from '@/lib/types';
+import {
+  decodificarFichero, leerFacturaElectronica, partesPorTipo, pareceFacturaElectronica, type FacturaLeida,
+} from '@/lib/facturaElectronica/leer';
+import { guardarFacturaRecibida, vincularGastos, yaRecibida } from '@/lib/facturaElectronica/almacen';
 import { formatCurrency, generateId } from '@/lib/utils';
 
 interface Datos {
@@ -33,6 +42,8 @@ interface Datos {
   tipo: number;
   cuota: number;
   total: number;
+  /** Factura electrónica con varios tipos de IVA: sale un gasto por tipo. */
+  partes?: { tipo: number; base: number; cuota: number; total: number }[];
 }
 
 interface Elemento {
@@ -48,9 +59,14 @@ interface Elemento {
   error?: string;
   datos?: Datos;
   avisos: string[];
+  /** Si es una factura electrónica: lo leído y el fichero tal cual (se conserva). */
+  electronica?: { leida: FacturaLeida; contenido: string };
 }
 
 const ADMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+/** Ficheros de factura electrónica: XML (UBL, Facturae, CII), Facturae firmada (.xsig) y EDIFACT. */
+const ES_ELECTRONICA = (nombre: string, mime: string) =>
+  /\.(xml|xsig|edi|edifact)$/i.test(nombre) || ['application/xml', 'text/xml', 'text/plain'].includes(mime);
 const hoy = () => new Date().toISOString().slice(0, 10);
 
 export default function BuzonPage() {
@@ -60,6 +76,7 @@ export default function BuzonPage() {
   const [elementos, setElementos] = useState<Elemento[]>([]);
   const [proveedores, setProveedores] = useState<Client[]>([]);
   const [igic, setIgic] = useState(false);
+  const [nifPropio, setNifPropio] = useState('');
   const [direccion, setDireccion] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
@@ -74,6 +91,7 @@ export default function BuzonPage() {
       if (!vivo) return;
       setProveedores(provs);
       setIgic(!!ajustes?.igicEnabled);
+      setNifPropio((ajustes?.nif ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^ES(?=[A-Z0-9]{9}$)/, ''));
       setDireccion(dir?.disponible ? dir.direccion : null);
       setElementos(docs.map(d => ({
         clave: d.id, origen: 'correo', docId: d.id, nombre: d.nombre, mime: d.mime, remitente: d.remitente, asunto: d.asunto,
@@ -104,7 +122,44 @@ export default function BuzonPage() {
     queueMicrotask(() => cambiar(e.clave, { estado: 'leyendo' }));
     (async () => {
       try {
-        const imagen = await imagenParaLeer(await ficheroDe(e), e.nombre);
+        const fichero = await ficheroDe(e);
+        if (ES_ELECTRONICA(e.nombre, e.mime) || e.mime === 'application/octet-stream') {
+          const contenido = decodificarFichero(new Uint8Array(await fichero.arrayBuffer()));
+          if (pareceFacturaElectronica(contenido)) {
+            const leidas = leerFacturaElectronica(contenido);
+            const elementos = await Promise.all(leidas.map(async (leida, i) => {
+              const avisos = [...leida.avisos];
+              if (leida.receptor.nif && nifPropio && leida.receptor.nif !== nifPropio) avisos.push(`Va dirigida a otro NIF (${leida.receptor.nif}), no al tuyo.`);
+              if (await yaRecibida(leida).catch(() => false)) avisos.push('Esta factura ya la tienes guardada.');
+              const partes = partesPorTipo(leida);
+              const prov = proveedores.find(p => leida.emisor.nif && p.nif?.toUpperCase().replace(/[^A-Z0-9]/g, '') === leida.emisor.nif);
+              const signo = leida.tipo === 'abono' ? -1 : 1;
+              const datos: Datos = {
+                fecha: leida.fecha || hoy(), proveedorId: prov?.id, proveedorNombre: prov?.businessName ?? leida.emisor.nombre, nif: leida.emisor.nif,
+                concepto: `${leida.tipo === 'abono' ? 'Abono' : 'Factura'} ${leida.numero}${leida.lineas[0] ? ` · ${leida.lineas[0].descripcion}` : ''}`.slice(0, 120),
+                categoria: 'material',
+                base: partes.length === 1 ? partes[0].base : Math.round(leida.base * signo * 100) / 100,
+                tipo: partes.length === 1 ? partes[0].tipo : 0,
+                cuota: Math.round(leida.cuota * signo * 100) / 100,
+                total: Math.round(leida.total * signo * 100) / 100,
+                partes: partes.length > 1 ? partes : undefined,
+              };
+              return { leida, avisos, datos, i };
+            }));
+            const [primero, ...resto] = elementos;
+            cambiar(e.clave, { estado: 'listo', avisos: primero.avisos, datos: primero.datos, electronica: { leida: primero.leida, contenido } });
+            if (resto.length) {
+              setElementos(l => [...resto.map(r => ({
+                clave: `${e.clave}-${r.i}`, origen: e.origen, docId: e.docId, nombre: `${e.nombre} (${r.i + 1}/${elementos.length})`, mime: e.mime,
+                remitente: e.remitente, asunto: e.asunto, fichero, estado: 'listo' as const, avisos: r.avisos, datos: r.datos,
+                electronica: { leida: r.leida, contenido },
+              })), ...l]);
+            }
+            return;
+          }
+          if (ES_ELECTRONICA(e.nombre, e.mime)) throw new Error('No es una factura electrónica que se pueda leer (UBL, Facturae, CII o EDIFACT).');
+        }
+        const imagen = await imagenParaLeer(fichero, e.nombre);
         const t = await leerFactura(imagen, igic);
         const nombre = (t.proveedor ?? '').toLowerCase();
         const prov = proveedores.find(p => t.nif && p.nif?.toUpperCase() === t.nif)
@@ -122,7 +177,7 @@ export default function BuzonPage() {
         cambiar(e.clave, { estado: 'error', error: err instanceof Error ? err.message : 'No se ha podido leer.' });
       }
     })();
-  }, [cargado, siguiente, hayLeyendo, igic, proveedores, cambiar, ficheroDe]);
+  }, [cargado, siguiente, hayLeyendo, igic, nifPropio, proveedores, cambiar, ficheroDe]);
 
   const añadir = (ficheros: FileList | null) => {
     if (!ficheros?.length) return;
@@ -130,10 +185,12 @@ export default function BuzonPage() {
     let raros = 0;
     for (const f of Array.from(ficheros)) {
       const esPdf = /\.pdf$/i.test(f.name);
-      if (!ADMITIDOS.includes(f.type) && !esPdf) { raros++; continue; }
-      nuevos.push({ clave: generateId(), origen: 'subido', nombre: f.name, mime: f.type || 'application/pdf', fichero: f, estado: 'esperando', avisos: [] });
+      const electronica = ES_ELECTRONICA(f.name, f.type);
+      if (!ADMITIDOS.includes(f.type) && !esPdf && !electronica) { raros++; continue; }
+      const mime = electronica ? (/\.edi(fact)?$/i.test(f.name) ? 'text/plain' : 'application/xml') : f.type || 'application/pdf';
+      nuevos.push({ clave: generateId(), origen: 'subido', nombre: f.name, mime, fichero: f, estado: 'esperando', avisos: [] });
     }
-    if (raros) toastError(`${raros} ${raros === 1 ? 'fichero no es' : 'ficheros no son'} PDF ni foto`, 'Se han dejado fuera.');
+    if (raros) toastError(`${raros} ${raros === 1 ? 'fichero no es' : 'ficheros no son'} PDF, foto ni factura electrónica`, 'Se han dejado fuera.');
     setElementos(l => [...nuevos, ...l]);
   };
 
@@ -153,16 +210,23 @@ export default function BuzonPage() {
     cambiar(e.clave, { estado: 'guardando' });
     try {
       const ahora = new Date().toISOString();
-      const gasto: Gasto = {
+      // Primero el fichero de la factura electrónica: si ya estaba guardada, no se duplica el gasto.
+      const fe = e.electronica ? await guardarFacturaRecibida(e.electronica.leida, e.electronica.contenido, []) : null;
+      const origen = e.origen === 'correo' ? `Recibida por correo${e.remitente ? ` de ${e.remitente}` : ''}` : `Desde ${e.nombre}`;
+      const partes = d.partes ?? [{ tipo: d.tipo, base: d.base, cuota: d.cuota, total: d.total }];
+      const gastos: Gasto[] = partes.map(p => ({
         ...gastoVacio(d.fecha),
         id: generateId(), createdAt: ahora, updatedAt: ahora,
-        concepto: d.concepto.trim(), categoria: d.categoria,
+        concepto: (partes.length > 1 ? `${d.concepto.trim()} (${igic ? 'IGIC' : 'IVA'} ${p.tipo} %)` : d.concepto.trim()).slice(0, 160),
+        categoria: d.categoria,
         proveedorId: d.proveedorId, proveedorNombre: d.proveedorNombre || undefined,
-        baseImponible: d.base, taxRate: d.tipo, taxAmount: d.cuota, total: d.total,
-        notas: [e.origen === 'correo' ? `Recibida por correo${e.remitente ? ` de ${e.remitente}` : ''}` : `Desde ${e.nombre}`,
+        baseImponible: p.base, taxRate: p.tipo, taxAmount: p.cuota, total: p.total,
+        notas: [e.electronica ? `Factura electrónica ${e.electronica.leida.formato.toUpperCase()} n.º ${e.electronica.leida.numero}` : '', origen,
           d.nif && !d.proveedorId ? `NIF del proveedor: ${d.nif}` : ''].filter(Boolean).join('. '),
-      };
-      await saveGasto(gasto);
+      }));
+      for (const g of gastos) await saveGasto(g);
+      if (fe) await vincularGastos(fe.id, gastos.map(g => g.id)).catch(() => {});
+      const gasto = gastos[0];
       if (e.docId) await marcarBuzon(e.docId, 'procesado', gasto.id);
       cambiar(e.clave, { estado: 'guardado' });
       return true;
@@ -200,8 +264,8 @@ export default function BuzonPage() {
           <Link href="/gastos" className="page-back"><ArrowLeft size={16} /> Gastos</Link>
           <h1 className="page-title">Facturas de proveedores</h1>
           <p className="page-subtitle">
-            Arrastra aquí las facturas de gasto (PDF o foto) o reenvíalas al correo del buzón. Se leen solas y
-            las revisas antes de guardarlas.
+            Arrastra aquí las facturas de gasto (PDF, foto o factura electrónica) o reenvíalas al correo del buzón. Se leen
+            solas y las revisas antes de guardarlas.
           </p>
         </div>
         {listos > 1 && (
@@ -225,7 +289,7 @@ export default function BuzonPage() {
         </section>
       )}
 
-      <input ref={entrada} type="file" hidden multiple accept="application/pdf,.pdf,image/jpeg,image/png,image/webp"
+      <input ref={entrada} type="file" hidden multiple accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,.xml,.xsig,.edi,application/xml,text/xml"
         onChange={ev => { añadir(ev.target.files); ev.target.value = ''; }} />
       <div
         className={`card buzon-soltar ${arrastrando ? 'is-encima' : ''}`}
@@ -234,7 +298,7 @@ export default function BuzonPage() {
         onDrop={ev => { ev.preventDefault(); setArrastrando(false); añadir(ev.dataTransfer.files); }}
       >
         <Upload size={26} strokeWidth={1.6} aria-hidden="true" />
-        <p><strong>Suelta aquí las facturas</strong>, todas a la vez si quieres.</p>
+        <p><strong>Suelta aquí las facturas</strong>, todas a la vez si quieres. También las electrónicas (XML de UBL, Facturae o CII, y EDIFACT).</p>
         <button type="button" className="btn btn-secondary" onClick={() => entrada.current?.click()}><Upload size={16} /> Elegir ficheros</button>
       </div>
 
@@ -245,10 +309,13 @@ export default function BuzonPage() {
           {pendientes.map(e => (
             <li key={e.clave} className={`card buzon-item is-${e.estado}`}>
               <div className="buzon-item-cabeza">
-                <FileText size={18} aria-hidden="true" />
+                {e.electronica ? <FileCode2 size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
                 <span className="buzon-item-nombre">
                   <strong>{e.nombre}</strong>
-                  <small>{e.origen === 'correo' ? `Por correo${e.remitente ? ` · ${e.remitente}` : ''}${e.asunto ? ` · ${e.asunto}` : ''}` : 'Subida ahora'}</small>
+                  <small>
+                    {e.electronica ? `Factura electrónica ${e.electronica.leida.formato.toUpperCase()} · ` : ''}
+                    {e.origen === 'correo' ? `Por correo${e.remitente ? ` · ${e.remitente}` : ''}${e.asunto ? ` · ${e.asunto}` : ''}` : 'Subida ahora'}
+                  </small>
                 </span>
                 <span className="buzon-item-estado">
                   {e.estado === 'esperando' && 'En cola'}
@@ -280,9 +347,20 @@ export default function BuzonPage() {
                         {CATEGORIAS_GASTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
                     </label>
-                    <label>Base<input type="number" step="0.01" className="form-input" value={e.datos.base} onChange={v => cambiarDatos(e, { base: Number(v.target.value) || 0 })} /></label>
-                    <label>{igic ? 'IGIC' : 'IVA'} %<input type="number" step="0.5" className="form-input" value={e.datos.tipo} onChange={v => cambiarDatos(e, { tipo: Number(v.target.value) || 0 })} /></label>
-                    <label>Total<input type="number" step="0.01" className="form-input" value={e.datos.total} onChange={v => cambiarDatos(e, { total: Number(v.target.value) || 0 })} /></label>
+                    {e.datos.partes ? (
+                      <div className="buzon-campo-ancho buzon-partes">
+                        {e.datos.partes.map(p => (
+                          <span key={p.tipo}>{igic ? 'IGIC' : 'IVA'} {p.tipo} %: base {formatCurrency(p.base)} · cuota {formatCurrency(p.cuota)}</span>
+                        ))}
+                        <small>Se guarda un gasto por cada tipo, como piden los modelos 303 y 420.</small>
+                      </div>
+                    ) : (
+                      <>
+                        <label>Base<input type="number" step="0.01" className="form-input" value={e.datos.base} readOnly={!!e.electronica} onChange={v => cambiarDatos(e, { base: Number(v.target.value) || 0 })} /></label>
+                        <label>{igic ? 'IGIC' : 'IVA'} %<input type="number" step="0.5" className="form-input" value={e.datos.tipo} readOnly={!!e.electronica} onChange={v => cambiarDatos(e, { tipo: Number(v.target.value) || 0 })} /></label>
+                        <label>Total<input type="number" step="0.01" className="form-input" value={e.datos.total} readOnly={!!e.electronica} onChange={v => cambiarDatos(e, { total: Number(v.target.value) || 0 })} /></label>
+                      </>
+                    )}
                   </div>
                   <div className="buzon-item-pie">
                     <span className="form-hint">Cuota {formatCurrency(e.datos.cuota)}</span>

@@ -32,6 +32,7 @@ export default function robots(): MetadataRoute.Robots {
         '/informes',
         '/listados-fiscales',
         '/verifactu',
+        '/factura-electronica',
         '/integridad',
       ],
     },

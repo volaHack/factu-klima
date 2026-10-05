@@ -1,6 +1,7 @@
 import type { ModuloId } from './modulos';
 import type { PlanId } from './plans';
 import type { FichaId } from './panel';
+import type { ConfigFacturaElectronica } from './facturaElectronica/ambito';
 // ============================================================
 // TIPOS DEL SISTEMA DE FACTURACIÓN (MULTI-SECTOR)
 // ============================================================
@@ -933,6 +934,13 @@ export interface Client {
    * Facturae que se sube a FACe (migración 058).
    */
   dir3?: { oficinaContable?: string; organoGestor?: string; unidadTramitadora?: string };
+
+  /**
+   * Empresa, autónomo, particular o Administración (migración 060). Decide
+   * si sus facturas van como factura electrónica entre empresas. Sin valor
+   * se deduce del NIF (ver facturaElectronica/ambito.ts).
+   */
+  tipoFiscal?: 'empresa' | 'autonomo' | 'particular' | 'administracion';
 }
 
 export interface Vendedor {
@@ -1129,6 +1137,9 @@ export interface CompanySettings {
   nextCobroNumber?: number;
   pagoSeries?: string;
   nextPagoNumber?: number;
+
+  /** Factura electrónica entre empresas (migración 060). Ver facturaElectronica/ambito.ts. */
+  facturaElectronica?: ConfigFacturaElectronica;
 }
 
 // --- Albaranes (documento de entrega) ---

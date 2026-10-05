@@ -515,6 +515,30 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
   },
   {
+    ruta: '/factura-electronica',
+    titulo: 'Factura electrónica',
+    paraQue: 'Las facturas electrónicas que emites a empresas y autónomos, y las que te mandan tus proveedores, con lo que hay que comunicar de cada una.',
+    pasos: [
+      'En la ficha de cada cliente, comprueba el tipo: empresa, autónomo, particular o Administración. Con un DNI no se puede saber si es autónomo: márcalo.',
+      'Al emitir una factura a una empresa o a un autónomo, la factura electrónica se genera sola (se puede cambiar en Ajustes).',
+      'Las que te mandan tus proveedores se suben en Gastos → Facturas de proveedores, o se reenvían al correo del buzón. El gasto sale sin teclear.',
+      'De cada factura recibida, comunica si la aceptas o la rechazas y, cuando la pagues, la fecha del pago.',
+    ],
+    saber: [
+      'Es obligatoria entre empresas desde octubre de 2028 (octubre de 2027 si facturas más de 8 millones al año). Antes se puede usar igual.',
+      'Se genera en UBL según la norma europea EN 16931, que es lo que pide la solución pública de la AEAT. Se leen también Facturae, CII y EDIFACT.',
+      'El pago de una factura recibida hay que comunicarlo en 4 días hábiles (sin sábados, domingos ni festivos nacionales) desde que se paga.',
+      'Por ahora funciona en modo de pruebas: se genera, se valida y se guarda todo, pero no se envía nada a la AEAT ni a nadie.',
+      'A los particulares, los tickets y los clientes de fuera de España no les afecta. A las Administraciones se les sigue facturando con Facturae por FACe.',
+      'El fichero de cada factura electrónica se guarda tal cual y no se puede modificar: es el que hay que conservar.',
+    ],
+    relacionadas: [
+      { ruta: '/gastos/buzon', texto: 'Subir facturas de proveedores' },
+      { ruta: '/ajustes', texto: 'Ajustes de la factura electrónica' },
+      { ruta: '/verifactu', texto: 'Veri*Factu' },
+    ],
+  },
+  {
     ruta: '/gestoria',
     titulo: 'Gestoría',
     paraQue: 'Consultar los libros de las empresas que te han invitado, sin que nadie tenga que pasarte sus claves.',

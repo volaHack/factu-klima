@@ -55,6 +55,7 @@ const EXACTAS: Record<string, string> = {
   '/plantillas': 'Plantillas',
   '/integridad': 'Integridad',
   '/verifactu': 'Verifactu',
+  '/factura-electronica': 'Factura electrónica',
   '/equipo': 'Equipo',
   '/ajustes': 'Ajustes',
   '/importar': 'Importar',

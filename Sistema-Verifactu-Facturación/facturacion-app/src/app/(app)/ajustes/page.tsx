@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ComprobacionIdentidad from '@/components/clientes/ComprobacionIdentidad';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound, FileCode2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
@@ -15,6 +15,7 @@ import {
 import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
 import AccesoGestoria from '@/components/ajustes/AccesoGestoria';
 import CobroOnline from '@/components/ajustes/CobroOnline';
+import FacturaElectronicaAjustes from '@/components/ajustes/FacturaElectronicaAjustes';
 import { CompanySettings, BusinessSector, AccentTheme, Vendedor, Tarifa, Almacen } from '@/lib/types';
 import { PAYMENT_METHODS, PROVINCES, BUSINESS_SECTORS, ACCENT_THEMES, isTpvEnabled, TPV_MODES, defaultTpvModeForSector, DEFAULT_IVA_RATES, DEFAULT_IGIC_RATES } from '@/lib/constants';
 import { processLogoFile } from '@/lib/utils';
@@ -674,6 +675,15 @@ export default function AjustesPage() {
           <label className="form-label">Texto legal de pie de factura</label>
           <textarea className="form-textarea" value={settings.invoiceFooterText} onChange={e => updateField('invoiceFooterText', e.target.value)} rows={2} />
         </div>
+      </div>
+
+      {/* Factura electrónica entre empresas (RD 238/2026) */}
+      <div className="settings-section" id="factura-electronica">
+        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
+          <FileCode2 size={18} />
+          <h2 className="settings-section-title">Factura electrónica</h2>
+        </div>
+        <FacturaElectronicaAjustes valor={settings.facturaElectronica} onChange={c => updateField('facturaElectronica', c)} />
       </div>
 
       {/* TPV / Terminal Punto de Venta */}
