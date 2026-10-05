@@ -4,8 +4,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { crearSesion } from '@/lib/banco/enableBanking';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +22,18 @@ export async function GET(request: Request) {
   const { data: aut } = await db.from('bancos_autorizaciones').select('user_id, banco, pais').eq('state', state).maybeSingle();
   // El `state` es de un solo uso.
   await db.from('bancos_autorizaciones').delete().eq('state', state);
-  if (!aut) return destino('error');
+  if (!aut) {
+    avisar({ tipo: 'token_invalido', gravedad: 'media', ...origenDe(request), detalle: { portal: 'vuelta del banco' } });
+    return destino('error');
+  }
+  // La vuelta tiene que llegar al navegador de la cuenta que empezó la
+  // conexión. Si no, alguien podría mandar a otro su enlace de autorización
+  // y quedarse con los movimientos del banco de la víctima en su cuenta.
+  const { data: { user } } = await (await createClient()).auth.getUser();
+  if (!user || user.id !== aut.user_id) {
+    avisar({ tipo: 'banco_vuelta_ajena', gravedad: 'alta', ...origenDe(request), userId: user?.id ?? null, detalle: { cuentaQueLoEmpezo: aut.user_id } });
+    return destino(user ? 'otra_cuenta' : 'sin_sesion');
+  }
   if (!code) return destino(url.searchParams.get('error') ? 'cancelado' : 'error');
 
   try {

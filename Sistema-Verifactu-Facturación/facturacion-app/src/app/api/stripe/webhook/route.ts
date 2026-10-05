@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabaseServicio } from '@/lib/supabase/servicio';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 import { procesarEvento } from '@/lib/stripe/procesarEvento';
 
 /**
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(await request.text(), signature, webhookSecret);
   } catch (err) {
     console.error('Firma de webhook inválida:', err instanceof Error ? err.message : err);
+    // Stripe firma siempre bien: una firma falsa es alguien intentando colar un pago.
+    avisar({ tipo: 'firma_webhook_invalida', gravedad: 'alta', ...origenDe(request), detalle: { webhook: 'plataforma' } });
     return NextResponse.json({ error: 'Firma inválida' }, { status: 400 });
   }
 

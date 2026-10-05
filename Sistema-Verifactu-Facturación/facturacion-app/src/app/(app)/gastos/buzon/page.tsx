@@ -249,7 +249,17 @@ export default function BuzonPage() {
   };
 
   const verOriginal = async (e: Elemento) => {
-    try { window.open(URL.createObjectURL(await ficheroDe(e)), '_blank', 'noopener'); } catch { toastError('No se ha podido abrir'); }
+    try {
+      // El fichero llega de fuera (cualquiera puede escribir al buzón) y la
+      // pestaña nueva hereda nuestro dominio: un XML o un HTML abierto tal
+      // cual ejecutaría lo que traiga dentro con la sesión del usuario. Sólo
+      // se abren como son el PDF y las fotos; lo demás, como texto plano.
+      const f = await ficheroDe(e);
+      const seguro = /^(application\/pdf|image\/(png|jpeg|webp))$/.test(f.type)
+        ? f
+        : new Blob([await f.arrayBuffer()], { type: 'text/plain;charset=utf-8' });
+      window.open(URL.createObjectURL(seguro), '_blank', 'noopener');
+    } catch { toastError('No se ha podido abrir'); }
   };
 
   if (!cargado) return <PageSkeleton />;

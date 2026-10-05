@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// El aviso de seguridad es sólo de servidor (server-only) y aquí no pinta nada.
+vi.mock('@/lib/seguridad/eventos', () => ({ avisar: vi.fn() }));
+
 import { clientIpFromRequest } from './rateLimit';
 
 function makeRequest(headers: Record<string, string>): Request {

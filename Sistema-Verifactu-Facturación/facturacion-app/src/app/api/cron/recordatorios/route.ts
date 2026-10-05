@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
+import { cronAutorizado } from '@/lib/seguridad/secretos';
 import { correoDisponible, enviarCorreo } from '@/lib/recordatorios/correo';
 import { AJUSTES_POR_DEFECTO, CAMPO_AJUSTES, facturaDeFila, faltaLaTabla, type AjustesRecordatorios } from '@/lib/recordatorios/filas';
 import { EMAIL_VALIDO, mensaje, porCliente, toca, vencidas } from '@/lib/recordatorios/textos';
@@ -21,7 +22,7 @@ export const maxDuration = 300;
 const MAX_POR_CUENTA = 40;
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   if (!correoDisponible()) return NextResponse.json({ ok: true, omitido: 'correo sin configurar' });

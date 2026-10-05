@@ -1,9 +1,30 @@
 import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 import { isPublicRoute } from '@/lib/publicRoutes';
 import { parametrosDeError } from '@/lib/erroresDeAcceso';
+import { detectarAtaque } from '@/lib/seguridad/firmas';
+import { ipDe, ipsBloqueadas, registrarEvento } from '@/lib/seguridad/eventos';
 
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
+  // DETECCIÓN DE ATAQUES (migración 061, /admin/seguridad)
+  // Una IP bloqueada no pasa de aquí. Un escaneo (/.env, /wp-admin…) se
+  // apunta y se contesta con un 404 sin gastar nada más. Un intento de
+  // inyección en la dirección se apunta y sigue: la ruta valida lo suyo, y
+  // un falso positivo no puede dejar fuera a un cliente.
+  const ip = ipDe(request.headers);
+  if ((await ipsBloqueadas()).has(ip)) {
+    return new NextResponse('Acceso bloqueado.', { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+  const ataque = detectarAtaque(request.nextUrl.pathname, request.nextUrl.search);
+  if (ataque) {
+    event.waitUntil(registrarEvento({
+      tipo: ataque.tipo, gravedad: ataque.gravedad, ip, ruta: request.nextUrl.pathname,
+      detalle: { motivo: ataque.motivo, consulta: request.nextUrl.search.slice(0, 300), metodo: request.method },
+      navegador: request.headers.get('user-agent'),
+    }));
+    if (ataque.familia === 'escaneo') return new NextResponse('Not found', { status: 404 });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

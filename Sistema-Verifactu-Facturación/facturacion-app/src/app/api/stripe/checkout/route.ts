@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
+import { avisar, origenDe } from '@/lib/seguridad/eventos';
 import { aCentimos, pendienteDeCobro, sePuedePagarOnline } from '@/lib/cobroOnline/calculo';
 import { cuentaDeCobro, stripeServidor } from '@/lib/cobroOnline/servidor';
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       const { data: aprobacion } = await db.from('order_approvals')
         .select('invoice_id, expires_at').eq('token', approvalToken).single();
       if (!aprobacion || aprobacion.invoice_id !== invoiceId) {
+        avisar({ tipo: aprobacion ? 'manipulacion_peticion' : 'token_invalido', gravedad: aprobacion ? 'alta' : 'media', ...origenDe(request), detalle: { portal: 'pago (aprobación)' } });
         return NextResponse.json({ error: 'Enlace de pago no válido' }, { status: 403 });
       }
       if (new Date(aprobacion.expires_at) < new Date()) {
@@ -72,10 +74,16 @@ export async function POST(request: Request) {
     } else if (typeof portalToken === 'string' && portalToken.length > 0) {
       const { data: enlace } = await db.from('portal_clientes')
         .select('user_id, client_id, revocado_en').eq('token', portalToken).maybeSingle();
-      if (!enlace || enlace.revocado_en) return NextResponse.json({ error: 'Enlace no válido' }, { status: 403 });
+      if (!enlace || enlace.revocado_en) {
+        avisar({ tipo: 'token_invalido', gravedad: 'media', ...origenDe(request), detalle: { portal: 'pago (portal del cliente)', revocado: !!enlace } });
+        return NextResponse.json({ error: 'Enlace no válido' }, { status: 403 });
+      }
       ({ data: factura } = await db.from('invoices').select(COLUMNAS).eq('id', invoiceId).single<FilaFactura>());
       // La factura tiene que ser de ESE cliente de ESE negocio.
-      if (factura && (factura.user_id !== enlace.user_id || factura.client_id !== enlace.client_id)) factura = null;
+      if (factura && (factura.user_id !== enlace.user_id || factura.client_id !== enlace.client_id)) {
+        avisar({ tipo: 'manipulacion_peticion', gravedad: 'alta', ...origenDe(request), detalle: { portal: 'pago (portal del cliente)', motivo: 'factura de otro cliente' } });
+        factura = null;
+      }
       const portal = `${baseUrl}/portal/${portalToken}`;
       vuelta = { ok: `${portal}?pagado=${invoiceId}`, cancelado: `${portal}?cancelado=${invoiceId}` };
     } else {

@@ -17,8 +17,9 @@ const EXTENSION: Record<string, string> = { ubl: 'xml', cii: 'xml', facturae: 'x
 /** Descarga el fichero tal como se guardó (el que cuenta para la ley). */
 export async function descargarFicheroFe(id: string): Promise<void> {
   const { contenido, formato, numero } = await getContenidoFe(id);
-  const tipo = formato === 'edifact' ? 'text/plain' : 'application/xml';
-  const url = URL.createObjectURL(new Blob([contenido], { type: `${tipo};charset=utf-8` }));
+  // Sólo para descargar, nunca para abrir en el navegador: el contenido
+  // puede venir de un proveedor.
+  const url = URL.createObjectURL(new Blob([contenido], { type: 'application/octet-stream' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = `${(numero || 'factura').replace(/[^A-Za-z0-9_-]+/g, '_')}-${formato}.${EXTENSION[formato] ?? 'xml'}`;

@@ -28,6 +28,7 @@ import type {
   Abono, Albaran, Client, CompanySettings, Devolucion, Gasto, Invoice, Lote,
   Oferta, Product,
 } from './types';
+import { sinFormula } from './csvSeguro';
 
 // ============================================================
 // CSV
@@ -38,11 +39,12 @@ import type {
  *
  * Las comillas se duplican y todo lo que lleve coma, comilla o salto de
  * línea va entrecomillado. Es la regla del RFC 4180 y es la que entienden
- * Excel y LibreOffice sin preguntar.
+ * Excel y LibreOffice sin preguntar. Y lo que Excel tomaría por fórmula
+ * sale como texto (ver csvSeguro.ts).
  */
 export function campoCsv(valor: unknown): string {
   if (valor === null || valor === undefined) return '';
-  const texto = String(valor);
+  const texto = sinFormula(String(valor));
   if (!/[",\n\r;]/.test(texto)) return texto;
   return `"${texto.replace(/"/g, '""')}"`;
 }

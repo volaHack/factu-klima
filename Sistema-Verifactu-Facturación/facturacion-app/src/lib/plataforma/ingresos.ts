@@ -16,6 +16,7 @@
  */
 
 import { baseQueCuadra } from './impuestos';
+import { sinFormula } from '@/lib/csvSeguro';
 
 export type TipoIngreso = 'suscripcion' | 'propina' | 'devolucion';
 export type EstadoIngreso = 'facturado' | 'pendiente_alta' | 'revisar';
@@ -118,7 +119,7 @@ const ETIQUETA_ESTADO: Record<EstadoIngreso, string> = { facturado: 'Facturado',
 export function ingresosACsv(filas: readonly (Ingreso & { factura_numero?: string | null })[]): string {
   const num = (n: number) => Number(n).toFixed(2).replace('.', ',');
   const txt = (t: string | null | undefined) => {
-    const v = (t ?? '').replace(/"/g, '""');
+    const v = sinFormula(t ?? '').replace(/"/g, '""');
     return /[;"\n]/.test(v) ? `"${v}"` : v;
   };
   const cabecera = ['Fecha', 'Tipo', 'Concepto', 'Cliente', 'NIF', 'Base', 'Tipo %', 'Impuesto', 'Total', 'Estado', 'Factura', 'Referencia Stripe', 'Nota'];

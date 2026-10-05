@@ -3,6 +3,10 @@ import { adminParaApi } from '@/lib/admin/dal';
 import { listarCuentas } from '@/lib/admin/datos';
 import { formatDate } from '@/lib/utils';
 import { getPlan } from '@/lib/plans';
+import { sinFormula } from '@/lib/csvSeguro';
+
+// Entre comillas, con las comillas duplicadas y sin que Excel lo tome por fórmula.
+const celda = (t: string | null | undefined) => `"${sinFormula(t || '').replace(/"/g, '""')}"`;
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +34,9 @@ export async function GET(request: Request) {
       const actividad = c.ultimaActividad ? formatDate(c.ultimaActividad) : 'Nunca';
 
       const fila = [
-        `"${(c.email || '').replace(/"/g, '""')}"`,
-        `"${(c.nombre || '').replace(/"/g, '""')}"`,
-        `"${(c.nif || '').replace(/"/g, '""')}"`,
+        celda(c.email),
+        celda(c.nombre),
+        celda(c.nif),
         `"${planName}"`,
         `"${estado}"`,
         `"${origen}"`,
@@ -54,8 +58,8 @@ export async function GET(request: Request) {
       const cancela = c.fila?.cancela_al_final ? 'Sí' : 'No';
 
       const fila = [
-        `"${(c.email || '').replace(/"/g, '""')}"`,
-        `"${(c.nombre || '').replace(/"/g, '""')}"`,
+        celda(c.email),
+        celda(c.nombre),
         `"${plan?.name || 'Sin plan'}"`,
         precio,
         `"${estado}"`,
