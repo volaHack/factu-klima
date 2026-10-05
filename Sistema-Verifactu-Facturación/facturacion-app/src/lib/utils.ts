@@ -14,6 +14,10 @@ export function formatCurrency(amount: number): string {
     currency: 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+    // Con el agrupado por defecto del español, los importes de cuatro
+    // cifras salen sin punto («1776,59 €») y los de cinco con él
+    // («24.911,05 €»): en una misma columna parecen de dos formatos.
+    useGrouping: 'always',
   }).format(amount);
 }
 
