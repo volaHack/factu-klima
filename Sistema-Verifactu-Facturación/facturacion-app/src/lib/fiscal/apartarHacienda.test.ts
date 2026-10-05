@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Gasto, Invoice } from '../types';
-import { apartarParaHacienda, esAutonomo, plazoDelTrimestre } from './apartarHacienda';
+import { apartarParaHacienda, esAutonomo, plazoDelTrimestre, presentacionPendiente } from './apartarHacienda';
 
 function factura(over: Partial<Invoice>): Invoice {
   return {
@@ -88,5 +88,36 @@ describe('esAutonomo', () => {
     expect(esAutonomo('X1234567L')).toBe(true);
     expect(esAutonomo('B12345674')).toBe(false);
     expect(esAutonomo('')).toBe(false);
+  });
+});
+
+describe('presentacionPendiente', () => {
+  const entrada = { facturas: [factura({})], gastos: [gasto({})], nif: 'B65432106' };
+
+  it('del 1 al 20 de octubre, lo que toca es presentar el 3.er trimestre', () => {
+    const p = presentacionPendiente(entrada, new Date(2026, 9, 5));
+    expect(p?.trimestre).toBe(3);
+    expect(p?.ejercicio).toBe(2026);
+    expect(p?.plazo).toBe('2026-10-20');
+    expect(p?.diasParaPlazo).toBe(15);
+    // IVA del 3T: 210 repercutido - 42 soportado
+    expect(p?.conceptos[0]).toEqual({ modelo: '303', nombre: 'IVA', importe: 168 });
+    expect(p?.total).toBe(168);
+  });
+
+  it('el último día de plazo todavía cuenta; el siguiente, ya no', () => {
+    expect(presentacionPendiente(entrada, new Date(2026, 9, 20))?.diasParaPlazo).toBe(0);
+    expect(presentacionPendiente(entrada, new Date(2026, 9, 21))).toBeNull();
+  });
+
+  it('en enero, el 4.º trimestre del año anterior', () => {
+    const p = presentacionPendiente({ ...entrada, facturas: [factura({ issueDate: '2026-11-10' })], gastos: [] }, new Date(2027, 0, 12));
+    expect(p?.trimestre).toBe(4);
+    expect(p?.ejercicio).toBe(2026);
+    expect(p?.total).toBe(210);
+  });
+
+  it('a mitad de trimestre no hay nada pendiente de presentar', () => {
+    expect(presentacionPendiente(entrada, HOY)).toBeNull();
   });
 });

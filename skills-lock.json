@@ -6,6 +6,18 @@
       "sourceType": "github",
       "skillPath": "skills/security-review/SKILL.md",
       "computedHash": "6b3e784d5589c67a11bbcc881b479fc8c2fdc1661a28d3f9d0213772b38fbd80"
+    },
+    "stitch::react-components": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stitch-build/skills/react-components/SKILL.md",
+      "computedHash": "e4f9aaccf174f414274873cbeeee1bb6fa8833ae50457246d670872b0c3e063a"
+    },
+    "taste-design": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stitch-utilities/skills/taste-design/SKILL.md",
+      "computedHash": "1891625787d6f0f3bc45d4a9437c187277af66c219e3ec799b1b4e67822b6146"
     }
   }
 }

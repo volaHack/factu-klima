@@ -1,14 +1,13 @@
 'use client';
 
 import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
-import { apartarParaHacienda } from '@/lib/fiscal/apartarHacienda';
+import { apartarParaHacienda, presentacionPendiente } from '@/lib/fiscal/apartarHacienda';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, Euro, Clock, Users, AlertTriangle,
-  ArrowRight, Eye, ShieldCheck, Plus, Package, FileText, Crown, Wallet, Percent, FilePen, Receipt,
+  ArrowRight, Eye, Plus, Package, FileText, Wallet, Percent, FilePen, Receipt,
 } from 'lucide-react';
-import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
@@ -34,6 +33,12 @@ import {
   margenMes, obrasAbiertas, ordenesAtrasadas, paradoEnAlmacen, type Pendiente,
 } from '@/lib/panelDatos';
 import FichaLista from '@/components/dashboard/FichaLista';
+import CabeceraPanel from '@/components/dashboard/CabeceraPanel';
+import ParaHoy from '@/components/dashboard/ParaHoy';
+import AvisoPlan from '@/components/dashboard/AvisoPlan';
+import { comparativaMes, plural, tareasDeHoy } from '@/lib/panelHoy';
+import { getFacturasElectronicas } from '@/lib/facturaElectronica/almacen';
+import type { FeResumen } from '@/lib/facturaElectronica/estados';
 
 /** Lo que cada ficha necesita leer además de facturas, clientes y productos. */
 interface Extras {
@@ -43,8 +48,10 @@ interface Extras {
   obras: Obra[];
   ordenes: OrdenTrabajo[];
   lotes: Lote[];
+  /** Facturas electrónicas recibidas, para «Para hoy». */
+  fe: FeResumen[];
 }
-const SIN_EXTRAS: Extras = { documentos: [], albaranes: [], gastos: [], obras: [], ordenes: [], lotes: [] };
+const SIN_EXTRAS: Extras = { documentos: [], albaranes: [], gastos: [], obras: [], ordenes: [], lotes: [], fe: [] };
 
 const hoyIso = () => {
   const d = new Date();
@@ -87,14 +94,19 @@ export default function DashboardPage() {
       const puestas = new Set(fichasVisibles(stg?.panel, stg?.modulos).map(f => f.id));
       const si = <T,>(ids: FichaId[], leer: () => Promise<T[]>) =>
         (ids.some(id => puestas.has(id)) ? leer().catch(() => [] as T[]) : Promise.resolve([] as T[]));
-      const [albaranes, gastos, obras, ordenes, lotes] = await Promise.all([
+      const [albaranes, gastos, obras, ordenes, lotes, fe] = await Promise.all([
         si(['albaranes_sin_facturar'], getAlbaranes),
-        si(['gastos_mes', 'hacienda_trimestre'], getGastos),
+        // Los gastos van siempre: «Para hoy» calcula con ellos el IVA del trimestre a presentar.
+        getGastos().catch(() => [] as Gasto[]),
         si(['obras_abiertas'], getObras),
         si(['ordenes_atrasadas'], getOrdenesTrabajo),
         si(['lotes_caducando'], getLotes),
+        getFacturasElectronicas('recibida').catch(() => []),
       ]);
-      setExtras({ documentos: invs, albaranes, gastos, obras, ordenes, lotes });
+      setExtras({
+        documentos: invs, albaranes, gastos, obras, ordenes, lotes,
+        fe: fe.map(f => ({ id: f.id, sentido: f.sentido, estado: f.estado, numero: f.numero, nombreEmisor: f.nombreEmisor, total: f.total, fecha: f.fecha, vencimiento: f.vencimiento })),
+      });
       setInvoices(invs.filter(isFactura));
       setClients(cls);
       setSettings(stg);
@@ -115,25 +127,6 @@ export default function DashboardPage() {
 
   // KPI calculations
   const kpis = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const monthInvoices = invoices.filter(inv => {
-      const d = new Date(inv.issueDate);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && inv.status !== InvoiceStatus.ANULADA;
-    });
-    const monthTotal = monthInvoices.reduce((sum, inv) => sum + inv.total, 0);
-
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const lastMonthInvoices = invoices.filter(inv => {
-      const d = new Date(inv.issueDate);
-      return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear && inv.status !== InvoiceStatus.ANULADA;
-    });
-    const lastMonthTotal = lastMonthInvoices.reduce((sum, inv) => sum + inv.total, 0);
-    const monthChange = lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal * 100) : 0;
-
     const pending = invoices.filter(inv =>
       inv.status === InvoiceStatus.PENDIENTE || inv.status === InvoiceStatus.EMITIDA
     );
@@ -147,7 +140,6 @@ export default function DashboardPage() {
     const activeProducts = products.filter(p => p.active).length;
 
     return {
-      monthTotal, monthChange, monthInvoices: monthInvoices.length,
       pendingCount: pending.length, pendingTotal,
       overdueCount: overdue.length, overdueTotal,
       activeClients, totalProducts, activeProducts,
@@ -282,6 +274,19 @@ export default function DashboardPage() {
   const visibles = fichasVisibles(settings?.panel, settings?.modulos);
   const { cifras, bloques } = colocar(visibles);
   const hoy = hoyIso();
+  const mes = comparativaMes(invoices, hoy);
+  const tareas = tareasDeHoy({
+    documentos: extras.documentos,
+    fe: extras.fe,
+    presentacion: presentacionPendiente(
+      { facturas: invoices, gastos: extras.gastos, nif: settings?.nif, igic: settings?.igicEnabled },
+      new Date(`${hoy}T12:00:00`),
+    ),
+    igic: settings?.igicEnabled,
+    hoy,
+  });
+
+  const planCheck = evaluatePlanLimit(settings, invoices);
 
   if (!mounted) {
     return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
@@ -304,17 +309,21 @@ export default function DashboardPage() {
     switch (id) {
       // --- Cifras ---
       case 'facturado_mes':
-        return cifra(<Euro size={20} />, formatCurrency(kpis.monthTotal), `Vendido este mes · ${kpis.monthInvoices} facturas`, false,
-          kpis.monthChange !== 0 && (
-            <div className={`kpi-card-change ${kpis.monthChange >= 0 ? 'positive' : 'negative'}`}>
-              {kpis.monthChange >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {Math.abs(kpis.monthChange).toFixed(1).replace('.', ',')} %
+        return cifra(<Euro size={20} />, formatCurrency(mes.total), `Vendido este mes · ${plural(mes.facturas, 'factura', 'facturas')}`, false,
+          mes.variacion != null && mes.variacion !== 0 && (
+            <div
+              className={`kpi-card-change ${mes.variacion >= 0 ? 'positive' : 'negative'}`}
+              title={`Frente a lo vendido del 1 al ${mes.hastaDia} del mes pasado (${formatCurrency(mes.anterior)})`}
+            >
+              {mes.variacion >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {Math.abs(mes.variacion).toFixed(1).replace('.', ',')} %
+              <span className="solo-lectores"> frente al mismo día del mes pasado</span>
             </div>
           ));
       case 'pendiente_cobro':
-        return cifra(<Clock size={20} />, formatCurrency(kpis.pendingTotal), `Por cobrar · ${kpis.pendingCount} facturas`);
+        return cifra(<Clock size={20} />, formatCurrency(kpis.pendingTotal), `Por cobrar · ${plural(kpis.pendingCount, 'factura', 'facturas')}`);
       case 'vencido':
-        return cifra(<AlertTriangle size={20} />, formatCurrency(kpis.overdueTotal), `Vencido · ${kpis.overdueCount} facturas`, kpis.overdueCount > 0);
+        return cifra(<AlertTriangle size={20} />, formatCurrency(kpis.overdueTotal), `Vencido · ${plural(kpis.overdueCount, 'factura', 'facturas')}`, kpis.overdueCount > 0);
       case 'cobrado_mes':
         return cifra(<Wallet size={20} />, formatCurrency(cobradoMes(invoices, hoy)), 'Cobrado este mes');
       case 'margen_mes': {
@@ -622,109 +631,23 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Cabecera de identidad del negocio */}
-      <div className="hero-panel">
-        <div className="hero-panel-body">
-          <p className="hero-panel-sector">
-            <CategoryIcon name={sectorInfo.icon} size={15} />
-            {sectorInfo.label}
-          </p>
-          <h2 className="hero-panel-name">
-            {settings?.tradeName || settings?.businessName}
-          </h2>
-          <div className="hero-panel-series">
-            <span className="hero-panel-series-icon">
-              <FileText size={14} />
-            </span>
-            <div className="hero-panel-series-text">
-              <span className="hero-panel-series-label">
-                Serie {settings?.invoiceSeries}
-              </span>
-              <span className="hero-panel-series-number">
-                {settings?.invoiceSeries}-{new Date().getFullYear()}-
-                {String(settings?.nextInvoiceNumber).padStart(4, '0')}
-              </span>
-            </div>
-            <span className="hero-panel-series-hint">siguiente factura</span>
-          </div>
-        </div>
+      <CabeceraPanel
+        nombre={settings?.tradeName || settings?.businessName || 'Tu negocio'}
+        sector={sectorInfo}
+        fecha={new Date(`${hoy}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+        siguiente={`${settings?.invoiceSeries ?? 'FAC'}-${hoy.slice(0, 4)}-${String(settings?.nextInvoiceNumber ?? 1).padStart(4, '0')}`}
+        plan={planCheck.planName}
+        sellado={!!settings?.verifactuEnabled}
+      />
 
-        <div className="hero-panel-aside">
-          {settings?.verifactuEnabled && (
-            <div className="seal-chip">
-              <ShieldCheck size={18} />
-              <div>
-                <div className="seal-chip-title">Facturas selladas</div>
-                <div className="seal-chip-sub">Huella SHA-256 encadenada</div>
-              </div>
-            </div>
-          )}
-          <Link href="/facturas/nueva" className="btn btn-primary btn-lg">
-            <Plus size={16} />
-            Nueva factura
-          </Link>
-        </div>
-      </div>
+      <AvisoPlan
+        plan={planCheck.planName}
+        inactiva={settings?.subscriptionStatus === 'inactive' || settings?.subscriptionStatus === 'canceled'}
+        usadas={planCheck.currentCount}
+        limite={planCheck.limit}
+      />
 
-      {/* Membership & Plan Usage Banner */}
-      {(() => {
-        const planCheck = evaluatePlanLimit(settings, invoices);
-        const isInactive = settings?.subscriptionStatus === 'inactive' || settings?.subscriptionStatus === 'canceled';
-        const limitStr = isInactive
-          ? 'Activa la suscripción para volver a emitir facturas.'
-          : planCheck.limit !== null
-            ? `${planCheck.currentCount} de ${planCheck.limit} facturas este mes`
-            : `${planCheck.currentCount} facturas este mes, sin tope`;
-        const conMedidor = isInactive || planCheck.limit !== null;
-
-        const pct = isInactive
-          ? 100
-          : planCheck.limit !== null
-            ? Math.min(100, Math.round((planCheck.currentCount / planCheck.limit) * 100))
-            : 0;
-
-        return (
-          <div className={`plan-banner ${isInactive ? 'is-inactive' : ''}`}>
-            <div className="plan-banner-info">
-              <div className={`plan-banner-icon ${isInactive ? 'is-inactive' : ''}`}>
-                <Crown size={24} />
-              </div>
-              <div className="plan-banner-body">
-                <div className="plan-banner-name">
-                  <span>{planCheck.planName}</span>
-                  <span className={`badge ${isInactive ? 'badge-danger' : 'badge-success'}`}>
-                    {isInactive ? 'Sin suscripción' : 'Activa'}
-                  </span>
-                </div>
-                <div className="plan-banner-usage">
-                  {limitStr}
-                </div>
-              </div>
-            </div>
-
-            <div className="plan-banner-meter-wrap">
-              {conMedidor && (
-                <div className="plan-banner-meter">
-                  <div className="plan-banner-meter-label">
-                    <span>Usado este mes</span>
-                    <span>{isInactive ? 'Parado' : `${pct} %`}</span>
-                  </div>
-                  <div className="plan-banner-meter-track">
-                    <div
-                      className={`plan-banner-meter-fill ${isInactive || pct >= 90 ? 'is-critical' : ''}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <Link href="/precios" className={`btn btn-sm ${isInactive ? 'btn-primary' : 'btn-secondary'}`}>
-                {isInactive ? 'Activar suscripción' : 'Ver planes'}
-              </Link>
-            </div>
-          </div>
-        );
-      })()}
+      <ParaHoy tareas={tareas} />
 
       {/* Las cifras de arriba, en el orden elegido. Clientes y catálogo no
           son fichas: son el recuento de la cartera y van siempre al final. */}

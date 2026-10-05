@@ -105,3 +105,27 @@ export function apartarParaHacienda(
     total: r2(conceptos.reduce((s, c) => s + Math.max(0, c.importe), 0)),
   };
 }
+
+/**
+ * El trimestre que ya se cerró y todavía está en plazo de presentarse.
+ *
+ * Del 1 al 20 de octubre lo urgente no es lo que se va acumulando del
+ * 4.º trimestre, sino presentar el 3.º. `apartarParaHacienda` mira el
+ * trimestre en curso; esto mira el anterior mientras dura su plazo.
+ * Fuera de plazo (de día 21 en adelante), null.
+ */
+export function presentacionPendiente(
+  entrada: { facturas: Invoice[]; gastos: Gasto[]; nif?: string | null; igic?: boolean },
+  hoy: Date = new Date(),
+): ApartarHacienda | null {
+  const actual = trimestreDe(hoy);
+  const anterior = (actual === 1 ? 4 : actual - 1) as Trimestre;
+  const ejercicio = actual === 1 ? hoy.getFullYear() - 1 : hoy.getFullYear();
+  const plazo = plazoDelTrimestre(ejercicio, anterior);
+  const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  if (inicioHoy.getTime() > plazo.getTime()) return null;
+  // Se calcula «como si fuera» el último día de aquel trimestre.
+  const cierre = new Date(ejercicio, anterior * 3, 0, 12);
+  const r = apartarParaHacienda(entrada, cierre);
+  return { ...r, plazo: isoDia(plazo), diasParaPlazo: Math.round((plazo.getTime() - inicioHoy.getTime()) / 86_400_000) };
+}
