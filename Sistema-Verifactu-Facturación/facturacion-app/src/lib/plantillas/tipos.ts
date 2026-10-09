@@ -13,6 +13,7 @@
 
 import type { Template } from '@pdfme/common';
 import type { TipoDocumentoPlantilla } from './tiposDocumento';
+import type { Presentacion } from './presentacion';
 
 // ============================================================
 // EXTRACCIÓN
@@ -152,6 +153,24 @@ export interface CampoDetectado {
   interlineado: number;
   /** 0 a 1. Por debajo de 0,6 la interfaz pide confirmación al usuario. */
   confianza: number;
+  /**
+   * Cómo se presenta el dato: formato de fecha, decimales, símbolo,
+   * mayúsculas, prefijo… (ver `presentacion.ts`). Ausente = tal cual llega.
+   */
+  presentacion?: Presentacion;
+  /**
+   * Qué hace un texto que no cabe en su caja.
+   *
+   * `reducir` encoge la letra hasta que cabe en una línea (lo normal en un
+   * nombre o un NIF); `varias` lo parte en renglones y la caja crece hacia
+   * abajo (unas observaciones). Sin elegir, se decide por la forma que
+   * tenía en el PDF.
+   */
+  ajuste?: 'auto' | 'reducir' | 'varias';
+  /** Dónde se apoya el texto dentro de su caja, de arriba abajo. */
+  alineacionVertical?: 'top' | 'middle' | 'bottom';
+  /** Espacio extra entre letras, en puntos (0 = normal). */
+  interletraje?: number;
   /** Por qué se decidió así. Se enseña al usuario en el revisor. */
   motivo: string;
 }
@@ -340,6 +359,39 @@ export interface ZonaBorrado extends Zona {
   id: string;
 }
 
+/**
+ * Una guía del editor: una raya fija a una distancia exacta del borde, que
+ * se saca de la regla y a la que se pegan las cajas al moverlas. Es como se
+ * clava algo al milímetro en Crystal Reports: «el NIF del cliente, a 120 mm
+ * del borde izquierdo». No se imprime.
+ */
+export interface GuiaUsuario {
+  id: string;
+  eje: 'x' | 'y';
+  /** Milímetros desde el borde izquierdo (x) o superior (y). */
+  valor: number;
+}
+
+export type TipoForma = 'linea' | 'rectangulo' | 'elipse';
+
+/**
+ * Una raya, un recuadro o un óvalo dibujado encima del diseño: subrayar el
+ * total, enmarcar las condiciones, poner un fondo de color a una zona. Se
+ * imprime en todas las páginas, como el resto del membrete.
+ */
+export interface FormaDibujo extends Zona {
+  id: string;
+  tipo: TipoForma;
+  /** Color del trazo (y de la línea). */
+  color: string;
+  /** Grosor del trazo en mm. En una línea, su grueso. */
+  grosor: number;
+  /** Color de relleno de rectángulos y óvalos; vacío = sin relleno. */
+  relleno: string;
+  /** Esquinas redondeadas del rectángulo, en mm. */
+  radio: number;
+}
+
 export interface AnalisisPdf {
   pagina: PaginaExtraida;
   campos: CampoDetectado[];
@@ -351,6 +403,10 @@ export interface AnalisisPdf {
   zonasExtra: ZonaBorrado[];
   /** Familia dominante del documento, para elegir la fuente del PDF final. */
   familia: 'sans' | 'serif';
+  /** Guías del editor. Ausentes en las plantillas anteriores a ellas. */
+  guias?: GuiaUsuario[];
+  /** Rayas, recuadros y óvalos dibujados encima del diseño. */
+  formas?: FormaDibujo[];
 }
 
 // ============================================================
@@ -404,6 +460,8 @@ export interface OrigenPlantilla {
   zonasExtra: ZonaBorrado[];
   avisos: AvisoAnalisis[];
   familia: 'sans' | 'serif';
+  guias?: GuiaUsuario[];
+  formas?: FormaDibujo[];
 }
 
 export interface PlantillaDocumento {

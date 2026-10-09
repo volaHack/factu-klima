@@ -13,7 +13,7 @@
 import { acotarTamanoQr, componerBloqueQr, type BloqueQr } from '../verifactu/qrFactura';
 import { COLUMNAS_IMPUESTOS, COLUMNAS_LINEAS, columnaDeLineas, esColumnaPersonalizada } from './contrato';
 import { COLUMNAS_VENCIMIENTOS } from './contrato';
-import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FuenteRejilla, RejillaDetectada, TablaDetectada, ZonaBorrado } from './tipos';
+import type { Alineacion, CampoDetectado, ColumnaDetectada, ColumnaRejilla, FormaDibujo, FuenteRejilla, RejillaDetectada, TablaDetectada, ZonaBorrado } from './tipos';
 
 /** La clave del hueco del QR tributario dentro del contrato de campos. */
 export const CLAVE_QR = 'verifactu_qr';
@@ -106,17 +106,36 @@ export interface ResultadoImanes {
  * son los que de verdad se usan al maquetar: alinear por la izquierda, por el
  * centro o por la derecha.
  */
+export interface OpcionesImanes {
+  /** Guías del usuario: tiran más que las demás cajas y se dibujan siempre. */
+  guias?: { eje: 'x' | 'y'; valor: number }[];
+  /**
+   * Paso de la cuadrícula en mm (0 = sin cuadrícula). Si nada más cerca
+   * agarra la caja, su esquina se lleva al cruce de cuadrícula más próximo.
+   */
+  cuadricula?: number;
+}
+
+/** Lleva un valor al múltiplo del paso más cercano, sin decimales de más. */
+export function ajustarACuadricula(valor: number, paso: number): number {
+  if (!(paso > 0)) return valor;
+  return redondearMm(Math.round(valor / paso) * paso);
+}
+
 export function calcularImanes(
   movida: Caja,
   otras: Caja[],
   pagina: { ancho: number; alto: number },
   tolerancia: number,
+  opciones: OpcionesImanes = {},
 ): ResultadoImanes {
   const anclasX = (c: Caja) => [c.x, c.x + c.ancho / 2, c.x + c.ancho];
   const anclasY = (c: Caja) => [c.y, c.y + c.alto / 2, c.y + c.alto];
 
-  const referenciasX = [0, pagina.ancho / 2, pagina.ancho, ...otras.flatMap(anclasX)];
-  const referenciasY = [0, pagina.alto / 2, pagina.alto, ...otras.flatMap(anclasY)];
+  const guiasX = (opciones.guias ?? []).filter(g => g.eje === 'x').map(g => g.valor);
+  const guiasY = (opciones.guias ?? []).filter(g => g.eje === 'y').map(g => g.valor);
+  const referenciasX = [...guiasX, 0, pagina.ancho / 2, pagina.ancho, ...otras.flatMap(anclasX)];
+  const referenciasY = [...guiasY, 0, pagina.alto / 2, pagina.alto, ...otras.flatMap(anclasY)];
 
   const mejorEn = (propias: number[], referencias: number[]) => {
     let mejor: { ajuste: number; guia: number } | null = null;
@@ -139,9 +158,12 @@ export function calcularImanes(
   if (enX) guias.push({ eje: 'x', valor: enX.guia });
   if (enY) guias.push({ eje: 'y', valor: enY.guia });
 
+  // Sin imán cerca, la cuadrícula: la esquina de arriba a la izquierda cae
+  // en un cruce, que es lo que se espera de «ajustar a la cuadrícula».
+  const paso = opciones.cuadricula ?? 0;
   return {
-    x: movida.x + (enX?.ajuste ?? 0),
-    y: movida.y + (enY?.ajuste ?? 0),
+    x: enX ? movida.x + enX.ajuste : paso > 0 ? ajustarACuadricula(movida.x, paso) : movida.x,
+    y: enY ? movida.y + enY.ajuste : paso > 0 ? ajustarACuadricula(movida.y, paso) : movida.y,
     guias,
   };
 }
@@ -592,6 +614,8 @@ export interface ContenidoLienzo {
   zonasExtra: ZonaBorrado[];
   rejillas: RejillaDetectada[];
   tabla: TablaDetectada | null;
+  /** Rayas, recuadros y óvalos. */
+  formas?: FormaDibujo[];
 }
 
 export interface ResultadoBorrado {
@@ -650,6 +674,11 @@ export function quitarSeleccionados(
   if (sinLasRejillas.length < contenido.rejillas.length) cambios.rejillas = sinLasRejillas;
 
   if (borraTabla && contenido.tabla) cambios.tabla = null;
+
+  const idsForma = new Set(seleccion.filter(r => r.startsWith('forma:')).map(r => r.slice(6)));
+  const formas = contenido.formas ?? [];
+  const sinLasFormas = formas.filter(f => !idsForma.has(f.id));
+  if (sinLasFormas.length < formas.length) cambios.formas = sinLasFormas;
 
   return {
     cambios,

@@ -72,7 +72,7 @@ export async function analizarPdf(
 
 /** Lo que hay que guardar junto a la plantilla para poder reeditarla. */
 export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
-  const { pagina, campos, tabla, rejillas, zonasExtra, avisos, familia } = sesion.analisis;
+  const { pagina, campos, tabla, rejillas, zonasExtra, avisos, familia, guias, formas } = sesion.analisis;
   return {
     version: 1,
     pagina: {
@@ -88,6 +88,8 @@ export function origenDeSesion(sesion: SesionAnalisis): OrigenPlantilla {
     zonasExtra,
     avisos,
     familia,
+    guias: guias ?? [],
+    formas: formas ?? [],
   };
 }
 
@@ -142,6 +144,8 @@ export async function abrirPlantillaGuardada(
       avisos: origen.avisos ?? [],
       zonasExtra: origen.zonasExtra ?? [],
       familia: origen.familia ?? 'sans',
+      guias: origen.guias ?? [],
+      formas: origen.formas ?? [],
     },
     pagina,
     nombreArchivo: plantilla.diagnostico?.archivoOrigen ?? '',

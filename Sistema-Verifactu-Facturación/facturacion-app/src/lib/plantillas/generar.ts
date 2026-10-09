@@ -12,7 +12,8 @@ import type { Schema, Template } from '@pdfme/common';
 import { TABLA_LINEAS } from './contrato';
 import type { DatosDocumento } from './datos';
 import { cargarFuentes } from './fuentes';
-import { columnasDePlantilla, materializarRejillas, normalizarPlantilla } from './plantilla';
+import { columnasDePlantilla, materializarRejillas, normalizarPlantilla, presentacionesDePlantilla } from './plantilla';
+import { presentar } from './presentacion';
 import { estamparBloqueQr } from '@/lib/verifactu/estamparQr';
 import { generarQrVerifactu, validarDatosQr, type DatosQrVerifactu } from '@/lib/verifactu/qr';
 import {
@@ -49,6 +50,12 @@ export function construirEntrada(plantilla: Template, datos: DatosDocumento): Re
     if (entrada[esq.name] !== undefined) continue;
     const claveBase = esq.name.replace(/_\d+$/, '');
     entrada[esq.name] = datos.campos[claveBase] ?? '';
+  }
+
+  // Los campos con formato propio leen su dato ya presentado: la fecha
+  // larga, el importe sin «€», el nombre en mayúsculas…
+  for (const [variable, { clave, presentacion }] of Object.entries(presentacionesDePlantilla(plantilla))) {
+    entrada[variable] = presentar(datos.campos[clave] ?? '', presentacion);
   }
 
   return {
