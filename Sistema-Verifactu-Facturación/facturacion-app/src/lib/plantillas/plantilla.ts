@@ -53,8 +53,11 @@ import { componerBloqueQr, invadenLaReserva } from '../verifactu/qrFactura';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
 import { formatoVigente } from './rotuloTipo';
+import { limpiarPresentacion, type Presentacion } from './presentacion';
+import { contenidoParaPdfme, marcadoresDesconocidos } from './textoConDatos';
 import type {
   AnalisisPdf,
+  FormaDibujo,
   AvisoAnalisis,
   CampoDetectado,
   DiagnosticoPlantilla,
@@ -222,8 +225,15 @@ export function decidirAlineaciones(campos: CampoDetectado[], anchoPagina: numbe
 // CAMPOS DE TEXTO
 // ============================================================
 
+/** ¿Este texto se parte en renglones o se encoge para caber en uno? */
+export function esMultilinea(campo: CampoDetectado): boolean {
+  if (campo.ajuste === 'varias') return true;
+  if (campo.ajuste === 'reducir') return false;
+  return campo.interlineado > 1.05 || /\n/.test(campo.valorOriginal) || campo.alto > campo.tamano * 0.6;
+}
+
 function esquemaDeTexto(campo: CampoDetectado, nombre: string, caja: { x: number; ancho: number }): Schema {
-  const multilinea = campo.interlineado > 1.05 || /\n/.test(campo.valorOriginal) || campo.alto > campo.tamano * 0.6;
+  const multilinea = esMultilinea(campo);
   const tamanoMm = campo.tamano * 0.3528;
 
   const esquema: Record<string, unknown> = {
@@ -241,9 +251,9 @@ function esquemaDeTexto(campo: CampoDetectado, nombre: string, caja: { x: number
     fontColor: campo.color,
     backgroundColor: '',
     alignment: campo.alineacion,
-    verticalAlignment: 'top',
+    verticalAlignment: campo.alineacionVertical ?? 'top',
     lineHeight: redondear(Math.max(1, campo.interlineado)),
-    characterSpacing: 0,
+    characterSpacing: redondear(campo.interletraje ?? 0),
   };
 
   if (!multilinea) {
@@ -293,7 +303,8 @@ function esquemaDeRotulo(campo: CampoDetectado, indice: number): Schema {
   return {
     name: `__rotulo_${indice}`,
     type: 'text',
-    content: campo.texto ?? '',
+    // Puede llevar datos dentro: «Página {pagina} de {paginas}».
+    content: contenidoParaPdfme(campo.texto ?? ''),
     position: { x: redondear(campo.x), y: redondear(campo.y) },
     width: redondear(campo.ancho),
     height: redondear(Math.max(campo.alto, tamanoMm * 1.2)),
@@ -302,11 +313,71 @@ function esquemaDeRotulo(campo: CampoDetectado, indice: number): Schema {
     fontColor: campo.color,
     backgroundColor: '',
     alignment: campo.alineacion,
-    verticalAlignment: 'top',
+    verticalAlignment: campo.alineacionVertical ?? 'top',
     lineHeight: redondear(Math.max(1, campo.interlineado)),
-    characterSpacing: 0,
+    characterSpacing: redondear(campo.interletraje ?? 0),
     readOnly: true,
   } as unknown as Schema;
+}
+
+/**
+ * Una forma dibujada en el editor, como elemento fijo de pdfme.
+ *
+ * La línea se pinta como un rectángulo relleno del grueso pedido: así sale
+ * exacta en horizontal y en vertical, sin depender de la rotación de pdfme,
+ * y el grueso es el que dice el editor al milímetro.
+ */
+export function esquemaDeForma(forma: FormaDibujo, indice: number): Schema {
+  const base = { name: `__forma_${indice}`, content: '', readOnly: true, rotate: 0, opacity: 1 };
+  const grosor = Math.max(0.05, forma.grosor);
+  if (forma.tipo === 'linea') {
+    const horizontal = forma.ancho >= forma.alto;
+    return {
+      ...base,
+      type: 'rectangle',
+      position: horizontal
+        ? { x: redondear(forma.x), y: redondear(forma.y + forma.alto / 2 - grosor / 2) }
+        : { x: redondear(forma.x + forma.ancho / 2 - grosor / 2), y: redondear(forma.y) },
+      width: redondear(horizontal ? forma.ancho : grosor),
+      height: redondear(horizontal ? grosor : forma.alto),
+      color: forma.color,
+      borderWidth: 0,
+      borderColor: '',
+      radius: 0,
+    } as unknown as Schema;
+  }
+  return {
+    ...base,
+    type: forma.tipo === 'elipse' ? 'ellipse' : 'rectangle',
+    position: { x: redondear(forma.x), y: redondear(forma.y) },
+    width: redondear(forma.ancho),
+    height: redondear(forma.alto),
+    color: forma.relleno || '',
+    borderWidth: forma.grosor > 0 ? redondear(forma.grosor) : 0,
+    borderColor: forma.grosor > 0 ? forma.color : '',
+    ...(forma.tipo === 'rectangulo' ? { radius: redondear(Math.max(0, forma.radio)) } : {}),
+  } as unknown as Schema;
+}
+
+/** Prefijo de las variables con el dato ya presentado. */
+export const PREFIJO_PRESENTADO = '__p_';
+
+export interface CampoPresentado {
+  clave: string;
+  presentacion: Presentacion;
+}
+
+/** Las presentaciones que viajan con una plantilla guardada. */
+export function presentacionesDePlantilla(plantilla: Template): Record<string, CampoPresentado> {
+  const guardadas = (plantilla as unknown as { __presentaciones?: unknown }).__presentaciones;
+  if (!guardadas || typeof guardadas !== 'object') return {};
+  const salida: Record<string, CampoPresentado> = {};
+  for (const [variable, valor] of Object.entries(guardadas as Record<string, unknown>)) {
+    const v = valor as Partial<CampoPresentado>;
+    if (!variable.startsWith(PREFIJO_PRESENTADO) || typeof v?.clave !== 'string' || !v.presentacion) continue;
+    salida[variable] = { clave: v.clave, presentacion: v.presentacion };
+  }
+  return salida;
 }
 
 function redondear(n: number): number {
@@ -571,6 +642,7 @@ export function compilarPlantilla(
   const alturaHueco = alturaHuecoTabla(analisis, tabla);
 
   const estaticos: Schema[] = [];
+  const presentaciones: Record<string, CampoPresentado> = {};
   const confianza: Record<string, number> = {};
   const usados = new Set<string>([TABLA_LINEAS]);
 
@@ -588,9 +660,12 @@ export function compilarPlantilla(
 
     // Todos anclados, sin excepción: el calco está pintado en coordenadas
     // fijas y un campo desplazado se sale de su recuadro.
+    const presentacion = campo.tipo === 'imagen' ? undefined : limpiarPresentacion(campo.presentacion);
+    const variable = presentacion ? `${PREFIJO_PRESENTADO}${nombre}` : undefined;
+    if (presentacion && variable && campo.clave) presentaciones[variable] = { clave: campo.clave, presentacion };
     estaticos.push(campo.tipo === 'imagen'
       ? esquemaDeImagen(campo, nombre)
-      : convertirEnEstatico(esquemaDeTexto(campo, nombre, caja), campo, nombre));
+      : convertirEnEstatico(esquemaDeTexto(campo, nombre, caja), campo, nombre, variable));
   }
 
   // Los rótulos escritos a mano son estáticos por definición: no dependen de
@@ -621,7 +696,9 @@ export function compilarPlantilla(
         redondear(Math.max(pagina.alto - limiteTabla - alturaHueco, 0)),
         0,
       ],
-      staticSchema: [fondo, ...estaticos],
+      // Las formas van justo encima del calco y debajo de los textos: un
+      // recuadro de color de fondo no puede tapar el dato que enmarca.
+      staticSchema: [fondo, ...(analisis.formas ?? []).map(esquemaDeForma), ...estaticos],
     },
     // En la página, sólo la tabla. Todo lo demás está anclado.
     schemas: [[esquemaDeTabla(tabla, analisis.familia, alturaHueco)]],
@@ -630,9 +707,21 @@ export function compilarPlantilla(
     // pdfme es `.passthrough()`, así que esto sobrevive al guardado y a la
     // carga sin que haya que migrar la tabla ni inventar otra columna.
     __rejillas: analisis.rejillas,
+    // Cómo se presenta cada campo con formato propio. Se resuelve al
+    // imprimir (`construirEntrada`), con el dato de cada factura.
+    __presentaciones: presentaciones,
   } as Template;
 
   const avisos = [...analisis.avisos, ...avisosDelQr(campos, analisis, tabla)];
+  for (const rotulo of rotulos) {
+    const malos = marcadoresDesconocidos(rotulo.texto ?? '');
+    if (malos.length) {
+      avisos.push({
+        nivel: 'aviso',
+        texto: `El rótulo «${(rotulo.texto ?? '').slice(0, 40)}» lleva ${malos.map(m => `{${m}}`).join(', ')}, que no es ningún dato: se imprimirá sin eso.`,
+      });
+    }
+  }
 
   return {
     plantilla,
@@ -651,13 +740,17 @@ export function compilarPlantilla(
  * marcador `{clave}` dentro del propio contenido, así que el campo se
  * convierte a esa forma.
  */
-function convertirEnEstatico(esquema: Schema, campo: CampoDetectado, nombre: string): Schema {
+function convertirEnEstatico(esquema: Schema, campo: CampoDetectado, nombre: string, variable?: string): Schema {
   if (!campo.clave) return { ...esquema, readOnly: true } as Schema;
+  // Con presentación propia el campo no lee la clave a secas sino su
+  // versión ya presentada, que se calcula al imprimir.
+  const marcador = `{${variable ?? campo.clave}}`;
+  const formato = formatoVigente(campo);
   return {
     ...esquema,
     // Con formato, lo que acompañaba al dato en el PDF se imprime con él:
     // «{doc_tipo} VENTA» sale «ALBARÁN VENTA» en un albarán.
-    content: formatoVigente(campo) ?? `{${campo.clave}}`,
+    content: formato ? formato.split(`{${campo.clave}}`).join(marcador) : marcador,
     readOnly: true,
     // El nombre sigue siendo único para que el revisor pueda localizarlo.
     name: nombre,

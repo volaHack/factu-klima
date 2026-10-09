@@ -10117,6 +10117,134 @@ body.nav-abierta { overflow: hidden; }
   .plantilla-fijos { max-height: 180px; }
 }
 
+/* --- Editor de plantillas: mesa con reglas, cuadrícula, guías y formas ---
+   La mesa es una rejilla de 2×2: la esquina, la regla de arriba, la de la
+   izquierda y el papel. Las reglas miden exactamente lo que el papel porque
+   comparten fila y columna con él. */
+.plantilla-mesa {
+  --regla: 18px;
+  --regla-marca: color-mix(in srgb, var(--text-tertiary) 70%, transparent);
+  display: grid;
+  grid-template-columns: var(--regla) minmax(0, 1fr);
+  grid-template-rows: var(--regla) auto;
+  min-width: 0;
+}
+.plantilla-mesa > .plantilla-lienzo { grid-column: 2; grid-row: 2; }
+.plantilla-mesa-esquina {
+  grid-column: 1; grid-row: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+  user-select: none;
+}
+.plantilla-regla {
+  position: relative;
+  background-color: var(--bg-card);
+  cursor: crosshair;
+  user-select: none;
+  touch-action: none;
+  overflow: hidden;
+}
+.plantilla-regla--x { grid-column: 2; grid-row: 1; border-bottom: 1px solid var(--border-color); cursor: col-resize; }
+.plantilla-regla--y { grid-column: 1; grid-row: 2; border-right: 1px solid var(--border-color); cursor: row-resize; }
+.plantilla-regla-numero {
+  position: absolute;
+  font-size: 9px; line-height: 1; font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.plantilla-regla--x .plantilla-regla-numero { top: 2px; transform: translateX(3px); }
+.plantilla-regla--y .plantilla-regla-numero { left: 2px; transform: translateY(2px); writing-mode: vertical-rl; rotate: 180deg; }
+.plantilla-regla-cursor { position: absolute; background: var(--accent-500); opacity: 0; pointer-events: none; }
+.plantilla-regla--x .plantilla-regla-cursor { top: 0; bottom: 0; width: 1px; }
+.plantilla-regla--y .plantilla-regla-cursor { left: 0; right: 0; height: 1px; }
+
+.plantilla-cuadricula {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, rgba(59, 130, 246, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.16) 1px, transparent 1px);
+}
+
+.forma-caja {
+  position: absolute;
+  z-index: 1;
+  cursor: grab;
+  border-radius: 2px;
+}
+.forma-caja-dibujo { position: absolute; inset: 0; pointer-events: none; box-sizing: border-box; }
+.forma-caja:hover { outline: 1px dashed var(--accent-500); outline-offset: 1px; }
+.forma-caja--activa { outline: 1.5px solid var(--accent-500); outline-offset: 1px; z-index: 6; }
+.forma-caja--nueva { pointer-events: none; border: 1.5px dashed var(--accent-500); background: var(--accent-glow); }
+.forma-caja--nueva.forma-caja--elipse { border-radius: 50%; }
+
+.plantilla-guia-usuario {
+  position: absolute;
+  z-index: 11;
+  /* La raya visible es fina; la zona para agarrarla, más ancha. */
+  background: linear-gradient(var(--guia-color), var(--guia-color)) center / var(--guia-fondo) no-repeat;
+  --guia-color: #0ea5e9;
+}
+.plantilla-guia-usuario--x { top: 0; bottom: 0; width: 7px; margin-left: -3.5px; cursor: col-resize; --guia-fondo: 1px 100%; }
+.plantilla-guia-usuario--y { left: 0; right: 0; height: 7px; margin-top: -3.5px; cursor: row-resize; --guia-fondo: 100% 1px; }
+.plantilla-guia-usuario:hover, .plantilla-guia-usuario--viva { --guia-color: #0369a1; }
+.plantilla-guia-usuario-valor {
+  position: absolute;
+  padding: 1px 4px; border-radius: 3px;
+  font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: #ffffff; background: #0369a1;
+  opacity: 0; transition: opacity 120ms;
+  pointer-events: none;
+}
+.plantilla-guia-usuario--x .plantilla-guia-usuario-valor { top: 4px; left: 6px; }
+.plantilla-guia-usuario--y .plantilla-guia-usuario-valor { left: 4px; top: 6px; }
+.plantilla-guia-usuario:hover .plantilla-guia-usuario-valor,
+.plantilla-guia-usuario--viva .plantilla-guia-usuario-valor { opacity: 1; }
+
+.plantilla-estado {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-4);
+  min-height: 28px; margin-top: var(--space-2);
+  font-size: var(--text-xs); color: var(--text-tertiary);
+}
+.plantilla-estado-cursor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; min-width: 150px; }
+.plantilla-guias-lista { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.plantilla-guias-titulo { font-weight: 600; color: var(--text-secondary); }
+.plantilla-guia-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+.plantilla-guia-chip input { width: 64px; height: 24px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.plantilla-cuadricula-selector { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); }
+.plantilla-cuadricula-selector select { width: auto; }
+
+/* --- Editor de plantillas: formato del dato y rótulos con datos --- */
+.plantilla-formato {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+.plantilla-formato-cabecera { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.plantilla-formato-cabecera .form-label { margin: 0; font-weight: 650; }
+.plantilla-estilo.plantilla-estilo--sin-borde { border-top: 0; padding-top: 0; margin-top: var(--space-2); }
+.plantilla-formato-muestra {
+  display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;
+  margin: var(--space-3) 0 0; padding: 6px var(--space-2);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-tertiary);
+  font-size: var(--text-xs); color: var(--text-tertiary);
+}
+.plantilla-formato-muestra strong { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; overflow-wrap: anywhere; }
+.plantilla-insertar-dato { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+
 /* --- Editor de plantillas: herramientas, capas y estilos de tabla --- */
 
 .plantilla-herramientas { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }

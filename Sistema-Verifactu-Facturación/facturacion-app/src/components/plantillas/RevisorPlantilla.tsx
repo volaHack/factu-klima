@@ -47,19 +47,24 @@ import {
   distribuir, duplicarCampo, ejemploDeColumna, escalarColumnas, esCampoQr, igualarColumnas,
   intersecan, moverColumna, ordenDeLectura, quitarColumna, recolocarColumnas,
   hacerSitio, quitarSeleccionados, redimensionarColumna, redimensionarColumnaRejilla,
-  redondearMm, rejillaNueva,
+  redondearMm, rejillaNueva, ajustarACuadricula,
   type Caja, type Guia, type ModoAlinear,
 } from '@/lib/plantillas/editor';
 import { aplicarFormato, formatoVigente } from '@/lib/plantillas/rotuloTipo';
+import { presentar } from '@/lib/plantillas/presentacion';
+import { textoDeMuestra } from '@/lib/plantillas/textoConDatos';
+import { esMultilinea } from '@/lib/plantillas/plantilla';
+import { AjusteDelTexto, FormatoDelDato, InsertarDato } from './PanelFormato';
+import { estiloDeForma, formaNueva, ICONO_FORMA, ListaGuias, NOMBRE_FORMA, PanelForma, Regla } from './Precision';
 import { tablaPorDefecto } from '@/lib/plantillas/plantilla';
 import { invadenLaReserva } from '@/lib/verifactu/qrFactura';
 import type {
-  AnalisisPdf, CampoDetectado, ColumnaRejilla, RejillaDetectada, SegmentoTexto,
-  TablaDetectada, ZonaBorrado,
+  AnalisisPdf, CampoDetectado, ColumnaRejilla, FormaDibujo, GuiaUsuario, RejillaDetectada, SegmentoTexto,
+  TablaDetectada, TipoForma, ZonaBorrado,
 } from '@/lib/plantillas/tipos';
 
 /** Cambios que el editor puede pedir sobre el análisis. */
-export type CambioAnalisis = Partial<Pick<AnalisisPdf, 'campos' | 'tabla' | 'zonasExtra' | 'rejillas'>>;
+export type CambioAnalisis = Partial<Pick<AnalisisPdf, 'campos' | 'tabla' | 'zonasExtra' | 'rejillas' | 'guias' | 'formas'>>;
 
 interface Props {
   analisis: AnalisisPdf;
@@ -71,10 +76,15 @@ interface Props {
 // ============================================================
 
 /** Identificador estable de cualquier cosa que se pueda seleccionar. */
-type Ref = string; // `campo:ID` | `zona:ID` | `rejilla:ID` | `tabla`
+type Ref = string; // `campo:ID` | `zona:ID` | `rejilla:ID` | `forma:ID` | `tabla`
 
 /** Las herramientas de dibujo de la barra. */
-type ModoDibujo = 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'pagos' | null;
+type ModoDibujo = 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'pagos' | TipoForma | null;
+
+const ES_FORMA = (modo: string): modo is TipoForma => modo === 'linea' || modo === 'rectangulo' || modo === 'elipse';
+
+/** Pasos de la cuadrícula que se ofrecen, en mm (0 = sin cuadrícula). */
+const PASOS_CUADRICULA = [0, 1, 2, 5, 10];
 
 type Direccion = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -84,12 +94,16 @@ type Arrastre =
   | { tipo: 'columna-ancho'; px: number; indice: number; anchoIzquierda: number }
   | { tipo: 'rejilla-ancho'; px: number; rejillaId: string; indice: number; anchoIzquierda: number }
   | { tipo: 'columna-orden'; desde: number; sobre: number }
-  | { tipo: 'dibujar'; modo: 'campo' | 'rotulo' | 'zona' | 'rejilla' | 'pagos' | 'seleccion'; x0: number; y0: number; x1: number; y1: number };
+  | { tipo: 'dibujar'; modo: NonNullable<ModoDibujo> | 'seleccion'; x0: number; y0: number; x1: number; y1: number }
+  | { tipo: 'guia'; id: string; eje: 'x' | 'y' };
 
 interface Instantanea {
   campos: CampoDetectado[];
   tabla: TablaDetectada | null;
   zonasExtra: ZonaBorrado[];
+  rejillas: RejillaDetectada[];
+  formas: FormaDibujo[];
+  guias: GuiaUsuario[];
 }
 
 const DIRECCIONES: Direccion[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -101,6 +115,15 @@ const IMAN_PX = 7;
 const PROFUNDIDAD_HISTORIAL = 80;
 
 const pct = (valor: number, total: number) => `${(valor / total) * 100}%`;
+
+/**
+ * Identificador para una guía o una forma nueva. Tiene que ser único
+ * también frente a las que ya traía la plantilla guardada: el contador de
+ * la sesión vuelve a empezar en 1 cada vez que se abre el editor.
+ */
+function idNuevo(prefijo: string): string {
+  return `${prefijo}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
 
 function claseConfianza(confianza: number): string {
   if (confianza >= 0.8) return 'campo-caja--seguro';
@@ -122,6 +145,8 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const zonas = analisis.zonasExtra;
   const tabla = analisis.tabla;
   const rejillas = analisis.rejillas;
+  const formas = useMemo(() => analisis.formas ?? [], [analisis.formas]);
+  const guiasUsuario = useMemo(() => analisis.guias ?? [], [analisis.guias]);
 
   /**
    * El nombre de un campo tal y como se le enseña al usuario.
@@ -160,6 +185,23 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const [verEtiquetas, setVerEtiquetas] = useState(true);
   const [filtro, setFiltro] = useState<'todos' | 'modificables' | 'fijos' | 'sin_asignar'>('todos');
   const [busqueda, setBusqueda] = useState('');
+  // La cuadrícula es una preferencia de quien edita, no de la plantilla: se
+  // recuerda en este navegador.
+  const [cuadricula, setCuadriculaEstado] = useState<number>(() => {
+    try {
+      const guardada = Number(localStorage.getItem('klima-plantillas-cuadricula'));
+      return PASOS_CUADRICULA.includes(guardada) ? guardada : 0;
+    } catch { return 0; }
+  });
+  const setCuadricula = useCallback((paso: number) => {
+    setCuadriculaEstado(paso);
+    try { localStorage.setItem('klima-plantillas-cuadricula', String(paso)); } catch { /* sin almacenamiento */ }
+  }, []);
+  // Marcas de las reglas y lectura de coordenadas: se mueven tocando el DOM
+  // directamente, para no repintar el editor entero con cada píxel del ratón.
+  const marcaReglaX = useRef<HTMLSpanElement>(null);
+  const marcaReglaY = useRef<HTMLSpanElement>(null);
+  const lecturaCursor = useRef<HTMLSpanElement>(null);
 
   const datosEjemplo = useMemo(() => datosDeEjemplo(), []);
 
@@ -173,8 +215,8 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
   /** Foto del estado actual. Los manejadores la toman del cierre del render. */
   const instantanea = useCallback(
-    (): Instantanea => clonar({ campos, tabla, zonasExtra: zonas }),
-    [campos, tabla, zonas],
+    (): Instantanea => clonar({ campos, tabla, zonasExtra: zonas, rejillas, formas, guias: guiasUsuario }),
+    [campos, tabla, zonas, rejillas, formas, guiasUsuario],
   );
 
   /**
@@ -222,10 +264,10 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     }
     const [clase, id] = ref.split(':');
     const lista: { id: string; x: number; y: number; ancho: number; alto: number }[] =
-      clase === 'campo' ? campos : clase === 'rejilla' ? rejillas : zonas;
+      clase === 'campo' ? campos : clase === 'rejilla' ? rejillas : clase === 'forma' ? formas : zonas;
     const encontrado = lista.find(e => e.id === id);
     return encontrado ? { x: encontrado.x, y: encontrado.y, ancho: encontrado.ancho, alto: encontrado.alto } : null;
-  }, [campos, zonas, rejillas, tabla]);
+  }, [campos, zonas, rejillas, formas, tabla]);
 
   /** Aplica de golpe las cajas nuevas de varios elementos. Un solo `onCambiar`. */
   const aplicarCajas = useCallback((nuevas: Map<Ref, Caja>) => {
@@ -276,6 +318,14 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       });
     }
 
+    const formasTocadas = [...nuevas.keys()].some(r => r.startsWith('forma:'));
+    if (formasTocadas) {
+      cambios.formas = formas.map(f => {
+        const caja = nuevas.get(`forma:${f.id}`);
+        return caja ? { ...f, ...caja } : f;
+      });
+    }
+
     const cajaTabla = nuevas.get('tabla');
     if (cajaTabla && tabla) {
       const columnas = cajaTabla.ancho !== tabla.ancho
@@ -292,7 +342,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     }
 
     onCambiar(cambios);
-  }, [campos, zonas, rejillas, tabla, pagina, onCambiar]);
+  }, [campos, zonas, rejillas, formas, tabla, pagina, onCambiar]);
 
   /**
    * Tocar la alineación a mano deja constancia de que la eligió el usuario.
@@ -388,14 +438,14 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const borrarSeleccion = useCallback(() => {
     if (seleccion.length === 0) return;
     const { cambios, motivoDeLoQueSeQueda } = quitarSeleccionados(
-      seleccion, { campos, zonasExtra: zonas, rejillas, tabla },
+      seleccion, { campos, zonasExtra: zonas, rejillas, tabla, formas },
     );
     if (motivoDeLoQueSeQueda) setAvisoEditor(motivoDeLoQueSeQueda);
     if (Object.keys(cambios).length === 0) return;
     marcar();
     onCambiar(cambios);
     setSeleccion([]);
-  }, [seleccion, campos, zonas, rejillas, tabla, onCambiar, marcar]);
+  }, [seleccion, campos, zonas, rejillas, tabla, formas, onCambiar, marcar]);
 
   /**
    * Pone una tabla de líneas donde no había ninguna.
@@ -412,12 +462,23 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   }, [tabla, pagina, onCambiar, marcar]);
 
   const duplicarSeleccion = useCallback(() => {
-    if (camposSeleccionados.length === 0) return;
+    const formasSel = formas.filter(f => seleccion.includes(`forma:${f.id}`));
+    if (camposSeleccionados.length === 0 && formasSel.length === 0) return;
     marcar();
     const copias = camposSeleccionados.map(c => duplicarCampo(c, `manual-${siguienteId.current++}`, pagina));
-    onCambiar({ campos: [...campos, ...copias] });
-    setSeleccion(copias.map(c => `campo:${c.id}`));
-  }, [camposSeleccionados, campos, pagina, onCambiar, marcar]);
+    // Las formas, 3 mm más abajo y a la derecha: encima exacta no se vería.
+    const copiasForma = formasSel.map(f => ({
+      ...f,
+      id: idNuevo('forma'),
+      x: Math.min(f.x + 3, Math.max(0, pagina.ancho - f.ancho)),
+      y: Math.min(f.y + 3, Math.max(0, pagina.alto - f.alto)),
+    }));
+    onCambiar({
+      ...(copias.length ? { campos: [...campos, ...copias] } : {}),
+      ...(copiasForma.length ? { formas: [...formas, ...copiasForma] } : {}),
+    });
+    setSeleccion([...copias.map(c => `campo:${c.id}`), ...copiasForma.map(f => `forma:${f.id}`)]);
+  }, [camposSeleccionados, campos, formas, seleccion, pagina, onCambiar, marcar]);
 
   const copiar = useCallback(() => {
     if (camposSeleccionados.length > 0) portapapeles.current = clonar(camposSeleccionados);
@@ -501,7 +562,9 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
-        const paso = e.shiftKey ? 2 : 0.5;
+        // Alt = una décima de milímetro, para el último ajuste fino;
+        // Mayús = 2 mm; sin nada, medio milímetro.
+        const paso = e.altKey ? 0.1 : e.shiftKey ? 2 : 0.5;
         const dx = e.key === 'ArrowLeft' ? -paso : e.key === 'ArrowRight' ? paso : 0;
         const dy = e.key === 'ArrowUp' ? -paso : e.key === 'ArrowDown' ? paso : 0;
         marcar();
@@ -509,11 +572,19 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         for (const ref of seleccion) {
           const caja = cajaDe(ref);
           if (!caja) continue;
-          nuevas.set(ref, {
-            ...caja,
-            x: acotar(caja.x + dx, 0, pagina.ancho - caja.ancho),
-            y: acotar(caja.y + dy, 0, pagina.alto - caja.alto),
-          });
+          // Con Ctrl (⌘ en Mac) las flechas estiran o encogen la caja por su
+          // esquina de abajo a la derecha en vez de moverla.
+          nuevas.set(ref, meta
+            ? {
+              ...caja,
+              ancho: redondearMm(acotar(caja.ancho + dx, 1, pagina.ancho - caja.x)),
+              alto: redondearMm(acotar(caja.alto + dy, 1, pagina.alto - caja.y)),
+            }
+            : {
+              ...caja,
+              x: redondearMm(acotar(caja.x + dx, 0, pagina.ancho - caja.ancho)),
+              y: redondearMm(acotar(caja.y + dy, 0, pagina.alto - caja.alto)),
+            });
         }
         aplicarCajas(nuevas);
       }
@@ -531,6 +602,12 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   // ------------------------------------------------------------
 
   const capturar = (evento: React.PointerEvent) => {
+    // Un texto que se quedó seleccionado en la página (por ejemplo, al
+    // arrastrar una guía hasta fuera del papel) hace que el navegador
+    // convierta el siguiente arrastre en un «arrastrar y soltar» de ese
+    // texto y cancele el gesto: no se podía dibujar ni mover nada hasta
+    // hacer clic en otra parte. Se suelta antes de empezar.
+    window.getSelection()?.removeAllRanges();
     lienzoRef.current?.setPointerCapture(evento.pointerId);
   };
 
@@ -571,7 +648,27 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
     capturar(evento);
   };
 
+  /** La marca de las reglas y la lectura «X · Y» siguen al ratón. */
+  const seguirCursor = (evento: React.PointerEvent) => {
+    const { x, y } = puntoEnMm(evento);
+    const dentro = x >= 0 && y >= 0 && x <= pagina.ancho && y <= pagina.alto;
+    if (marcaReglaX.current) {
+      marcaReglaX.current.style.left = `${(x / pagina.ancho) * 100}%`;
+      marcaReglaX.current.style.opacity = dentro ? '1' : '0';
+    }
+    if (marcaReglaY.current) {
+      marcaReglaY.current.style.top = `${(y / pagina.alto) * 100}%`;
+      marcaReglaY.current.style.opacity = dentro ? '1' : '0';
+    }
+    if (lecturaCursor.current) {
+      lecturaCursor.current.textContent = dentro
+        ? `X ${redondearMm(x).toFixed(1).replace('.', ',')} · Y ${redondearMm(y).toFixed(1).replace('.', ',')} mm`
+        : '';
+    }
+  };
+
   const alMover = (evento: React.PointerEvent) => {
+    seguirCursor(evento);
     if (!arrastre) return;
     const escala = mmPorPx();
     if (escala === 0) return;
@@ -592,6 +689,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           const otras: Caja[] = [
             ...campos.filter(c => !arrastre.origen.has(`campo:${c.id}`)),
             ...zonas.filter(z => !arrastre.origen.has(`zona:${z.id}`)),
+            ...formas.filter(f => !arrastre.origen.has(`forma:${f.id}`)),
             ...(tabla && !arrastre.origen.has('tabla')
               ? [{ x: tabla.x, y: tabla.y, ancho: tabla.ancho, alto: tabla.altoTotal }]
               : []),
@@ -602,6 +700,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             otras,
             pagina,
             IMAN_PX * escala,
+            { guias: guiasUsuario, cuadricula },
           );
           movidaX = iman.x;
           movidaY = iman.y;
@@ -644,12 +743,29 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           alto = nuevoAlto;
         }
 
+        // Con cuadrícula, el borde que se estira cae en una raya de ella
+        // (Alt la ignora, como al mover).
+        if (cuadricula > 0 && !evento.altKey) {
+          if (dir.includes('e')) ancho = Math.max(MINIMO, ajustarACuadricula(x + ancho, cuadricula) - x);
+          if (dir.includes('s')) alto = Math.max(MINIMO, ajustarACuadricula(y + alto, cuadricula) - y);
+          if (dir.includes('w')) { const fin = x + ancho; x = ajustarACuadricula(x, cuadricula); ancho = Math.max(MINIMO, fin - x); }
+          if (dir.includes('n')) { const fin = y + alto; y = ajustarACuadricula(y, cuadricula); alto = Math.max(MINIMO, fin - y); }
+        }
+
         aplicarCajas(new Map([[arrastre.ref, {
           x: acotar(x, 0, pagina.ancho),
           y: acotar(y, 0, pagina.alto),
           ancho: Math.min(ancho, pagina.ancho - x),
           alto: Math.min(alto, pagina.alto - y),
         }]]));
+        break;
+      }
+
+      case 'guia': {
+        const punto = puntoEnMm(evento);
+        let valor = arrastre.eje === 'x' ? punto.x : punto.y;
+        if (cuadricula > 0 && !evento.altKey) valor = ajustarACuadricula(valor, cuadricula);
+        onCambiar({ guias: guiasUsuario.map(g => (g.id === arrastre.id ? { ...g, valor: redondearMm(valor) } : g)) });
         break;
       }
 
@@ -691,6 +807,39 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   };
 
   const alSoltar = () => {
+    // Una guía arrastrada fuera del papel —de vuelta a la regla— se quita.
+    if (arrastre?.tipo === 'guia') {
+      const guia = guiasUsuario.find(g => g.id === arrastre.id);
+      const limite = arrastre.eje === 'x' ? pagina.ancho : pagina.alto;
+      if (guia && (guia.valor < 0 || guia.valor > limite)) {
+        onCambiar({ guias: guiasUsuario.filter(g => g.id !== guia.id) });
+      }
+    }
+
+    if (arrastre?.tipo === 'dibujar' && ES_FORMA(arrastre.modo)) {
+      const largoX = Math.abs(arrastre.x1 - arrastre.x0);
+      const largoY = Math.abs(arrastre.y1 - arrastre.y0);
+      const x = Math.min(arrastre.x0, arrastre.x1);
+      const y = Math.min(arrastre.y0, arrastre.y1);
+      if (Math.max(largoX, largoY) >= 2) {
+        // Una línea es horizontal o vertical según hacia dónde se tiró más:
+        // su caja es una franja de 2 mm para poder agarrarla.
+        const caja = arrastre.modo === 'linea'
+          ? (largoX >= largoY
+            ? { x, y: redondearMm(arrastre.y0 - 1), ancho: redondearMm(largoX), alto: 2 }
+            : { x: redondearMm(arrastre.x0 - 1), y, ancho: 2, alto: redondearMm(largoY) })
+          : { x: redondearMm(x), y: redondearMm(y), ancho: redondearMm(Math.max(largoX, 2)), alto: redondearMm(Math.max(largoY, 2)) };
+        marcar();
+        const forma = formaNueva(idNuevo('forma'), arrastre.modo, caja);
+        onCambiar({ formas: [...formas, forma] });
+        setSeleccion([`forma:${forma.id}`]);
+      }
+      setModoDibujo(null);
+      setArrastre(null);
+      setGuias([]);
+      return;
+    }
+
     if (arrastre?.tipo === 'dibujar') {
       const x = Math.min(arrastre.x0, arrastre.x1);
       const y = Math.min(arrastre.y0, arrastre.y1);
@@ -703,6 +852,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           const dentro: Ref[] = [
             ...campos.filter(c => intersecan(marco, c)).map(c => `campo:${c.id}`),
             ...zonas.filter(z => intersecan(marco, z)).map(z => `zona:${z.id}`),
+            ...formas.filter(f => intersecan(marco, f)).map(f => `forma:${f.id}`),
           ];
           setSeleccion(dentro);
         }
@@ -740,6 +890,27 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
 
     setArrastre(null);
     setGuias([]);
+  };
+
+  /** Pulsar en una regla saca una guía y la deja enganchada al ratón. */
+  const sacarGuia = (eje: 'x' | 'y', evento: React.PointerEvent) => {
+    evento.preventDefault();
+    const punto = puntoEnMm(evento);
+    let valor = eje === 'x' ? punto.x : punto.y;
+    if (cuadricula > 0 && !evento.altKey) valor = ajustarACuadricula(valor, cuadricula);
+    marcar();
+    const guia: GuiaUsuario = { id: idNuevo('guia'), eje, valor: redondearMm(valor) };
+    onCambiar({ guias: [...guiasUsuario, guia] });
+    setArrastre({ tipo: 'guia', id: guia.id, eje });
+    capturar(evento);
+  };
+
+  const empezarGuia = (evento: React.PointerEvent, guia: GuiaUsuario) => {
+    if (modoDibujo) return;
+    evento.stopPropagation();
+    marcar();
+    setArrastre({ tipo: 'guia', id: guia.id, eje: guia.eje });
+    capturar(evento);
   };
 
   const alPulsarLienzo = (evento: React.PointerEvent) => {
@@ -807,6 +978,14 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const rejillaActiva = seleccion.length === 1 && seleccion[0].startsWith('rejilla:')
     ? rejillas.find(r => r.id === seleccion[0].slice(8)) ?? null
     : null;
+  const formaActiva = seleccion.length === 1 && seleccion[0].startsWith('forma:')
+    ? formas.find(f => f.id === seleccion[0].slice(6)) ?? null
+    : null;
+  // Una cuadrícula más fina que 4 px en pantalla sería una mancha gris: se
+  // pinta cada varios pasos (el imán sigue usando el paso elegido).
+  const pasoVisible = cuadricula > 0 && pxPorMm > 0
+    ? cuadricula * Math.max(1, Math.ceil(4 / (cuadricula * pxPorMm)))
+    : 0;
 
   /**
    * QUÉ VA A TAPAR EL QR
@@ -855,6 +1034,8 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           puedeRehacer={historial.futuro.length > 0}
           onDeshacer={deshacer}
           onRehacer={rehacer}
+          cuadricula={cuadricula}
+          onCuadricula={setCuadricula}
         />
 
         {/* Lo que el QR va a tapar, y lo que pasa si no hay tabla: dos
@@ -934,10 +1115,17 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             {modoDibujo === 'zona' && 'Dibuja un recuadro sobre lo que quieras borrar del diseño original.'}
             {modoDibujo === 'rejilla' && 'Rodea el cuadro de desglose del pie, cabecera incluida. Se rellenará con un renglón por cada tipo impositivo de la factura.'}
             {modoDibujo === 'pagos' && 'Rodea el cuadro de vencimientos del pie. Se rellenará con la fecha de pago, el plazo, el importe y la forma de pago de cada factura.'}
+            {modoDibujo === 'linea' && 'Arrastra para trazar una línea: sale horizontal o vertical según hacia dónde tires más.'}
+            {modoDibujo === 'rectangulo' && 'Dibuja el recuadro. Después le pones borde, relleno y esquinas redondeadas.'}
+            {modoDibujo === 'elipse' && 'Dibuja el óvalo (o el círculo, si lo haces cuadrado).'}
           </p>
         )}
 
         <div className="plantilla-lienzo-scroll">
+          <div className="plantilla-mesa" style={{ width: `${zoom * 100}%` }}>
+          <span className="plantilla-mesa-esquina" title="Milímetros">mm</span>
+          <Regla eje="x" longitud={pagina.ancho} pxPorMm={pxPorMm} marcador={marcaReglaX} onPulsar={(e) => sacarGuia('x', e)} />
+          <Regla eje="y" longitud={pagina.alto} pxPorMm={pxPorMm} marcador={marcaReglaY} onPulsar={(e) => sacarGuia('y', e)} />
           <div
             ref={lienzoRef}
             className={[
@@ -945,7 +1133,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               modoDibujo ? 'plantilla-lienzo--dibujando' : '',
               vistaPrevia ? 'plantilla-lienzo--previa' : '',
             ].filter(Boolean).join(' ')}
-            style={{ width: `${zoom * 100}%`, aspectRatio: `${pagina.ancho} / ${pagina.alto}` }}
+            style={{ width: '100%', aspectRatio: `${pagina.ancho} / ${pagina.alto}` }}
             onPointerDown={alPulsarLienzo}
             onPointerMove={alMover}
             onPointerUp={alSoltar}
@@ -953,6 +1141,40 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={pagina.bitmap.dataUrl} alt="Factura subida" className="plantilla-lienzo-img" draggable={false} />
+
+            {/* --- Cuadrícula --- */}
+            {pasoVisible > 0 && (
+              <div
+                className="plantilla-cuadricula"
+                style={{ backgroundSize: `${pasoVisible * pxPorMm}px ${pasoVisible * pxPorMm}px` }}
+                aria-hidden="true"
+              />
+            )}
+
+            {/* --- Formas: rayas, recuadros y óvalos, debajo de los datos --- */}
+            {formas.map(forma => {
+              const activa = seleccionados.has(`forma:${forma.id}`);
+              return (
+                <div
+                  key={forma.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`forma-caja ${activa ? 'forma-caja--activa' : ''}`}
+                  style={{
+                    left: pct(forma.x, pagina.ancho), top: pct(forma.y, pagina.alto),
+                    width: pct(forma.ancho, pagina.ancho), height: pct(forma.alto, pagina.alto),
+                  }}
+                  onPointerDown={(e) => empezarMover(e, `forma:${forma.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') seleccionar(`forma:${forma.id}`, false); }}
+                  title={NOMBRE_FORMA[forma.tipo]}
+                >
+                  <span className="forma-caja-dibujo" style={estiloDeForma(forma, pxPorMm)} />
+                  {activa && seleccion.length === 1 && (
+                    <Tiradores onEmpezar={(e, dir) => empezarRedimensionar(e, `forma:${forma.id}`, dir)} />
+                  )}
+                </div>
+              );
+            })}
 
             {/* --- Rejillas: el cuadro de desglose del pie --- */}
             {rejillas.map(rejilla => {
@@ -1130,10 +1352,17 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
             {/* --- Campos --- */}
             {campos.map(campo => {
               const activo = seleccionados.has(`campo:${campo.id}`);
+              // Lo mismo que saldrá en el PDF: con su formato y, en los
+              // rótulos, con los datos de ejemplo en lugar de los marcadores.
+              const datoPresentado = campo.clave
+                ? presentar(datosEjemplo[campo.clave] || campo.valorOriginal, campo.presentacion)
+                : '';
               const valorMuestra = campo.fijo
-                ? (campo.texto ?? campo.valorOriginal)
+                ? textoDeMuestra(campo.texto ?? campo.valorOriginal, datosEjemplo)
                 : campo.clave
-                  ? (formatoVigente(campo) ? aplicarFormato(formatoVigente(campo)!, datosEjemplo) : (datosEjemplo[campo.clave] || campo.valorOriginal))
+                  ? (formatoVigente(campo)
+                    ? aplicarFormato(formatoVigente(campo)!, { ...datosEjemplo, [campo.clave]: datoPresentado })
+                    : datoPresentado)
                   : campo.valorOriginal;
 
               return (
@@ -1169,6 +1398,12 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                         fontFamily: campo.serif ? 'Georgia, serif' : 'Inter, Arial, sans-serif',
                         justifyContent: campo.alineacion === 'right' ? 'flex-end'
                           : campo.alineacion === 'center' ? 'center' : 'flex-start',
+                        // Como en el PDF: arriba salvo que se pida otra cosa.
+                        alignItems: campo.alineacionVertical === 'bottom' ? 'flex-end'
+                          : campo.alineacionVertical === 'middle' ? 'center' : 'flex-start',
+                        letterSpacing: campo.interletraje ? `${puntosAPx(campo.interletraje)}px` : undefined,
+                        whiteSpace: esMultilinea(campo) ? 'pre-wrap' : 'nowrap',
+                        textAlign: campo.alineacion,
                       }}
                     >
                       {valorMuestra}
@@ -1200,6 +1435,22 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               );
             })}
 
+            {/* --- Guías del usuario: se arrastran; fuera del papel se quitan --- */}
+            {guiasUsuario.map(guia => (
+              <span
+                key={guia.id}
+                className={`plantilla-guia-usuario plantilla-guia-usuario--${guia.eje} ${arrastre?.tipo === 'guia' && arrastre.id === guia.id ? 'plantilla-guia-usuario--viva' : ''}`}
+                style={guia.eje === 'x'
+                  ? { left: pct(guia.valor, pagina.ancho) }
+                  : { top: pct(guia.valor, pagina.alto) }}
+                onPointerDown={(e) => empezarGuia(e, guia)}
+                onDoubleClick={() => { marcar(); onCambiar({ guias: guiasUsuario.filter(g => g.id !== guia.id) }); }}
+                title={`Guía a ${redondearMm(guia.valor).toFixed(1).replace('.', ',')} mm. Arrástrala; doble clic o sácala del papel para quitarla.`}
+              >
+                <span className="plantilla-guia-usuario-valor">{redondearMm(guia.valor).toFixed(1).replace('.', ',')}</span>
+              </span>
+            ))}
+
             {/* --- Guías de los imanes --- */}
             {guias.map((guia, i) => (
               <span
@@ -1217,7 +1468,8 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
                 className={
                   cajaDibujo.modo === 'zona' ? 'zona-caja zona-caja--nueva'
                     : cajaDibujo.modo === 'seleccion' ? 'plantilla-marquesina'
-                      : 'campo-caja campo-caja--nueva'
+                      : ES_FORMA(cajaDibujo.modo) ? `forma-caja forma-caja--nueva forma-caja--${cajaDibujo.modo}`
+                        : 'campo-caja campo-caja--nueva'
                 }
                 style={{
                   left: pct(Math.min(cajaDibujo.x0, cajaDibujo.x1), pagina.ancho),
@@ -1228,12 +1480,22 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               />
             )}
           </div>
+          </div>
+        </div>
+
+        <div className="plantilla-estado">
+          <span ref={lecturaCursor} className="plantilla-estado-cursor" aria-live="off" />
+          <ListaGuias
+            guias={guiasUsuario}
+            onCambiar={(guias) => { marcar(); onCambiar({ guias }); }}
+          />
         </div>
 
         <p className="plantilla-atajos">
-          <strong>Atajos:</strong> arrastra sobre el papel para seleccionar varios · flechas para mover (Mayús = 2 mm)
-          · <kbd>Alt</kbd> mientras arrastras desactiva los imanes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer
-          · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar · <kbd>Supr</kbd> eliminar
+          <strong>Atajos:</strong> arrastra sobre el papel para seleccionar varios · flechas para mover
+          (Mayús = 2 mm, <kbd>Alt</kbd> = 0,1 mm) · <kbd>Ctrl</kbd>+flechas para cambiar el tamaño
+          · pulsa en una regla para sacar una guía · <kbd>Alt</kbd> mientras arrastras desactiva imanes y cuadrícula
+          · <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar · <kbd>Supr</kbd> eliminar
         </p>
       </div>
 
@@ -1291,6 +1553,28 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
               }}
             />
           </div>
+        )}
+
+        {formaActiva && (
+          <>
+            <PanelForma
+              forma={formaActiva}
+              onCambiar={(cambios) => {
+                marcar();
+                onCambiar({ formas: formas.map(f => (f.id === formaActiva.id ? { ...f, ...cambios } : f)) });
+              }}
+              onEliminar={borrarSeleccion}
+            />
+            <div className="card">
+              <CajaNumerica
+                caja={formaActiva}
+                onCambiar={(cambios) => {
+                  marcar();
+                  onCambiar({ formas: formas.map(f => (f.id === formaActiva.id ? { ...f, ...cambios } : f)) });
+                }}
+              />
+            </div>
+          </>
         )}
 
         {rejillaActiva && (
@@ -1431,6 +1715,8 @@ interface PropsBarra {
   puedeRehacer: boolean;
   onDeshacer: () => void;
   onRehacer: () => void;
+  cuadricula: number;
+  onCuadricula: (paso: number) => void;
 }
 
 function BarraHerramientas(p: PropsBarra) {
@@ -1502,6 +1788,30 @@ function BarraHerramientas(p: PropsBarra) {
             <Table2 size={14} /> Añadir tabla
           </button>
         )}
+      </div>
+
+      <div className="plantilla-toolbar-grupo" role="group" aria-label="Formas">
+        {(['linea', 'rectangulo', 'elipse'] as const).map(tipo => {
+          const Icono = ICONO_FORMA[tipo];
+          return (
+            <button
+              key={tipo}
+              type="button"
+              className={`btn btn-sm btn-icon ${p.modoDibujo === tipo ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => alternar(tipo)}
+              title={`${NOMBRE_FORMA[tipo]}: dibújala sobre el papel`}
+              aria-label={NOMBRE_FORMA[tipo]}
+            >
+              <Icono size={14} />
+            </button>
+          );
+        })}
+        <label className="plantilla-cuadricula-selector" title="Cuadrícula con imán. Alt al arrastrar la ignora.">
+          <span>Cuadrícula</span>
+          <select className="form-select form-select-sm" value={p.cuadricula} onChange={(e) => p.onCuadricula(Number(e.target.value))}>
+            {PASOS_CUADRICULA.map(paso => <option key={paso} value={paso}>{paso === 0 ? 'No' : `${paso} mm`}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="plantilla-toolbar-grupo">
@@ -1902,7 +2212,7 @@ function CajaNumerica({ caja, onCambiar }: {
           <input
             type="number"
             className="form-input form-input-sm"
-            step={0.5}
+            step={0.1}
             value={redondearMm(caja[clave])}
             onChange={(e) => onCambiar({ [clave]: Number(e.target.value) || 0 } as Partial<Caja>)}
           />
@@ -1923,6 +2233,7 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
   onDuplicar: () => void;
 }) {
   const definicion = campo.clave ? campoPorClave(campo.clave) : undefined;
+  const areaRotulo = useRef<HTMLTextAreaElement>(null);
 
   return (
     <div className="card">
@@ -1961,11 +2272,27 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
           <label className="form-label" htmlFor="campo-texto-fijo">Texto que se imprime siempre</label>
           <textarea
             id="campo-texto-fijo"
+            ref={areaRotulo}
             className="form-input"
             rows={2}
             value={campo.texto ?? ''}
             placeholder={campo.valorOriginal || 'Escribe el rótulo'}
             onChange={(e) => onCambiar({ texto: e.target.value })}
+          />
+          <InsertarDato
+            texto={campo.texto ?? ''}
+            onInsertar={(marcador) => {
+              // Donde está el cursor, no al final: «Atendido por | el día».
+              const actual = campo.texto ?? '';
+              const area = areaRotulo.current;
+              const desde = area?.selectionStart ?? actual.length;
+              const hasta = area?.selectionEnd ?? actual.length;
+              onCambiar({ texto: actual.slice(0, desde) + marcador + actual.slice(hasta) });
+              requestAnimationFrame(() => {
+                area?.focus();
+                area?.setSelectionRange(desde + marcador.length, desde + marcador.length);
+              });
+            }}
           />
           <p className="plantilla-ayuda">
             {campo.manual
@@ -1986,6 +2313,13 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
             />
           </div>
           {definicion && <p className="plantilla-ayuda">{definicion.descripcion}</p>}
+          {campo.clave && definicion?.tipo === 'texto' && (
+            <FormatoDelDato
+              clave={campo.clave}
+              presentacion={campo.presentacion}
+              onCambiar={(presentacion) => onCambiar({ presentacion })}
+            />
+          )}
           {definicion?.tipo === 'imagen' && (
             <div className="callout callout-info plantilla-callout-compacto">
               <div>
@@ -2041,6 +2375,7 @@ function PanelCampo({ campo, asignadas, recuentosDeColumna, onAsignar, onCambiar
             onChange={(e) => onCambiar({ cursiva: e.target.checked })} />
         </div>
       )}
+      {campo.tipo !== 'imagen' && <AjusteDelTexto campo={campo} onCambiar={onCambiar} />}
 
       <div className="plantilla-separador" />
       <CajaNumerica caja={campo} onCambiar={(cambios) => onCambiar(cambios)} />
