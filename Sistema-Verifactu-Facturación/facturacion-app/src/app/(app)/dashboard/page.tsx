@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { apartarParaHacienda, presentacionPendiente } from '@/lib/fiscal/apartarHacienda';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
   TrendingUp, TrendingDown, Euro, Clock, Users, AlertTriangle,
   ArrowRight, Eye, Plus, Package, FileText, Wallet, Percent, FilePen, Receipt,
@@ -25,7 +26,6 @@ import { BUSINESS_SECTORS, PAYMENT_METHODS } from '@/lib/constants';
 import { FirstStepsModal, FirstStepsData } from '@/components/onboarding/FirstStepsModal';
 import { VerifactuStatus } from '@/components/verifactu/VerifactuStatus';
 import AvisosTendencias from '@/components/dashboard/AvisosTendencias';
-import PanelAnalisis from '@/components/dashboard/PanelAnalisis';
 import { evaluatePlanLimit } from '@/lib/planLimits';
 import { colocar, fichasVisibles, type FichaId } from '@/lib/panel';
 import {
@@ -69,6 +69,13 @@ const filasPendientes = (lista: Pendiente[], conImporte = true) => lista.map(p =
  * barra suelta en medio de un recuadro vacío.
  */
 const altoRanking = (filas: number) => Math.max(110, 34 + Math.max(1, filas) * 36);
+
+// El análisis trae siete gráficas de Nivo más: se carga aparte, cuando el
+// panel ya está pintado, para que la primera vista no espere por ellas.
+const PanelAnalisis = dynamic(() => import('@/components/dashboard/PanelAnalisis'), {
+  ssr: false,
+  loading: () => <div className="analisis analisis--cargando" aria-busy="true" />,
+});
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -684,6 +691,9 @@ export default function DashboardPage() {
           <div className="stack">{b.derecha.map((id, k) => <div key={id} style={{ order: 2 * k + 1 }}>{tarjeta(id)}</div>)}</div>
         </div>
       )))}
+
+      {/* Análisis: ritmo, cuándo se vende, cobros, clientes y productos */}
+      <PanelAnalisis invoices={invoices} products={products} />
 
       {/* Avisos y tendencias IA */}
       <AvisosTendencias products={products} invoices={invoices} />

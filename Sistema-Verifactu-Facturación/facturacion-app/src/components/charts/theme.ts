@@ -99,6 +99,26 @@ export function temaAcento(): TemaAcento {
 
 export type ModoGrafica = 'claro' | 'oscuro';
 
+/**
+ * Escala SECUENCIAL: un solo tono (el vino), de poco a mucho.
+ *
+ * Para magnitud —cuánto se vendió un día, en una franja— nunca un arco
+ * iris: más oscuro es más. En modo oscuro la escala va al revés de
+ * luminosidad (poco = cerca del fondo, mucho = más luz), porque lo que
+ * destaca sobre una tarjeta oscura es lo claro. El último paso de cada
+ * modo es el mismo CHART_ACCENT validado.
+ */
+export const SECUENCIAL: Record<ModoGrafica, readonly string[]> = {
+  claro: ['#f1dbe3', '#e0adc0', '#cb7b9a', '#b02a5c', '#7a1a3e'],
+  oscuro: ['#44232d', '#692a41', '#963459', '#c9407a', '#e98cb1'],
+};
+
+/** Celda sin dato: se ve la retícula, no un cero pintado. */
+export const CELDA_VACIA: Record<ModoGrafica, string> = {
+  claro: 'rgba(26, 18, 22, 0.06)',
+  oscuro: 'rgba(247, 235, 239, 0.07)',
+};
+
 /** Qué tema está puesto ahora mismo: el explícito manda sobre el del sistema. */
 export function modoGrafica(): ModoGrafica {
   if (typeof document === 'undefined') return 'claro';

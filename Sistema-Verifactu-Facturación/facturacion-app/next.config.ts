@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // «standalone» genera un build auto-contenido (~50 MB) que puede
+  // ejecutarse con `node server.js` en cualquier VPS sin necesidad de
+  // Vercel. Incluye sólo las dependencias de producción que el servidor
+  // usa realmente. Necesario para el despliegue en IONOS.
+  output: 'standalone',
   reactCompiler: true,
   async headers() {
     return [

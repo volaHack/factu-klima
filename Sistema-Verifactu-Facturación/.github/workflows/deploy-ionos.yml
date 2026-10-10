@@ -1,0 +1,107 @@
+# =============================================================================
+# Despliegue automático en IONOS VPS
+# =============================================================================
+# Cada push a «main» construye la app Next.js en modo standalone y la
+# despliega en el VPS de IONOS por SSH + rsync. PM2 reinicia el proceso
+# de Node sin interrumpir el servicio (gracefulReload).
+#
+# SECRETOS NECESARIOS en GitHub (Settings > Secrets > Actions):
+#   IONOS_HOST          → IP o dominio del VPS (ej. 82.165.xxx.xxx)
+#   IONOS_USER          → usuario de despliegue (ej. deploy)
+#   IONOS_SSH_KEY       → clave privada Ed25519 del usuario
+#   IONOS_SSH_PORT      → puerto SSH (22 por defecto)
+#
+# VARIABLES DE ENTORNO del .env.local se configuran como secretos
+# adicionales (ver sección «Crear el .env en el servidor»).
+# =============================================================================
+
+name: Deploy to IONOS VPS
+
+on:
+  push:
+    branches: [main]
+  # Permite lanzarlo manualmente desde la pestaña Actions de GitHub
+  workflow_dispatch:
+
+env:
+  APP_DIR: facturacion-app
+  REMOTE_APP_DIR: /var/www/facturacion-app
+  NODE_VERSION: '22'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+
+    steps:
+      # ───────────────────────── CHECKOUT ─────────────────────────
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      # ───────────────────────── NODE.JS ──────────────────────────
+      - name: Instalar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+
+      # ───────────────────────── DEPENDENCIAS ─────────────────────
+      - name: Instalar dependencias
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      # ───────────────────────── BUILD ────────────────────────────
+      - name: Construir la app (standalone)
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          # Variables públicas necesarias en build-time.
+          # Las secretas del servidor (.env) NO hacen falta aquí
+          # porque sólo se usan en runtime, no en el build.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_APP_URL: https://klimafacturas.com
+        run: npm run build
+
+      # ───────────────────────── PREPARAR PAQUETE ─────────────────
+      # El build standalone no copia /public ni .next/static — hay
+      # que moverlos manualmente al directorio standalone.
+      - name: Montar paquete de despliegue
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          cp ecosystem.config.cjs .next/standalone/
+
+      # ───────────────────────── SSH SETUP ────────────────────────
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.IONOS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p ${{ secrets.IONOS_SSH_PORT || 22 }} -H ${{ secrets.IONOS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      # ───────────────────────── DEPLOY ───────────────────────────
+      - name: Subir build al VPS
+        run: |
+          rsync -azP --delete --exclude '.env' \
+            -e "ssh -i ~/.ssh/id_deploy -p ${{ secrets.IONOS_SSH_PORT || 22 }}" \
+            ${{ env.APP_DIR }}/.next/standalone/ \
+            ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}:${{ env.REMOTE_APP_DIR }}/
+
+      # ───────────────────────── REINICIAR ────────────────────────
+      - name: Reiniciar la app con PM2
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -p ${{ secrets.IONOS_SSH_PORT || 22 }} \
+              ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }} \
+              'cd ${{ env.REMOTE_APP_DIR }} && \
+               pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
+               pm2 start ecosystem.config.cjs && \
+               pm2 save'
+
+      # ───────────────────────── LIMPIEZA ─────────────────────────
+      - name: Limpiar clave SSH
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
