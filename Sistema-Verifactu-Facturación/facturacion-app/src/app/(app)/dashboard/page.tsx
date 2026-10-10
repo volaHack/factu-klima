@@ -36,7 +36,7 @@ import FichaLista from '@/components/dashboard/FichaLista';
 import CabeceraPanel from '@/components/dashboard/CabeceraPanel';
 import ParaHoy from '@/components/dashboard/ParaHoy';
 import AvisoPlan from '@/components/dashboard/AvisoPlan';
-import { comparativaMes, plural, tareasDeHoy } from '@/lib/panelHoy';
+import { comparativaMes, plural, tareasDeHoy, type EntradaHoy } from '@/lib/panelHoy';
 import { getFacturasElectronicas } from '@/lib/facturaElectronica/almacen';
 import type { FeResumen } from '@/lib/facturaElectronica/estados';
 
@@ -50,8 +50,26 @@ interface Extras {
   lotes: Lote[];
   /** Facturas electrónicas recibidas, para «Para hoy». */
   fe: FeResumen[];
+  /** Bancos conectados, para avisar del permiso y de lo que falta conciliar. */
+  banco: EntradaHoy['banco'];
 }
-const SIN_EXTRAS: Extras = { documentos: [], albaranes: [], gastos: [], obras: [], ordenes: [], lotes: [], fe: [] };
+const SIN_EXTRAS: Extras = { documentos: [], albaranes: [], gastos: [], obras: [], ordenes: [], lotes: [], fe: [], banco: null };
+
+/** Lo justo de `/api/banco` para «Para hoy»; sin banco conectado (o sin servicio), nada. */
+async function leerBanco(): Promise<EntradaHoy['banco']> {
+  try {
+    const r = await fetch('/api/banco', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json() as { disponible?: boolean; conexiones?: { banco: string; caducada: boolean; diasParaCaducar: number | null }[]; sinConciliar?: number };
+    if (!d.disponible || !d.conexiones?.length) return null;
+    return {
+      conexiones: d.conexiones.map(c => ({ banco: c.banco, caducada: c.caducada, diasParaCaducar: c.diasParaCaducar })),
+      sinConciliar: d.sinConciliar ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const hoyIso = () => {
   const d = new Date();
@@ -101,7 +119,7 @@ export default function DashboardPage() {
       const puestas = new Set(fichasVisibles(stg?.panel, stg?.modulos).map(f => f.id));
       const si = <T,>(ids: FichaId[], leer: () => Promise<T[]>) =>
         (ids.some(id => puestas.has(id)) ? leer().catch(() => [] as T[]) : Promise.resolve([] as T[]));
-      const [albaranes, gastos, obras, ordenes, lotes, fe] = await Promise.all([
+      const [albaranes, gastos, obras, ordenes, lotes, fe, banco] = await Promise.all([
         si(['albaranes_sin_facturar'], getAlbaranes),
         // Los gastos van siempre: «Para hoy» calcula con ellos el IVA del trimestre a presentar.
         getGastos().catch(() => [] as Gasto[]),
@@ -109,9 +127,10 @@ export default function DashboardPage() {
         si(['ordenes_atrasadas'], getOrdenesTrabajo),
         si(['lotes_caducando'], getLotes),
         getFacturasElectronicas('recibida').catch(() => []),
+        leerBanco(),
       ]);
       setExtras({
-        documentos: invs, albaranes, gastos, obras, ordenes, lotes,
+        documentos: invs, albaranes, gastos, obras, ordenes, lotes, banco,
         fe: fe.map(f => ({ id: f.id, sentido: f.sentido, estado: f.estado, numero: f.numero, nombreEmisor: f.nombreEmisor, total: f.total, fecha: f.fecha, vencimiento: f.vencimiento })),
       });
       setInvoices(invs.filter(isFactura));
@@ -290,6 +309,7 @@ export default function DashboardPage() {
       new Date(`${hoy}T12:00:00`),
     ),
     igic: settings?.igicEnabled,
+    banco: extras.banco,
     hoy,
   });
 

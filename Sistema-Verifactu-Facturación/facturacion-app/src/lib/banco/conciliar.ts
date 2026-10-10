@@ -23,6 +23,13 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export const marcaBanco = (movId: string) => `[banco:${movId}]`;
 const RE_MARCA = /\[banco:([a-z0-9]+)\]/g;
 
+/** Los ids de movimiento marcados en unos textos (las notas de cobros, pagos y gastos). */
+export function idsMarcados(textos: (string | null | undefined)[]): Set<string> {
+  const ids = new Set<string>();
+  for (const t of textos) for (const m of (t ?? '').matchAll(RE_MARCA)) ids.add(m[1]);
+  return ids;
+}
+
 /** Los movimientos ya conciliados, por las marcas en las notas. */
 export function movimientosConciliados(cobrosPagos: CobroPago[], gastos: Gasto[]): Map<string, string> {
   const hechos = new Map<string, string>();

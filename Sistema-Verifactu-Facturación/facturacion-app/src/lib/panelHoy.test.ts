@@ -73,6 +73,51 @@ describe('tareasDeHoy', () => {
     });
     expect(t.map(x => x.tono)).toEqual(['peligro', 'info']);
   });
+
+  describe('banco', () => {
+    const conexion = (over: Partial<{ banco: string; caducada: boolean; diasParaCaducar: number | null }>) =>
+      ({ banco: 'Santander', caducada: false, diasParaCaducar: 120, ...over });
+
+    it('un permiso en vigor y sin movimientos pendientes no da tareas', () => {
+      expect(tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({})], sinConciliar: 0 }, hoy: HOY })).toEqual([]);
+    });
+
+    it('avisa cuando al permiso le quedan 10 días o menos', () => {
+      const [t] = tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({ diasParaCaducar: 6 })], sinConciliar: 0 }, hoy: HOY });
+      expect(t).toMatchObject({ id: 'banco-permiso', tono: 'aviso', href: '/banco', accion: 'Renovar' });
+      expect(t.titulo).toBe('El permiso de Santander caduca en 6 días');
+    });
+
+    it('el último día lo dice así', () => {
+      const [t] = tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({ diasParaCaducar: 0 })], sinConciliar: 0 }, hoy: HOY });
+      expect(t.titulo).toBe('El permiso de Santander caduca hoy');
+    });
+
+    it('un permiso caducado es un peligro: el banco ha dejado de leerse', () => {
+      const [t] = tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({ caducada: true, diasParaCaducar: -3 })], sinConciliar: 0 }, hoy: HOY });
+      expect(t).toMatchObject({ id: 'banco-permiso', tono: 'peligro' });
+      expect(t.titulo).toBe('El permiso de Santander ha caducado');
+    });
+
+    it('varios bancos: se avisa una vez, por el más urgente', () => {
+      const t = tareasDeHoy({
+        documentos: [],
+        banco: { conexiones: [conexion({ banco: 'BBVA', diasParaCaducar: 8 }), conexion({ banco: 'Sabadell', diasParaCaducar: 2 })], sinConciliar: 0 },
+        hoy: HOY,
+      });
+      expect(t).toHaveLength(1);
+      expect(t[0].titulo).toBe('El permiso de Sabadell caduca en 2 días');
+      expect(t[0].detalle).toContain('2 bancos');
+    });
+
+    it('cuenta los movimientos sin conciliar', () => {
+      const [t] = tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({})], sinConciliar: 14 }, hoy: HOY });
+      expect(t).toMatchObject({ id: 'banco-conciliar', tono: 'info', href: '/conciliacion', accion: 'Conciliar' });
+      expect(t.titulo).toBe('14 movimientos del banco sin conciliar');
+      expect(tareasDeHoy({ documentos: [], banco: { conexiones: [conexion({})], sinConciliar: 1 }, hoy: HOY })[0].titulo)
+        .toBe('1 movimiento del banco sin conciliar');
+    });
+  });
 });
 
 describe('comparativaMes', () => {

@@ -1,6 +1,7 @@
 /**
  * /api/banco — las conexiones del negocio con sus bancos.
- *   GET     lista (sin el session_id, que no sale del servidor)
+ *   GET     lista con saldos y caducidad (sin el session_id, que no sale
+ *           del servidor) y cuántos movimientos quedan por conciliar
  *   DELETE  ?id=… desconecta: se borra la sesión en Enable Banking y aquí
  */
 
@@ -8,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { borrarSesion, enableBankingConfigurado } from '@/lib/banco/enableBanking';
+import { conexionesDe, sinConciliarDe, vistaDeConexion } from '@/lib/banco/servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,17 +21,12 @@ async function usuario() {
 export async function GET() {
   const user = await usuario();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!enableBankingConfigurado()) return NextResponse.json({ disponible: false, conexiones: [] });
-  const { data } = await supabaseServicio().from('bancos_conectados')
-    .select('id, banco, cuentas, valido_hasta, ultima_lectura').eq('user_id', user.id).order('creado_en', { ascending: false });
-  const ahora = Date.now();
-  return NextResponse.json({
-    disponible: true,
-    conexiones: (data ?? []).map(c => ({
-      id: c.id, banco: c.banco, cuentas: c.cuentas ?? [], validoHasta: c.valido_hasta, ultimaLectura: c.ultima_lectura,
-      caducada: !!c.valido_hasta && new Date(c.valido_hasta).getTime() < ahora,
-    })),
-  });
+  if (!enableBankingConfigurado()) return NextResponse.json({ disponible: false, conexiones: [], sinConciliar: 0 });
+  const db = supabaseServicio();
+  const conexiones = await conexionesDe(db, user.id);
+  // El panel pregunta en cada carga: sin bancos no hay nada que contar.
+  const sinConciliar = conexiones.length ? await sinConciliarDe(db, user.id).catch(() => 0) : 0;
+  return NextResponse.json({ disponible: true, conexiones: conexiones.map(c => vistaDeConexion(c)), sinConciliar });
 }
 
 export async function DELETE(request: Request) {

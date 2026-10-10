@@ -1,0 +1,151 @@
+name: Desplegar en el VPS
+
+# Cada vez que el CI pasa en verde sobre un push a «main», se construye la
+# app (Next.js standalone) y se publica en el VPS de IONOS:
+#
+#   1. Se sube a  $APP_DIR/releases/<fecha>-<commit>/  por rsync (SSH).
+#   2. deploy/activar.sh mueve  $APP_DIR/current  a esa versión, reinicia
+#      con PM2 y comprueba que responde; si no, vuelve a la anterior.
+#
+# Si el CI falla no se despliega nada. También se puede lanzar a mano desde
+# la pestaña Actions («Run workflow»).
+#
+# SECRETOS (Settings → Secrets and variables → Actions → Secrets):
+#   IONOS_HOST            IP o dominio del VPS
+#   IONOS_USER            usuario de despliegue (p. ej. deploy)
+#   IONOS_SSH_KEY         clave privada SSH de ese usuario (su pública, en
+#                         ~/.ssh/authorized_keys del VPS)
+#   IONOS_SSH_PORT        opcional, 22 si no se pone
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+#                         se graban en el código del navegador al compilar
+#
+# VARIABLES (misma pantalla → Variables), todas opcionales:
+#   IONOS_APP_DIR         carpeta de la app en el VPS (/home/deploy/facturacion-app)
+#   APP_URL               dirección pública (https://klimafacturas.com)
+#   VPS_CRON              «on» para programar en el VPS las tareas diarias
+#                         (banco, Veri*Factu, recordatorios). Mientras Vercel
+#                         siga con sus crons, déjala apagada: correrían dos veces.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Nunca dos despliegues a la vez; uno nuevo espera a que acabe el anterior.
+concurrency:
+  group: desplegar-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: "Sistema-Verifactu-Facturación/facturacion-app"
+
+jobs:
+  desplegar:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 30
+    env:
+      APP_DIR: ${{ vars.IONOS_APP_DIR || '/home/deploy/facturacion-app' }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SSH_PUERTO: ${{ secrets.IONOS_SSH_PORT || '22' }}
+
+    steps:
+      - name: Comprobar que están los secretos
+        working-directory: .
+        env:
+          IONOS_HOST: ${{ secrets.IONOS_HOST }}
+          IONOS_USER: ${{ secrets.IONOS_USER }}
+          IONOS_SSH_KEY: ${{ secrets.IONOS_SSH_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          falta=0
+          for v in IONOS_HOST IONOS_USER IONOS_SSH_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto $v (Settings → Secrets and variables → Actions)"; falta=1; fi
+          done
+          exit $falta
+
+      - name: Clonar el commit que pasó el CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Instalar Node.js 22 (el mismo que el VPS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: "Sistema-Verifactu-Facturación/facturacion-app/package-lock.json"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Construir (standalone)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL || 'https://klimafacturas.com' }}
+          # Identifica la versión: con ella el móvil renueva las pantallas
+          # que guarda para usarlas sin conexión.
+          NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: ${{ env.SHA }}
+        run: npm run build
+
+      - name: Montar el paquete
+        run: |
+          S=.next/standalone
+          test -f "$S/server.js" || { echo "::error::El build no ha dejado .next/standalone/server.js"; exit 1; }
+          cp -r public "$S/public"
+          mkdir -p "$S/.next" && cp -r .next/static "$S/.next/static"
+          cp ecosystem.config.cjs "$S/"
+          mkdir -p "$S/deploy" && cp deploy/activar.sh deploy/cron.sh "$S/deploy/" && chmod +x "$S"/deploy/*.sh
+          echo "$SHA" > "$S/VERSION"
+          echo "VERSION_DIR=$(date -u +%Y%m%d-%H%M%S)-${SHA::7}" >> "$GITHUB_ENV"
+          du -sh "$S"
+
+      - name: Preparar SSH
+        working-directory: .
+        env:
+          IONOS_HOST: ${{ secrets.IONOS_HOST }}
+          IONOS_SSH_KEY: ${{ secrets.IONOS_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$IONOS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PUERTO" -H "$IONOS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts || { echo "::error::No se llega por SSH a $IONOS_HOST:$SSH_PUERTO"; exit 1; }
+
+      - name: Subir la versión
+        env:
+          DESTINO: ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/id_deploy -p $SSH_PUERTO -o BatchMode=yes"
+          $SSH "$DESTINO" "mkdir -p '$APP_DIR/releases/$VERSION_DIR'"
+          # Lo que no ha cambiado respecto a la versión activa se enlaza en
+          # vez de copiarse (sube mucho menos). En el primer despliegue no
+          # hay versión activa.
+          ENLACE=()
+          if $SSH "$DESTINO" "test -d '$APP_DIR/current/'"; then ENLACE=(--link-dest="$APP_DIR/current/"); fi
+          rsync -az --delete -e "$SSH" "${ENLACE[@]}" \
+            .next/standalone/ "$DESTINO:$APP_DIR/releases/$VERSION_DIR/"
+
+      - name: Activar la versión
+        env:
+          DESTINO: ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}
+          VPS_CRON: ${{ vars.VPS_CRON || 'off' }}
+        run: |
+          ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PUERTO" -o BatchMode=yes "$DESTINO" \
+            "bash '$APP_DIR/releases/$VERSION_DIR/deploy/activar.sh' '$APP_DIR' '$VERSION_DIR' '$VPS_CRON'"
+
+      - name: Borrar la clave SSH
+        if: always()
+        working-directory: .
+        run: rm -f ~/.ssh/id_deploy

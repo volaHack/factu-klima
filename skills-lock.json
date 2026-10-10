@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "executing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/executing-plans/SKILL.md",
+      "computedHash": "5d587b5a8ed12c3d6808bce1561d9a72eab37a9b44d51d9dff99232decaae78e"
+    },
     "security-review": {
       "source": "getsentry/skills",
       "sourceType": "github",
@@ -13,11 +19,35 @@
       "skillPath": "plugins/stitch-build/skills/react-components/SKILL.md",
       "computedHash": "e4f9aaccf174f414274873cbeeee1bb6fa8833ae50457246d670872b0c3e063a"
     },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "3589907ee34dc8b1b7223a33fac98ab841a9e42f9960ab4433a832f0c6f00be0"
+    },
     "taste-design": {
       "source": "google-labs-code/stitch-skills",
       "sourceType": "github",
       "skillPath": "plugins/stitch-utilities/skills/taste-design/SKILL.md",
       "computedHash": "1891625787d6f0f3bc45d4a9437c187277af66c219e3ec799b1b4e67822b6146"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "3cfe4ebb6fa7288f668d87880d279c8e48f7a92b63415e296857060f5ce22e05"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "b529822bdac4b197b180fe12225cff86b930b65910435103c10622df7f041651"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/writing-plans/SKILL.md",
+      "computedHash": "c2647b5bf067be353a893e5a39a632cbbeb7ad81e61fa5ae227ece5490029073"
     }
   }
 }

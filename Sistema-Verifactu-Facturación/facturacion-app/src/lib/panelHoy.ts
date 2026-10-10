@@ -54,10 +54,18 @@ export interface EntradaHoy {
   /** El trimestre cerrado que aún está en plazo (`presentacionPendiente`). */
   presentacion?: ApartarHacienda | null;
   igic?: boolean;
+  /** Los bancos conectados (lo que devuelve `/api/banco`), si la empresa tiene. */
+  banco?: {
+    conexiones: { banco: string; caducada: boolean; diasParaCaducar: number | null }[];
+    sinConciliar: number;
+  } | null;
   hoy: string;
 }
 
-export function tareasDeHoy({ documentos, fe = [], presentacion, igic, hoy }: EntradaHoy): TareaHoy[] {
+/** Cuándo empezar a pedir que se renueve el permiso del banco (igual que `/banco`). */
+const AVISAR_PERMISO_DIAS = 10;
+
+export function tareasDeHoy({ documentos, fe = [], presentacion, igic, banco, hoy }: EntradaHoy): TareaHoy[] {
   const tareas: TareaHoy[] = [];
   const ventas = documentos.filter(esVenta);
 
@@ -105,6 +113,33 @@ export function tareasDeHoy({ documentos, fe = [], presentacion, igic, hoy }: En
       titulo: `${plural(decidir.length, 'factura electrónica', 'facturas electrónicas')} por aceptar o rechazar`,
       detalle: 'Las de proveedores que han llegado por el canal electrónico',
       href: '/factura-electronica', accion: 'Revisar',
+    });
+  }
+
+  // Banco: un permiso caducado deja de traer movimientos sin avisar a
+  // nadie. Se avisa una sola vez, por el banco más urgente.
+  const porRenovar = (banco?.conexiones ?? [])
+    .map(c => ({ ...c, dias: c.caducada ? -1 : c.diasParaCaducar }))
+    .filter((c): c is typeof c & { dias: number } => c.dias != null && c.dias <= AVISAR_PERMISO_DIAS)
+    .sort((a, b) => a.dias - b.dias);
+  if (porRenovar.length) {
+    const c = porRenovar[0];
+    const caducado = c.dias < 0;
+    tareas.push({
+      id: 'banco-permiso', tono: caducado ? 'peligro' : 'aviso',
+      titulo: `El permiso de ${c.banco} ${caducado ? 'ha caducado' : c.dias === 0 ? 'caduca hoy' : `caduca en ${plural(c.dias, 'día', 'días')}`}`,
+      detalle: porRenovar.length > 1
+        ? `Hay ${plural(porRenovar.length, 'banco', 'bancos')} con el permiso por renovar`
+        : caducado ? 'Los movimientos han dejado de llegar: renuévalo en un minuto' : 'Renuévalo antes y los movimientos seguirán llegando solos',
+      href: '/banco', accion: 'Renovar',
+    });
+  }
+  if (banco && banco.sinConciliar > 0) {
+    tareas.push({
+      id: 'banco-conciliar', tono: 'info',
+      titulo: `${plural(banco.sinConciliar, 'movimiento', 'movimientos')} del banco sin conciliar`,
+      detalle: 'Casa cada cobro y cada pago con su factura o su gasto',
+      href: '/conciliacion', accion: 'Conciliar',
     });
   }
 

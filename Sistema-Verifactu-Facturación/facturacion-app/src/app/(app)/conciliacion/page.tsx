@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import BancoConectado from '@/components/banco/BancoConectado';
+import type { EstadoBanco, MovimientoVista } from '@/components/banco/tipos';
 import Link from 'next/link';
 import {
   Landmark, Upload, CheckCircle2, Sparkles, EyeOff, Undo2, Receipt, X, FileSpreadsheet, RefreshCw,
@@ -47,6 +47,43 @@ function nivel(confianza: number): { clase: string; texto: string } {
   return { clase: 'badge-warning', texto: 'Revisar' };
 }
 
+/** Los movimientos guardados del banco conectado, como un extracto más. */
+async function movimientosDelBanco(): Promise<{
+  estado: { disponible: boolean; conectado: boolean; ultima: string | null };
+  extracto: Extracto | null;
+  ignorados: string[];
+}> {
+  const vacio = { estado: { disponible: false, conectado: false, ultima: null }, extracto: null, ignorados: [] };
+  try {
+    const e: EstadoBanco = await fetch('/api/banco').then(r => r.json());
+    if (!e.disponible) return vacio;
+    const activas = e.conexiones.filter(c => !c.caducada);
+    const ultima = activas.map(c => c.ultimaLectura).filter(Boolean).sort().pop() ?? null;
+    const estado = { disponible: true, conectado: e.conexiones.length > 0, ultima };
+    if (!e.conexiones.length) return { ...vacio, estado };
+    const d: { desde: string; movimientos: MovimientoVista[] } = await fetch('/api/banco/movimientos').then(r => r.json());
+    const movs = d.movimientos ?? [];
+    if (!movs.length) return { ...vacio, estado };
+    const ibans = [...new Set(movs.map(m => m.iban).filter(Boolean))];
+    return {
+      estado,
+      extracto: {
+        formato: 'banco',
+        cuenta: ibans.length === 1 ? ibans[0]! : undefined,
+        desde: d.desde,
+        hasta: new Date().toISOString().slice(0, 10),
+        movimientos: movs.map(m => ({
+          id: m.id, fecha: m.fecha, importe: m.importe, concepto: m.concepto,
+          ...(m.referencia ? { referencia: m.referencia } : {}), ...(m.saldo != null ? { saldo: m.saldo } : {}),
+        })).sort((a, b) => a.fecha.localeCompare(b.fecha)),
+      },
+      ignorados: movs.filter(m => m.ignorado).map(m => m.id),
+    };
+  } catch {
+    return vacio;
+  }
+}
+
 export default function ConciliacionPage() {
   const { success, error: toastError } = useToast();
   const entrada = useRef<HTMLInputElement>(null);
@@ -60,6 +97,8 @@ export default function ConciliacionPage() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [gastoPara, setGastoPara] = useState<{ mov: MovimientoBanco; datos: DatosGastoNuevo } | null>(null);
   const [arrastrando, setArrastrando] = useState(false);
+  // El banco conectado: si lo hay, sus movimientos guardados se cargan solos.
+  const [banco, setBanco] = useState<{ disponible: boolean; conectado: boolean; ultima: string | null } | null>(null);
 
   const recargar = useCallback(async () => {
     const [facturas, gastos, cobrosPagos, ajustes] = await Promise.all([getInvoices(), getGastos(), getCobrosPagos(), getCompanySettings()]);
@@ -70,13 +109,22 @@ export default function ConciliacionPage() {
   useEffect(() => {
     let vivo = true;
     (async () => {
-      await recargar();
+      const [, desdeBanco] = await Promise.all([recargar(), movimientosDelBanco()]);
       if (!vivo) return;
-      setIgnorados(leerIgnorados());
+      setBanco(desdeBanco.estado);
+      // Lo apartado en el servidor vale en todos los dispositivos; lo de
+      // este navegador (extractos subidos a mano) se suma.
+      setIgnorados(new Set([...leerIgnorados(), ...desdeBanco.ignorados]));
+      let guardado: Extracto | null = null;
       try {
-        const guardado = localStorage.getItem(CLAVE_EXTRACTO);
-        if (guardado) setExtracto(JSON.parse(guardado) as Extracto);
+        const texto = localStorage.getItem(CLAVE_EXTRACTO);
+        if (texto) guardado = JSON.parse(texto) as Extracto;
       } catch { /* sin extracto guardado */ }
+      // Un extracto subido a mano manda (es lo que se estaba conciliando);
+      // si no, los movimientos del banco conectado, siempre al día.
+      if (guardado && guardado.formato !== 'banco') setExtracto(guardado);
+      else if (desdeBanco.extracto) setExtracto(desdeBanco.extracto);
+      else if (guardado) setExtracto(guardado);
     })();
     return () => { vivo = false; };
   }, [recargar]);
@@ -106,18 +154,6 @@ export default function ConciliacionPage() {
       toastError('No se ha podido leer el extracto', err instanceof Error ? err.message : '');
     }
   };
-
-  // Movimientos traídos del banco conectado: igual que un extracto subido.
-  const desdeBanco = useCallback((e: Extracto) => {
-    setExtracto(e);
-    setEleccion({});
-    setFiltro('pendientes');
-    try { localStorage.setItem(CLAVE_EXTRACTO, JSON.stringify(e)); } catch { /* muy grande: sólo en memoria */ }
-    success(`${e.movimientos.length} movimientos traídos del banco`, 'Listos para conciliar');
-  }, [success]);
-  const avisarBanco = useCallback((tipo: 'ok' | 'error', titulo: string, texto?: string) => {
-    if (tipo === 'ok') success(titulo, texto); else toastError(titulo, texto);
-  }, [success, toastError]);
 
   const cerrar = () => {
     setExtracto(null);
@@ -164,6 +200,12 @@ export default function ConciliacionPage() {
     if (si) nuevo.add(id); else nuevo.delete(id);
     setIgnorados(nuevo);
     guardarIgnorados(nuevo);
+    // Un movimiento del banco conectado se aparta también en el servidor.
+    if (extracto?.formato === 'banco') {
+      void fetch('/api/banco/movimientos', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ignorado: si }),
+      }).catch(() => { /* se queda apartado en este navegador */ });
+    }
   };
 
   const guardarGasto = async (e: React.FormEvent) => {
@@ -210,7 +252,21 @@ export default function ConciliacionPage() {
         onChange={e => { abrir(e.target.files?.[0]); e.target.value = ''; }}
       />
 
-      {!extracto && <BancoConectado onExtracto={desdeBanco} avisar={avisarBanco} />}
+      {!extracto && banco?.disponible && !banco.conectado && (
+        <div className="card banco-invitacion">
+          <div>
+            <strong>Conecta tu banco y no vuelvas a subir extractos</strong>
+            <p>Los movimientos llegan solos cada mañana y aparecen aquí, listos para conciliar.</p>
+          </div>
+          <Link href="/banco" className="btn btn-primary">Conectar el banco</Link>
+        </div>
+      )}
+      {extracto?.formato === 'banco' && (
+        <p className="banco-origen">
+          Movimientos de tu banco conectado{banco?.ultima ? `, al día del ${new Date(banco.ultima).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}.
+          {' '}Llegan solos cada mañana. <Link href="/banco">Ver el banco</Link>
+        </p>
+      )}
 
       {!extracto ? (
         <div
