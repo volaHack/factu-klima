@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Landmark, History, Sliders, MessageCircle, Bug, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, History, Sliders, MessageCircle, Bug, ShieldAlert, Landmark as Banco } from 'lucide-react';
 
 const tabs = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const tabs = [
   { href: '/admin/soporte', label: 'Soporte', icon: MessageCircle },
   { href: '/admin/errores', label: 'Errores', icon: Bug },
   { href: '/admin/seguridad', label: 'Seguridad', icon: ShieldAlert },
+  { href: '/admin/banco', label: 'Banco', icon: Banco },
   { href: '/admin/registro', label: 'Auditoría', icon: History },
   { href: '/admin/configuracion', label: 'Configuración', icon: Sliders },
 ];

@@ -631,3 +631,24 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+/* --- Conexión con los bancos --- */
+.admin-banco-estado { display: flex; align-items: flex-start; gap: 0.875rem; }
+.admin-banco-estado p { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.875rem; }
+.admin-banco-estado.is-listo { border-color: color-mix(in srgb, var(--color-success) 45%, transparent); }
+.admin-banco-estado.is-listo > svg { color: var(--color-success); }
+.admin-banco-estado.is-pendiente { border-color: color-mix(in srgb, var(--color-danger) 45%, transparent); }
+.admin-banco-estado.is-pendiente > svg { color: var(--color-danger); }
+.admin-banco-lista { list-style: none; margin: 0; padding: 0; }
+.admin-banco-lista li { display: flex; gap: 0.75rem; padding: 0.75rem 1rem; border-top: 1px solid var(--border-color); }
+.admin-banco-lista li > svg { flex-shrink: 0; margin-top: 2px; }
+.admin-banco-lista li.is-ok > svg { color: var(--color-success); }
+.admin-banco-lista li.is-mal > svg { color: var(--color-danger); }
+.admin-banco-lista p { margin: 0.15rem 0 0; font-size: 0.8125rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+.admin-banco-arreglo { color: var(--text-primary) !important; }
+.admin-banco-pasos { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; line-height: 1.5; }
+.admin-banco-codigo {
+  display: inline-block; margin: 0.25rem 0.25rem 0 0; padding: 2px 8px;
+  border-radius: 6px; background: var(--bg-tertiary);
+  font-family: var(--font-mono); font-size: 0.8125rem; overflow-wrap: anywhere;
+}

@@ -10117,6 +10117,123 @@ body.nav-abierta { overflow: hidden; }
   .plantilla-fijos { max-height: 180px; }
 }
 
+.banco-invitacion { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.banco-invitacion p { margin: 2px 0 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.banco-origen { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+
+/* ============================================================
+   BANCO: cuentas, saldos y movimientos guardados (/banco)
+   ============================================================ */
+.banco-pagina { display: flex; flex-direction: column; gap: var(--space-5); }
+.banco-pagina .page-header { margin-bottom: 0; }
+.banco-titulo-seccion { margin: 0 0 var(--space-3); font-size: var(--text-md); font-weight: 700; }
+.banco-no-disponible h2, .banco-vacio-grande h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg, 1.125rem); }
+.banco-no-disponible p, .banco-vacio-grande > p { margin: 0; color: var(--text-secondary); max-width: 68ch; line-height: 1.55; }
+.banco-vacio-grande { display: flex; flex-direction: column; gap: var(--space-2); }
+.banco-vacio-grande > svg { color: var(--accent-500); }
+.banco-vacio-grande .banco-conectar { margin-top: var(--space-3); }
+
+.banco-conectar { display: flex; flex-direction: column; gap: var(--space-3); }
+.banco-buscar { position: relative; display: block; }
+.banco-buscar > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none; }
+.banco-buscar input { padding-left: 34px; }
+.banco-buscar--compacto { min-width: min(260px, 100%); }
+.banco-buscar--compacto > svg { left: 10px; }
+.banco-buscar--compacto input { padding-left: 30px; }
+.banco-lista {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: var(--space-2);
+  max-height: 300px; overflow: auto; padding: 2px;
+}
+.banco-cargando { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: var(--text-sm); }
+.banco-opcion {
+  display: flex; align-items: center; gap: var(--space-2); min-height: 44px;
+  padding: 8px 10px; text-align: left;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-card); color: var(--text-primary); font-size: var(--text-sm); cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+.banco-opcion:hover { background: var(--bg-card-hover); }
+.banco-opcion.is-elegido { border-color: var(--accent-500); box-shadow: 0 0 0 1px var(--accent-500) inset; }
+.banco-opcion img { border-radius: 4px; object-fit: contain; flex-shrink: 0; }
+.banco-opcion-inicial {
+  width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-tertiary); font-weight: 700; font-size: 12px;
+}
+.banco-empresa { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+.banco-seguridad {
+  display: flex; gap: var(--space-2); margin: 0; padding: var(--space-3);
+  border-radius: var(--radius-md); background: var(--bg-tertiary);
+  font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.5;
+}
+.banco-seguridad > svg { flex-shrink: 0; color: var(--color-success); margin-top: 1px; }
+.banco-conectar-botones { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+
+.banco-resumen {
+  display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-card);
+}
+.banco-resumen span { display: block; font-size: var(--text-xs); color: var(--text-tertiary); }
+.banco-resumen strong { font-size: var(--text-3xl); font-weight: 650; letter-spacing: var(--tracking-display); font-variant-numeric: tabular-nums; }
+.banco-resumen strong.is-negativo, .banco-cuenta-saldo strong.is-negativo { color: var(--color-danger); }
+.banco-resumen-pendiente { font-size: var(--text-sm); font-weight: 600; color: var(--accent-500); text-decoration: none; }
+
+.banco-conexiones { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--space-4); }
+.banco-conexion {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.banco-conexion.is-peligro { border-color: color-mix(in srgb, var(--color-danger) 45%, var(--border-color)); }
+.banco-conexion.is-aviso { border-color: color-mix(in srgb, var(--color-warning) 45%, var(--border-color)); }
+.banco-conexion-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-2); }
+.banco-conexion-cabecera h3 { margin: 0; font-size: var(--text-md); font-weight: 700; }
+.banco-conexion-cabecera p { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-tertiary); }
+.banco-estado { flex-shrink: 0; padding: 2px 8px; border-radius: var(--radius-full); font-size: var(--text-2xs); font-weight: 700; }
+.banco-estado.is-ok { background: var(--color-success-bg); color: var(--color-success); }
+.banco-estado.is-aviso { background: var(--color-warning-bg); color: var(--color-warning); }
+.banco-estado.is-peligro { background: var(--color-danger-bg); color: var(--color-danger); }
+.banco-conexion-error { display: flex; align-items: center; gap: 6px; margin: 0 var(--space-4) var(--space-2); font-size: var(--text-xs); color: var(--color-warning); }
+.banco-cuentas { list-style: none; margin: 0; padding: 0 var(--space-4); }
+.banco-cuentas li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border-color); }
+.banco-cuenta-nombre { display: flex; flex-direction: column; min-width: 0; }
+.banco-cuenta-nombre strong { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.banco-cuenta-nombre span { font-size: var(--text-xs); color: var(--text-tertiary); }
+.banco-cuenta-saldo { text-align: right; flex-shrink: 0; }
+.banco-cuenta-saldo strong { display: block; font-size: var(--text-lg, 1.125rem); font-variant-numeric: tabular-nums; }
+.banco-cuenta-saldo span { font-size: var(--text-xs); color: var(--text-tertiary); }
+.banco-conexion-pie { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); margin-top: auto; }
+
+.banco-movimientos { border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-card); box-shadow: var(--shadow-sm); }
+.banco-movimientos-cabecera { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); border-bottom: 1px solid var(--border-color); }
+.banco-movimientos-cabecera h2 { margin: 0 auto 0 0; font-size: var(--text-md); font-weight: 700; }
+.banco-cuenta-num { margin-left: 4px; font-size: var(--text-2xs); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.banco-vacio { margin: 0; padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-tertiary); font-size: var(--text-sm); }
+.banco-mov-lista { list-style: none; margin: 0; padding: 0; }
+.banco-mov-lista li {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-3);
+  padding: 10px var(--space-4); border-top: 1px solid var(--border-color);
+}
+.banco-mov-lista li:first-child { border-top: 0; }
+.banco-mov-lista li.is-apartado { opacity: 0.55; }
+.banco-mov-fecha { font-size: var(--text-xs); color: var(--text-tertiary); white-space: nowrap; }
+.banco-mov-concepto { display: flex; flex-direction: column; min-width: 0; font-size: var(--text-sm); }
+.banco-mov-concepto > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.banco-mov-cuenta { font-size: var(--text-2xs); color: var(--text-tertiary); }
+.banco-mov-importe { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--text-sm); }
+.banco-mov-importe.is-entrada { color: var(--color-success); }
+.banco-mov-estado { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 150px; }
+.banco-mov-hecho { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--color-success); white-space: nowrap; }
+@media (max-width: 640px) {
+  .banco-mov-lista li { grid-template-columns: 52px minmax(0, 1fr) auto; grid-template-areas: 'fecha concepto importe' 'fecha estado estado'; row-gap: 6px; }
+  .banco-mov-fecha { grid-area: fecha; align-self: start; }
+  .banco-mov-concepto { grid-area: concepto; }
+  .banco-mov-importe { grid-area: importe; }
+  .banco-mov-estado { grid-area: estado; justify-content: flex-start; min-width: 0; }
+  .banco-resumen strong { font-size: var(--text-2xl); }
+}
+
 /* --- Editor de plantillas: mesa con reglas, cuadrícula, guías y formas ---
    La mesa es una rejilla de 2×2: la esquina, la regla de arriba, la de la
    izquierda y el papel. Las reglas miden exactamente lo que el papel porque

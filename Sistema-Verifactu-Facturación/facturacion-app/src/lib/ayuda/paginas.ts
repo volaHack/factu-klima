@@ -445,11 +445,29 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     relacionadas: [{ ruta: '/tesoreria', texto: 'Tesorería' }, { ruta: '/clientes', texto: 'Clientes' }],
   },
   {
+    ruta: '/banco',
+    titulo: 'Banco',
+    paraQue: 'Tus cuentas del banco dentro del programa: el saldo y los movimientos, que llegan solos cada mañana.',
+    pasos: [
+      'Pulsa «Conectar», busca tu banco y entra con las claves de tu banca online: el permiso se da en la web del banco.',
+      'Al volver, en unos segundos aparecen el saldo y los movimientos de los últimos 90 días.',
+      'Cada mañana se leen solos los nuevos. Si los quieres ya, pulsa «Sincronizar ahora».',
+      'Pulsa «Conciliar» para casar cada cobro y cada pago con su factura o su gasto.',
+    ],
+    saber: [
+      'El permiso es sólo de lectura: el programa no puede mover dinero ni ve tus claves del banco.',
+      'Por ley (PSD2) el permiso dura como mucho 180 días. Diez días antes te avisamos para renovarlo en un minuto.',
+      'Renovar o volver a conectar el mismo banco no duplica movimientos.',
+      '«Apartar» quita de pendientes lo que no es de la empresa, como un traspaso entre tus propias cuentas.',
+    ],
+    relacionadas: [{ ruta: '/conciliacion', texto: 'Conciliación bancaria' }, { ruta: '/tesoreria', texto: 'Tesorería' }],
+  },
+  {
     ruta: '/conciliacion',
     titulo: 'Conciliación bancaria',
     paraQue: 'Casar los movimientos del banco con las facturas y los gastos, sin ir uno por uno.',
     pasos: [
-      'Descarga el extracto en la banca online, mejor en Norma 43 (Cuaderno 43). Si no, en CSV.',
+      'Con el banco conectado (en «Banco»), los movimientos ya están aquí. Si no, descarga el extracto en la banca online, mejor en Norma 43 (Cuaderno 43), o en CSV.',
       'Súbelo aquí: cada movimiento sale con la factura o el gasto que le corresponde.',
       'Confirma de golpe los que están claros y revisa el resto uno a uno.',
       'Los cargos sin pareja se apuntan como gasto desde la misma lista.',
@@ -457,9 +475,9 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     saber: [
       'Confirmar crea el cobro o el pago en Tesorería: la factura queda pagada y la contabilidad lleva su asiento contra bancos.',
       'Si vuelves a subir el mismo extracto, lo ya conciliado sale como tal. No se duplica nada.',
-      'El fichero se lee en el navegador; no se guarda en ningún servidor.',
+      'El extracto que subes se lee en el navegador; no se guarda en ningún servidor.',
     ],
-    relacionadas: [{ ruta: '/tesoreria', texto: 'Tesorería' }, { ruta: '/gastos', texto: 'Gastos' }],
+    relacionadas: [{ ruta: '/banco', texto: 'Banco' }, { ruta: '/tesoreria', texto: 'Tesorería' }, { ruta: '/gastos', texto: 'Gastos' }],
   },
   {
     ruta: '/gastos',

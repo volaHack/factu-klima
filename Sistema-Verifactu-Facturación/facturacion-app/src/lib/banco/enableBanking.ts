@@ -17,8 +17,22 @@ import 'server-only';
 
 import crypto from 'node:crypto';
 import type { TransaccionEnableBanking } from './conectado';
+import { normalizarClave, type AplicacionEnableBanking } from './diagnostico';
 
-const API = 'https://api.enablebanking.com';
+/**
+ * La dirección de la API. Sólo se cambia para las pruebas automáticas, que
+ * hablan con un Enable Banking simulado (`ENABLE_BANKING_API_URL`).
+ */
+export function urlApi(): string {
+  return (process.env.ENABLE_BANKING_API_URL || 'https://api.enablebanking.com').replace(/\/+$/, '');
+}
+
+/** Un error de Enable Banking con su código HTTP, para distinguir un permiso caducado de un fallo pasajero. */
+export class ErrorEnableBanking extends Error {
+  constructor(public estado: number, public cuerpo: string) {
+    super(`Enable Banking ${estado}: ${cuerpo.slice(0, 300)}`);
+  }
+}
 
 export function enableBankingConfigurado(): boolean {
   return !!process.env.ENABLE_BANKING_APP_ID && !!process.env.ENABLE_BANKING_PRIVATE_KEY;
@@ -28,7 +42,7 @@ const b64url = (b: Buffer | string) => Buffer.from(b).toString('base64').replace
 
 function jwt(): string {
   const appId = process.env.ENABLE_BANKING_APP_ID!;
-  const clave = process.env.ENABLE_BANKING_PRIVATE_KEY!.replace(/\\n/g, '\n');
+  const clave = normalizarClave(process.env.ENABLE_BANKING_PRIVATE_KEY!);
   const iat = Math.floor(Date.now() / 1000);
   const cabecera = b64url(JSON.stringify({ typ: 'JWT', alg: 'RS256', kid: appId }));
   const cuerpo = b64url(JSON.stringify({ iss: 'enablebanking.com', aud: 'api.enablebanking.com', iat, exp: iat + 3600 }));
@@ -37,13 +51,13 @@ function jwt(): string {
 }
 
 async function llamar<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(`${API}${ruta}`, {
+  const r = await fetch(`${urlApi()}${ruta}`, {
     ...init,
     headers: { Authorization: `Bearer ${jwt()}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
     cache: 'no-store',
   });
   const texto = await r.text();
-  if (!r.ok) throw new Error(`Enable Banking ${r.status}: ${texto.slice(0, 300)}`);
+  if (!r.ok) throw new ErrorEnableBanking(r.status, texto);
   return (texto ? JSON.parse(texto) : {}) as T;
 }
 
@@ -119,4 +133,29 @@ export async function transacciones(cuentaUid: string, desde: string): Promise<T
     if (!continuar) break;
   }
   return todas;
+}
+
+/** Los datos de la aplicación registrada: para el diagnóstico del administrador. */
+export async function aplicacion(): Promise<AplicacionEnableBanking> {
+  const d = await llamar<{ name?: string; environment?: string; redirect_urls?: string[]; active?: boolean }>('/application');
+  return {
+    nombre: d.name ?? 'sin nombre',
+    entorno: d.environment ?? 'desconocido',
+    redirecciones: d.redirect_urls ?? [],
+    activa: d.active !== false,
+  };
+}
+
+export interface BalanceEnableBanking {
+  name?: string | null;
+  balance_amount?: { amount?: string | number; currency?: string } | null;
+  balance_type?: string | null;
+  last_change_date_time?: string | null;
+  reference_date?: string | null;
+}
+
+/** Los saldos de una cuenta, tal como los da el banco. */
+export async function saldos(cuentaUid: string): Promise<BalanceEnableBanking[]> {
+  const d = await llamar<{ balances?: BalanceEnableBanking[] }>(`/accounts/${encodeURIComponent(cuentaUid)}/balances`);
+  return d.balances ?? [];
 }

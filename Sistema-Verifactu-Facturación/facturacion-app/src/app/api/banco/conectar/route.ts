@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { bancosDe, empezarAutorizacion, enableBankingConfigurado } from '@/lib/banco/enableBanking';
+import { origenPublico } from '@/lib/banco/origen';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +33,11 @@ export async function POST(request: Request) {
     const { error } = await db.from('bancos_autorizaciones').insert({ state, user_id: user.id, banco, pais: 'ES' });
     if (error) throw new Error(error.message);
     const url = await empezarAutorizacion({
-      banco, pais: 'ES', state, empresa: empresa !== false, diasValidez: dias,
-      vuelta: `${new URL(request.url).origin}/api/banco/vuelta`,
+      // Si el banco no ofrece acceso de empresa por PSD2 (algunos sólo
+      // tienen banca de particulares), se pide el de particular: si no, el
+      // banco rechaza la petición con un error que el cliente no entiende.
+      banco, pais: 'ES', state, empresa: empresa !== false && info.empresas, diasValidez: dias,
+      vuelta: `${origenPublico(request)}/api/banco/vuelta`,
     });
     return NextResponse.json({ url });
   } catch (e) {
