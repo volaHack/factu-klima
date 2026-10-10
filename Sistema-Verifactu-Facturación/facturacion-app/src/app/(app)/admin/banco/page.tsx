@@ -101,10 +101,14 @@ export default async function AdminBanco() {
             (vale en una sola línea).
           </li>
           <li>
-            Programa la lectura diaria en el crontab del servidor (en Vercel la hace solo <code className="admin-banco-codigo">vercel.json</code>):
-            <code className="admin-banco-codigo">{`40 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" ${estado.urlVuelta.replace(/\/api\/banco\/vuelta$/, '')}/api/cron/banco`}</code>
+            La lectura diaria la lanza el servidor a las 6:40 (UTC): en el VPS, con la variable{' '}
+            <code className="admin-banco-codigo">VPS_CRON=on</code> en GitHub (Settings → Secrets and variables → Actions →
+            Variables) y un despliegue; en Vercel, sola, por <code className="admin-banco-codigo">vercel.json</code>.
           </li>
-          <li>Reinicia la aplicación y recarga esta página: todo debería salir en verde.</li>
+          <li>
+            Reinicia la aplicación para que lea el <code className="admin-banco-codigo">.env</code> (en el VPS:{' '}
+            <code className="admin-banco-codigo">pm2 reload facturacion-app</code>) y recarga esta página: todo debería salir en verde.
+          </li>
         </ol>
       </div>
 

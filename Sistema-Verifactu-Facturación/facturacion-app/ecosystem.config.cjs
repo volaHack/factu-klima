@@ -1,43 +1,54 @@
-// ecosystem.config.cjs — Configuración de PM2
-// Coloca este archivo en el directorio de la app en el servidor.
-// PM2 lo usa para saber cómo arrancar, reiniciar y monitorizar el
-// proceso de Node.js.
+// ecosystem.config.cjs — Configuración de PM2 en el VPS
+//
+// La app corre siempre desde  $APP_DIR/current , un enlace a la versión
+// activa dentro de  $APP_DIR/releases/ . Al desplegar, deploy/activar.sh
+// mueve el enlace y hace `pm2 reload`: el proceso vuelve a arrancar en la
+// versión nueva sin cambiar esta configuración.
+//
+// Las variables de producción (Supabase, Stripe, Verifactu, IA, banco…)
+// se leen de  $APP_DIR/.env , que el despliegue no toca nunca.
+
+const os = require('node:os');
+const path = require('node:path');
+
+const APP_DIR = process.env.APP_DIR || '/home/deploy/facturacion-app';
+const LOGS = path.join(os.homedir(), 'logs');
 
 module.exports = {
   apps: [
     {
       name: 'facturacion-app',
+      cwd: path.join(APP_DIR, 'current'),
       script: 'server.js',
 
-      // Variables de entorno que Next.js standalone necesita.
-      // El resto se cargan desde .env en el servidor.
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
-        HOSTNAME: '0.0.0.0',
+        // Sólo en local: al público se llega por nginx (puerto 443).
+        HOSTNAME: '127.0.0.1',
+        APP_DIR,
       },
 
-      // Reinicio automático ante crashes
+      // Reinicio automático ante caídas
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
 
-      // Logs
-      error_file: '/home/deploy/logs/facturacion-error.log',
-      out_file: '/home/deploy/logs/facturacion-out.log',
+      // Registros
+      error_file: path.join(LOGS, 'facturacion-error.log'),
+      out_file: path.join(LOGS, 'facturacion-out.log'),
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
 
-      // Memoria máxima antes de reinicio automático
+      // Memoria máxima antes de reiniciar
       max_memory_restart: '512M',
 
-      // Señal de parada limpia
+      // Parada limpia
       kill_timeout: 10000,
       listen_timeout: 10000,
 
-      // Dotenv — carga las variables del .env del servidor
-      // (Supabase, Stripe, Verifactu, IA, etc.)
-      node_args: '--env-file=.env',
+      // Variables del .env de producción (ruta absoluta: el cwd es un enlace)
+      node_args: `--env-file=${path.join(APP_DIR, '.env')}`,
     },
   ],
 };

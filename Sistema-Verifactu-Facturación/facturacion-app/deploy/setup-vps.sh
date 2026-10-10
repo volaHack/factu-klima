@@ -49,7 +49,7 @@ pm2 startup systemd -u $DEPLOY_USER --hp /home/$DEPLOY_USER
 
 # ─── 5. Instalar Nginx ──────────────────────────────────
 echo "→ Instalando Nginx..."
-apt install -y nginx
+apt install -y nginx rsync cron curl
 systemctl enable nginx
 
 # ─── 6. Instalar Certbot (SSL gratuito) ─────────────────
@@ -77,6 +77,13 @@ if [ ! -f "$APP_DIR/.env" ]; then
 # Después: pm2 reload facturacion-app --update-env
 # ═══════════════════════════════════════════════════════
 
+# --- Dirección pública ---
+NEXT_PUBLIC_APP_URL=https://klimafacturas.com
+
+# --- Tareas diarias (deploy/cron.sh las llama con esta clave) ---
+# Genera una con:  openssl rand -hex 32
+CRON_SECRET=
+
 # --- Supabase ---
 NEXT_PUBLIC_SUPABASE_URL=https://TU-PROYECTO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
@@ -94,6 +101,10 @@ AEAT_INTEGRATION_ENABLED=false
 IA_BASE_URL=
 IA_MODELO=
 IA_API_KEY=
+
+# --- Banco conectado (Enable Banking); ver /admin/banco ---
+ENABLE_BANKING_APP_ID=
+ENABLE_BANKING_PRIVATE_KEY=
 ENVEOF
     chown $DEPLOY_USER:$DEPLOY_USER "$APP_DIR/.env"
     chmod 600 "$APP_DIR/.env"
@@ -123,9 +134,11 @@ echo ""
 echo "  4. Edita las variables de entorno:"
 echo "     nano $APP_DIR/.env"
 echo ""
-echo "  5. Configura los secretos en GitHub:"
-echo "     IONOS_HOST, IONOS_USER, IONOS_SSH_KEY, IONOS_SSH_PORT"
+echo "  5. Configura los secretos en GitHub (Settings → Secrets and variables → Actions):"
+echo "     IONOS_HOST, IONOS_USER ($DEPLOY_USER), IONOS_SSH_KEY, IONOS_SSH_PORT (opcional)"
 echo "     NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+echo "     Variables opcionales: IONOS_APP_DIR ($APP_DIR), APP_URL, VPS_CRON (on/off)"
 echo ""
-echo "  6. Haz push a main y el despliegue se ejecutará solo"
+echo "  6. Cada push a main que pase el CI se despliega solo (o a mano: Actions → «Desplegar en el VPS» → Run workflow)."
+echo "     La versión activa queda en $APP_DIR/current; las anteriores, en $APP_DIR/releases."
 echo ""
