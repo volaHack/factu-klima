@@ -161,7 +161,7 @@ function FilaSeccion({
 }
 
 /** El cupón de lanzamiento, en un sitio: se enseña y se copia el mismo. */
-const CUPON = 'LANZAMIENTO50';
+const CUPON = 'Lanzamiento50';
 
 /** Los meses gratis del plan anual salen del mismo sitio que el precio.
  *  El texto de la promo decía «tres meses gratis» mientras la pastilla
@@ -314,7 +314,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
             <div className="pricing-promo-oferta">
               <span className="pricing-promo-pct">−50%</span>
               <span className="pricing-promo-texto">
-                el primer mes, o <strong>{MESES_GRATIS_TEXTO} meses gratis</strong> en el plan anual.
+                el primer mes con el código <strong>{CUPON}</strong>, o <strong>{MESES_GRATIS_TEXTO} meses gratis</strong> en el plan anual.
               </span>
             </div>
             {/* El ancho lo fija el estado más largo («Copiado»), así el

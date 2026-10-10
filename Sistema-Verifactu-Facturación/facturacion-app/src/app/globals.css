@@ -1739,6 +1739,104 @@ a:hover { color: var(--accent-300); }
 .chart-legend-name { color: var(--text-secondary); }
 .chart-legend-value { color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
 
+/* --- Panel de análisis (dashboard) --- */
+.analisis { margin-top: var(--space-6); }
+.analisis--cargando {
+  min-height: 420px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  opacity: 0.6;
+}
+.analisis-cabecera {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--space-3); flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.analisis-titulo { font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+.analisis-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* Control segmentado: una pestaña activa, las demás en tinta secundaria. */
+.analisis-pestanas {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  max-width: 100%; overflow-x: auto; scrollbar-width: none;
+}
+.analisis-pestanas::-webkit-scrollbar { display: none; }
+.analisis-pestana {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border: none; border-radius: 999px;
+  background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast);
+}
+.analisis-pestana:hover { color: var(--text-primary); }
+.analisis-pestana.is-activa {
+  background: var(--bg-card); color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border-color);
+}
+.analisis-pestana:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+
+.analisis-cifras {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3); margin-top: var(--space-4);
+}
+.analisis-cifras:first-child { margin-top: 0; }
+.analisis-cifra {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+.analisis-cifra-etiqueta {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.analisis-cifra-valor {
+  font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+.analisis-cifra-detalle { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+.analisis-cifra-detalle.is-bien { color: var(--color-success); font-weight: 600; }
+.analisis-cifra-detalle.is-mal { color: var(--color-danger); font-weight: 600; }
+
+.charts-grid--analisis { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+.charts-grid--una { grid-template-columns: minmax(0, 1fr); }
+
+.analisis-escala { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
+.analisis-escala i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.analisis-escala span:first-child { margin-right: 2px; }
+.analisis-escala span:last-child { margin-left: 2px; }
+
+.analisis-vacio { font-size: 13px; color: var(--text-secondary); padding: var(--space-6) 0; text-align: center; }
+.analisis-antiguedad { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.analisis-antiguedad li {
+  display: grid; grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center; gap: var(--space-3);
+}
+.analisis-antiguedad-tramo { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.analisis-antiguedad-barra { height: 10px; border-radius: 999px; background: var(--bg-secondary); overflow: hidden; }
+.analisis-antiguedad-barra > span { display: block; height: 100%; border-radius: 0 4px 4px 0; min-width: 0; }
+.analisis-antiguedad-valor {
+  display: flex; flex-direction: column; align-items: flex-end;
+  font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+.analisis-antiguedad-valor small { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+@media (max-width: 1024px) {
+  .analisis-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .charts-grid--analisis { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .analisis-cabecera { align-items: stretch; }
+  .analisis-pestanas { width: 100%; }
+  .analisis-pestana { flex: 1 0 auto; justify-content: center; padding: 7px 10px; }
+  .analisis-cifra-valor { font-size: 1.1rem; }
+}
+
 /* Donut con cifra centrada. */
 .donut-wrap { position: relative; width: 100%; height: 100%; }
 .donut-center {
