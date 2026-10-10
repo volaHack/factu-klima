@@ -239,10 +239,6 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
   const annualSavings = (plan: (typeof plans)[number]) => plan.priceMonthly * 12 - plan.priceAnnual;
 
   const handleSelectPlan = async (planId: PlanId) => {
-    if (!cobrosAbiertos) {
-      router.push(`/login?modo=registro&plan=${planId}`);
-      return;
-    }
     setApiError('');
     setLoadingPlan(planId);
     try {
