@@ -101,9 +101,8 @@ export default async function AdminBanco() {
             (vale en una sola línea).
           </li>
           <li>
-            La lectura diaria la lanza el servidor a las 6:40 (UTC): en el VPS, con la variable{' '}
-            <code className="admin-banco-codigo">VPS_CRON=on</code> en GitHub (Settings → Secrets and variables → Actions →
-            Variables) y un despliegue; en Vercel, sola, por <code className="admin-banco-codigo">vercel.json</code>.
+            La lectura diaria la lanza el VPS a las 6:40 (UTC), con el resto de tareas diarias: cada despliegue las deja
+            programadas en su crontab (se apagan con la variable <code className="admin-banco-codigo">VPS_CRON=off</code> en GitHub).
           </li>
           <li>
             Reinicia la aplicación para que lea el <code className="admin-banco-codigo">.env</code> (en el VPS:{' '}

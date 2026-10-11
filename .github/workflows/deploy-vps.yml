@@ -22,9 +22,9 @@ name: Desplegar en el VPS
 # VARIABLES (misma pantalla → Variables), todas opcionales:
 #   IONOS_APP_DIR         carpeta de la app en el VPS (/home/deploy/facturacion-app)
 #   APP_URL               dirección pública (https://klimafacturas.com)
-#   VPS_CRON              «on» para programar en el VPS las tareas diarias
-#                         (banco, Veri*Factu, recordatorios). Mientras Vercel
-#                         siga con sus crons, déjala apagada: correrían dos veces.
+#   VPS_CRON              las tareas diarias (banco, Veri*Factu, recordatorios,
+#                         correos) corren en el VPS salvo que valga «off». Ya
+#                         no están en vercel.json: así no corren dos veces.
 
 on:
   workflow_run:
@@ -140,7 +140,7 @@ jobs:
       - name: Activar la versión
         env:
           DESTINO: ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}
-          VPS_CRON: ${{ vars.VPS_CRON || 'off' }}
+          VPS_CRON: ${{ vars.VPS_CRON || 'on' }}
         run: |
           ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PUERTO" -o BatchMode=yes "$DESTINO" \
             "bash '$APP_DIR/releases/$VERSION_DIR/deploy/activar.sh' '$APP_DIR' '$VERSION_DIR' '$VPS_CRON'"

@@ -201,9 +201,9 @@ export default function RecordatoriosPage() {
         ) : (
           <p className="recor-nota">
             {!servidor.correo
-              ? <>Falta configurar el correo del servidor (<span className="mono">RESEND_API_KEY</span> y <span className="mono">RECORDATORIOS_REMITENTE</span> en Vercel). Mientras tanto, los recordatorios se mandan desde tu correo o por WhatsApp con un clic.</>
+              ? <>El envío automático todavía no está disponible en esta instalación. Mientras tanto, los recordatorios se mandan desde tu correo o por WhatsApp con un clic.</>
               : !servidor.automatico
-                ? <>Para el envío diario falta <span className="mono">CRON_SECRET</span> o <span className="mono">SUPABASE_SERVICE_ROLE_KEY</span> en Vercel.</>
+                ? <>El envío diario todavía no está activado en el servidor. Mientras tanto, puedes mandar cada recordatorio con un clic.</>
                 : <>Falta aplicar la migración <span className="mono">051_recordatorios_cobro</span> en la base de datos: es donde se anota qué se ha enviado para no repetirlo.</>}
           </p>
         )}
