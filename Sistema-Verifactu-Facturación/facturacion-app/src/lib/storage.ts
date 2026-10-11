@@ -741,7 +741,18 @@ async function emitirFactura(invoice: Invoice): Promise<Invoice> {
   if (bloqueo) throw new Error(bloqueo);
 
   const draft = await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
-  await saveInvoice({ ...draft, status: InvoiceStatus.EMITIDA });
+  try {
+    await saveInvoice({ ...draft, status: InvoiceStatus.EMITIDA });
+  } catch (err) {
+    // Un ticket del TPV que no se llega a sellar no puede quedarse como
+    // borrador: la venta no se ha hecho, y al reintentarla salían dos
+    // tickets iguales en Facturas. Se borra el borrador que se acaba de
+    // crear (nunca uno que ya existía) y el error sigue hacia la caja.
+    if (!persisted && invoice.posSessionId) {
+      await deleteInvoice(draft.id).catch(() => {});
+    }
+    throw err;
+  }
 
   const fresh = await getInvoiceFromSupabase(invoice.id);
   return fresh ?? { ...draft, status: InvoiceStatus.EMITIDA };
