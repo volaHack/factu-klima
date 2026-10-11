@@ -86,6 +86,7 @@ export function mapLineItemFromDb(li: any): InvoiceLineItem {
     discountPercent2: Number(li.discount_percent_2 ?? li.discountPercent2 ?? 0),
     discountPercent3: Number(li.discount_percent_3 ?? li.discountPercent3 ?? 0),
     unitsPerPackage: li.units_per_package != null ? Number(li.units_per_package) : undefined,
+    cajas: li.cajas != null ? Number(li.cajas) : undefined,
     loteId: li.lote_id || undefined,
     loteCodigo: li.lote_codigo || undefined,
     numeroSerieId: li.numero_serie_id || undefined,

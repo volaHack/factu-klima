@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { InvoiceLineItem, CompanySettings, Product, Lote } from '@/lib/types';
-import { unidadesTotales } from '@/lib/documentos';
+import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
+import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { formatCurrency } from '@/lib/utils';
 import { recalcularLinea, lineaVacia, getPrecioProductoParaCliente } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
@@ -61,6 +62,27 @@ export default function LineasDocumento({
    */
   const columnas = columnasCustom.length > 0 ? columnasCustom : voz.columnasOficio;
 
+  // CAJ. / U/C / UDES. en los oficios que venden por cajas (ver lib/cajas.ts).
+  // Las casillas propias que la plantilla tuviera para cajas o U/C ya no se
+  // piden aparte: son estas.
+  const porCajas = voz.usaBultos;
+  const columnasPropias = porCajas
+    ? columnas.filter(c => !/^(caj|cajas|bultos?|u ?\/ ?c|uds?\.? ?\/ ?caja)\.?$/i.test(c.cabecera.trim()))
+    : columnas;
+
+  // Un borrador de antes (cantidad = cajas, precio por caja) se pasa a
+  // unidades al abrirlo, sin cambiar lo que cuesta cada línea.
+  const hayLineasDeAntes = porCajas && lineItems.some(l => !vaPorUnidades(l));
+  useEffect(() => {
+    if (hayLineasDeAntes) onChange(lineItems.map(l => (vaPorUnidades(l) ? l : recalcularLinea(aLineaPorUnidades(l)))));
+  }, [hayLineasDeAntes, lineItems, onChange]);
+
+  const cambiarLinea = (index: number, cambio: (l: InvoiceLineItem) => InvoiceLineItem) => {
+    const updated = [...lineItems];
+    updated[index] = recalcularLinea(cambio(updated[index]));
+    onChange(updated);
+  };
+
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     const updated = [...lineItems];
@@ -81,6 +103,13 @@ export default function LineasDocumento({
         // Las unidades por bulto vienen de la ficha del producto: se ponen
         // una vez y no hay que teclearlas en cada factura.
         unitsPerPackage: product.unitsPerPackage,
+        // Por cajas: una caja de entrada si el producto tiene U/C (las
+        // unidades salen solas); si no, unidades sueltas.
+        ...(porCajas
+          ? (product.unitsPerPackage && product.unitsPerPackage > 0
+            ? { cajas: 1, quantity: product.unitsPerPackage }
+            : { cajas: 0, quantity: updated[index].quantity > 0 ? updated[index].quantity : 1 })
+          : {}),
         // El lote de la línea anterior era del producto anterior: cambiar de
         // producto sin limpiarlo dejaría una venta de leche marcada con el
         // lote del yogur.
@@ -137,7 +166,7 @@ export default function LineasDocumento({
   // Lo que se descarga del camión: doce cajas de veinticuatro son 288
   // botellas, y ese es el número que se comprueba contra el albarán.
   const totalUnidades = unidadesTotales(lineItems);
-  const totalBultos = lineItems.reduce((s, l) => s + l.quantity, 0);
+  const totalCajas = cajasTotales(lineItems);
   const hasAnyExtraDiscount = lineItems.some(l => (l.discountPercent2 && l.discountPercent2 > 0) || (l.discountPercent3 && l.discountPercent3 > 0));
 
   return (
@@ -165,7 +194,6 @@ export default function LineasDocumento({
           estrecha en vez de quedarse en una tira ilegible. */}
       <div className="lineas-doc">
         {lineItems.map((line, index) => {
-          const uds = line.unitsPerPackage && line.unitsPerPackage > 0 ? line.unitsPerPackage : 0;
           return (
             <div className="lineas-doc-ficha" key={line.id}>
               <div className="lineas-doc-cabeza">
@@ -195,28 +223,48 @@ export default function LineasDocumento({
               </div>
 
               <div className="lineas-doc-campos">
-                <label className="lineas-doc-campo">
-                  <span>{voz.cantidad}</span>
-                  <input
-                    type="number" min={0} step={0.01} value={line.quantity}
-                    onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                  />
-                </label>
-
-                {/* Unidades por bulto. Se hereda del producto y sólo se toca
-                    cuando esta entrega viene en otro formato.
-
-                    Sólo en los oficios que agrupan mercancía: preguntarle
-                    «¿cuántas unidades por caja?» a quien factura sesiones de
-                    fisioterapia no es que sobre, es que le hace dudar de si
-                    tiene que rellenarlo. */}
-                {voz.usaBultos && (
+                {porCajas ? (
+                  <>
+                    {/* CAJ.: cajas completas. Se puede dejar en blanco y
+                        escribir sólo las unidades (una venta suelta). */}
+                    <label className="lineas-doc-campo">
+                      <span title="Cajas completas">CAJ.</span>
+                      <input
+                        type="number" min={0} step={1} placeholder="—"
+                        value={line.cajas ? line.cajas : ''}
+                        onChange={e => cambiarLinea(index, l => conCajas(l, parseFloat(e.target.value) || 0))}
+                        aria-label={`Cajas de la línea ${index + 1}`}
+                      />
+                    </label>
+                    {/* U/C: viene de la ficha del producto; sólo se toca si
+                        esta entrega viene en otro formato. */}
+                    <label className={`lineas-doc-campo${(line.cajas ?? 0) > 0 && !(line.unitsPerPackage && line.unitsPerPackage > 0) ? ' lineas-doc-campo--error' : ''}`}>
+                      <span title="Unidades que trae cada caja">U/C</span>
+                      <input
+                        type="number" min={0} step={1} placeholder="—"
+                        value={line.unitsPerPackage || ''}
+                        onChange={e => cambiarLinea(index, l => conUdsCaja(l, parseFloat(e.target.value) || 0))}
+                        aria-label={`Unidades por caja de la línea ${index + 1}`}
+                      />
+                    </label>
+                    {/* UDES.: lo que se cobra. Sale de CAJ. × U/C, pero se
+                        puede escribir a mano (sueltas, o sólo unidades). */}
+                    <label className="lineas-doc-campo">
+                      <span title="Unidades en total (lo que se cobra)">UDES.</span>
+                      <input
+                        type="number" min={0} step={1}
+                        value={line.quantity}
+                        onChange={e => cambiarLinea(index, l => conUnidades(l, parseFloat(e.target.value) || 0))}
+                        aria-label={`Unidades de la línea ${index + 1}`}
+                      />
+                    </label>
+                  </>
+                ) : (
                   <label className="lineas-doc-campo">
-                    <span title={`${voz.contenido[1]} por ${voz.bulto[0]}`}>{voz.bultoCorto}</span>
+                    <span>{voz.cantidad}</span>
                     <input
-                      type="number" min={0} step={1} placeholder="—"
-                      value={line.unitsPerPackage || ''}
-                      onChange={e => handleLineChange(index, 'unitsPerPackage', parseFloat(e.target.value) || 0)}
+                      type="number" min={0} step={0.01} value={line.quantity}
+                      onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                     />
                   </label>
                 )}
@@ -246,7 +294,7 @@ export default function LineasDocumento({
                 )}
 
                 <label className="lineas-doc-campo">
-                  <span>Precio ud.</span>
+                  <span title={porCajas ? 'Precio de cada unidad' : undefined}>{porCajas ? 'Precio/ud.' : 'Precio ud.'}</span>
                   <input
                     type="number" min={0} step={0.01} value={line.unitPrice}
                     onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
@@ -288,7 +336,7 @@ export default function LineasDocumento({
                   </>
                 )}
 
-                {columnas.map(col => (
+                {columnasPropias.map(col => (
                   <label className="lineas-doc-campo lineas-doc-campo--ancho" key={col.clave}>
                     <span>{col.cabecera}</span>
                     <input
@@ -301,9 +349,20 @@ export default function LineasDocumento({
 
               {/* Lo que de verdad se descarga del camión, dicho aquí para no
                   tener que multiplicarlo de cabeza. */}
-              {voz.usaBultos && uds > 0 && (
-                <p className="lineas-doc-pie">
-                  {line.quantity} × {uds} = <strong>{line.quantity * uds}</strong> {voz.contenido[1]}
+              {porCajas && explicarLinea(line) && (
+                <p className="lineas-doc-pie">{explicarLinea(line)}</p>
+              )}
+              {porCajas && (line.cajas ?? 0) > 0 && !(line.unitsPerPackage && line.unitsPerPackage > 0) && (
+                <p className="lineas-doc-aviso" role="alert">
+                  <AlertTriangle size={13} /> Pon cuántas unidades trae cada caja (U/C) para calcular las unidades.
+                </p>
+              )}
+              {line.productId && tipoImpositivoRaro(line.taxRate, settings) && (
+                <p className="lineas-doc-aviso" role="alert">
+                  <AlertTriangle size={13} /> {tipoImpositivoRaro(line.taxRate, settings)}{' '}
+                  <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleLineChange(index, 'taxRate', tipoGeneral(settings))}>
+                    Usar el {tipoGeneral(settings)} %
+                  </button>
                 </p>
               )}
             </div>
@@ -314,10 +373,9 @@ export default function LineasDocumento({
           <button type="button" className="btn btn-ghost btn-sm" onClick={addLine}>
             <Plus size={14} /> Añadir {voz.linea}
           </button>
-          {voz.usaBultos && totalUnidades > 0 && (
+          {porCajas && totalUnidades > 0 && (
             <span className="lineas-doc-total-uds">
-              {conPlural(totalBultos, voz.bulto)}
-              {' · '}
+              {totalCajas > 0 && <>{conPlural(totalCajas, ['caja', 'cajas'])}{' · '}</>}
               <strong>{totalUnidades}</strong> {voz.contenido[1]} en total
             </span>
           )}

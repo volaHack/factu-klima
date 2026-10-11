@@ -11,7 +11,8 @@
  * aplicar formato numérico por su cuenta.
  */
 
-import { descuentoEfectivo, unidadesTotales } from '../documentos';
+import { descuentoEfectivo } from '../documentos';
+import { cajasTotales, desgloseLinea, unidadesTotales } from '../cajas';
 import { Albaran, Client, CompanySettings, Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, UnitOfMeasure } from '../types';
 import { ALBARAN_STATUSES, INVOICE_STATUSES, PAYMENT_METHODS } from '../constants';
 import { calculateInvoiceTotals, desgloseDescuentos, formatCurrency, formatDate } from '../utils';
@@ -179,7 +180,7 @@ function comoRecuento(n: number): string {
  * sobre lo que se factura, así que sirve para cualquier negocio.
  */
 function recuentos(
-  lineas: { quantity: number; unitsPerPackage?: number; customCols?: Record<string, string> }[],
+  lineas: { quantity: number; unitsPerPackage?: number; cajas?: number | null; customCols?: Record<string, string> }[],
 ): Record<string, string> {
   const salida: Record<string, string> = {
     total_lineas: String(lineas.length),
@@ -189,7 +190,9 @@ function recuentos(
     // unidades por bulto un bulto es una unidad y sale lo mismo de siempre.
     total_unidades: comoRecuento(unidadesTotales(lineas)),
     // Y los bultos aparte, que es lo que se cobra y lo que se apila.
-    total_bultos: comoRecuento(lineas.reduce((suma, l) => suma + (l.quantity || 0), 0)),
+    // Las cajas completas; quien no vende por cajas sigue viendo la suma de
+    // cantidades, como siempre.
+    total_bultos: comoRecuento(cajasTotales(lineas) || lineas.reduce((suma, l) => suma + (l.quantity || 0), 0)),
     total_peso: '',
   };
 
@@ -300,8 +303,9 @@ export function construirDatos(
     cantidad_unidad: `${linea.quantity} ${linea.unit}`,
     // Las unidades sueltas: doce cajas de veinticuatro son 288 botellas, que
     // es el número que se cuenta al descargar el camión.
-    uds_caja: udsPorBulto(linea) > 1 ? String(udsPorBulto(linea)) : '',
-    uds_linea: String(linea.quantity * udsPorBulto(linea)),
+    // CAJ. / U/C / UDES. (ver cajas.ts): las cajas sólo si van cajas
+    // completas, la U/C si el producto la tiene y las unidades siempre.
+    ...columnasDeCajas(linea),
     precio: formatCurrency(linea.unitPrice),
     // El EFECTIVO, no el primero de los tres. Los descuentos van en cascada y
     // en la factura sólo cabe una casilla: enseñar el primero decía un 10%
@@ -559,6 +563,12 @@ function filasDeVencimientos(
 }
 
 /** Unidades sueltas que trae cada bulto de una línea; 1 si no se vende por cajas. */
-function udsPorBulto(linea: { unitsPerPackage?: number }): number {
-  return linea.unitsPerPackage && linea.unitsPerPackage > 0 ? linea.unitsPerPackage : 1;
+function columnasDeCajas(linea: { quantity: number; unitsPerPackage?: number; cajas?: number | null }) {
+  const d = desgloseLinea(linea);
+  const n = (x: number) => (Number.isInteger(x) ? String(x) : x.toLocaleString('es-ES', { maximumFractionDigits: 3 }));
+  return {
+    cajas: d.cajas ? n(d.cajas) : '',
+    uds_caja: d.udsCaja && d.udsCaja > 1 ? n(d.udsCaja) : '',
+    uds_linea: n(d.unidades),
+  };
 }

@@ -97,8 +97,8 @@ describe('el formulario y la factura impresa dicen lo mismo', () => {
     ['psicologia', 'Sesiones'],
     ['fisioterapia', 'Sesiones'],
     ['estetica', 'Sesiones'],
-    ['alimentacion', 'Cajas'],
-    ['mayorista', 'Cajas'],
+    ['alimentacion', 'Udes.'],
+    ['mayorista', 'Udes.'],
     ['supermercado', 'Cantidad'],
   ])('en %s cada línea se cuenta en «%s»', (sector, unidad) => {
     expect(vocabularioDe(sector as never).cantidad).toBe(unidad);

@@ -400,13 +400,13 @@ describe('el cuadro de impuestos y las casillas de recuento del pie', () => {
     expect(rejilla.x + rejilla.ancho).toBeLessThan(108);
   });
 
-  it('ata la casilla «CAJAS» a la suma de la columna «CAJ.»', () => {
-    // El impreso no dice de qué es el recuento; lo dice la tabla. Así el
-    // mecanismo vale para palés, horas o metros sin saber nada de cajas.
+  it('ata la casilla «CAJAS» al total de cajas de la columna «CAJ.»', () => {
+    // «CAJ.» es ya el dato de cajas de cada línea (ver cajas.ts), y el
+    // recuento del pie, su suma: las cajas completas del documento.
     const analisis = detectar(pagina(pieDeImpreso()), { ajustes: AJUSTES });
     const cajas = analisis.tabla!.columnas.find(col => col.cabecera === 'CAJ.');
-    expect(cajas!.clave).toMatch(/^custom_col_\d+$/);
-    expect(claves(analisis).total_col_1).toBe('9,00');
+    expect(cajas!.clave).toBe('cajas');
+    expect(claves(analisis).total_bultos).toBe('9,00');
   });
 
   it('reconoce «UNIDADES» como el total de la columna de cantidad', () => {

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Send, ArrowLeft } from 'lucide-react';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import { problemasDeLineas } from '@/lib/validation/lineas';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
@@ -159,9 +160,16 @@ export default function NuevaFacturaPage() {
       error('Error', 'Escribe el nombre del cliente');
       return;
     }
-    const validLines = lineItems.filter(l => l.productId && l.quantity > 0);
+    // Una línea con producto y sin unidades no se descarta en silencio: se
+    // avisa (ver problemasDeLineas).
+    const validLines = lineItems.filter(l => l.productId);
     if (validLines.length === 0) {
       error('Error', 'Añade al menos un producto');
+      return;
+    }
+    const fallosLineas = problemasDeLineas(validLines, await getCompanySettings()).filter(p => p.gravedad === 'error');
+    if (fallosLineas.length > 0) {
+      error('Revisa las líneas', fallosLineas.map(p => p.mensaje).join(' '));
       return;
     }
 

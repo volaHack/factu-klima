@@ -181,7 +181,8 @@ export const COLUMNAS_LINEAS: ColumnaTabla[] = [
   { clave: 'precio', etiqueta: 'Precio unitario', cabeceraSugerida: 'Precio', numerica: true, ejemplo: '12,50 €' },
   // El efectivo: los tres descuentos en cascada ya combinados en uno.
   { clave: 'descuento_pct', etiqueta: '% Descuento', cabeceraSugerida: 'Dto.', numerica: true, ejemplo: '19 %' },
-  { clave: 'uds_caja', etiqueta: 'Unidades por bulto', cabeceraSugerida: 'U/C', numerica: true, ejemplo: '24' },
+  { clave: 'cajas', etiqueta: 'Cajas completas', cabeceraSugerida: 'CAJ.', numerica: true, ejemplo: '12' },
+  { clave: 'uds_caja', etiqueta: 'Unidades por caja', cabeceraSugerida: 'U/C', numerica: true, ejemplo: '24' },
   { clave: 'uds_linea', etiqueta: 'Unidades de la línea', cabeceraSugerida: 'Udes.', numerica: true, ejemplo: '288' },
   { clave: 'descuento_1_pct', etiqueta: '% Descuento 1', cabeceraSugerida: 'Dto. 1', numerica: true, ejemplo: '10 %' },
   { clave: 'descuento_2_pct', etiqueta: '% Descuento 2', cabeceraSugerida: 'Dto. 2', numerica: true, ejemplo: '10 %' },

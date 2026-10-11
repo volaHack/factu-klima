@@ -52,6 +52,7 @@ import type { Schema, Template } from '@pdfme/common';
 import { componerBloqueQr, invadenLaReserva } from '../verifactu/qrFactura';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
+import { repararColumnas } from './columnasCajas';
 import { formatoVigente } from './rotuloTipo';
 import { limpiarPresentacion, type Presentacion } from './presentacion';
 import { contenidoParaPdfme, marcadoresDesconocidos } from './textoConDatos';
@@ -792,9 +793,10 @@ export function columnasPersonalizadasDePlantilla(plantilla: Template): { clave:
     for (const esquema of pagina) {
       if (esquema.name !== TABLA_LINEAS) continue;
       const mesa = esquema as unknown as { __columnas?: (string | null)[]; head?: string[] };
-      const claves = mesa.__columnas;
-      const cabeceras = mesa.head ?? [];
-      if (!Array.isArray(claves)) return [];
+      if (!Array.isArray(mesa.__columnas)) return [];
+      // Con las columnas ya reparadas: CAJ. y U/C no se piden como casillas
+      // propias, son las cajas y la U/C de la línea.
+      const { claves, cabeceras } = repararColumnas(mesa.__columnas, mesa.head ?? []);
       return claves
         .map((clave, i) => ({ clave, cabecera: cabeceras[i] ?? '' }))
         .filter((c): c is { clave: string; cabecera: string } =>
@@ -925,7 +927,14 @@ export function normalizarPlantilla(plantilla: Template): Template {
     if (!esq || typeof esq !== 'object') continue;
 
     if (esq.type === 'table') {
-      const headArray = Array.isArray(esq.head) ? (esq.head as unknown[]).map(h => (h != null ? String(h) : '')) : ['Item', 'Total'];
+      let headArray = Array.isArray(esq.head) ? (esq.head as unknown[]).map(h => (h != null ? String(h) : '')) : ['Item', 'Total'];
+      // CAJ. y U/C conectadas a sus datos y la «RECIO» de vuelta a «PRECIO»
+      // en las plantillas ya guardadas (ver columnasCajas.ts).
+      if (esq.name === TABLA_LINEAS && Array.isArray(esq.__columnas)) {
+        const r = repararColumnas(esq.__columnas as (string | null)[], headArray);
+        esq.__columnas = r.claves;
+        headArray = r.cabeceras;
+      }
       esq.head = headArray;
       const numCols = Math.max(1, headArray.length);
 

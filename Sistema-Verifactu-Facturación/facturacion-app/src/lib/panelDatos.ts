@@ -15,6 +15,7 @@ import {
   type TipoDocumento,
 } from './types';
 import { facturadoYCobrado } from './analitica';
+import { desgloseLinea } from './cajas';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -62,7 +63,9 @@ export function margenMes(facturas: Invoice[], productos: Product[], hoy: string
       ventas += signo * (li.subtotal ?? 0);
       const c = util(li.costPrice) ?? (li.productId ? coste.get(li.productId) : undefined);
       if (c == null) { lineasSinCoste++; continue; }
-      costeTotal += signo * c * (li.quantity ?? 0) * (li.unitsPerPackage && li.unitsPerPackage > 1 ? li.unitsPerPackage : 1);
+      // El coste es por unidad: se multiplica por las unidades de la línea
+      // (en las de antes, cajas × U/C; ver cajas.ts).
+      costeTotal += signo * c * desgloseLinea({ quantity: li.quantity ?? 0, unitsPerPackage: li.unitsPerPackage, cajas: li.cajas }).unidades;
     }
   }
   ventas = r2(ventas);

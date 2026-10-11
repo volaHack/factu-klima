@@ -22,6 +22,7 @@ import { getClientById, getCompanySettings, saveClient } from '../storage';
 import { esClienteEspanol, normalizarNif, problemasParaEmitir, resumenDeErrores } from './identidad';
 import { detectNifType, isValidNif } from './nif';
 import { comprobarEnAeat, explicarEstado, impideEmitir } from './censoCliente';
+import { problemasDeLineas } from './lineas';
 
 export interface Avisador {
   /** Mensaje de error que para la emisión. */
@@ -40,6 +41,19 @@ export async function repasarAntesDeEmitir(factura: Invoice, avisar: Avisador): 
     getCompanySettings(),
     factura.clientId ? getClientById(factura.clientId).catch(() => undefined) : Promise.resolve(undefined),
   ]);
+
+  // Las líneas primero: cajas sin U/C o sin unidades paran; un tipo de
+  // impuesto que no es del régimen (un 21 % con IGIC) se pregunta.
+  const deLineas = problemasDeLineas(factura.lineItems ?? [], empresa);
+  const fallos = deLineas.filter(p => p.gravedad === 'error');
+  if (fallos.length > 0) {
+    avisar.error('Revisa las líneas', fallos.map(p => p.mensaje).join(' '));
+    return null;
+  }
+  const raros = deLineas.filter(p => p.gravedad === 'aviso');
+  if (raros.length > 0 && !avisar.confirmar(`Antes de emitir, revisa los impuestos:\n\n${raros.map(a => `• ${a.mensaje}`).join('\n')}\n\n¿Emitir igualmente? Una factura emitida ya no se puede cambiar.`)) {
+    return null;
+  }
 
   const problemas = problemasParaEmitir(factura, empresa, ficha?.country);
   const bloqueo = resumenDeErrores(problemas);
