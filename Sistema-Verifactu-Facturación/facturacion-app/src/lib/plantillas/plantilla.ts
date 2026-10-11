@@ -52,7 +52,7 @@ import type { Schema, Template } from '@pdfme/common';
 import { componerBloqueQr, invadenLaReserva } from '../verifactu/qrFactura';
 import { COLUMNAS_LINEAS, esColumnaPersonalizada, TABLA_LINEAS } from './contrato';
 import { columnasPorDefecto } from './deteccion';
-import { repararColumnas } from './columnasCajas';
+import { recuentosReparados, repararColumnas } from './columnasCajas';
 import { formatoVigente } from './rotuloTipo';
 import { limpiarPresentacion, type Presentacion } from './presentacion';
 import { contenidoParaPdfme, marcadoresDesconocidos } from './textoConDatos';
@@ -883,6 +883,43 @@ function anclarCamposDePagina(plantilla: Template): void {
 }
 
 /**
+ * La casilla «Total de CAJ.» de un impreso de mayorista sumaba la columna
+ * propia de CAJ. Ahora que esa columna lleva las cajas de verdad (ver
+ * columnasCajas.ts), la casilla pasa a ser el total de cajas: se le cambia
+ * el nombre `total_col_N` por `total_bultos` (con sufijo si ya hay otro),
+ * y con él el marcador `{…}` de su contenido y su formato guardado.
+ */
+function reconectarRecuentos(plantilla: Template, esquemas: Record<string, unknown>[]): void {
+  const tabla = esquemas.find(e => e?.name === TABLA_LINEAS && Array.isArray(e.__columnas));
+  if (!tabla) return;
+  const claves = tabla.__columnas as (string | null)[];
+  const cabeceras = Array.isArray(tabla.head) ? (tabla.head as unknown[]).map(h => (h != null ? String(h) : '')) : [];
+  const cambios = recuentosReparados(claves, repararColumnas(claves, cabeceras).claves);
+  if (cambios.size === 0) return;
+
+  const usados = new Set(esquemas.map(e => e?.name).filter((n): n is string => typeof n === 'string'));
+  for (const esq of esquemas) {
+    const nombre = typeof esq?.name === 'string' ? esq.name : '';
+    const m = nombre.match(/^(total_col_\d+)(?:_\d+)?$/);
+    const destino = m ? cambios.get(m[1]) : undefined;
+    if (!destino) continue;
+    let nuevo = destino;
+    for (let n = 2; usados.has(nuevo); n++) nuevo = `${destino}_${n}`;
+    usados.add(nuevo);
+    esq.name = nuevo;
+    if (typeof esq.content === 'string') esq.content = esq.content.split(`{${nombre}}`).join(`{${nuevo}}`);
+  }
+
+  const presentaciones = (plantilla as unknown as { __presentaciones?: Record<string, { clave?: string }> }).__presentaciones;
+  if (presentaciones && typeof presentaciones === 'object') {
+    for (const p of Object.values(presentaciones)) {
+      const destino = p?.clave ? cambios.get(p.clave) : undefined;
+      if (destino) p.clave = destino;
+    }
+  }
+}
+
+/**
  * Normaliza y sanea cualquier objeto Template (incluso los guardados previamente en BD)
  * para asegurar compatibilidad total con pdfme y evitar errores al componer el PDF.
  */
@@ -922,6 +959,8 @@ export function normalizarPlantilla(plantilla: Template): Template {
   const paddingBottom = typeof padding[2] === 'number' ? padding[2] : 0;
   const altoContenido = Math.max(altoPagina - paddingTop - paddingBottom, 0.1);
   const primeraPagina = Array.isArray(paginas[0]) ? paginas[0] as unknown[] : [];
+
+  reconectarRecuentos(copia, [...paginas.flat(), ...baseStatic] as unknown as Record<string, unknown>[]);
 
   for (const esq of [...paginas.flat(), ...baseStatic] as unknown as Record<string, unknown>[]) {
     if (!esq || typeof esq !== 'object') continue;

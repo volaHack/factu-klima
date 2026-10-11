@@ -53,3 +53,69 @@ describe('la plantilla de mayorista ya guardada', () => {
     expect(columnasPersonalizadasDePlantilla(plantillaSucamosa())).toEqual([]);
   });
 });
+
+describe('el «Total de CAJ.» del pie', () => {
+  const conPie = (): Template => {
+    const t = plantillaSucamosa() as unknown as { basePdf: Record<string, unknown> };
+    t.basePdf.staticSchema = [
+      { name: 'total_col_1', type: 'text', position: { x: 10, y: 250 }, width: 30, height: 8, content: '{total_col_1}', readOnly: true },
+      { name: 'total_unidades', type: 'text', position: { x: 50, y: 250 }, width: 30, height: 8, content: '{total_unidades}', readOnly: true },
+    ];
+    return t as unknown as Template;
+  };
+  const factura = { ...facturaDeMuestra(), lineItems: [
+    linea({ cajas: 2, unitsPerPackage: 24, quantity: 51 }),
+    linea({ cajas: 3, unitsPerPackage: 6, quantity: 18 }),
+    linea({ cajas: 0, unitsPerPackage: 6, quantity: 4 }),
+  ] };
+  const datos = construirDatos({ tipo: 'factura', documento: factura }, DEFAULT_COMPANY_SETTINGS);
+
+  it('suma las cajas de las líneas', () => {
+    const plantilla = normalizarPlantilla(conPie());
+    const pie = (plantilla.basePdf as { staticSchema: { name: string; content: string }[] }).staticSchema;
+    const casilla = pie.find(e => e.content.includes('total_bultos'))!;
+    expect(casilla).toBeDefined();
+    const entrada = construirEntrada(plantilla, datos);
+    expect(entrada[casilla.name]).toBe('5');
+    expect(entrada.total_unidades).toBe('73');
+  });
+  it('normalizar dos veces no lo estropea', () => {
+    const plantilla = normalizarPlantilla(normalizarPlantilla(conPie()));
+    const entrada = construirEntrada(plantilla, datos);
+    const pie = (plantilla.basePdf as { staticSchema: { name: string }[] }).staticSchema;
+    expect(pie.map(e => e.name)).not.toContain('total_col_1');
+    expect(entrada[pie[0].name]).toBe('5');
+  });
+});
+
+describe('el «Total de CAJ.» del pie', () => {
+  const conPie = (): Template => {
+    const t = plantillaSucamosa() as unknown as { basePdf: Record<string, unknown> };
+    t.basePdf.staticSchema = [
+      { name: 'total_col_1', type: 'text', position: { x: 10, y: 250 }, width: 30, height: 8, content: '{total_col_1}', readOnly: true },
+      { name: 'total_unidades', type: 'text', position: { x: 50, y: 250 }, width: 30, height: 8, content: '{total_unidades}', readOnly: true },
+    ];
+    return t as unknown as Template;
+  };
+  const factura = { ...facturaDeMuestra(), lineItems: [
+    linea({ cajas: 2, unitsPerPackage: 24, quantity: 51 }),
+    linea({ cajas: 3, unitsPerPackage: 6, quantity: 18 }),
+    linea({ cajas: 0, unitsPerPackage: 6, quantity: 4 }),
+  ] };
+  const datos = construirDatos({ tipo: 'factura', documento: factura }, DEFAULT_COMPANY_SETTINGS);
+  const pieDe = (p: Template) => (p.basePdf as unknown as { staticSchema: { name: string; content: string }[] }).staticSchema;
+
+  it('suma las cajas de las líneas', () => {
+    const plantilla = normalizarPlantilla(conPie());
+    const casilla = pieDe(plantilla).find(e => e.content.includes('total_bultos'));
+    expect(casilla).toBeDefined();
+    const entrada = construirEntrada(plantilla, datos);
+    expect(entrada[casilla!.name]).toBe('5');
+    expect(entrada.total_unidades).toBe('73');
+  });
+  it('normalizar dos veces no lo estropea', () => {
+    const plantilla = normalizarPlantilla(normalizarPlantilla(conPie()));
+    expect(pieDe(plantilla).map(e => e.name)).not.toContain('total_col_1');
+    expect(construirEntrada(plantilla, datos)[pieDe(plantilla)[0].name]).toBe('5');
+  });
+});

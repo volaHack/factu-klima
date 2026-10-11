@@ -55,7 +55,9 @@ export function asegurarHuecoQr(
     // Un albarán o un presupuesto no llevan QR: si quedaba el recuadro de
     // cuando la plantilla era una factura, se va. Dejarlo sería enseñar en
     // el editor un hueco que no se imprime nunca.
-    return tiene ? campos.filter(c => !esCampoQr(c)) : campos;
+    // La leyenda de cotejo va con el QR: sin él, tampoco.
+    const sobra = (c: CampoDetectado) => esCampoQr(c) || c.clave === 'verifactu_leyenda';
+    return campos.some(sobra) ? campos.filter(c => !sobra(c)) : campos;
   }
 
   if (tiene) return campos;

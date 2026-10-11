@@ -12,7 +12,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Download, Eye, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { getClientById, getCompanySettings } from '@/lib/storage';
+import { getClientById, getCobrosPagos, getCompanySettings } from '@/lib/storage';
 import type { Albaran, Invoice } from '@/lib/types';
 import { personalidadDe, type TipoDocumentoPlantilla } from '@/lib/plantillas/tiposDocumento';
 
@@ -36,6 +36,23 @@ type Props =
     documento: { tipo: TipoDocumentoPlantilla; documento: Invoice | Albaran };
   });
 
+
+/**
+ * Los pagos apuntados en Cobros y pagos para este documento, con lo que se
+ * aplicó a él: llenan la «Relación de pagos» del diseño. Si no se pueden
+ * leer, el PDF sale igual con lo cobrado que guarda la factura.
+ */
+async function pagosDelDocumento(tipo: TipoDocumentoPlantilla, documento: Invoice | Albaran) {
+  if (tipo === 'albaran' || tipo === 'presupuesto') return undefined;
+  try {
+    const movimientos = await getCobrosPagos(documento.clientId ? { contraparteId: documento.clientId } : undefined);
+    return movimientos.flatMap(m => m.desglose
+      .filter(d => d.invoiceId === documento.id && d.importeAplicado > 0)
+      .map(d => ({ fecha: m.fecha, importe: d.importeAplicado, forma: m.paymentMethod })));
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Monta el PDF del documento con la plantilla activa de la empresa.
@@ -68,9 +85,10 @@ async function componerPdf(
     return null;
   }
 
-  const [ajustes, cliente] = await Promise.all([
+  const [ajustes, cliente, pagos] = await Promise.all([
     getCompanySettings(),
     documento.clientId ? getClientById(documento.clientId) : Promise.resolve(undefined),
+    pagosDelDocumento(tipo, documento),
   ]);
 
   // El QR tributario que exige Veri*Factu, con los cuatro datos que la propia
@@ -97,7 +115,7 @@ async function componerPdf(
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     { tipo: tipo as any, documento: documento as any },
     ajustes,
-    { cliente, datosExtras: documento.datosExtras },
+    { cliente, datosExtras: documento.datosExtras, pagos },
   );
 
   const blob = await generarPdfBlob(plantilla.plantilla, datos, {
