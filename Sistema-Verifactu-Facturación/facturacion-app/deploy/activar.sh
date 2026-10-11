@@ -120,6 +120,7 @@ if [ "$CRON" = "on" ]; then
       "40 6 * * * $T banco" \
       "0 7 * * * $T verifactu" \
       "30 8 * * * $T recordatorios" \
+      "5 7 * * * $T correos" \
       "$FIN"
   } | crontab -
   echo "✓ Tareas diarias programadas en el crontab"

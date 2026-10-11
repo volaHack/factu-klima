@@ -102,6 +102,11 @@ IA_BASE_URL=
 IA_MODELO=
 IA_API_KEY=
 
+# --- Correos (Resend), desde administrador@klimafacturas.com ---
+RESEND_API_KEY=
+# El secreto del gancho «Send Email» de Supabase (v1,whsec_…)
+SEND_EMAIL_HOOK_SECRET=
+
 # --- Banco conectado (Enable Banking); ver /admin/banco ---
 ENABLE_BANKING_APP_ID=
 ENABLE_BANKING_PRIVATE_KEY=

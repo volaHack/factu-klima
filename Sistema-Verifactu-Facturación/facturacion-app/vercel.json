@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/banco",
       "schedule": "40 6 * * *"
+    },
+    {
+      "path": "/api/cron/correos",
+      "schedule": "5 7 * * *"
     }
   ]
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ComprobacionIdentidad from '@/components/clientes/ComprobacionIdentidad';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound, FileCode2 } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound, FileCode2, Mail } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
@@ -22,6 +22,7 @@ import { processLogoFile } from '@/lib/utils';
 import SelectorSector from '@/components/ajustes/SelectorSector';
 import SelectorModulos from '@/components/ajustes/SelectorModulos';
 import EditorPanel from '@/components/ajustes/EditorPanel';
+import NotificacionesCorreo from '@/components/ajustes/NotificacionesCorreo';
 import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
@@ -881,6 +882,17 @@ export default function AjustesPage() {
           sector={settings.sector}
           onCambiar={panel => updateField('panel', panel)}
         />
+      </div>
+
+      <div className="card settings-section" id="notificaciones">
+        <div className="settings-section-header">
+          <Mail size={18} />
+          <h2 className="settings-section-title">Notificaciones por correo</h2>
+        </div>
+        <p className="settings-section-subtitle">
+          Lo importante de tu negocio en tu correo, sin tener que entrar a mirarlo.
+        </p>
+        <NotificacionesCorreo />
       </div>
 
       {/* Vendedores y series */}

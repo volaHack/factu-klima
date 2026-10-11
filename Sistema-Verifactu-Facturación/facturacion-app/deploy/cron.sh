@@ -5,7 +5,7 @@
 # Es lo que en Vercel hacen los «crons» de vercel.json. Lo llama el crontab
 # que pone deploy/activar.sh:
 #
-#   $APP_DIR/current/deploy/cron.sh banco|verifactu|recordatorios
+#   $APP_DIR/current/deploy/cron.sh banco|verifactu|recordatorios|correos
 #
 # Llama a la app por dentro (127.0.0.1, sin pasar por nginx) con el
 # CRON_SECRET del .env, y deja la respuesta en ~/logs/cron.log.
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 TAREA="${1:?Falta la tarea}"
-case "$TAREA" in banco|verifactu|recordatorios) ;; *) echo "Tarea desconocida: $TAREA" >&2; exit 2 ;; esac
+case "$TAREA" in banco|verifactu|recordatorios|correos) ;; *) echo "Tarea desconocida: $TAREA" >&2; exit 2 ;; esac
 
 # $APP_DIR/current/deploy/cron.sh → $APP_DIR (sin resolver el enlace current).
 APP_DIR="$(cd "$(dirname "$0")/../.." && pwd -L)"
