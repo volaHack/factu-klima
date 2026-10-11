@@ -349,7 +349,7 @@ export function construirDatos(
   // Un documento sin fecha de vencimiento —un albarán, un presupuesto— no
   // tiene nada que decir aquí y se queda sin renglones, que es distinto de
   // imprimir un cuadro con guiones.
-  const vencimientos = filasDeVencimientos(entrada, doc);
+  const vencimientos = filasDeVencimientos(entrada, doc, cliente);
 
   const desgloseEnTexto = doc.taxBreakdown
     .map(t => `${impuesto} ${porcentaje(t.rate)} sobre ${formatCurrency(t.base)} — ${formatCurrency(t.amount)}`)
@@ -439,7 +439,7 @@ export function construirDatos(
     // Recuentos y desglose casilla a casilla, calculados de las líneas.
     ...recuentos(doc.lineItems),
     ...casillasDeImpuestos(doc.taxBreakdown, impuesto),
-    ...relacionDePagos(entrada, doc, opciones.pagos),
+    ...relacionDePagos(entrada, doc, opciones.pagos, cliente),
 
     // Veri*Factu
     verifactu_huella: factura?.verifactu?.chainedHash || '',
@@ -549,13 +549,13 @@ export function esDocumentoAnulado(entrada: DocumentoImprimible): boolean {
 function filasDeVencimientos(
   entrada: DocumentoImprimible,
   doc: { total: number; paidAmount?: number },
+  cliente?: Client,
 ): Record<string, string>[] {
-  if (entrada.tipo === 'albaran') return [];
-  const factura = entrada.documento;
-  if (!factura.dueDate) return [];
+  const cond = condicionesDePago(entrada, cliente);
+  if (!cond.vence) return [];
 
-  const emision = Date.parse(factura.issueDate ?? '');
-  const vence = Date.parse(factura.dueDate);
+  const emision = Date.parse(cond.emision ?? '');
+  const vence = Date.parse(cond.vence);
   const dias = Number.isFinite(emision) && Number.isFinite(vence)
     ? Math.round((vence - emision) / 86_400_000)
     : null;
@@ -564,15 +564,39 @@ function filasDeVencimientos(
   const pendiente = Math.max(0, doc.total - cobrado);
 
   return [{
-    venc_fecha: formatDate(factura.dueDate),
+    venc_fecha: formatDate(cond.vence),
     venc_dias: dias === null ? '' : `${dias} días`,
     venc_importe: formatCurrency(doc.total),
-    venc_forma: PAYMENT_METHODS.find(m => m.value === factura.paymentMethod)?.label ?? '',
+    venc_forma: PAYMENT_METHODS.find(m => m.value === cond.forma)?.label ?? '',
     // Lo que de verdad importa de un vencimiento: si sigue debiéndose.
-    venc_estado: pendiente <= 0.005
-      ? 'Cobrado'
-      : cobrado > 0 ? `Pendiente ${formatCurrency(pendiente)}` : 'Pendiente',
+    venc_estado: cond.facturado
+      ? 'Facturado'
+      : pendiente <= 0.005
+        ? 'Cobrado'
+        : cobrado > 0 ? `Pendiente ${formatCurrency(pendiente)}` : 'Pendiente',
   }];
+}
+
+/**
+ * Cuándo y cómo se paga un documento. Una factura lo lleva puesto; un
+ * albarán no, y sale de la ficha del cliente: su fecha más los días de pago
+ * («a 30 días») y su forma de pago habitual. Así el cuadro de pagos y la
+ * relación de pagos de un albarán de mayorista no salen en blanco.
+ */
+function condicionesDePago(entrada: DocumentoImprimible, cliente?: Client): {
+  emision?: string; vence?: string; forma?: PaymentMethod; facturado: boolean;
+} {
+  const d = entrada.documento as { issueDate?: string; dueDate?: string; paymentMethod?: PaymentMethod; invoiceId?: string };
+  if (entrada.tipo !== 'albaran') {
+    return { emision: d.issueDate, vence: d.dueDate || undefined, forma: d.paymentMethod, facturado: false };
+  }
+  let vence = d.dueDate || undefined;
+  const dias = cliente?.paymentDays ?? 0;
+  const emision = Date.parse(d.issueDate ?? '');
+  if (!vence && dias > 0 && Number.isFinite(emision)) {
+    vence = new Date(emision + dias * 86_400_000).toISOString().slice(0, 10);
+  }
+  return { emision: d.issueDate, vence, forma: d.paymentMethod ?? cliente?.defaultPaymentMethod, facturado: Boolean(d.invoiceId) };
 }
 
 /**
@@ -582,17 +606,19 @@ function filasDeVencimientos(
  *
  * Sin pagos apuntados en Cobros y pagos se usa lo cobrado que guarda la
  * factura (un pago, en su fecha de cobro). Sin nada cobrado, sale el
- * vencimiento pendiente. Un albarán no tiene pagos.
+ * vencimiento pendiente. Un albarán enseña su vencimiento según el cliente.
  */
 function relacionDePagos(
   entrada: DocumentoImprimible,
   doc: { total: number; paidAmount?: number },
   pagos?: PagoDocumento[],
+  cliente?: Client,
 ): Record<string, string> {
   const vacio = { relacion_pagos: '', relacion_pagos_total: '', relacion_pagos_pendiente: '', relacion_pagos_numero: '', relacion_pagos_plazo: '' };
-  if (entrada.tipo === 'albaran' || entrada.tipo === 'presupuesto') return vacio;
-  const factura = entrada.documento;
-  const plazo = filasDeVencimientos(entrada, doc)[0]?.venc_dias ?? '';
+  if (entrada.tipo === 'presupuesto') return vacio;
+  const factura = entrada.documento as { status?: string; paidDate?: string; paymentMethod?: PaymentMethod };
+  const cond = condicionesDePago(entrada, cliente);
+  const plazo = filasDeVencimientos(entrada, doc, cliente)[0]?.venc_dias ?? '';
   const forma = (f?: PaymentMethod) => PAYMENT_METHODS.find(m => m.value === f)?.label ?? '';
 
   let lista = (pagos ?? []).filter(p => p.importe > 0);
@@ -608,10 +634,16 @@ function relacionDePagos(
   const renglones = lista.map(p => [p.fecha ? formatDate(p.fecha) : '', forma(p.forma), formatCurrency(p.importe)].filter(Boolean).join(' · '));
 
   if (lista.length === 0) {
-    if (!factura.dueDate) return { ...vacio, relacion_pagos_plazo: plazo };
-    const vence = [plazo ? `A ${plazo}` : '', `vence ${formatDate(factura.dueDate)}`, forma(factura.paymentMethod), formatCurrency(doc.total)].filter(Boolean).join(' · ');
+    // Sin vencimiento (un albarán de un cliente sin días de pago en su
+    // ficha) sale igual lo que se debe, no un recuadro en blanco.
+    const vence = [
+      plazo ? `A ${plazo}` : '',
+      cond.vence ? `vence ${formatDate(cond.vence)}` : '',
+      forma(cond.forma),
+      formatCurrency(doc.total),
+    ].filter(Boolean).join(' · ');
     return {
-      relacion_pagos: `${vence}\nPendiente: ${formatCurrency(pendiente)}`,
+      relacion_pagos: cond.facturado ? `${vence}\nFacturado` : `${vence}\nPendiente: ${formatCurrency(pendiente)}`,
       relacion_pagos_total: formatCurrency(0),
       relacion_pagos_pendiente: formatCurrency(pendiente),
       relacion_pagos_numero: '0',
