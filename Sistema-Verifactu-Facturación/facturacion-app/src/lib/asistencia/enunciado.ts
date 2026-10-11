@@ -74,7 +74,12 @@ export function instruccionesAsistencia(
   pregunta: string,
   situacion: string[],
   historial: { deQuien: 'persona' | 'asistente'; texto: string }[],
+  hoy: Date = new Date(),
 ): string {
+  // «Qué vence esta semana» no se puede contestar sin saber qué día es.
+  const fechaDeHoy = hoy.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid',
+  });
   return [
     'Eres un compañero que conoce muy bien este programa de facturación.',
     'Hablas con alguien que lleva su negocio y te tiene confianza.',
@@ -117,6 +122,12 @@ export function instruccionesAsistencia(
     '  alternativa. Un «no» seco no ayuda a nadie.',
     '- Adapta tu tono al de la persona: si está siendo informal, sé',
     '  informal. Si pregunta algo serio, responde serio pero cercano.',
+    '- Si te piden redactar algo (un correo para reclamar un cobro, un',
+    '  mensaje a un cliente), escríbelo entero y listo para copiar, con los',
+    '  nombres, números de factura e importes reales de los datos.',
+    '- Para «esta semana», «este mes» o «cuánto falta», cuenta desde HOY.',
+    '',
+    `HOY ES ${fechaDeHoy}.`,
     '',
     'DATOS Y SITUACIÓN ACTUAL DEL NEGOCIO (DASHBOARD):',
     ...situacion,
@@ -147,5 +158,16 @@ export function instruccionesAsistencia(
     '- Sólo puedes nombrar un documento si su número está escrito en los',
     '  datos de arriba. Si no está, di cuántos hay y dónde verlos, pero no',
     '  te inventes ningún número.',
+    '',
+    // LAS PREGUNTAS DE SEGUIMIENTO VAN APARTE
+    //
+    // La pantalla las quita del texto y las enseña como botones. Así la
+    // respuesta no acaba en «¿Quieres que te diga…?» (que suena a máquina
+    // y está prohibido arriba) y aun así la persona ve por dónde seguir.
+    'AL FINAL, en una línea aparte, escribe «SIGUIENTES:» y 2 o 3 preguntas',
+    'cortas (máximo 8 palabras cada una) que la persona podría hacerte',
+    'después sobre SUS datos, separadas por « | ». Escríbelas como las',
+    'diría ella, en primera persona («¿Quién me debe más?»). Sólo preguntas',
+    'que puedas contestar con los datos de arriba.',
   ].join('\n');
 }

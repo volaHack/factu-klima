@@ -43,7 +43,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, clientIpFromRequest } from '@/lib/rateLimit';
 import { createClient } from '@/lib/supabase/server';
-import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo } from '@/lib/ia/cliente';
+import { configuracionIA, FalloIA, generarTexto, respuestaDeFallo, type PeticionIA } from '@/lib/ia/cliente';
+import { generarTextoEnVivo } from '@/lib/ia/enVivo';
 import { instruccionesAsistencia, SIN_TICS } from '@/lib/asistencia/enunciado';
 import { acotarSituacion } from '@/lib/asistencia/contexto';
 
@@ -70,10 +71,21 @@ const MAXIMO_PREGUNTA = 400;
  * En los dos casos los recuentos van primero y enteros; lo que se recorta
  * es el detalle del final.
  */
+function esModeloLocal(): boolean {
+  return /127\.0\.0\.1|localhost/.test(configuracionIA()?.baseUrl ?? '');
+}
+
 function maximoSituacion(): number {
-  const base = configuracionIA()?.baseUrl ?? '';
-  const esLocal = /127\.0\.0\.1|localhost/.test(base);
-  return esLocal ? 7_500 : 60_000;
+  return esModeloLocal() ? 7_500 : 60_000;
+}
+
+/**
+ * Cuánta conversación previa se le recuerda. Al modelo local, poca: no le
+ * cabe. A uno alojado, bastante más, para que «¿y el mes pasado?» o
+ * «mándaselo más corto» se entiendan sin repetir nada.
+ */
+function memoriaConversacion(): { mensajes: number; caracteres: number } {
+  return esModeloLocal() ? { mensajes: 6, caracteres: 600 } : { mensajes: 14, caracteres: 1_500 };
 }
 
 export interface ContextoTpv {
@@ -311,6 +323,8 @@ export async function POST(request: NextRequest) {
     /** Modo asistencia: el retrato del panel, ya contado en el cliente. */
     situacion?: unknown;
     historial?: unknown;
+    /** Asistencia: la respuesta por trozos, a medida que se escribe. */
+    enVivo?: boolean;
   };
   try {
     cuerpo = await request.json();
@@ -354,13 +368,14 @@ export async function POST(request: NextRequest) {
     // La conversación previa, para que se pueda repreguntar sin repetirlo
     // todo. Las últimas seis y nada más: lo de hace veinte mensajes ya no
     // ayuda y se paga igual.
+    const memoria = memoriaConversacion();
     const historial = (Array.isArray(cuerpo.historial) ? cuerpo.historial : [])
-      .slice(-6)
+      .slice(-memoria.mensajes)
       .map((m: unknown) => {
         const mensaje = m as { deQuien?: unknown; texto?: unknown };
         return {
           deQuien: mensaje?.deQuien === 'asistente' ? 'asistente' as const : 'persona' as const,
-          texto: String(mensaje?.texto ?? '').slice(0, 600),
+          texto: String(mensaje?.texto ?? '').slice(0, memoria.caracteres),
         };
       })
       .filter(m => m.texto);
@@ -398,40 +413,81 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  try {
-    const texto = await generarTexto({
-      instrucciones,
-      // Poca creatividad: la misma duda dos veces tiene que dar la misma
-      // respuesta, que es lo que permite fiarse de ella.
-      temperatura: 0.2,
-      // LA ASISTENCIA NECESITA MÁS AIRE QUE EL MOSTRADOR
-      //
-      // En el TPV hay un cliente esperando de pie: si tarda, no sirve. En
-      // la pantalla de asistencia no, y el enunciado es mucho mayor —lleva
-      // el mapa de las cuarenta pantallas del programa y la situación de
-      // la empresa—, así que el modelo tarda más en leerlo y en pensar.
-      //
-      // Con 45 s y 900 tokens se caían una de cada dos preguntas, y el
-      // usuario veía «no se ha podido contactar» cuando lo único que
-      // pasaba es que no le habíamos dado tiempo.
-      maximoTokens: cuerpo.modo === 'asistencia' ? 2_000 : 512,
-      // Por INTENTO, no en total: con tres intentos, el peor caso son
-      // unos 140 s. Más por intento y una mala racha del proveedor deja a
-      // alguien mirando un reloj durante minutos.
-      tiempoLimiteMs: cuerpo.modo === 'asistencia' ? 45_000 : 30_000,
+  const peticion: PeticionIA = {
+    instrucciones,
+    // Poca creatividad: la misma duda dos veces tiene que dar la misma
+    // respuesta, que es lo que permite fiarse de ella.
+    temperatura: 0.2,
+    // LA ASISTENCIA NECESITA MÁS AIRE QUE EL MOSTRADOR
+    //
+    // En el TPV hay un cliente esperando de pie: si tarda, no sirve. En
+    // la pantalla de asistencia no, y el enunciado es mucho mayor —lleva
+    // el mapa de las cuarenta pantallas del programa y la situación de
+    // la empresa—, así que el modelo tarda más en leerlo y en pensar.
+    //
+    // Con 45 s y 900 tokens se caían una de cada dos preguntas, y el
+    // usuario veía «no se ha podido contactar» cuando lo único que
+    // pasaba es que no le habíamos dado tiempo.
+    maximoTokens: cuerpo.modo === 'asistencia' ? 2_000 : 512,
+    // Por INTENTO, no en total: con tres intentos, el peor caso son
+    // unos 140 s. Más por intento y una mala racha del proveedor deja a
+    // alguien mirando un reloj durante minutos.
+    tiempoLimiteMs: cuerpo.modo === 'asistencia' ? 45_000 : 30_000,
+  };
+
+  // El consuelo tiene que pegar con dónde está la persona: «el TPV
+  // sigue funcionando igual» a quien está en la pantalla de asistencia
+  // no le dice nada.
+  const consuelo = cuerpo.modo === 'asistencia'
+    ? 'El resto del programa sigue funcionando igual.'
+    : 'El TPV sigue funcionando igual.';
+
+  // LA ASISTENCIA, POR TROZOS
+  //
+  // Una línea JSON por trozo ({"t":"…"}) y una al final con el texto
+  // entero ya limpio ({"fin":true,"texto":"…"}) o con el fallo
+  // ({"error":"…"}). Un fallo a mitad de respuesta no se puede dar con un
+  // código HTTP —ya se mandó el 200—, por eso va dentro.
+  if (cuerpo.modo === 'asistencia' && cuerpo.enVivo === true) {
+    const codificador = new TextEncoder();
+    const flujo = new ReadableStream<Uint8Array>({
+      async start(control) {
+        const enviar = (o: unknown) => control.enqueue(codificador.encode(`${JSON.stringify(o)}\n`));
+        try {
+          const texto = await generarTextoEnVivo(peticion, t => enviar({ t }));
+          enviar({ fin: true, texto });
+        } catch (err) {
+          if (err instanceof FalloIA) {
+            console.error('[ayuda] fallo de IA:', err.motivo, err.detalle ?? '');
+            enviar({ error: respuestaDeFallo(err, consuelo).error });
+          } else {
+            console.error('[ayuda] fallo inesperado:', err);
+            enviar({ error: `No he podido responder. ${consuelo}` });
+          }
+        } finally {
+          control.close();
+        }
+      },
     });
+    return new Response(flujo, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-store',
+        // nginx (el VPS) guarda la respuesta entera antes de pasarla si
+        // no se le dice esto, y el texto llegaría de golpe al final.
+        'X-Accel-Buffering': 'no',
+      },
+    });
+  }
+
+  try {
+    const texto = await generarTexto(peticion);
     return NextResponse.json({ texto });
   } catch (err) {
     if (!(err instanceof FalloIA)) throw err;
     // El detalle puede llevar trazas de la petición: al registro sí, al
     // usuario no.
     console.error('[ayuda] fallo de IA:', err.motivo, err.detalle ?? '');
-    // El consuelo tiene que pegar con dónde está la persona: «el TPV
-    // sigue funcionando igual» a quien está en la pantalla de asistencia
-    // no le dice nada.
-    const consuelo = cuerpo.modo === 'asistencia'
-      ? 'El resto del programa sigue funcionando igual.'
-      : 'El TPV sigue funcionando igual.';
     const { estado, error } = respuestaDeFallo(err, consuelo);
     return NextResponse.json({ error }, { status: estado });
   }
