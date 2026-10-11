@@ -10,6 +10,10 @@ export function urlDelSitio(): string {
   const declarada = process.env.NEXT_PUBLIC_APP_URL;
   if (declarada) return declarada.replace(/\/+$/, '');
 
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'preview') {
+    return 'https://klimafacturas.com';
+  }
+
   const vercel = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL;
   if (vercel) return `https://${vercel.replace(/\/+$/, '')}`;
 

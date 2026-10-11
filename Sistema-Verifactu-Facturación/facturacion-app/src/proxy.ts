@@ -25,6 +25,16 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     if (ataque.familia === 'escaneo') return new NextResponse('Not found', { status: 404 });
   }
 
+  // Redirigir cualquier tráfico que llegue al dominio por defecto de Vercel a klimafacturas.com
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  if (process.env.NODE_ENV !== 'development' && host.includes('vercel.app')) {
+    const canonicalUrl = new URL(request.url);
+    canonicalUrl.host = 'klimafacturas.com';
+    canonicalUrl.protocol = 'https:';
+    canonicalUrl.port = '';
+    return NextResponse.redirect(canonicalUrl, { status: 308 });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -88,6 +98,14 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.search = parametrosDelError.toString();
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Si Supabase devuelve el código de autorización en la portada (/),
+  // redirigir a /auth/callback para completar el intercambio de sesión por PKCE
+  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const callbackUrl = new URL('/auth/callback', request.url);
+    callbackUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(callbackUrl);
   }
 
   // Server-side redirect for unauthenticated users accessing protected pages
