@@ -1,20 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/verifactu",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/recordatorios",
-      "schedule": "30 8 * * *"
-    },
-    {
-      "path": "/api/cron/banco",
-      "schedule": "40 6 * * *"
-    },
-    {
-      "path": "/api/cron/correos",
-      "schedule": "5 7 * * *"
-    }
-  ]
+  "crons": []
 }

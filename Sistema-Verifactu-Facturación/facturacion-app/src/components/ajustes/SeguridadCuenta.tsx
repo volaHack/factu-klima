@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyRound, Loader2, LogOut, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react';
+import { KeyRound, Loader2, LogOut, ShieldCheck, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/useToast';
 
@@ -97,6 +97,11 @@ export default function SeguridadCuenta() {
     if (!error) await supabase.auth.refreshSession().catch(() => {});
     setOcupado(null);
     setConfirmar(null);
+    // Quitarla exige haber puesto el código en esta sesión: si no, a ponerlo y de vuelta aquí.
+    if (error && /aal2|insufficient_aal|AAL/i.test(`${error.code ?? ''} ${error.message}`)) {
+      window.location.assign(`/auth/dos-pasos?next=${encodeURIComponent('/ajustes#seguridad')}`);
+      return;
+    }
     if (error) {
       avisarError('No se ha podido desactivar', 'Sal y vuelve a entrar con tu código, y prueba otra vez.');
       return;
@@ -129,6 +134,7 @@ export default function SeguridadCuenta() {
               ? <span className="badge badge-pagada"><span className="badge-dot" /> Activada</span>
               : <span className="badge badge-borrador"><span className="badge-dot" /> Desactivada</span>}
           </div>
+          <p className="seguridad-opcional">Es opcional: cada persona decide si la quiere. Se activa y se desactiva cuando quieras.</p>
           <p className="status-panel-text">
             Además de la contraseña, al entrar se pide un código de tu móvil. Si alguien consigue tu contraseña, sin tu
             móvil no puede ver ni una factura.
@@ -175,17 +181,22 @@ export default function SeguridadCuenta() {
                 </button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmar(null)}>No</button>
               </div>
-            ) : (
-              <button type="button" className="btn btn-ghost btn-sm seguridad-accion" onClick={() => setConfirmar('quitar')}>
-                <ShieldOff size={14} /> Desactivar
-              </button>
-            )
-          ) : factor === null ? (
-            <button type="button" className="btn btn-primary btn-sm seguridad-accion" onClick={() => void empezarAlta()} disabled={ocupado !== null}>
-              {ocupado === 'alta' ? <Loader2 size={14} className="spin" /> : <Smartphone size={14} />} Activar la verificación en dos pasos
-            </button>
+            ) : null
           ) : null}
         </div>
+        <label className="toggle-switch seguridad-interruptor" aria-label="Verificación en dos pasos">
+          <input
+            type="checkbox"
+            checked={!!factor || !!alta}
+            disabled={factor === undefined || ocupado !== null}
+            onChange={e => {
+              if (e.target.checked) void empezarAlta();
+              else if (alta) void cancelarAlta();
+              else setConfirmar('quitar');
+            }}
+          />
+          <span className="toggle-slider" />
+        </label>
       </div>
 
       {/* Cerrar sesión en los demás dispositivos */}
