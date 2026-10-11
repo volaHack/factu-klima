@@ -15074,8 +15074,15 @@ body {
 .ficha-valor.is-peligro { color: var(--color-danger); }
 .ficha-mas { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--text-muted); }
 @media (max-width: 1024px) {
-  .panel-pareja { display: flex; flex-direction: column; gap: var(--space-4); }
+  /* `.charts-grid` alinea al principio (align-items: start); en columna eso
+     encogía cada tarjeta al ancho de su contenido y dejaba un hueco a la
+     derecha. En el móvil cada ficha ocupa la fila entera. */
+  .panel-pareja { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-4); }
   .panel-pareja > .stack { display: contents; }
+  .panel-pareja > .stack > *, .panel-pareja > .stack > * > * { width: 100%; }
+  /* Cifras de dos en dos: si sobra una, ocupa la fila entera en vez de
+     dejar media fila vacía. */
+  .kpi-grid--panel > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 /* Una tabla ancha (Últimas facturas) no puede ensanchar la columna: se
    desplaza dentro de su tarjeta. */
@@ -15479,3 +15486,26 @@ body {
   .resumen-correo-sobre { max-width: 100%; transform: none; }
   .resumen-correo-botones .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* Panel → Últimas facturas en el móvil: lista en vez de tabla. */
+.ultimas-movil { display: none; list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+@media (max-width: 640px) {
+  .ultimas-movil { display: flex; flex-direction: column; gap: var(--space-2); }
+  .ultimas-tabla { display: none; }
+}
+.ultimas-movil-fila {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  color: inherit; text-decoration: none;
+}
+.ultimas-movil-fila:active { border-color: var(--accent-500); }
+.ultimas-movil-arriba, .ultimas-movil-abajo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ultimas-movil-cliente {
+  font-size: var(--text-sm); color: var(--text-primary); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ultimas-movil-abajo { font-size: var(--text-xs); color: var(--text-muted); }
+.ultimas-movil-abajo strong { font-size: var(--text-sm); color: var(--text-primary); }

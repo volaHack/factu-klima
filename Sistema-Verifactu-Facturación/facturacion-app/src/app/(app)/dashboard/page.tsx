@@ -556,7 +556,31 @@ export default function DashboardPage() {
                 Ver todas <ArrowRight size={14} />
               </Link>
             </div>
-            <div className="table-container" style={{ border: 'none' }}>
+            {/* En el móvil, una lista: la tabla escondía estado y total
+                fuera de la pantalla. */}
+            {recentInvoices.length > 0 && (
+              <ul className="ultimas-movil">
+                {recentInvoices.map(inv => (
+                  <li key={inv.id}>
+                    <Link href={`/facturas/${inv.id}`} className="ultimas-movil-fila">
+                      <span className="ultimas-movil-arriba">
+                        <span className="mono primary">{inv.number}</span>
+                        <span className={`badge badge-${inv.status}`}>
+                          <span className="badge-dot" />
+                          {getStatusInfo(inv.status).label}
+                        </span>
+                      </span>
+                      <span className="ultimas-movil-cliente">{inv.clientName}</span>
+                      <span className="ultimas-movil-abajo">
+                        <span>{formatDate(inv.issueDate)}</span>
+                        <strong className="amount">{formatCurrency(inv.total)}</strong>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className={`table-container${recentInvoices.length > 0 ? ' ultimas-tabla' : ''}`} style={{ border: 'none' }}>
               <table className="table">
                 <thead>
                   <tr>
@@ -679,7 +703,7 @@ export default function DashboardPage() {
 
       {/* Las cifras de arriba, en el orden elegido. Clientes y catálogo no
           son fichas: son el recuento de la cartera y van siempre al final. */}
-      <div className="kpi-grid">
+      <div className="kpi-grid kpi-grid--panel">
         {cifras.map(id => <Fragment key={id}>{tarjeta(id)}</Fragment>)}
         <div className="kpi-card">
           <div className="kpi-card-header">
