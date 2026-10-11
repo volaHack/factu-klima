@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ComprobacionIdentidad from '@/components/clientes/ComprobacionIdentidad';
-import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound, FileCode2, Mail } from 'lucide-react';
+import { Save, Building2, CreditCard, FileText, RotateCcw, Palette, ShieldCheck, Check, AlertTriangle, Loader2, Store, Crown, Zap, Plus, Trash2, Users, UserCheck, Tag, Upload, Image as ImageIcon, SlidersHorizontal, LayoutDashboard, Download, Briefcase, UsersRound, FileCode2, Mail, LockKeyhole } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
@@ -23,6 +23,7 @@ import SelectorSector from '@/components/ajustes/SelectorSector';
 import SelectorModulos from '@/components/ajustes/SelectorModulos';
 import EditorPanel from '@/components/ajustes/EditorPanel';
 import NotificacionesCorreo from '@/components/ajustes/NotificacionesCorreo';
+import SeguridadCuenta from '@/components/ajustes/SeguridadCuenta';
 import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
@@ -893,6 +894,18 @@ export default function AjustesPage() {
           Lo importante de tu negocio en tu correo, sin tener que entrar a mirarlo.
         </p>
         <NotificacionesCorreo />
+      </div>
+
+      <div className="card settings-section" id="seguridad">
+        <div className="settings-section-header">
+          <LockKeyhole size={18} />
+          <h2 className="settings-section-title">Seguridad de la cuenta</h2>
+        </div>
+        <p className="settings-section-subtitle">
+          Tus facturas viven en la nube, no en tu ordenador: aunque lo pierdas, siguen a salvo. Desde aquí te aseguras de
+          que nadie más pueda entrar.
+        </p>
+        <SeguridadCuenta />
       </div>
 
       {/* Vendedores y series */}

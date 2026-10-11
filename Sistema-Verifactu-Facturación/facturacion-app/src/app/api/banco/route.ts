@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
 import { borrarSesion, enableBankingConfigurado } from '@/lib/banco/enableBanking';
 import { conexionesDe, sinConciliarDe, vistaDeConexion } from '@/lib/banco/servidor';
+import { bancoAbiertoA } from '@/lib/banco/abierto';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,12 @@ async function usuario() {
 }
 
 export async function GET() {
-  const user = await usuario();
+  const sesion = await createClient();
+  const { data: { user } } = await sesion.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!enableBankingConfigurado()) return NextResponse.json({ disponible: false, conexiones: [], sinConciliar: 0 });
+  if (!(await bancoAbiertoA(sesion))) {
+    return NextResponse.json({ disponible: false, proximamente: enableBankingConfigurado(), conexiones: [], sinConciliar: 0 });
+  }
   const db = supabaseServicio();
   const conexiones = await conexionesDe(db, user.id);
   // El panel pregunta en cada carga: sin bancos no hay nada que contar.

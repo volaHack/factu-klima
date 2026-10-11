@@ -2,7 +2,8 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { bancosDe, enableBankingConfigurado, type BancoDisponible } from '@/lib/banco/enableBanking';
+import { bancoAbiertoA } from '@/lib/banco/abierto';
+import { bancosDe, type BancoDisponible } from '@/lib/banco/enableBanking';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +11,10 @@ export const dynamic = 'force-dynamic';
 let cache: { en: number; bancos: BancoDisponible[] } | null = null;
 
 export async function GET() {
-  const { data: { user } } = await (await createClient()).auth.getUser();
+  const sesion = await createClient();
+  const { data: { user } } = await sesion.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!enableBankingConfigurado()) return NextResponse.json({ disponible: false, bancos: [] });
+  if (!(await bancoAbiertoA(sesion))) return NextResponse.json({ disponible: false, bancos: [] });
   try {
     if (!cache || Date.now() - cache.en > 3_600_000) cache = { en: Date.now(), bancos: await bancosDe('ES') };
     return NextResponse.json({ disponible: true, bancos: cache.bancos });

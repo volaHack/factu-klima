@@ -7,16 +7,18 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
+import { bancoAbiertoA } from '@/lib/banco/abierto';
 import { supabaseServicio } from '@/lib/supabase/servicio';
-import { bancosDe, empezarAutorizacion, enableBankingConfigurado } from '@/lib/banco/enableBanking';
+import { bancosDe, empezarAutorizacion } from '@/lib/banco/enableBanking';
 import { origenPublico } from '@/lib/banco/origen';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const { data: { user } } = await (await createClient()).auth.getUser();
+  const sesion = await createClient();
+  const { data: { user } } = await sesion.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!enableBankingConfigurado()) return NextResponse.json({ error: 'La conexión con bancos no está disponible todavía.' }, { status: 503 });
+  if (!(await bancoAbiertoA(sesion))) return NextResponse.json({ error: 'La conexión con bancos no está disponible todavía.' }, { status: 503 });
 
   const { banco, empresa } = await request.json().catch(() => ({}));
   if (typeof banco !== 'string' || !banco.trim()) return NextResponse.json({ error: 'Elige tu banco.' }, { status: 400 });

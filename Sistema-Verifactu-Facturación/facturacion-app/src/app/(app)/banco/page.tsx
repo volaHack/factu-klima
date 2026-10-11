@@ -137,11 +137,14 @@ export default function BancoPage() {
 
       {!estado.disponible ? (
         <div className="card banco-no-disponible">
-          <h2>La conexión con los bancos todavía no está activada</h2>
+          <span className="badge badge-pendiente banco-pronto">Próximamente</span>
+          <h2>Conexión directa con tu banco</h2>
           <p>
-            Mientras tanto puedes conciliar subiendo el extracto de tu banco (Norma 43 o CSV) en{' '}
-            <Link href="/conciliacion">Conciliación bancaria</Link>.
+            Muy pronto podrás conectar tu banco para que los movimientos lleguen solos cada mañana. Mientras tanto, concilia
+            en un minuto subiendo el extracto que descargas de tu banco (Norma 43 o CSV) en{' '}
+            <Link href="/conciliacion">Conciliación bancaria</Link>: es gratis y funciona con cualquier banco.
           </p>
+          <Link href="/conciliacion" className="btn btn-primary">Subir un extracto</Link>
         </div>
       ) : conectando ? (
         <div className="card">

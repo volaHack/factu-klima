@@ -10233,6 +10233,8 @@ body.nav-abierta { overflow: hidden; }
 .banco-pagina { display: flex; flex-direction: column; gap: var(--space-5); }
 .banco-pagina .page-header { margin-bottom: 0; }
 .banco-titulo-seccion { margin: 0 0 var(--space-3); font-size: var(--text-md); font-weight: 700; }
+.banco-no-disponible { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.banco-no-disponible .btn { margin-top: var(--space-2); }
 .banco-no-disponible h2, .banco-vacio-grande h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg, 1.125rem); }
 .banco-no-disponible p, .banco-vacio-grande > p { margin: 0; color: var(--text-secondary); max-width: 68ch; line-height: 1.55; }
 .banco-vacio-grande { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -15509,3 +15511,26 @@ body {
 }
 .ultimas-movil-abajo { font-size: var(--text-xs); color: var(--text-muted); }
 .ultimas-movil-abajo strong { font-size: var(--text-sm); color: var(--text-primary); }
+
+/* Verificación en dos pasos (login y Ajustes) */
+.dos-pasos-codigo { font-size: 20px; letter-spacing: .3em; font-family: var(--font-mono, ui-monospace, monospace); }
+.dos-pasos-ayuda { margin: var(--space-4) 0 0; font-size: var(--text-xs); color: var(--text-muted); text-align: center; line-height: 1.5; }
+.seguridad-cuenta { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+.seguridad-fila { align-items: flex-start; }
+.seguridad-fila .status-panel-title { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.seguridad-accion { margin-top: var(--space-3); gap: 6px; }
+.seguridad-confirmar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
+  margin-top: var(--space-3); padding: var(--space-3);
+  border-radius: var(--radius-lg); background: var(--bg-tertiary);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.seguridad-confirmar > span { flex: 1 1 220px; }
+.seguridad-alta { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.seguridad-pasos { margin: 0; padding-left: 1.2em; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; }
+.seguridad-qr { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-2) 0; }
+.seguridad-qr img { border-radius: 12px; background: #fff; padding: 8px; }
+.seguridad-qr p { flex: 1 1 200px; margin: 0; font-size: var(--text-xs); color: var(--text-muted); line-height: 1.6; }
+.seguridad-qr code { font-size: 12px; word-break: break-all; color: var(--text-primary); }
+.seguridad-verificar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.seguridad-verificar .form-input { flex: 1 1 160px; max-width: 220px; }

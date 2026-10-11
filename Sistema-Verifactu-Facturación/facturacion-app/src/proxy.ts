@@ -96,6 +96,21 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // VERIFICACIÓN EN DOS PASOS
+  // Una cuenta con segundo factor que sólo ha pasado la contraseña (aal1)
+  // va a pedir el código antes de ver ninguna pantalla. La base de datos
+  // ya le niega los datos (migración 065); esto es para que vea dónde
+  // poner el código en vez de un panel vacío. Sin red: la sesión guardada
+  // trae sus factores.
+  if (isAuthenticated && !isPublicPage && !isApiRoute && claimsData?.claims?.aal !== 'aal2') {
+    const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (nivel?.nextLevel === 'aal2' && nivel.currentLevel !== 'aal2') {
+      const url = new URL('/auth/dos-pasos', request.url);
+      url.searchParams.set('next', pathname + request.nextUrl.search);
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Server-side redirect for authenticated users accessing login
   if (isAuthenticated && pathname === '/login') {
     const dashboardUrl = new URL('/dashboard', request.url);

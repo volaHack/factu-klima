@@ -22,6 +22,8 @@ import { puedeEntrar } from '@/lib/perfiles';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 import { prepararPendientes } from '@/lib/recurrentes';
 import Soporte from '@/components/soporte/Soporte';
+import { createClient } from '@/lib/supabase/client';
+import { borrarEquipoYSalir, comprobarSesion, faltaSegundoFactor } from '@/lib/seguridad/sesionCliente';
 
 /**
  * Rutas que exigen sesión pero se dibujan a pantalla completa, sin sidebar,
@@ -63,6 +65,38 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       setSidebarCollapsed(true);
     }
   }, []);
+
+  // LA SESIÓN SIGUE VIVA Y CON SU SEGUNDO FACTOR
+  // Se comprueba al entrar, al volver la conexión y al volver a la
+  // pestaña. Una sesión cerrada desde otro equipo borra la copia local
+  // (ver lib/seguridad/sesionCliente.ts); una a la que le falta el código
+  // de la verificación en dos pasos va a pedirlo.
+  useEffect(() => {
+    if (isPublic) return;
+    let vivo = true;
+    const revisar = async () => {
+      if (await faltaSegundoFactor()) {
+        if (vivo) window.location.replace(`/auth/dos-pasos?next=${encodeURIComponent(window.location.pathname)}`);
+        return;
+      }
+      if ((await comprobarSesion()) === 'revocada' && vivo) await borrarEquipoYSalir('cerrada');
+    };
+    void revisar();
+    const alVolver = () => { if (document.visibilityState === 'visible') void revisar(); };
+    window.addEventListener('online', revisar);
+    document.addEventListener('visibilitychange', alVolver);
+    // Si Supabase descubre por su cuenta que la sesión ya no vale (al
+    // renovarla), avisa con SIGNED_OUT: mismo tratamiento.
+    const { data: { subscription } } = createClient().auth.onAuthStateChange((evento: string) => {
+      if (evento === 'SIGNED_OUT' && vivo) void borrarEquipoYSalir('cerrada');
+    });
+    return () => {
+      vivo = false;
+      window.removeEventListener('online', revisar);
+      document.removeEventListener('visibilitychange', alVolver);
+      subscription.unsubscribe();
+    };
+  }, [isPublic]);
 
   const toggleSidebarCollapsed = () => {
     setSidebarCollapsed(prev => {
