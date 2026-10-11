@@ -17,8 +17,8 @@
 -- clave de servicio no se ven afectados.
 --
 -- La función se evalúa una vez por consulta (`(select …)`), no por fila.
--- Las tablas que se creen después necesitan su política: la función
--- `public.exigir_segundo_factor(tabla)` la pone.
+-- Las tablas que se creen después necesitan su política: basta con volver
+-- a ejecutar el bloque del final.
 
 create or replace function public.segundo_factor_cumplido()
 returns boolean
@@ -37,30 +37,25 @@ $$;
 revoke all on function public.segundo_factor_cumplido() from public, anon;
 grant execute on function public.segundo_factor_cumplido() to authenticated;
 
-create or replace function public.exigir_segundo_factor(tabla regclass)
-returns void
-language plpgsql
-set search_path = ''
-as $$
-begin
-  execute format('drop policy if exists "2fa: exigir segundo factor" on %s', tabla);
-  execute format(
-    'create policy "2fa: exigir segundo factor" on %s as restrictive for all to authenticated '
-    'using ((select public.segundo_factor_cumplido())) with check ((select public.segundo_factor_cumplido()))',
-    tabla);
-end;
-$$;
-
-revoke all on function public.exigir_segundo_factor(regclass) from public, anon, authenticated;
-
+-- Una política por tabla, sólo donde aún no está (se puede volver a
+-- ejecutar sin tocar nada). Para una tabla nueva, repetir este bloque.
 do $$
 declare t record;
 begin
+  set local lock_timeout = '4s';
   for t in
-    select c.oid::regclass as tabla
+    select c.relname
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relrowsecurity
+      and not exists (
+        select 1 from pg_policies p
+        where p.schemaname = 'public' and p.tablename = c.relname
+          and p.policyname = '2fa: exigir segundo factor'
+      )
   loop
-    perform public.exigir_segundo_factor(t.tabla);
+    execute format(
+      'create policy "2fa: exigir segundo factor" on public.%I as restrictive for all to authenticated '
+      'using ((select public.segundo_factor_cumplido())) with check ((select public.segundo_factor_cumplido()))',
+      t.relname);
   end loop;
 end $$;
