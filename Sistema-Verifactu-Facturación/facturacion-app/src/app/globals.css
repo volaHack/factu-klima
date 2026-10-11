@@ -3935,6 +3935,11 @@ a.pricing-nav-cta {
   background: rgba(59, 130, 246, 0.1);
 }
 
+/* Etiqueta de la contraseña con «¿Has olvidado tu contraseña?» al lado */
+.login-etiqueta-fila { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.login-olvido { font-size: 0.8125rem; font-weight: 600; color: var(--accent-500); text-decoration: none; }
+.login-olvido:hover { text-decoration: underline; }
+
 /* Toggle */
 .login-toggle {
   text-align: center;

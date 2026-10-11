@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -274,7 +275,12 @@ export default function LoginContent() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="login-password">Contraseña</label>
+            <div className="login-etiqueta-fila">
+              <label className="form-label" htmlFor="login-password">Contraseña</label>
+              {isLogin && (
+                <Link href="/auth/recuperar" className="login-olvido">¿Has olvidado tu contraseña?</Link>
+              )}
+            </div>
             <div className="field-affix has-prefix">
               <span className="field-affix-prefix"><Lock size={16} /></span>
               <input
