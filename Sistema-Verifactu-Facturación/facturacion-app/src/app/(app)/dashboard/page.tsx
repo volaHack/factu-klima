@@ -36,6 +36,7 @@ import FichaLista from '@/components/dashboard/FichaLista';
 import CabeceraPanel from '@/components/dashboard/CabeceraPanel';
 import ParaHoy from '@/components/dashboard/ParaHoy';
 import AvisoPlan from '@/components/dashboard/AvisoPlan';
+import ResumenPorCorreo from '@/components/dashboard/ResumenPorCorreo';
 import { comparativaMes, plural, tareasDeHoy, type EntradaHoy } from '@/lib/panelHoy';
 import { getFacturasElectronicas } from '@/lib/facturaElectronica/almacen';
 import type { FeResumen } from '@/lib/facturaElectronica/estados';
@@ -714,6 +715,9 @@ export default function DashboardPage() {
 
       {/* Análisis: ritmo, cuándo se vende, cobros, clientes y productos */}
       <PanelAnalisis invoices={invoices} products={products} />
+
+      {/* El resumen del mes por correo: ahora o cada día 1 */}
+      <ResumenPorCorreo invoices={invoices} />
 
       {/* Avisos y tendencias IA */}
       <AvisosTendencias products={products} invoices={invoices} />

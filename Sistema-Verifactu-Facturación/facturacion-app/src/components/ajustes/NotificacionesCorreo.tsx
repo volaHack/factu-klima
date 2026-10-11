@@ -13,67 +13,28 @@
  * datos sólo deja a cada empresa tocar sus dos interruptores.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BellRing, CalendarRange, Loader2, Send } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/useToast';
-
-type Clave = 'avisos' | 'resumen_mensual';
+import { pedirCorreo, usePreferenciasCorreo, type ClavePreferencia as Clave } from '@/hooks/usePreferenciasCorreo';
 
 export default function NotificacionesCorreo() {
   const { success, error: avisarError } = useToast();
-  const [usuario, setUsuario] = useState<{ id: string; correo: string } | null>(null);
-  const [prefs, setPrefs] = useState<Record<Clave, boolean>>({ avisos: false, resumen_mensual: false });
-  const [cargado, setCargado] = useState(false);
-  const [guardando, setGuardando] = useState<Clave | null>(null);
+  const { usuario, prefs, cargado, guardando, cambiar: guardar } = usePreferenciasCorreo();
   const [probando, setProbando] = useState<'avisos' | 'resumen' | null>(null);
 
-  useEffect(() => {
-    let vivo = true;
-    void (async () => {
-      const db = createClient();
-      const { data: { user } } = await db.auth.getUser();
-      if (!user || !vivo) return;
-      setUsuario({ id: user.id, correo: user.email ?? '' });
-      const { data } = await db.from('notificaciones_correo').select('avisos, resumen_mensual').eq('user_id', user.id).maybeSingle();
-      if (!vivo) return;
-      if (data) setPrefs({ avisos: !!data.avisos, resumen_mensual: !!data.resumen_mensual });
-      setCargado(true);
-    })();
-    return () => { vivo = false; };
-  }, []);
-
   const cambiar = async (clave: Clave, valor: boolean) => {
-    if (!usuario) return;
-    const antes = prefs;
-    const nuevas = { ...prefs, [clave]: valor };
-    setPrefs(nuevas);
-    setGuardando(clave);
-    const db = createClient();
-    const cambios = { avisos: nuevas.avisos, resumen_mensual: nuevas.resumen_mensual, actualizado_en: new Date().toISOString() };
-    // Primero se intenta cambiar la fila; si aún no existe, se crea.
-    const cambiada = await db.from('notificaciones_correo').update(cambios).eq('user_id', usuario.id).select('user_id');
-    let error = cambiada.error;
-    if (!error && !cambiada.data?.length) {
-      ({ error } = await db.from('notificaciones_correo').insert({ user_id: usuario.id, ...cambios }).select('user_id'));
-    }
-    setGuardando(null);
-    if (error) {
-      setPrefs(antes);
+    if (!(await guardar(clave, valor))) {
       avisarError('No se ha podido guardar', 'Vuelve a intentarlo en un momento.');
       return;
     }
-    success(valor ? 'Activado' : 'Desactivado', valor ? `Llegarán a ${usuario.correo}.` : undefined);
+    success(valor ? 'Activado' : 'Desactivado', valor ? `Llegarán a ${usuario?.correo}.` : undefined);
   };
 
   const probar = async (tipo: 'avisos' | 'resumen') => {
     setProbando(tipo);
     try {
-      const r = await fetch('/api/correos/prueba', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || 'No se ha podido mandar.');
+      const d = await pedirCorreo({ tipo });
       if (d.nada) success('Hoy no hay nada urgente', d.mensaje);
       else success('Correo de prueba enviado', `Míralo en ${d.para}.`);
     } catch (e) {

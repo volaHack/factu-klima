@@ -55,6 +55,28 @@ describe('resumenDelMes', () => {
   it('nombre del mes en castellano', () => {
     expect(r.nombreMes).toBe('septiembre de 2026');
   });
+  it('historial de seis meses, el del resumen al final', () => {
+    expect(r.historial).toHaveLength(6);
+    expect(r.historial[5]).toMatchObject({ mes: '2026-09', facturado: 1800, cobrado: 1000 });
+    expect(r.historial[4]).toMatchObject({ mes: '2026-08', facturado: 1200 });
+  });
+  it('resultado y factura media', () => {
+    expect(r.resultado).toBe(1550);
+    expect(r.ticketMedio).toBe(600);
+    expect(r.parcial).toBe(false);
+  });
+  it('el mes en curso se compara con los mismos días del mes anterior', () => {
+    const p = resumenDelMes([
+      f({ issueDate: '2026-10-05', total: 400 }),
+      f({ issueDate: '2026-09-03', total: 300 }),
+      f({ issueDate: '2026-09-25', total: 5000 }),
+    ], [], '2026-10', new Date(2026, 9, 11, 9));
+    expect(p.parcial).toBe(true);
+    expect(p.hastaDia).toBe(11);
+    expect(p.facturado).toBe(400);
+    expect(p.anterior).toBe(300);
+    expect(p.variacion).toBeCloseTo(33.3, 1);
+  });
   it('un mes sin nada no rompe y no inventa porcentajes', () => {
     const vacio = resumenDelMes([], [], '2026-09', new Date(2026, 9, 1));
     expect(vacio.facturado).toBe(0);
@@ -90,6 +112,14 @@ describe('correos', () => {
     expect(c.html).toContain('Distribuciones &lt;Sol&gt;');
     expect(c.html).toContain('Dejar de recibir estos correos');
     expect(c.texto.replace(/\u00a0/g, ' ')).toContain('Facturado: 1.000,00 €');
+    expect(c.html).toContain('/correo/logo.png');
+    expect(c.html).toContain('Los últimos seis meses');
+  });
+  it('resumen del mes en curso: lo dice en el asunto', () => {
+    const r = resumenDelMes([f({ issueDate: '2026-10-02', total: 1000 })], [], '2026-10', new Date(2026, 9, 11));
+    const c = correoResumen(r, { empresa: 'Sol', nombre: null }, urls);
+    expect(c.asunto.replace(/\u00a0/g, ' ')).toBe('Tu octubre hasta hoy en KlimaFacturas: 1.000,00 € facturados');
+    expect(c.html).toContain('hasta el día 11');
   });
   it('avisos: uno por tarea, con su enlace a la app', () => {
     const c = correoAvisos([tarea('vencidas', 'peligro', '3 facturas vencidas sin cobrar')], { empresa: 'Sol', nombre: null }, urls);

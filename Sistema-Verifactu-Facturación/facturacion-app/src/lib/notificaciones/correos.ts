@@ -4,7 +4,7 @@
 
 import type { TareaHoy } from '../panelHoy';
 import { formatCurrency } from '../utils';
-import { correoBase } from '../correo/plantilla';
+import { COLOR, correoBase } from '../correo/plantilla';
 import type { ResumenMes } from './resumen';
 
 export interface Destinatario {
@@ -25,40 +25,80 @@ const saludo = (d: Destinatario) => (d.nombre?.trim() ? `Hola, ${d.nombre.trim()
 const pie = (d: Destinatario) => `Te llega porque en KlimaFacturas, para ${d.empresa}, tienes activados estos correos (Ajustes → Notificaciones por correo).`;
 const con = (base: string, ruta: string) => new URL(ruta, base).toString();
 
-export function correoResumen(r: ResumenMes, d: Destinatario, u: Enlaces) {
-  const tendencia = r.variacion == null
-    ? (r.facturado > 0 ? 'Es el primer mes con facturas que podemos comparar.' : 'Este mes no ha habido facturas emitidas.')
-    : r.variacion >= 0
-      ? `Has facturado **un ${r.variacion.toLocaleString('es-ES')} % más** que el mes anterior (${formatCurrency(r.anterior)}).`
-      : `Has facturado **un ${Math.abs(r.variacion).toLocaleString('es-ES')} % menos** que el mes anterior (${formatCurrency(r.anterior)}).`;
+const euros = (n: number) => formatCurrency(n);
+/** Para las barras: sin decimales, que encima de una barra estorban. */
+const corto = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;
+const pct = (n: number) => `${n.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 
-  const parrafos = [
-    `Así ha ido ${r.nombreMes} en **${d.empresa}**.`,
-    tendencia,
-  ];
+/** Una o dos frases que digan algo que las cifras solas no dicen. */
+function lecturas(r: ResumenMes): string[] {
+  const salida: string[] = [];
+  const previos = r.historial.slice(0, -1).map(h => h.facturado);
+  if (!r.parcial && r.facturado > 0 && previos.length && r.facturado > Math.max(...previos)) {
+    salida.push(`**Tu mejor mes de los últimos seis.** Nunca habías facturado tanto en este tiempo.`);
+  }
+  if (r.facturado > 0) {
+    const ratio = r.cobrado / r.facturado;
+    if (ratio >= 0.9) salida.push('**Has cobrado casi todo lo que has facturado.** La caja va al día.');
+    else if (ratio < 0.5 && !r.parcial) salida.push(`**Has cobrado ${pct(Math.round(ratio * 100))} de lo facturado.** Merece la pena mirar quién te debe.`);
+  }
+  if (r.gastos > 0 && r.resultado < 0) salida.push('**Este mes los gastos superan a lo facturado.** Revisa en Gastos si hay algo que no se repita.');
+  return salida.slice(0, 2);
+}
+
+export function correoResumen(r: ResumenMes, d: Destinatario, u: Enlaces) {
+  const periodo = r.parcial ? `${r.nombreMes.split(' ')[0]} (hasta el día ${r.hastaDia})` : r.nombreMes;
+  const comparado = r.parcial ? 'los mismos días del mes anterior' : 'el mes anterior';
+  const tendencia = r.variacion == null ? null : { texto: pct(Math.abs(r.variacion)), sube: r.variacion >= 0 };
+
+  const parrafos = [`Así ${r.parcial ? 'va' : 'ha ido'} ${periodo} en **${d.empresa}**.`, ...lecturas(r)];
   if (r.vencido > 0) {
-    parrafos.push(`Tienes **${formatCurrency(r.vencido)}** en facturas vencidas. Desde Recordatorios de cobro puedes reclamarlas con un clic.`);
+    parrafos.push(`Tienes **${euros(r.vencido)}** en facturas vencidas. Desde Recordatorios de cobro puedes reclamarlas con un clic.`);
   }
 
+  const max = r.mejoresClientes[0]?.total ?? 0;
+  const conDatos = r.historial.some(h => h.facturado > 0 || h.cobrado > 0);
   const { html, texto } = correoBase({
-    titulo: `Tu ${r.nombreMes}`,
+    ceja: r.parcial ? 'Tu mes hasta hoy' : 'Resumen del mes',
+    titulo: r.parcial ? `Tu ${r.nombreMes.split(' ')[0]}, hasta hoy` : `Tu ${r.nombreMes}`,
+    entradilla: `${d.empresa} · ${r.facturas} ${r.facturas === 1 ? 'factura emitida' : 'facturas emitidas'}`,
+    preheader: `${euros(r.facturado)} facturados${tendencia ? ` (${tendencia.sube ? '+' : '−'}${tendencia.texto})` : ''} · ${euros(r.cobrado)} cobrados · ${euros(r.gastos)} en gastos`,
     saludo: saludo(d),
     parrafos,
+    destacado: {
+      etiqueta: 'Facturado',
+      valor: euros(r.facturado),
+      tendencia,
+      detalle: r.variacion == null
+        ? (r.facturado > 0 ? 'Es el primer mes que podemos comparar.' : 'Este mes todavía no hay facturas emitidas.')
+        : `Frente a ${euros(r.anterior)} en ${comparado}.`,
+    },
     cifras: [
-      { etiqueta: 'Facturado', valor: formatCurrency(r.facturado), detalle: `${r.facturas} ${r.facturas === 1 ? 'factura' : 'facturas'}` },
-      { etiqueta: 'Cobrado', valor: formatCurrency(r.cobrado) },
-      { etiqueta: 'Gastos', valor: formatCurrency(r.gastos) },
-      { etiqueta: 'Pendiente de cobro hoy', valor: formatCurrency(r.pendiente), detalle: r.vencido > 0 ? `de ello, **${formatCurrency(r.vencido)} vencido**` : undefined, aviso: r.vencido > 0 },
+      { etiqueta: 'Cobrado', valor: euros(r.cobrado), bien: r.cobrado > 0 },
+      { etiqueta: 'Gastos', valor: euros(r.gastos) },
+      { etiqueta: 'Resultado', valor: euros(r.resultado), detalle: 'facturado menos gastos', aviso: r.resultado < 0, bien: r.resultado > 0 },
+      { etiqueta: 'Factura media', valor: euros(r.ticketMedio) },
+      { etiqueta: 'Pendiente de cobro hoy', valor: euros(r.pendiente), detalle: r.vencido > 0 ? `de ello, **${euros(r.vencido)} vencido**` : 'nada vencido', aviso: r.vencido > 0 },
+      { etiqueta: 'Facturas del mes', valor: String(r.facturas) },
     ],
+    grafica: conDatos ? {
+      titulo: 'Los últimos seis meses',
+      series: [{ nombre: 'Facturado', color: COLOR }, { nombre: 'Cobrado', color: '#e9a3bf' }],
+      barras: r.historial.map(h => ({ etiqueta: h.etiqueta, valores: [h.facturado, h.cobrado], resaltar: h.mes === r.mes })),
+      formato: corto,
+    } : undefined,
     listas: [
-      { titulo: 'Tus mejores clientes del mes', filas: r.mejoresClientes.map(c => ({ texto: c.nombre, valor: formatCurrency(c.total) })) },
-      { titulo: 'Las vencidas más antiguas', filas: r.vencidas.map(v => ({ texto: `${v.numero} · ${v.cliente} · hace ${v.dias} ${v.dias === 1 ? 'día' : 'días'}`, valor: formatCurrency(v.total) })) },
+      { titulo: 'Tus mejores clientes del mes', filas: r.mejoresClientes.map(c => ({ texto: c.nombre, valor: euros(c.total), proporcion: max ? c.total / max : 0 })) },
+      { titulo: 'Las vencidas más antiguas', filas: r.vencidas.map(v => ({ texto: `${v.numero} · ${v.cliente} · hace ${v.dias} ${v.dias === 1 ? 'día' : 'días'}`, valor: euros(v.total) })) },
     ],
-    boton: { texto: 'Ver el panel', url: con(u.app, '/dashboard') },
+    boton: { texto: 'Ver el panel completo', url: con(u.app, '/dashboard') },
     pie: pie(d),
     bajaUrl: u.baja,
   });
-  return { asunto: `Tu ${r.nombreMes} en KlimaFacturas: ${formatCurrency(r.facturado)} facturados`, html, texto };
+  const asunto = r.parcial
+    ? `Tu ${r.nombreMes.split(' ')[0]} hasta hoy en KlimaFacturas: ${euros(r.facturado)} facturados`
+    : `Tu ${r.nombreMes} en KlimaFacturas: ${euros(r.facturado)} facturados`;
+  return { asunto, html, texto };
 }
 
 export function correoAvisos(tareas: TareaHoy[], d: Destinatario, u: Enlaces) {
@@ -66,7 +106,10 @@ export function correoAvisos(tareas: TareaHoy[], d: Destinatario, u: Enlaces) {
     ? `KlimaFacturas: ${tareas[0].titulo}`
     : `KlimaFacturas: ${tareas.length} cosas que mirar hoy`;
   const { html, texto } = correoBase({
+    ceja: 'Avisos de tu panel',
     titulo: tareas.length === 1 ? tareas[0].titulo : 'Lo que te toca hoy',
+    entradilla: d.empresa,
+    preheader: tareas.map(t => t.titulo).join(' · '),
     saludo: saludo(d),
     parrafos: [`Esto es lo que pide tu atención en **${d.empresa}**:`],
     listas: [{
