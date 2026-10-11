@@ -675,6 +675,13 @@ export interface InvoiceLineItem {
    * Vacío o 1 en quien no trabaja así, que es la mayoría.
    */
   unitsPerPackage?: number;
+  /**
+   * Cajas completas de la línea (CAJ.). Si existe —aunque sea 0— la línea va
+   * por unidades: `quantity` son las UDES. y el precio es por unidad. Sin
+   * ella es una línea de antes, en la que `quantity` eran las cajas. Ver
+   * src/lib/cajas.ts.
+   */
+  cajas?: number | null;
   /** De qué lote sale esta línea, si el producto se controla por lotes. */
   loteId?: string;
   /** El código del lote, guardado también aquí para no depender de que el lote siga existiendo. */
@@ -1166,6 +1173,8 @@ export interface AlbaranLineItem {
   discountPercent3?: number;
   /** Unidades sueltas por bulto. En un albarán es lo que se cuenta al descargar. */
   unitsPerPackage?: number;
+  /** Cajas completas (CAJ.), como en la factura: ver src/lib/cajas.ts. */
+  cajas?: number | null;
   /** De qué lote sale esta línea, si el producto se controla por lotes. */
   loteId?: string;
   /** El código del lote, guardado también aquí para no depender de que el lote siga existiendo. */

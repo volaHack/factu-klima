@@ -597,6 +597,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     discount_percent_2: li.discountPercent2 ?? 0,
     discount_percent_3: li.discountPercent3 ?? 0,
     units_per_package: li.unitsPerPackage ?? null,
+    cajas: li.cajas ?? null,
     lote_id: li.loteId ?? null,
     lote_codigo: li.loteCodigo ?? null,
     numero_serie_id: li.numeroSerieId ?? null,
@@ -2114,6 +2115,9 @@ export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
     discount_percent: li.discountPercent,
     discount_percent_2: li.discountPercent2 ?? 0,
     discount_percent_3: li.discountPercent3 ?? 0,
+    // Faltaban: la U/C de un albarán se perdía al guardarlo.
+    units_per_package: li.unitsPerPackage ?? null,
+    cajas: li.cajas ?? null,
     subtotal: li.subtotal,
     tax_amount: li.taxAmount,
     total: li.total,

@@ -179,8 +179,10 @@ describe('cada oficio trae lo suyo', () => {
     // todos de servicios.
     const tabla = facturaDesdeCero('distribucion').tabla!;
     const claves = tabla.columnas.map(c => c.clave);
+    // CAJ. / U/C y la cantidad, que son las unidades (ver cajas.ts).
+    expect(claves).toContain('cajas');
     expect(claves).toContain('uds_caja');
-    expect(claves).toContain('uds_linea');
+    expect(claves).toContain('cantidad');
     expect(claves).toContain('ref');
   });
 
@@ -189,6 +191,7 @@ describe('cada oficio trae lo suyo', () => {
       const claves = facturaDesdeCero(id).tabla!.columnas.map(c => c.clave);
       expect(claves, id).not.toContain('uds_caja');
       expect(claves, id).not.toContain('uds_linea');
+      expect(claves, id).not.toContain('cajas');
     }
   });
 
@@ -643,8 +646,8 @@ describe('cada sector con lo que su factura necesita', () => {
     ['limpieza', 'Horas'],
     ['clases', 'Horas'],
     ['traduccion', 'Palabras'],
-    ['alimentacion', 'Cajas'],
-    ['mayorista', 'Cajas'],
+    ['alimentacion', 'Udes.'],
+    ['mayorista', 'Udes.'],
   ])('%s mide en «%s»', (sector, unidad) => {
     expect(contenidoDe(sector).oficio.unidad).toBe(unidad);
   });

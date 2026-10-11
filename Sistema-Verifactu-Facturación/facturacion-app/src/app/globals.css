@@ -15536,3 +15536,24 @@ body {
 .seguridad-verificar .form-input { flex: 1 1 160px; max-width: 220px; }
 .seguridad-opcional { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-muted); }
 .seguridad-interruptor { flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+
+/* Líneas por cajas: avisos de cada línea (U/C que falta, tipo de impuesto raro). */
+.lineas-doc-aviso {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: 6px 0 0; padding: 6px 10px; border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--color-warning, #d97706) 12%, transparent);
+  color: var(--text-primary); font-size: var(--text-xs);
+}
+.lineas-doc-aviso svg { color: var(--color-warning, #d97706); flex-shrink: 0; }
+.lineas-doc-campo--error input { border-color: var(--color-danger, #c0392b) !important; }
+
+/* Productos: aviso de tipos de impuesto que no son del régimen de la empresa. */
+.productos-aviso-impuesto {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg); border: 1px solid color-mix(in srgb, var(--color-warning, #d97706) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning, #d97706) 10%, transparent);
+  font-size: var(--text-sm); color: var(--text-primary);
+}
+.productos-aviso-impuesto > svg { color: var(--color-warning, #d97706); flex-shrink: 0; }
+.productos-aviso-impuesto > span { flex: 1 1 280px; }

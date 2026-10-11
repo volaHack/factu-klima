@@ -1,5 +1,7 @@
 'use client';
 
+import { celdasDeCantidad } from '@/components/documentos/celdasDeCantidad';
+import { cajasTotales } from '@/lib/cajas';
 import { useState, useEffect } from 'react';
 import EnlacePortal from '@/components/portal/EnlacePortal';
 import BotonFacturae from '@/components/facturae/BotonFacturae';
@@ -256,7 +258,7 @@ export default function InvoiceDetailPage() {
   // usa: la minuta de un abogado no lleva columna de unidades por caja.
   const voz = vocabularioDe(companySettings?.sector);
   const muestraUnidades = voz.usaBultos
-    && invoice.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0);
+    && invoice.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0 || (l.cajas ?? 0) > 0);
   const rechazo = invoice
     ? rejections.find(r => r.table === 'invoices' && r.id === invoice.id)
     : undefined;
@@ -419,10 +421,15 @@ export default function InvoiceDetailPage() {
                 <tr>
                   <th>Ref.</th>
                   <th>Descripción</th>
-                  <th style={{ textAlign: 'right' }}>Cant.</th>
-                  {muestraUnidades && <th style={{ textAlign: 'right' }}>{voz.contenido[1]}</th>}
+                  {muestraUnidades ? (
+                  <>
+                    <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
+                    <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
+                    <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
+                  </>
+                ) : <th style={{ textAlign: 'right' }}>Cant.</th>}
                   <th style={{ textAlign: 'right' }}>Precio</th>
-                  <th style={{ textAlign: 'right' }}>IVA</th>
+                  <th style={{ textAlign: 'right' }}>{companySettings?.igicEnabled ? 'IGIC' : 'IVA'}</th>
                   <th style={{ textAlign: 'right' }}>Dto.</th>
                   <th style={{ textAlign: 'right' }}>Subtotal</th>
                 </tr>
@@ -440,16 +447,9 @@ export default function InvoiceDetailPage() {
                     <tr key={line.id}>
                       <td className={`linea-ref${line.productRef ? '' : ' es-vacio'}`} style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
                       <td className="linea-desc" style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
-                      <td className="linea-dato" data-label="Cant.">{line.quantity} {line.unit}</td>
-                      {muestraUnidades && (
-                        <td className="linea-dato" data-label={voz.contenido[1]}>
-                          {line.unitsPerPackage && line.unitsPerPackage > 0
-                            ? <><strong>{line.quantity * line.unitsPerPackage}</strong> <span style={{ color: '#64748b', fontSize: '11px' }}>({line.unitsPerPackage}/{line.unit})</span></>
-                            : <span style={{ color: '#64748b' }}>—</span>}
-                        </td>
-                      )}
+                      {celdasDeCantidad(line, muestraUnidades)}
                       <td className="linea-dato" data-label="Precio">{formatCurrency(line.unitPrice)}</td>
-                      <td className="linea-dato" data-label="IVA">{line.taxRate}%</td>
+                      <td className="linea-dato" data-label={companySettings?.igicEnabled ? 'IGIC' : 'IVA'}>{line.taxRate}%</td>
                       <td className={`linea-dato${dto > 0 ? '' : ' es-vacio'}`} data-label="Dto." title={
                         (line.discountPercent2 || line.discountPercent3)
                           ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
@@ -468,7 +468,7 @@ export default function InvoiceDetailPage() {
                 metía en el formulario pero no salía en el documento. */}
             {muestraUnidades && (
               <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
-                {conPlural(invoice.lineItems.reduce((s, l) => s + l.quantity, 0), voz.bulto)}
+                {conPlural(cajasTotales(invoice.lineItems), ['caja', 'cajas'])}
                 {' · '}
                 <strong>{unidadesTotales(invoice.lineItems)}</strong> {voz.contenido[1]} en total
               </p>

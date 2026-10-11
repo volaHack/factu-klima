@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, ClipboardList, SearchX,
-  Eye, Trash2, MoreHorizontal, Truck, FileText, Ban, CheckCircle2
+  Eye, Trash2, MoreHorizontal, Truck, FileText, Ban, CheckCircle2, Edit
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -402,6 +402,11 @@ export default function AlbaranesPage() {
                       <Link href={`/albaranes/${a.id}`} className="action-menu-item" role="menuitem" onClick={() => setActionMenuId(null)}>
                         <Eye /> Ver el albarán
                       </Link>
+                      {a.status === 'borrador' && (
+                        <Link href={`/albaranes/${a.id}/editar`} className="action-menu-item" role="menuitem" onClick={() => setActionMenuId(null)}>
+                          <Edit /> Seguir editando
+                        </Link>
+                      )}
                       {a.status === 'borrador' && (
                         <button className="action-menu-item" role="menuitem" onClick={() => handleExpedir(a.id)}>
                           <Truck /> Expedir y descontar stock

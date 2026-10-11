@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/useToast';
 import { avisadorDeNavegador, repasarAntesDeEmitir } from '@/lib/validation/antesDeEmitir';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import { problemasDeLineas } from '@/lib/validation/lineas';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
 import { ClienteOcasionalCard } from '@/components/facturas/ClienteOcasionalCard';
@@ -131,8 +132,10 @@ export default function EditInvoicePage() {
     const esOcasional = clienteOcasional;
     if (!esOcasional && !clientId) { showError('Error', 'Selecciona un cliente'); return; }
     if (esOcasional && !clienteManual.nombre.trim()) { showError('Error', 'Escribe el nombre del cliente'); return; }
-    const validLines = lineItems.filter(l => l.productId && l.quantity > 0);
+    const validLines = lineItems.filter(l => l.productId);
     if (validLines.length === 0) { showError('Error', 'Añade al menos un producto'); return; }
+    const fallosLineas = problemasDeLineas(validLines, await getCompanySettings()).filter(p => p.gravedad === 'error');
+    if (fallosLineas.length > 0) { showError('Revisa las líneas', fallosLineas.map(p => p.mensaje).join(' ')); return; }
     if (!originalInvoice) return;
 
     // Bloquear emisión si falta completar datos críticos

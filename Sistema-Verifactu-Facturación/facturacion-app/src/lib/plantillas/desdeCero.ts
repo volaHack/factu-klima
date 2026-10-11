@@ -92,11 +92,13 @@ export const OFICIOS: Oficio[] = [
   // referencia de artículo y, sobre todo, sin las unidades por caja. El
   // dato se metía en el formulario y no salía impreso en ninguna parte,
   // que es justo lo que hay que comprobar al descargar el camión.
-  { id: 'distribucion', nombre: 'Distribución y mayorista', concepto: 'Artículo', unidad: 'Cajas',
+  // CAJ. / U/C / UDES. (ver cajas.ts): las unidades son lo que se cobra,
+  // a precio por unidad, y la cantidad de la línea son esas unidades.
+  { id: 'distribucion', nombre: 'Distribución y mayorista', concepto: 'Artículo', unidad: 'Udes.',
     columnasFijas: [
       { clave: 'ref', cabecera: 'Ref.' },
+      { clave: 'cajas', cabecera: 'CAJ.' },
       { clave: 'uds_caja', cabecera: 'U/C' },
-      { clave: 'uds_linea', cabecera: 'Udes.' },
     ],
     pie: ['Nº de pedido:', 'Total de bultos:', 'Total de unidades:'] },
   { id: 'comercio', nombre: 'Comercio y tienda', concepto: 'Artículo', unidad: 'Cantidad',

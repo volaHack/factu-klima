@@ -24,6 +24,7 @@
  * todas las facturas de un cliente real.
  */
 
+import { claveReparada, repararCabecera } from './columnasCajas';
 import type { CompanySettings } from '../types';
 import {
   COLUMNAS_LINEAS, esColumnaPersonalizada,
@@ -529,8 +530,20 @@ function construirColumnas(
     if (columna.clave) usadas.add(columna.clave);
   }
 
+  // Las de mayorista (CAJ., U/C, UDES.) tienen dato propio, y una cabecera
+  // con la primera letra perdida en el texto del PDF («RECIO») se completa.
+  for (const columna of columnas) {
+    columna.cabecera = repararCabecera(columna.cabecera);
+    const reparada = claveReparada(columna.clave, columna.cabecera);
+    if (reparada && reparada !== columna.clave && !usadas.has(reparada)) {
+      if (columna.clave) usadas.delete(columna.clave);
+      columna.clave = reparada;
+      usadas.add(reparada);
+    }
+  }
+
   // Una columna con cabecera que no encaja con ningún dato conocido pasa a
-  // ser un dato propio de la plantilla («CAJ.», «U/C», «LOTE», «BULTOS»…).
+  // ser un dato propio de la plantilla («LOTE», «PALÉS»…).
   //
   // Es la diferencia entre una plantilla que imprime la tabla completa y una
   // que deja huecos: así la columna se pide línea a línea al crear la factura
@@ -1403,7 +1416,8 @@ function detectarRecuentos(
       const cabecera = normalizar(columna.cabecera).replace(/[^a-z]/g, '');
       if (!cabecera.startsWith(raiz) && !raiz.startsWith(cabecera.slice(0, 3))) continue;
       if (esColumnaPersonalizada(columna.clave)) return totalDeColumna(columna.clave);
-      if (columna.clave === 'cantidad') return 'total_unidades';
+      if (columna.clave === 'cajas') return 'total_bultos';
+      if (columna.clave === 'cantidad' || columna.clave === 'uds_linea') return 'total_unidades';
     }
     return null;
   };

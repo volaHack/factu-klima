@@ -1,5 +1,7 @@
 'use client';
 
+import { celdasDeCantidad } from '@/components/documentos/celdasDeCantidad';
+import { cajasTotales } from '@/lib/cajas';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -82,7 +84,7 @@ export default function DocumentoDetallePage() {
   // explicar que trae una unidad.
   const voz = vocabularioDe(settings.sector);
   const muestraUnidades = voz.usaBultos
-    && documento.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0);
+    && documento.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0 || (l.cajas ?? 0) > 0);
 
   // Acciones de conversión
   const handleConvertir = async (nuevoTipo: TipoDocumento) => {
@@ -349,8 +351,13 @@ export default function DocumentoDetallePage() {
               <tr>
                 <th>Ref.</th>
                 <th>Descripción</th>
-                <th style={{ textAlign: 'right' }}>Cantidad</th>
-                {muestraUnidades && <th style={{ textAlign: 'right' }}>{voz.contenido[1]}</th>}
+                {muestraUnidades ? (
+                  <>
+                    <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
+                    <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
+                    <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
+                  </>
+                ) : <th style={{ textAlign: 'right' }}>Cantidad</th>}
                 <th style={{ textAlign: 'right' }}>Precio Unit.</th>
                 <th style={{ textAlign: 'right' }}>Dto. %</th>
                 <th style={{ textAlign: 'right' }}>{settings.igicEnabled ? 'IGIC' : 'IVA'}</th>
@@ -362,14 +369,7 @@ export default function DocumentoDetallePage() {
                 <tr key={li.id}>
                   <td style={{ color: 'var(--text-muted)' }}>{li.productRef || '—'}</td>
                   <td style={{ fontWeight: 500 }}>{li.productName}</td>
-                  <td style={{ textAlign: 'right' }}>{li.quantity} {li.unit || ''}</td>
-                  {muestraUnidades && (
-                    <td style={{ textAlign: 'right' }}>
-                      {li.unitsPerPackage && li.unitsPerPackage > 0
-                        ? <><strong>{li.quantity * li.unitsPerPackage}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({li.unitsPerPackage}/{li.unit})</span></>
-                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                    </td>
-                  )}
+                  {celdasDeCantidad(li, muestraUnidades)}
                   <td style={{ textAlign: 'right' }}>{formatCurrency(li.unitPrice)}</td>
                   <td style={{ textAlign: 'right' }}>{li.discountPercent ? `${li.discountPercent}%` : '—'}</td>
                   <td style={{ textAlign: 'right' }}>{li.taxRate}%</td>
@@ -381,7 +381,7 @@ export default function DocumentoDetallePage() {
         </div>
         {muestraUnidades && (
           <p style={{ padding: '0 var(--space-4) var(--space-4)', margin: 0, fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>
-            Total: {conPlural(documento.lineItems.reduce((s, l) => s + l.quantity, 0), voz.bulto)}
+            Total: {conPlural(cajasTotales(documento.lineItems), ['caja', 'cajas'])}
             {' · '}
             <strong>{unidadesTotales(documento.lineItems)}</strong> {voz.contenido[1]}
           </p>

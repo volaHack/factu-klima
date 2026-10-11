@@ -5,7 +5,7 @@ import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload, AlertTriangle, Loader2
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -24,6 +24,7 @@ import { UNITS_OF_MEASURE, ICON_PRESETS, getTaxLabel, getDefaultTaxRate } from '
 import { calcularPendientesProducto } from '@/lib/documentos';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
+import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 
 interface CategoryOption {
   value: string;
@@ -99,6 +100,24 @@ export default function ProductosPage() {
       updateForm('imageUrl', dataUrl);
     } catch (err) {
       toastError('No se pudo cargar la imagen', err instanceof Error ? err.message : 'Error desconocido');
+    }
+  };
+
+  const productosConTipoRaro = settings ? products.filter(p => tipoImpositivoRaro(p.defaultTaxRate, settings)) : [];
+  const [corrigiendoTipos, setCorrigiendoTipos] = useState(false);
+  const corregirTipos = async () => {
+    if (!settings) return;
+    const tipo = tipoGeneral(settings);
+    if (!confirm(`¿Poner el ${tipo} % a ${productosConTipoRaro.length} productos? Las facturas ya emitidas no cambian; las nuevas usarán el ${tipo} %.`)) return;
+    setCorrigiendoTipos(true);
+    try {
+      for (const p of productosConTipoRaro) await persistProduct({ ...p, defaultTaxRate: tipo, updatedAt: new Date().toISOString() });
+      success('Productos corregidos', `${productosConTipoRaro.length} al ${tipo} %`);
+      await loadData();
+    } catch (e) {
+      toastError('No se han podido corregir', e instanceof Error ? e.message : '');
+    } finally {
+      setCorrigiendoTipos(false);
     }
   };
 
@@ -567,6 +586,21 @@ export default function ProductosPage() {
               })}
             </div>
           </div>
+
+          {/* Productos con un tipo de impuesto que no es del régimen de la
+              empresa (un 21 % de IVA con IGIC): las facturas los heredan. */}
+          {settings && productosConTipoRaro.length > 0 && (
+            <div className="productos-aviso-impuesto" role="alert">
+              <AlertTriangle size={16} />
+              <span>
+                <strong>{productosConTipoRaro.length} {productosConTipoRaro.length === 1 ? 'producto tiene' : 'productos tienen'} un tipo de {settings.igicEnabled ? 'IGIC' : 'IVA'} que no existe</strong>
+                {' '}({[...new Set(productosConTipoRaro.map(p => `${p.defaultTaxRate} %`))].join(', ')}). {tipoImpositivoRaro(productosConTipoRaro[0].defaultTaxRate, settings)}
+              </span>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => void corregirTipos()} disabled={corrigiendoTipos}>
+                {corrigiendoTipos ? <Loader2 size={14} className="spin" /> : null} Pasarlos al {tipoGeneral(settings)} %
+              </button>
+            </div>
+          )}
 
           {/* Table */}
           <div className="table-container">

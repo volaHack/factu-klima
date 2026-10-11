@@ -4,6 +4,7 @@ import {
 } from './types';
 import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax } from './utils';
 import { getDefaultTaxRate } from './constants';
+import { vocabularioDe } from './vocabulario';
 import { serieDeTipo } from './storage';
 
 export interface TotalesDocumento { subtotal: number; totalDiscount: number; totalTax: number; total: number; }
@@ -42,6 +43,9 @@ export function lineaVacia(settings: CompanySettings): InvoiceLineItem {
     unit: UnitOfMeasure.UNIDAD,
     taxRate: getDefaultTaxRate(settings),
     discountPercent: 0,
+    // En los oficios que venden por cajas, la línea nace por unidades con
+    // su casilla de cajas (ver cajas.ts).
+    ...(vocabularioDe(settings.sector).usaBultos ? { cajas: 0 } : {}),
     subtotal: 0,
     taxAmount: 0,
     total: 0,
@@ -259,19 +263,8 @@ export function descuentoEfectivo(line: {
 }
 
 /**
- * Cuántas unidades sueltas suman las líneas de un documento.
- *
- * En distribución la factura va en cajas —es lo que se cobra— pero quien la
- * recibe cuenta unidades al descargar el camión: doce cajas de veinticuatro
- * son 288 botellas, y ese es el número que se comprueba contra el albarán.
- * Sin él hay que multiplicar a mano línea por línea.
- *
- * Una línea sin unidades por bulto cuenta su cantidad tal cual: lo que se
- * vende suelto ya viene en unidades.
+ * Cuántas unidades suman las líneas de un documento (las UDES.), contando
+ * las cajas de las líneas de antes. Vive en `cajas.ts`, con el resto de la
+ * cuenta de cajas y unidades.
  */
-export function unidadesTotales(lineItems: { quantity: number; unitsPerPackage?: number }[]): number {
-  return lineItems.reduce(
-    (suma, l) => suma + l.quantity * (l.unitsPerPackage && l.unitsPerPackage > 0 ? l.unitsPerPackage : 1),
-    0,
-  );
-}
+export { unidadesTotales } from './cajas';
