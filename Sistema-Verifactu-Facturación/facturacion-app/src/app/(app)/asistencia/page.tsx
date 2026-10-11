@@ -16,7 +16,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, ArrowUp, Check, Clock, Copy, FileText, Loader2, Menu, MessageSquare,
+  AlertTriangle, ArrowRight, ArrowUp, Check, Clock, Copy, FileText, Loader2, Menu, MessageSquare,
   Mic, PackageX, Plus, RotateCcw, Settings2, Sparkles, Square, Trash2, TrendingUp,
   Truck, Users, Volume2, VolumeX, Wallet, X,
 } from 'lucide-react';
@@ -42,6 +42,29 @@ import {
   cargarSesiones, guardarSesiones, tituloCorto,
   type MensajeGuardado as Mensaje, type SesionGuardada as Sesion,
 } from '@/lib/asistencia/memoria';
+import { borrarDeNube, cambiadas, cargarDeNube, fusionarSesiones, huellaSesion, subirANube } from '@/lib/asistencia/nube';
+import { pantallasMencionadas, separarSiguientes, textoVisible } from '@/lib/asistencia/respuesta';
+import Link from 'next/link';
+
+/**
+ * Las conversaciones de una cuenta: las de la nube y las que hubiera en
+ * este navegador, juntas. Las que sólo estaban aquí se suben una vez. Si
+ * la nube no responde, se sigue con las del navegador.
+ */
+async function conversacionesDe(id: string | null): Promise<{ sesiones: Sesion[]; subidas: Map<string, string> | null }> {
+  const locales = cargarSesiones(id, localStorage);
+  if (!id) return { sesiones: locales, subidas: null };
+  const db = createClient();
+  const nube = await cargarDeNube(db);
+  if (!nube) return { sesiones: locales, subidas: null };
+  const subidas = new Map(nube.map(s => [s.id, huellaSesion(s)]));
+  const juntas = fusionarSesiones(nube, locales);
+  const pendientes = cambiadas(juntas, subidas);
+  if (pendientes.length && await subirANube(db, id, pendientes)) {
+    for (const s of pendientes) subidas.set(s.id, huellaSesion(s));
+  }
+  return { sesiones: juntas, subidas };
+}
 
 /* ---------------------------------------------------------------
    PEQUEÑAS AYUDAS
@@ -197,6 +220,10 @@ export default function AsistenciaPage() {
   }>({ grabacion: null, dictado: null, dicho: '', antes: '', finDictado: null, inicio: 0 });
   /** La cuenta cuyas conversaciones hay en pantalla; null hasta arrancar. */
   const usuarioCargado = useRef<{ id: string | null } | null>(null);
+  /** Lo que ya está en la nube (id → huella); null si la nube no responde. */
+  const subidasRef = useRef<Map<string, string> | null>(null);
+  /** La respuesta que está llegando ahora mismo, si hay alguna. */
+  const [escribiendo, setEscribiendo] = useState<string | null>(null);
   const preguntarRef = useRef<(p: string, porVoz?: boolean) => void>(() => {});
   const terminarVozRef = useRef<(enviar: boolean) => void>(() => {});
 
@@ -237,9 +264,9 @@ export default function AsistenciaPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       const id = data.session?.user?.id ?? null;
-      await refrescarDatos();
+      const [{ sesiones: guardadas, subidas }] = await Promise.all([conversacionesDe(id), refrescarDatos()]);
       if (!vivo) return;
-      const guardadas = cargarSesiones(id, localStorage);
+      subidasRef.current = subidas;
       usuarioCargado.current = { id };
       setUsuario(id);
       setSesiones(guardadas);
@@ -256,11 +283,18 @@ export default function AsistenciaPage() {
       const id = s?.user?.id ?? null;
       if (!vivo || !usuarioCargado.current || id === usuarioCargado.current.id) return;
       usuarioCargado.current = { id };
-      const suyas = cargarSesiones(id, localStorage);
+      // Mientras llegan las suyas no se enseña nada: ni un instante las de la otra cuenta.
+      subidasRef.current = null;
       setUsuario(id);
-      setSesiones(suyas);
-      setSesionActiva(suyas[0]?.id ?? null);
+      setSesiones([]);
+      setSesionActiva(null);
       setRetrato(null);
+      void conversacionesDe(id).then(({ sesiones: suyas, subidas }) => {
+        if (!vivo || usuarioCargado.current?.id !== id) return;
+        subidasRef.current = subidas;
+        setSesiones(suyas);
+        setSesionActiva(suyas[0]?.id ?? null);
+      });
       void refrescarDatos();
     });
 
@@ -282,6 +316,21 @@ export default function AsistenciaPage() {
 
   useEffect(() => {
     if (montado) guardarSesiones(usuario, sesiones, localStorage);
+  }, [sesiones, usuario, montado]);
+
+  // A la nube, lo que haya cambiado, un momento después del último cambio
+  // (una respuesta añade dos mensajes seguidos: se sube una vez).
+  useEffect(() => {
+    const subidas = subidasRef.current;
+    if (!montado || !usuario || !subidas) return;
+    const t = setTimeout(() => {
+      const pendientes = cambiadas(sesiones, subidas);
+      if (!pendientes.length) return;
+      void subirANube(createClient(), usuario, pendientes).then(ok => {
+        if (ok) for (const s of pendientes) subidas.set(s.id, huellaSesion(s));
+      });
+    }, 800);
+    return () => clearTimeout(t);
   }, [sesiones, usuario, montado]);
 
   useEffect(() => {
@@ -321,11 +370,22 @@ export default function AsistenciaPage() {
   const borrarConversacion = useCallback((id: string) => {
     setSesiones(prev => prev.filter(s => s.id !== id));
     setSesionActiva(actual => (actual === id ? null : actual));
-  }, []);
+    subidasRef.current?.delete(id);
+    if (usuario) void borrarDeNube(createClient(), usuario, id);
+  }, [usuario]);
 
   const anadirMensaje = (id: string, m: Mensaje) => {
     setSesiones(prev => prev.map(s =>
       s.id === id ? { ...s, mensajes: [...s.mensajes, m], ultimoMensaje: m.hora } : s,
+    ));
+  };
+
+  const cambiarMensaje = (sesionId: string, mensajeId: string, cambios: Partial<Mensaje>) => {
+    setSesiones(prev => prev.map(s =>
+      s.id === sesionId
+        // La hora del último cambio, para que la versión entera se suba a la nube.
+        ? { ...s, ultimoMensaje: Date.now(), mensajes: s.mensajes.map(m => (m.id === mensajeId ? { ...m, ...cambios } : m)) }
+        : s,
     ));
   };
 
@@ -355,32 +415,83 @@ export default function AsistenciaPage() {
 
     const actual = (await refrescarDatos()) ?? retrato;
 
+    // La respuesta se va escribiendo en su sitio a medida que llega.
+    const idRespuesta = crypto.randomUUID();
+    let acumulado = '';
+    let empezada = false;
+    const fallo = (texto: string) => {
+      if (empezada) cambiarMensaje(id, idRespuesta, { texto, error: true });
+      else anadirMensaje(id, { id: idRespuesta, deQuien: 'asistente', hora: Date.now(), texto, error: true });
+    };
+
     try {
       const res = await fetch('/api/ayuda', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modo: 'asistencia',
+          enVivo: true,
           pregunta: limpia,
           situacion: actual ? retratoEnPalabras(actual) : [],
           historial,
         }),
       });
-      const cuerpo = await res.json().catch(() => ({}));
-      const respuesta = res.ok ? String(cuerpo.texto ?? '').trim() : '';
-      anadirMensaje(id, {
-        id: crypto.randomUUID(),
-        deQuien: 'asistente',
-        hora: Date.now(),
-        texto: respuesta || cuerpo?.error || 'No he podido responder. Vuelve a intentarlo.',
-        error: !respuesta,
-      });
+      if (!res.ok || !res.body || !(res.headers.get('content-type') ?? '').includes('ndjson')) {
+        const cuerpo = await res.json().catch(() => ({}));
+        const { cuerpo: texto, siguientes } = separarSiguientes(String(cuerpo.texto ?? ''));
+        if (res.ok && texto) {
+          anadirMensaje(id, { id: idRespuesta, deQuien: 'asistente', hora: Date.now(), texto, siguientes });
+        } else {
+          fallo(cuerpo?.error || 'No he podido responder. Vuelve a intentarlo.');
+        }
+        return;
+      }
+
+      const lector = res.body.getReader();
+      const decodificador = new TextDecoder();
+      let bufer = '';
+      let final: { texto?: string; error?: string } | null = null;
+      for (;;) {
+        const { value, done } = await lector.read();
+        if (done) break;
+        bufer += decodificador.decode(value, { stream: true });
+        const lineas = bufer.split('\n');
+        bufer = lineas.pop() ?? '';
+        for (const linea of lineas) {
+          if (!linea.trim()) continue;
+          let ev: { t?: string; fin?: boolean; texto?: string; error?: string };
+          try { ev = JSON.parse(linea); } catch { continue; }
+          if (typeof ev.t === 'string') {
+            acumulado += ev.t;
+            const visible = textoVisible(acumulado);
+            if (!visible) continue;
+            if (!empezada) {
+              empezada = true;
+              setEscribiendo(idRespuesta);
+              anadirMensaje(id, { id: idRespuesta, deQuien: 'asistente', hora: Date.now(), texto: visible });
+            } else {
+              cambiarMensaje(id, idRespuesta, { texto: visible });
+            }
+          } else if (ev.fin || ev.error) {
+            final = ev;
+          }
+        }
+      }
+
+      if (final?.error || !final) {
+        fallo(final?.error || 'La respuesta se ha cortado. Vuelve a intentarlo.');
+        return;
+      }
+      const { cuerpo: texto, siguientes } = separarSiguientes(final.texto || acumulado);
+      if (!texto) { fallo('No he podido responder. Vuelve a intentarlo.'); return; }
+      if (empezada) cambiarMensaje(id, idRespuesta, { texto, siguientes, hora: Date.now() });
+      else anadirMensaje(id, { id: idRespuesta, deQuien: 'asistente', hora: Date.now(), texto, siguientes });
     } catch {
-      anadirMensaje(id, {
-        id: crypto.randomUUID(), deQuien: 'asistente', hora: Date.now(), error: true,
-        texto: 'No he podido contactar con la asistencia. Revisa la conexión y vuelve a intentarlo.',
-      });
+      fallo(empezada
+        ? 'La respuesta se ha cortado. Revisa la conexión y vuelve a intentarlo.'
+        : 'No he podido contactar con la asistencia. Revisa la conexión y vuelve a intentarlo.');
     } finally {
+      setEscribiendo(null);
       setPensando(false);
     }
   }, [mensajes, pensando, retrato, sesionActiva, refrescarDatos]);
@@ -600,7 +711,7 @@ export default function AsistenciaPage() {
             );
           })}
         </nav>
-        <p className="asis-lado-pie">Las conversaciones se guardan en este navegador y sólo para tu cuenta.</p>
+        <p className="asis-lado-pie">Se guardan en tu cuenta: sólo las ve tu empresa, desde cualquier dispositivo.</p>
       </aside>
       {panelAbierto && <button type="button" className="asis-velo" aria-label="Cerrar conversaciones" onClick={() => setPanelAbierto(false)} />}
 
@@ -677,9 +788,36 @@ export default function AsistenciaPage() {
                     </span>
                   )}
                   <div className="asis-msg-cuerpo">
-                    <div className="asis-msg-burbuja">
+                    <div className={`asis-msg-burbuja ${escribiendo === m.id ? 'asis-msg-burbuja--escribiendo' : ''}`}>
                       {m.deQuien === 'asistente' ? <TextoRespuesta texto={m.texto} /> : <p>{m.texto}</p>}
                     </div>
+                    {m.deQuien === 'asistente' && !m.error && escribiendo !== m.id && (() => {
+                      const pantallas = pantallasMencionadas(m.texto);
+                      const siguientes = i === mensajes.length - 1 && !pensando ? (m.siguientes ?? []) : [];
+                      if (!pantallas.length && !siguientes.length) return null;
+                      return (
+                        <div className="asis-extras">
+                          {pantallas.length > 0 && (
+                            <div className="asis-ir" aria-label="Ir a">
+                              {pantallas.map(p => (
+                                <Link key={p.ruta} href={p.ruta} className="asis-ir-boton">
+                                  {p.titulo} <ArrowRight size={12} />
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                          {siguientes.length > 0 && (
+                            <div className="asis-siguientes" aria-label="Preguntas para seguir">
+                              {siguientes.map(q => (
+                                <button key={q} type="button" className="asis-siguiente" onClick={() => void preguntar(q)}>
+                                  {q}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="asis-msg-pie">
                       {m.porVoz && <span className="asis-msg-voz"><Mic size={11} /> Por voz</span>}
                       <span className="asis-msg-hora">
@@ -704,7 +842,7 @@ export default function AsistenciaPage() {
                   </div>
                 </li>
               ))}
-              {pensando && (
+              {pensando && !escribiendo && (
                 <li className="asis-msg asis-msg--asistente" role="status" aria-live="polite">
                   <span className="asis-orbe asis-orbe--mini asis-orbe--vivo" aria-hidden="true"><Sparkles size={13} /></span>
                   <div className="asis-pensando">
@@ -750,7 +888,7 @@ export default function AsistenciaPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void preguntar(texto); }
                 }}
-                placeholder={pensando ? 'Pensando…' : 'Pregunta lo que quieras de tu negocio…'}
+                placeholder={pensando ? 'Pensando…' : 'Pregunta lo que quieras…'}
                 aria-label="Tu pregunta"
                 maxLength={1500}
               />

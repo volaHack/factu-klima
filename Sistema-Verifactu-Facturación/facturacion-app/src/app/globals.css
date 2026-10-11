@@ -3935,6 +3935,14 @@ a.pricing-nav-cta {
   background: rgba(59, 130, 246, 0.1);
 }
 
+/* Ajustes → Notificaciones por correo */
+.notif-probar { margin-top: var(--space-2); padding-left: 0; }
+
+/* Etiqueta de la contraseña con «¿Has olvidado tu contraseña?» al lado */
+.login-etiqueta-fila { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.login-olvido { font-size: 0.8125rem; font-weight: 600; color: var(--accent-500); text-decoration: none; }
+.login-olvido:hover { text-decoration: underline; }
+
 /* Toggle */
 .login-toggle {
   text-align: center;
@@ -13282,6 +13290,85 @@ body.nav-abierta { overflow: hidden; }
   .asis-msg--persona .asis-msg-cuerpo { max-width: 88%; }
   .asis-onda span:nth-child(n + 17) { display: none; }
   .asis-nota { display: none; }
+}
+
+/* Mientras la respuesta llega: un cursor al final del texto. */
+.asis-msg-burbuja--escribiendo > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 2px;
+  background: var(--accent-500);
+  animation: asis-cursor 1s steps(2, start) infinite;
+}
+@keyframes asis-cursor { to { visibility: hidden; } }
+
+/* Debajo de cada respuesta: a qué pantalla ir y por dónde seguir. */
+.asis-extras { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.asis-ir, .asis-siguientes { display: flex; flex-wrap: wrap; gap: 6px; }
+.asis-ir-boton {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 999px;
+  font-size: 0.8125rem; font-weight: 600; text-decoration: none;
+  color: var(--accent-600, var(--accent-500));
+  background: var(--accent-50, color-mix(in srgb, var(--accent-500) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent-500) 25%, transparent);
+  transition: background 150ms var(--asis-ease), transform 150ms var(--asis-ease);
+}
+.asis-ir-boton:hover { background: color-mix(in srgb, var(--accent-500) 14%, transparent); }
+.asis-ir-boton:active { transform: scale(0.97); }
+.asis-siguiente {
+  padding: 6px 12px; border-radius: 12px;
+  font: inherit; font-size: 0.8125rem; text-align: left;
+  color: var(--text-primary); background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: border-color 150ms var(--asis-ease), background 150ms var(--asis-ease), transform 150ms var(--asis-ease);
+}
+.asis-siguiente:hover { border-color: var(--accent-500); background: var(--bg-card); }
+.asis-siguiente:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .asis-msg-burbuja--escribiendo > :last-child::after { animation: none; }
+}
+
+/* LA ASISTENCIA OCUPA LA PANTALLA, Y NADA MÁS
+   El alto se calculaba restando 24 px arriba y abajo, pero el contenedor
+   reserva más (la cabecera arriba y, abajo, el hueco de la barra flotante
+   o de la barra inferior del móvil). La página entera hacía scroll y la
+   barra flotante tapaba la caja de escribir. Ahora el contenedor mide
+   justo la pantalla, el chat ocupa lo que queda dentro de sus márgenes y
+   lo único que se desplaza es la conversación. */
+html:has(.app-content > .asis),
+body:has(.app-content > .asis) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.app-layout:has(.app-content > .asis),
+.app-main:has(.app-content > .asis) { min-height: 0; }
+.app-content:has(> .asis) {
+  box-sizing: border-box;
+  /* Es un hijo flexible de .app-main: sin esto crece hasta el alto de su
+     contenido y el alto fijo no sirve de nada. */
+  flex: 0 0 auto;
+  min-height: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.app-content > .asis {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+/* En el móvil la burbuja de soporte caía encima del botón de enviar.
+   Aquí ya se está en un chat; en las demás pantallas sigue en su sitio. */
+@media (max-width: 768px) {
+  body:has(.app-content > .asis) .soporte-boton,
+  body:has(.app-content > .asis) .soporte-panel { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

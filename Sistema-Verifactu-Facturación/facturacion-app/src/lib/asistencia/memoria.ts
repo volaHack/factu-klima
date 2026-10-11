@@ -24,6 +24,8 @@ export interface MensajeGuardado {
   porVoz?: boolean;
   /** La respuesta es un aviso de que algo ha fallado, no una respuesta. */
   error?: boolean;
+  /** Preguntas que el asistente propone para seguir (se enseñan como botones). */
+  siguientes?: string[];
 }
 
 export interface SesionGuardada {

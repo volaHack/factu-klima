@@ -13,5 +13,5 @@ export function urlDelSitio(): string {
   const vercel = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL;
   if (vercel) return `https://${vercel.replace(/\/+$/, '')}`;
 
-  return 'https://facturacion-app-mocha.vercel.app';
+  return 'https://klimafacturas.com';
 }
