@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Building2, Check, Copy, KeyRound, Link2, Loader2, LogIn, Plus, Unlink, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { marcarSalidaVoluntaria } from '@/lib/seguridad/sesionCliente';
 import Portal from '@/components/ui/Portal';
 import { soltarPerfilYPantallas, subirPendientesOPreguntar, vaciarCache } from '@/lib/cuentas/soltarCuenta';
 
@@ -56,6 +57,7 @@ export async function entrarConToken(token: string, perfil: { activo: boolean; c
   await soltarPerfilYPantallas(perfil.activo, perfil.cuenta);
   const { error } = await createClient().auth.verifyOtp({ token_hash: token, type: 'magiclink' });
   if (error) throw new Error('No se ha podido entrar en esa empresa. Prueba otra vez.');
+  marcarSalidaVoluntaria();
   await vaciarCache();
   window.location.href = '/dashboard';
   return true;

@@ -1,12 +1,28 @@
 'use client';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { seEstaSaliendo } from '@/lib/seguridad/sesionCliente';
+import { useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export default function NetworkStatusBar() {
   const {
     isOnline, isSyncing, pendingChanges, triggerSync,
   } = useOnlineStatus();
+
+  // Cerrar la pestaña con cambios sin subir no los borra (siguen en este
+  // equipo y suben al volver), pero si es un equipo prestado o el último
+  // uso antes de apagarlo, conviene saberlo.
+  useEffect(() => {
+    if (pendingChanges === 0) return;
+    const avisar = (e: BeforeUnloadEvent) => {
+      if (seEstaSaliendo()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [pendingChanges]);
 
   // Sin avisos cuando todo está al día. Los fallos pasajeros de sync se
   // reintentan solos en segundo plano: aquí nunca se enseña un error.
@@ -19,9 +35,11 @@ export default function NetworkStatusBar() {
       return {
         icon: <WifiOff size={14} />,
         label: 'Sin conexión',
+        // Lo que se hace sin conexión sólo está en este equipo hasta que
+        // vuelve la red: si se pierde o se rompe antes, se pierde con él.
         detail: pendingChanges > 0
-          ? `${pendingChanges} cambio${pendingChanges > 1 ? 's' : ''} pendiente${pendingChanges > 1 ? 's' : ''}`
-          : 'Los datos se guardan localmente',
+          ? `${pendingChanges} cambio${pendingChanges > 1 ? 's' : ''} sólo en este equipo · conéctate para guardarlo${pendingChanges > 1 ? 's' : ''} en la nube`
+          : 'Lo que hagas se guardará en la nube al volver la conexión',
         className: 'network-bar--offline',
       };
     }
@@ -37,7 +55,7 @@ export default function NetworkStatusBar() {
       return {
         icon: <Wifi size={14} />,
         label: 'Pendiente de sincronizar',
-        detail: `${pendingChanges} cambio${pendingChanges > 1 ? 's' : ''}`,
+        detail: `${pendingChanges} cambio${pendingChanges > 1 ? 's' : ''} sólo en este equipo`,
         className: 'network-bar--pending',
       };
     }

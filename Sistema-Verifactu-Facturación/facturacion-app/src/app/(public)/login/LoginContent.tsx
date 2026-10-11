@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { clearOfflineCache } from '@/lib/offlineDb';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { isSafeRedirectPath } from '@/lib/security';
@@ -11,6 +12,12 @@ import { errorDeAcceso } from '@/lib/erroresDeAcceso';
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Se llega con ?sesion=cerrada cuando otro equipo cerró esta sesión: se
+  // vacía otra vez la copia local, ya sin ninguna página escribiendo en ella.
+  const sesionCerrada = searchParams.get('sesion') === 'cerrada';
+  useEffect(() => {
+    if (sesionCerrada) void clearOfflineCache().catch(() => {});
+  }, [sesionCerrada]);
 
   // En el instalador TPV (electron expone window.klimaDesktop.mode) el
   // cajero entra siempre al terminal, nunca al dashboard: el propio
@@ -314,6 +321,13 @@ export default function LoginContent() {
               {process.env.NODE_ENV === 'development' && errorDeLaUrl?.pistaParaLocal && (
                 <p className="login-alert-pista">{errorDeLaUrl.pistaParaLocal}</p>
               )}
+            </div>
+          )}
+
+          {searchParams.get('sesion') === 'cerrada' && !error && (
+            <div className="login-alert login-alert--info" role="status">
+              Se cerró la sesión de este equipo (desde otro dispositivo o porque ya no era válida) y se borró la copia
+              local de tus datos. Todo sigue a salvo en la nube: vuelve a entrar.
             </div>
           )}
 

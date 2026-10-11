@@ -7,6 +7,7 @@ import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } 
 import { cerrarPerfil, pedirCambioDePerfil, usePerfiles } from '@/lib/perfilesCliente';
 import { iniciales as inicialesPerfil, nombreRol } from '@/lib/perfiles';
 import { createClient } from '@/lib/supabase/client';
+import { marcarSalidaVoluntaria } from '@/lib/seguridad/sesionCliente';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { soltarPerfilYPantallas, subirPendientesOPreguntar, vaciarCache } from '@/lib/cuentas/soltarCuenta';
 import { EmpresasEnMenu, GestionEmpresas, cambiarDeEmpresa, useEmpresas } from '@/components/empresas/Empresas';
@@ -81,6 +82,7 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
     const formulario = formSalir.current;
 
     if (!(await subirPendientesOPreguntar('sales'))) { setCerrando(false); return; }
+    marcarSalidaVoluntaria();
     await soltarPerfilYPantallas(Boolean(perfilActivo), cuentaPerfiles);
     try {
       await createClient().auth.signOut();

@@ -4,6 +4,7 @@
 // ============================================================
 
 import { createClient } from '@/lib/supabase/client';
+import { faltaSegundoFactor } from '@/lib/seguridad/sesionCliente';
 import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
 import {
   getSyncQueue,
@@ -257,6 +258,13 @@ async function syncInvoiceGroup(supabase: any, item: SyncQueueItem, queue: SyncQ
 
 export async function processSyncQueue(): Promise<void> {
   if (isSyncing || !navigator.onLine) return;
+  // Sin el código de la verificación en dos pasos la base de datos lo
+  // rechazaría todo (42501) y la cola lo daría por perdido: se espera a
+  // que se ponga el código. Lo pendiente sigue en este equipo.
+  if (await faltaSegundoFactor()) {
+    updateState({ lastError: 'Falta el código de la verificación en dos pasos' });
+    return;
+  }
 
   isSyncing = true;
   updateState({ isSyncing: true, lastError: null });
