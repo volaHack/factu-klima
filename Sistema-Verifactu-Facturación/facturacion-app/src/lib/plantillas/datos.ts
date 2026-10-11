@@ -50,6 +50,18 @@ export interface OpcionesDatos {
   qrCotejo?: string;
   /** Valores para los datos libres/manuales configurados en la plantilla. */
   datosExtras?: Record<string, string>;
+  /**
+   * Los pagos hechos de este documento (de Cobros y pagos), con lo que se
+   * aplicó a él. Llenan la «Relación de pagos»; sin ellos se mira lo cobrado
+   * que guarda la propia factura.
+   */
+  pagos?: PagoDocumento[];
+}
+
+export interface PagoDocumento {
+  fecha: string;
+  importe: number;
+  forma?: PaymentMethod;
 }
 
 /**
@@ -427,6 +439,7 @@ export function construirDatos(
     // Recuentos y desglose casilla a casilla, calculados de las líneas.
     ...recuentos(doc.lineItems),
     ...casillasDeImpuestos(doc.taxBreakdown, impuesto),
+    ...relacionDePagos(entrada, doc, opciones.pagos),
 
     // Veri*Factu
     verifactu_huella: factura?.verifactu?.chainedHash || '',
@@ -560,6 +573,62 @@ function filasDeVencimientos(
       ? 'Cobrado'
       : cobrado > 0 ? `Pendiente ${formatCurrency(pendiente)}` : 'Pendiente',
   }];
+}
+
+/**
+ * La relación de pagos como dato suelto: un renglón por pago hecho y, al
+ * final, la suma. Los pagos a 30 días partidos en varias entregas se
+ * juntan así en un total, sin tener que dibujar un cuadro con renglones.
+ *
+ * Sin pagos apuntados en Cobros y pagos se usa lo cobrado que guarda la
+ * factura (un pago, en su fecha de cobro). Sin nada cobrado, sale el
+ * vencimiento pendiente. Un albarán no tiene pagos.
+ */
+function relacionDePagos(
+  entrada: DocumentoImprimible,
+  doc: { total: number; paidAmount?: number },
+  pagos?: PagoDocumento[],
+): Record<string, string> {
+  const vacio = { relacion_pagos: '', relacion_pagos_total: '', relacion_pagos_pendiente: '', relacion_pagos_numero: '', relacion_pagos_plazo: '' };
+  if (entrada.tipo === 'albaran' || entrada.tipo === 'presupuesto') return vacio;
+  const factura = entrada.documento;
+  const plazo = filasDeVencimientos(entrada, doc)[0]?.venc_dias ?? '';
+  const forma = (f?: PaymentMethod) => PAYMENT_METHODS.find(m => m.value === f)?.label ?? '';
+
+  let lista = (pagos ?? []).filter(p => p.importe > 0);
+  // Una factura marcada como pagada sin importe apuntado se pagó entera.
+  const cobrado = doc.paidAmount || (factura.status === InvoiceStatus.PAGADA ? doc.total : 0);
+  if (lista.length === 0 && cobrado > 0) {
+    lista = [{ fecha: factura.paidDate ?? '', importe: cobrado, forma: factura.paymentMethod }];
+  }
+  lista = [...lista].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  const pagado = Math.round(lista.reduce((s, p) => s + p.importe, 0) * 100) / 100;
+  const pendiente = Math.max(0, Math.round((doc.total - pagado) * 100) / 100);
+  const renglones = lista.map(p => [p.fecha ? formatDate(p.fecha) : '', forma(p.forma), formatCurrency(p.importe)].filter(Boolean).join(' · '));
+
+  if (lista.length === 0) {
+    if (!factura.dueDate) return { ...vacio, relacion_pagos_plazo: plazo };
+    const vence = [plazo ? `A ${plazo}` : '', `vence ${formatDate(factura.dueDate)}`, forma(factura.paymentMethod), formatCurrency(doc.total)].filter(Boolean).join(' · ');
+    return {
+      relacion_pagos: `${vence}\nPendiente: ${formatCurrency(pendiente)}`,
+      relacion_pagos_total: formatCurrency(0),
+      relacion_pagos_pendiente: formatCurrency(pendiente),
+      relacion_pagos_numero: '0',
+      relacion_pagos_plazo: plazo,
+    };
+  }
+
+  const resumen = pendiente > 0.005
+    ? `Total pagado: ${formatCurrency(pagado)} · Pendiente: ${formatCurrency(pendiente)}`
+    : `Total pagado: ${formatCurrency(pagado)}`;
+  return {
+    relacion_pagos: [...renglones, resumen].join('\n'),
+    relacion_pagos_total: formatCurrency(pagado),
+    relacion_pagos_pendiente: formatCurrency(pendiente),
+    relacion_pagos_numero: String(lista.length),
+    relacion_pagos_plazo: plazo,
+  };
 }
 
 /** Unidades sueltas que trae cada bulto de una línea; 1 si no se vende por cajas. */

@@ -97,3 +97,13 @@ describe('cómo nace el recuadro', () => {
     expect(qr.motivo).toMatch(/mover/i);
   });
 });
+
+describe('fuera de las facturas no queda nada del QR', () => {
+  it('la leyenda de cotejo se va con el recuadro', () => {
+    const leyenda = campoCualquiera();
+    leyenda.clave = 'verifactu_leyenda';
+    const conQr = asegurarHuecoQr([campoCualquiera(), leyenda], A4, true, nuevoId);
+    const albaran = asegurarHuecoQr(conQr, A4, false, nuevoId);
+    expect(albaran.map(c => c.clave)).toEqual(['cliente_nombre']);
+  });
+});

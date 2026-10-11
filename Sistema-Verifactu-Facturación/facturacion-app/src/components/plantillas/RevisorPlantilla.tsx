@@ -26,7 +26,7 @@
  *     el salto en vez de pelearse con él.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, AlignCenter, AlignEndHorizontal, AlignHorizontalJustifyCenter,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignVerticalJustifyCenter,
@@ -69,7 +69,17 @@ export type CambioAnalisis = Partial<Pick<AnalisisPdf, 'campos' | 'tabla' | 'zon
 interface Props {
   analisis: AnalisisPdf;
   onCambiar: (cambios: CambioAnalisis) => void;
+  /**
+   * Si la plantilla sirve para algún tipo que lleva QR (factura o
+   * rectificativa). Si no, el QR de cotejo y su leyenda no se pueden poner.
+   */
+  admiteQr?: boolean;
 }
+
+/** Los datos que sólo existen en una factura: el QR de cotejo y su leyenda. */
+const SOLO_FACTURAS = new Set(['verifactu_qr', 'verifactu_leyenda']);
+
+const QrPermitido = createContext(true);
 
 // ============================================================
 // TIPOS INTERNOS
@@ -139,7 +149,7 @@ function clonar<T>(valor: T): T {
 // COMPONENTE
 // ============================================================
 
-export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
+export default function RevisorPlantilla({ analisis, onCambiar, admiteQr = true }: Props) {
   const { pagina } = analisis;
   const campos = analisis.campos;
   const zonas = analisis.zonasExtra;
@@ -514,6 +524,8 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
    * la factura.
    */
   const asignarClave = useCallback((id: string, clave: string | null) => {
+    // Un albarán, un pedido o un presupuesto no llevan QR de cotejo.
+    if (clave && !admiteQr && SOLO_FACTURAS.has(clave)) return;
     marcar();
     const definicion = clave ? campoPorClave(clave) : undefined;
     actualizarCampo(id, {
@@ -521,7 +533,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
       fijo: false,
       tipo: definicion?.tipo === 'imagen' ? 'imagen' : 'texto',
     });
-  }, [actualizarCampo, marcar]);
+  }, [actualizarCampo, marcar, admiteQr]);
 
   // ------------------------------------------------------------
   // TECLADO
@@ -1011,6 +1023,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
   const puntosAPx = (puntos: number) => Math.max(4, puntos * 0.3528 * pxPorMm);
 
   return (
+    <QrPermitido.Provider value={admiteQr}>
     <div className="plantilla-revisor">
       {/* ============ LIENZO ============ */}
       <div className="plantilla-lienzo-envoltorio">
@@ -1673,6 +1686,7 @@ export default function RevisorPlantilla({ analisis, onCambiar }: Props) {
         </div>
       </div>
     </div>
+    </QrPermitido.Provider>
   );
 }
 
@@ -1890,6 +1904,7 @@ function SelectorDeClave({ campo, asignadas, recuentosDeColumna, onAsignar, onFi
   onFijar: () => void;
   ancho?: string;
 }) {
+  const admiteQr = useContext(QrPermitido);
   return (
     <select
       className="form-select form-select-sm"
@@ -1907,8 +1922,9 @@ function SelectorDeClave({ campo, asignadas, recuentosDeColumna, onAsignar, onFi
       {camposPorGrupo().map(grupo => (
         <optgroup key={grupo.grupo} label={grupo.titulo}>
           {grupo.campos.map(opcion => (
-            <option key={opcion.clave} value={opcion.clave}>
+            <option key={opcion.clave} value={opcion.clave} disabled={!admiteQr && SOLO_FACTURAS.has(opcion.clave)}>
               {opcion.etiqueta}
+              {!admiteQr && SOLO_FACTURAS.has(opcion.clave) ? ' — sólo en facturas' : ''}
               {opcion.tipo === 'imagen' ? ' (imagen)' : ''}
               {asignadas.has(opcion.clave) && opcion.clave !== campo.clave ? ' · en uso' : ''}
             </option>

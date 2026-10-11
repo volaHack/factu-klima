@@ -76,3 +76,20 @@ export function repararColumnas(claves: (string | null)[], cabeceras: string[]):
   const finales = nuevas.map((c, i) => (c !== claves[i] && c && claves.includes(c) ? claves[i] : c));
   return { claves: finales, cabeceras: cabeceras.map(repararCabecera) };
 }
+
+/**
+ * Los recuentos del pie que sumaban una columna reparada.
+ *
+ * La casilla «Total de CAJ.» de esos impresos era `total_col_N`, la suma
+ * de la columna propia `custom_col_N`. Al conectar esa columna con las
+ * cajas de verdad ya no hay nada que sumar y salía en blanco: tiene que
+ * pasar a ser el total de cajas. Devuelve `total_col_N` → clave nueva.
+ */
+export function recuentosReparados(claves: (string | null)[], reparadas: (string | null)[]): Map<string, string> {
+  const salida = new Map<string, string>();
+  claves.forEach((antes, i) => {
+    const m = antes?.match(/^custom_col_(\d+)$/);
+    if (m && reparadas[i] === 'cajas') salida.set(`total_col_${m[1]}`, 'total_bultos');
+  });
+  return salida;
+}

@@ -497,7 +497,13 @@ export default function PlantillasPage() {
             </div>
             {/* El QR no es decoración: decirlo aquí evita la sorpresa de
                 verlo aparecer —o no— en la vista previa. */}
-            <p className="field-message">{personalidadDe(tipoDominante(aplicaA)).notaQr}</p>
+            <p className="field-message">
+              {personalidadDe(tipoDominante(aplicaA)).notaQr}
+              {algunoLlevaQr(aplicaA) && aplicaA.some(t => !personalidadDe(t).llevaQr)
+                ? ` Sólo se imprime en las facturas: en ${aplicaA.filter(t => !personalidadDe(t).llevaQr).map(t => personalidadDe(t).etiqueta.toLowerCase()).join(', ')} ese hueco sale en blanco.`
+                : ''}
+              {!algunoLlevaQr(aplicaA) ? ' El QR de cotejo sólo va en facturas, así que en este diseño no se puede poner.' : ''}
+            </p>
           </div>
           {sinAsignar > 0 && (
             <div className="callout callout-warning plantilla-callout-compacto">
@@ -509,7 +515,7 @@ export default function PlantillasPage() {
           )}
         </div>
 
-        <RevisorPlantilla analisis={sesion.analisis} onCambiar={cambiarAnalisis} />
+        <RevisorPlantilla analisis={sesion.analisis} onCambiar={cambiarAnalisis} admiteQr={algunoLlevaQr(aplicaA)} />
 
         {vistaPrevia && (
           <VistaPreviaPdf url={vistaPrevia} onCerrar={() => { URL.revokeObjectURL(vistaPrevia); setVistaPrevia(null); }} />

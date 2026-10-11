@@ -25,7 +25,7 @@
  * estas claves, para que las dos listas no se separen con el tiempo.
  */
 
-export type GrupoCampo = 'empresa' | 'cliente' | 'documento' | 'totales' | 'verifactu';
+export type GrupoCampo = 'empresa' | 'cliente' | 'documento' | 'totales' | 'pagos' | 'verifactu';
 export type TipoCampo = 'texto' | 'imagen' | 'tabla';
 
 export interface CampoPlantilla {
@@ -137,7 +137,7 @@ export const CAMPOS: CampoPlantilla[] = [
   // líneas de la factura; el usuario sólo tiene que decir qué casilla es cuál.
   { clave: 'total_lineas', etiqueta: 'Nº de líneas', descripcion: 'Cuántas líneas tiene el documento', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
   { clave: 'total_unidades', etiqueta: 'Total de unidades', descripcion: 'Unidades sueltas: cantidad × unidades por bulto de cada línea', grupo: 'totales', tipo: 'texto', ejemplo: '288' },
-  { clave: 'total_bultos', etiqueta: 'Total de bultos', descripcion: 'Suma de las cantidades de todas las líneas, sin desglosar en unidades', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
+  { clave: 'total_bultos', etiqueta: 'Total de cajas (bultos)', descripcion: 'Cajas completas de todas las líneas (la columna CAJ.); quien no vende por cajas ve la suma de cantidades', grupo: 'totales', tipo: 'texto', ejemplo: '12' },
   { clave: 'total_peso', etiqueta: 'Peso total', descripcion: 'Suma de la columna de peso, si la plantilla la tiene', grupo: 'totales', tipo: 'texto', ejemplo: '45,5' },
 
   // --- Desglose por tipo impositivo, casilla a casilla ---
@@ -147,6 +147,16 @@ export const CAMPOS: CampoPlantilla[] = [
   // y se rellena sola con el desglose de la factura: el primer tipo en el
   // primer renglón, el segundo en el segundo, y los que sobren en blanco.
   ...desgloseDeImpuestos(),
+
+  // --- Pagos ---
+  // La relación de pagos como un dato más: los pagos que ya se han hecho de
+  // este documento, uno por renglón, y su total. Es lo que junta los pagos a
+  // 30, 60 o 90 días hechos en varias entregas en una sola suma.
+  { clave: 'relacion_pagos', etiqueta: 'Relación de pagos', descripcion: 'Los pagos hechos de este documento, uno por renglón (fecha · forma · importe), y al final el total pagado y lo pendiente. Sin pagos, el vencimiento que queda por cobrar', grupo: 'pagos', tipo: 'texto', ejemplo: '12/02/2026 · Transferencia · 500,00 €\n14/03/2026 · Transferencia · 500,00 €\nTotal pagado: 1.000,00 € · Pendiente: 512,50 €' },
+  { clave: 'relacion_pagos_total', etiqueta: 'Total pagado', descripcion: 'La suma de todos los pagos hechos de este documento', grupo: 'pagos', tipo: 'texto', ejemplo: '1.000,00 €' },
+  { clave: 'relacion_pagos_pendiente', etiqueta: 'Pendiente de pago', descripcion: 'Lo que queda por pagar: el total menos lo pagado', grupo: 'pagos', tipo: 'texto', ejemplo: '512,50 €' },
+  { clave: 'relacion_pagos_numero', etiqueta: 'Número de pagos', descripcion: 'Cuántos pagos se han hecho', grupo: 'pagos', tipo: 'texto', ejemplo: '2' },
+  { clave: 'relacion_pagos_plazo', etiqueta: 'Plazo de pago', descripcion: 'Días entre la emisión y el vencimiento, p. ej. «30 días»', grupo: 'pagos', tipo: 'texto', ejemplo: '30 días' },
 
   // --- Sello Veri*Factu ---
   { clave: 'verifactu_huella', etiqueta: 'Huella Veri*Factu', descripcion: 'Huella SHA-256 encadenada completa', grupo: 'verifactu', tipo: 'texto', ejemplo: '' },
@@ -343,6 +353,7 @@ export function camposPorGrupo(): { grupo: GrupoCampo; titulo: string; campos: C
     cliente: 'Cliente',
     documento: 'Documento',
     totales: 'Importes',
+    pagos: 'Pagos',
     verifactu: 'Veri*Factu',
   };
   return (Object.keys(titulos) as GrupoCampo[]).map(grupo => ({
