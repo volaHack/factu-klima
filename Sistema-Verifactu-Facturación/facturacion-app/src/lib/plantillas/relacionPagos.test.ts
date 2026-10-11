@@ -46,3 +46,23 @@ describe('la relación de pagos como dato', () => {
     expect(total).toBeGreaterThan(0);
   });
 });
+
+describe('en un albarán', () => {
+  const { dueDate: _sinVencimiento, paymentMethod: _sinForma, ...resto } = { ...facturaDeMuestra(), issueDate: '2026-01-12' };
+  void _sinVencimiento; void _sinForma;
+  const albaran = { ...resto, status: 'expedido' } as unknown as Parameters<typeof construirDatos>[0]['documento'];
+  const cliente = { paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA } as Parameters<typeof construirDatos>[2] extends infer O ? O extends { cliente?: infer C } ? C : never : never;
+
+  it('la relación de pagos sale con los días de pago del cliente', () => {
+    const datos = construirDatos({ tipo: 'albaran', documento: albaran } as Parameters<typeof construirDatos>[0], DEFAULT_COMPANY_SETTINGS, { cliente });
+    expect(sinEspacioDuro(datos.campos.relacion_pagos)).toMatch(/^A 30 días · vence 11\/02\/2026 · Transferencia bancaria · /);
+    expect(datos.campos.relacion_pagos_plazo).toBe('30 días');
+    expect(datos.vencimientos).toHaveLength(1);
+    expect(datos.vencimientos[0].venc_fecha).toBe('11/02/2026');
+  });
+
+  it('sin días de pago en la ficha no sale en blanco', () => {
+    const datos = construirDatos({ tipo: 'albaran', documento: albaran } as Parameters<typeof construirDatos>[0], DEFAULT_COMPANY_SETTINGS);
+    expect(datos.campos.relacion_pagos).toMatch(/Pendiente/);
+  });
+});
