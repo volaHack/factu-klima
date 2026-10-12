@@ -14,7 +14,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Loader2, Mail, MailCheck } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, MailCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 /** Se llega aquí también desde un enlace caducado o ya usado. */
@@ -63,7 +63,7 @@ export default function RecuperarPage() {
         <div className="login-header">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/klima-mark.svg" alt="KlimaFacturas" className="login-logo" width={56} height={56} />
-          <h1 className="login-title">{enviado ? 'Revisa tu correo' : <>Recupera tu <em className="accent-serif">contraseña</em></>}</h1>
+          <h1 className="login-title">{enviado ? 'Revisa tu correo' : <>Recupera tu contraseña</>}</h1>
           <p className="login-subtitle">
             {enviado
               ? <>Si <strong>{email.trim().toLowerCase()}</strong> tiene cuenta en KlimaFacturas, te hemos mandado un enlace para elegir una contraseña nueva. Caduca en 1 hora.</>
@@ -97,7 +97,7 @@ export default function RecuperarPage() {
             </div>
             {error && <div className="login-alert login-alert--error" role="alert">{error}</div>}
             <button type="submit" className="btn btn-primary btn-lg" disabled={enviando}>
-              {enviando ? <Loader2 size={18} className="spin" /> : <ArrowRight size={18} />}
+              {enviando && <Loader2 size={18} className="spin" />}
               {enviando ? 'Enviando…' : 'Mandarme el enlace'}
             </button>
           </form>

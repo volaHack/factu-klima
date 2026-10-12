@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 import SiteNav from '@/components/public/SiteNav';
 import SiteFooter from '@/components/public/SiteFooter';
@@ -174,9 +174,8 @@ export default function HomePage() {
 
           <div className="home-hero-inner">
             <div className="home-hero-copy">
-              <p className="home-hero-kicker">Ley Antifraude · Reglamento Verifactu</p>
               <h1 className="home-hero-title">
-                Una factura que ya no<br />se puede <em className="accent-serif">tocar</em>.
+                Una factura que ya no<br />se puede tocar.
               </h1>
               <p className="home-hero-lead">
                 Cada factura sale sellada con su huella SHA-256 y encadenada a la
@@ -184,14 +183,14 @@ export default function HomePage() {
               </p>
               <div className="home-hero-actions">
                 <Link href="/login" className="btn-primary btn-lg">
-                  Crear cuenta <ArrowRight size={17} />
+                  Crear cuenta
                 </Link>
                 <a href="#cadena" className="btn-ghost-light btn-lg">
                   Romper una cadena
                 </a>
               </div>
               <p className="home-hero-meta">
-                Desde {PRECIO_ENTRADA} €/mes · Sin permanencia
+                Cumple la Ley Antifraude y Verifactu. Desde {PRECIO_ENTRADA} € al mes, sin permanencia.
               </p>
             </div>
 
@@ -223,7 +222,7 @@ export default function HomePage() {
       <Reveal id="cadena" className="home-cadena">
         <div className="home-cadena-head">
           <h2 className="home-h2 home-h2--light">
-            Rompe la cadena y verás lo mismo<br />que ve una <em className="accent-serif">inspección</em>
+            Rompe la cadena y verás lo mismo<br />que ve una inspección
           </h2>
           <p>
             Abajo hay cinco facturas del libro de un mayorista, encadenadas entre sí.
@@ -275,8 +274,7 @@ export default function HomePage() {
           facturas. Aquí se enseña un asiento real, no una promesa. */}
       <Reveal className="home-conta" id="contabilidad">
         <div className="home-conta-copy">
-          <p className="home-conta-kicker">Contabilidad incluida</p>
-          <h2 className="home-h2">La contabilidad se hace <em className="accent-serif">sola</em></h2>
+          <h2 className="home-h2">La contabilidad se hace sola</h2>
           <p className="home-lead">
             En la mayoría de programas de facturación la contabilidad empieza cuando acaba el trimestre: alguien
             recoge las facturas y las vuelve a teclear. Aquí cada factura, compra, gasto y cobro genera su asiento en
@@ -327,7 +325,7 @@ export default function HomePage() {
           ))}
         </dl>
         <Link href="/precios" className="home-inline-link">
-          Ver los planes <ArrowUpRight size={15} />
+          Ver los planes
         </Link>
       </Reveal>
 
@@ -335,7 +333,7 @@ export default function HomePage() {
       <Reveal className="home-offline">
         <div className="home-offline-copy">
           <h2 className="home-h2 home-h2--light">
-            El día que se cae la línea,<br />sigues <em className="accent-serif">cobrando</em>
+            El día que se cae la línea,<br />sigues cobrando
           </h2>
           <p>
             Klima guarda las operaciones en el propio dispositivo. En un puesto de mercado,
@@ -397,12 +395,12 @@ export default function HomePage() {
       <section className="home-cierre">
         <div className="home-cierre-inner">
           <h2>
-            La primera factura sellada<br />te lleva <em className="accent-serif">dos minutos</em>
+            La primera factura sellada<br />te lleva dos minutos
           </h2>
           <p>Sin permanencia. Sin pasar por ninguna tienda de aplicaciones.</p>
           <div className="home-cierre-actions">
             <Link href="/login" className="btn-primary btn-lg">
-              Crear cuenta <ArrowRight size={17} />
+              Crear cuenta
             </Link>
             <Link href="/precios" className="btn-ghost-light btn-lg">Ver los planes</Link>
           </div>
