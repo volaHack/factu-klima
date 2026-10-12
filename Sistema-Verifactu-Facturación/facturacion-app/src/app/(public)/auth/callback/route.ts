@@ -76,14 +76,16 @@ export async function GET(request: NextRequest) {
       const isLocalEnv = process.env.NODE_ENV === 'development';
       if (isLocalEnv) {
         return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
+      } else if (forwardedHost && !forwardedHost.includes('vercel.app')) {
         return NextResponse.redirect(`https://${forwardedHost}${next}`);
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`https://klimafacturas.com${next}`);
       }
     }
   }
 
   // If error, redirect to login with error
-  return NextResponse.redirect(`${origin}/login?error=auth_error`);
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+  const errorOrigin = isLocalEnv ? origin : 'https://klimafacturas.com';
+  return NextResponse.redirect(`${errorOrigin}/login?error=auth_error`);
 }

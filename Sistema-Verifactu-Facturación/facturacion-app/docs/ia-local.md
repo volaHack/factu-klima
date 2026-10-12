@@ -116,7 +116,7 @@ Un modelo local sirve a quien pueda abrir `127.0.0.1`. El servidor de
 Vercel no puede llegar a un modelo que corre en una casa.
 
 El mensaje **«La ayuda con IA no está configurada en este servidor»** que
-se ve en `facturacion-app-mocha.vercel.app` viene de ahí: `.env.local`
+se ve en `klimafacturas.com` viene de ahí: `.env.local`
 tiene una clave de Gemini válida (comprobado), pero esa variable no está
 puesta en Vercel. Para que la ayuda funcione también para los clientes hay
 que hacer una de estas dos cosas:
