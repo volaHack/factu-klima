@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Check, ArrowRight, Star, Loader2, Copy, Plus,
+  Check, Star, Loader2, Copy, Plus,
   FileText, Users, BarChart3, Plug, Store, Download, Headphones,
   Fingerprint, QrCode, Palette, FileDown, WifiOff, CreditCard, ClipboardCheck, Send, Briefcase,
   type LucideIcon,
@@ -463,7 +463,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
                 disabled={loadingPlan !== null}
                 aria-busy={isLoading}
               >
-                {isLoading ? <Loader2 size={16} className="spin" /> : <>{plan.cta}<ArrowRight size={16} /></>}
+                {isLoading ? <Loader2 size={16} className="spin" /> : <>{plan.cta}</>}
               </button>
 
               <div className="pricing-card-divider" />
@@ -508,7 +508,6 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
             <div className="pricing-otro-cabeza">
               <span className="pricing-otro-icono" aria-hidden="true"><Store size={20} /></span>
               <div>
-                <span className="pricing-otro-etiqueta">Solo mostrador</span>
                 <h3 className="pricing-otro-nombre">{PLAN_MOSTRADOR.name}</h3>
               </div>
             </div>
@@ -545,7 +544,7 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
               >
                 {loadingPlan === PLAN_MOSTRADOR.id
                   ? <Loader2 size={16} className="spin" />
-                  : <>Empezar con el TPV<ArrowRight size={16} /></>}
+                  : <>Empezar con el TPV</>}
               </button>
             ) : (
               <p className="pricing-otro-nota">Disponible en cuanto terminemos de configurar el cobro.</p>
@@ -557,7 +556,6 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
             <div className="pricing-otro-cabeza">
               <span className="pricing-otro-icono" aria-hidden="true"><Briefcase size={20} /></span>
               <div>
-                <span className="pricing-otro-etiqueta">Gestorías</span>
                 <h3 className="pricing-otro-nombre">Gestoría</h3>
               </div>
             </div>
@@ -783,7 +781,6 @@ export default function PricingContent({ tpvDisponible = false }: { tpvDisponibl
             onClick={() => router.push('/login')}
           >
             Crear cuenta
-            <ArrowRight size={18} />
           </button>
         </div>
       </section>

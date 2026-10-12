@@ -15557,3 +15557,60 @@ body {
 }
 .productos-aviso-impuesto > svg { color: var(--color-warning, #d97706); flex-shrink: 0; }
 .productos-aviso-impuesto > span { flex: 1 1 280px; }
+
+/* ==================================================================
+   CARA PÚBLICA: SIN TICS DE PLANTILLA
+   ------------------------------------------------------------------
+   Repaso con la guía de diseño: los rótulos en mayúsculas espaciadas
+   encima de cada bloque, los metadatos en monoespaciada y la entrada
+   con fundido de cada sección son lo que hace que una web parezca
+   sacada de una plantilla. La tipografía monoespaciada se queda donde
+   hay datos de verdad (huellas, números de factura, el rollo de
+   tickets), que es donde la pide el propio oficio.
+   ================================================================== */
+.public-layout-force-light .site-footer-cols h3,
+.public-layout-force-light .pricing-table thead th,
+.public-layout-force-light .pricing-table-section td,
+.public-layout-force-light .pricing-otro-pronto,
+.public-layout-force-light .login-divider span,
+.public-layout-force-light .login-card .form-label,
+.public-layout-force-light .home-norma-title {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.public-layout-force-light .site-footer-cols h3 { font-size: var(--text-sm); }
+
+.home-hero-meta {
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+}
+
+/* Las secciones están en su sitio desde el principio. El único
+   movimiento de la portada es el rollo de tickets del héroe. */
+.reveal,
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+/* Pasos de instalación: el número va colgado a la izquierda y el texto
+   fluye en una sola línea. Con el <li> en flex, cada <b> se convertía en
+   una columna aparte y «Abre esta página en Edge o Chrome» salía
+   partido en cinco trozos. */
+.instalar-panel-steps li {
+  display: block;
+  position: relative;
+  padding-left: 34px;
+}
+.instalar-panel-steps li::before {
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+}
+
+/* Titulares sin una palabra sola en la última línea («…se hace / sola»). */
+.public-layout-force-light h1,
+.public-layout-force-light h2 { text-wrap: balance; }
+.home-hero-actions { margin-top: var(--space-6); }

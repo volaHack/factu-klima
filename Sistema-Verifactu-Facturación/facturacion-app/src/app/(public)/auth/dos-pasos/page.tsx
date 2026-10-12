@@ -69,7 +69,7 @@ function Formulario() {
       <div className="login-header">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/klima-mark.svg" alt="KlimaFacturas" className="login-logo" width={56} height={56} />
-        <h1 className="login-title">Verificación en <em className="accent-serif">dos pasos</em></h1>
+        <h1 className="login-title">Verificación en dos pasos</h1>
         <p className="login-subtitle">Escribe el código de 6 cifras que te muestra tu app de autenticación.</p>
       </div>
       <form onSubmit={verificar} className="login-form">

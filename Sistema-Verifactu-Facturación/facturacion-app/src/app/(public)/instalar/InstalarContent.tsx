@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import {
-  Smartphone, Tablet, Monitor, Printer, WifiOff, ArrowRight, Download,
+  Smartphone, Tablet, Monitor, Printer, WifiOff, Download,
 } from 'lucide-react';
 
 import SiteNav from '@/components/public/SiteNav';
@@ -105,9 +105,8 @@ export default function InstalarContent() {
       {/* ───────────────────────── Héroe ───────────────────────── */}
       <header className="instalar-hero">
         <div className="instalar-hero-copy">
-          <p className="instalar-kicker">Instalación</p>
           <h1 className="instalar-title">
-            Tu acceso a Klima, listo<br />para <em className="accent-serif">imprimir</em>
+            Tu acceso a Klima, listo<br />para imprimir
           </h1>
           <p className="instalar-lead">
             App para Android en un toque, y en iPhone y Windows desde el navegador.
@@ -286,7 +285,7 @@ export default function InstalarContent() {
             la conexión suben solas, en orden y sin duplicarse.
           </p>
           <Link href="/precios" className="home-inline-link">
-            Ver planes y precios <ArrowRight size={15} />
+            Ver planes y precios
           </Link>
         </div>
       </Reveal>

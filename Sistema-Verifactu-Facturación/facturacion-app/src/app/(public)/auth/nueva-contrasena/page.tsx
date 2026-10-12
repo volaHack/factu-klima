@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function NuevaContrasenaPage() {
@@ -59,7 +59,7 @@ export default function NuevaContrasenaPage() {
         <div className="login-header">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/klima-mark.svg" alt="KlimaFacturas" className="login-logo" width={56} height={56} />
-          <h1 className="login-title">Elige tu <em className="accent-serif">nueva</em> contraseña</h1>
+          <h1 className="login-title">Elige tu nueva contraseña</h1>
           <p className="login-subtitle">Tus facturas, clientes y ajustes siguen exactamente igual.</p>
         </div>
 
@@ -95,7 +95,7 @@ export default function NuevaContrasenaPage() {
             </div>
             {error && <div className="login-alert login-alert--error" role="alert">{error}</div>}
             <button type="submit" className="btn btn-primary btn-lg" disabled={guardando || hayCuenta === null}>
-              {guardando ? <Loader2 size={18} className="spin" /> : <ArrowRight size={18} />}
+              {guardando && <Loader2 size={18} className="spin" />}
               {guardando ? 'Guardando…' : 'Guardar y entrar'}
             </button>
           </form>

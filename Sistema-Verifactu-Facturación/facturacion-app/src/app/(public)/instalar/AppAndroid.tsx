@@ -79,9 +79,8 @@ export default function AppAndroid() {
 
         {/* ── El texto y la descarga ── */}
         <div className="apk-copy">
-          <p className="instalar-kicker">App para Android · v{APP_ANDROID.version}</p>
           <h2 id="apk-titulo" className="apk-titulo">
-            Vende con o sin <em className="accent-serif">cobertura</em>
+            Vende con o sin cobertura
           </h2>
           <p className="apk-lead">
             La app de Klima para móviles y tablets Android. Guarda todo en el teléfono,

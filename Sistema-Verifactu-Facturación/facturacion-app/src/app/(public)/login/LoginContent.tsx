@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clearOfflineCache } from '@/lib/offlineDb';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { isSafeRedirectPath } from '@/lib/security';
 import { errorDeAcceso } from '@/lib/erroresDeAcceso';
@@ -212,12 +212,12 @@ export default function LoginContent() {
           <img src="/klima-mark.svg" alt="Klima Solutions" className="login-logo" width={56} height={56} />
           <h1 className="login-title">
             {isLogin ? (
-              <>Bienvenida de <em className="accent-serif">nuevo</em></>
+              <>Entra en tu cuenta</>
             ) : 'Empieza a facturar'}
           </h1>
           <p className="login-subtitle">
             {isLogin
-              ? 'Entra para ver tus facturas, clientes y cobros pendientes.'
+              ? 'Tus facturas, clientes y cobros pendientes, donde los dejaste.'
               : 'En dos minutos tendrás lista tu primera factura sellada.'}
           </p>
         </div>
@@ -343,7 +343,7 @@ export default function LoginContent() {
             disabled={loading}
             style={{ width: '100%', justifyContent: 'center', marginTop: 'var(--space-2)' }}
           >
-            {loading ? <Loader2 size={18} className="spin" /> : <ArrowRight size={18} />}
+            {loading && <Loader2 size={18} className="spin" />}
             {loading
               ? (isLogin ? 'Entrando…' : 'Creando tu cuenta…')
               : isLogin ? 'Entrar' : 'Crear cuenta'}
