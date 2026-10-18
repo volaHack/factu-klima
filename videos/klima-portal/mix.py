@@ -164,15 +164,17 @@ for e in EV["ev"]:
 
 # —— voces: comprimidas y a la misma altura, con primeras reflexiones de la sala ——
 LINES = {l["id"]: l for l in json.load(open(os.path.join(HERE, "lines.json")))}
-PAN = {"PACO": .18, "NURIA": -.18, "TÉCNICO": 0}
+PAN = {"PACO": .18, "NURIA": -.18, "TÉCNICO": 0, "LOCUTOR": 0}
 for e in EV["ev"]:
     if e["type"] != "vo": continue
     y, sr = sf.read(os.path.join(HERE, "voices", e["id"] + ".wav"))
     y = sfx.compress(y.astype(np.float64), .25, 3.5)
     y = y / (np.sqrt((y ** 2).mean()) + 1e-9) * .12
-    room = y.copy()
-    for dly, gg in ((.011, .18), (.019, .12), (.029, .08)): d_ = int(dly * SR); room[d_:] += y[:-d_] * gg
-    put(VOX, room, e["t"], 1.0, PAN.get(LINES[e["id"]]["who"], 0))
+    room = y.copy(); who = LINES[e["id"]]["who"]
+    if who == "LOCUTOR": room *= 1.25          # locución de anuncio: seca y un poco por delante
+    else:
+        for dly, gg in ((.011, .18), (.019, .12), (.029, .08)): d_ = int(dly * SR); room[d_:] += y[:-d_] * gg
+    put(VOX, room, e["t"], 1.0, PAN.get(who, 0))
 
 # —— música con ducking bajo la voz (−7 dB) ——
 mus, msr = sf.read(os.path.join(HERE, "music/score.wav")); mus = mus.T[:, :N]

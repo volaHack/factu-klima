@@ -10,9 +10,12 @@ export PLAYWRIGHT_CHROME=${PLAYWRIGHT_CHROME:-/opt/pw-browsers/chromium_headless
 [ -f "$LIB/core/render/video.mjs" ] || { echo "set LIB to the library folder"; exit 1; }
 PY="$LIB/.venv/bin/python"
 cd "$LIB"
-$PY core/tts/tts.py "$HERE/lines.json" "$HERE/out/raw"                         # 1. voces con Kokoro
+# 1. voces: ElevenLabs (Eleven v4) por línea con el voice_id y el texto etiquetado de lines.json (el_voice, el_prompt);
+#    se guardan a mano/por MCP en out/raw/<id>.wav|mp3. Ver GUION_ELEVENLABS.md.
+[ -n "$(ls "$HERE"/out/raw/*.wav "$HERE"/out/raw/*.mp3 2>/dev/null)" ] || { echo "faltan las voces en out/raw"; exit 1; }
 $PY "$HERE/voice.py"                                                            # 2. voz de cada personaje y labios
-python3 "$HERE/asr.py"                                                          # 3. comprobación con Whisper (local)
+$PY "$HERE/asr.py" ${ASR_MODEL:-}                                               # 3. comprobación con Whisper (local)
+python3 "$HERE/timing.py"                                                       # 3b. que ninguna frase pise a la siguiente
 node core/render/events.mjs "$HERE" --size 1080x1920                            # 4. línea de tiempo → events.json
 $PY "$HERE/music/score.py"                                                      # 5. partitura sintetizada
 $PY "$HERE/mix.py"                                                              # 6. voces + foley + ambiente + música
