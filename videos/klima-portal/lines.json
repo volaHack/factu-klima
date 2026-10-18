@@ -1,0 +1,145 @@
+[
+ {
+  "id": "h1",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.88,
+  "lang": "es",
+  "text": "Pues sí. El del bigote, soy yo.",
+  "pitch": -2,
+  "sub": "Pues sí. El del bigote, *soy yo*."
+ },
+ {
+  "id": "h2",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.98,
+  "lang": "es",
+  "text": "¿Te preguntas cómo he acabado así?",
+  "pitch": -2,
+  "sub": "¿Te preguntas *cómo he acabado así*?"
+ },
+ {
+  "id": "n1",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Tío! ¡El te pe uve se ha vuelto a colgar!",
+  "sub": "¡Tío! ¡El TPV se ha vuelto a *colgar*!",
+  "asr": "Tío, el TPV se ha vuelto a colgar"
+ },
+ {
+  "id": "p1",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.86,
+  "lang": "es",
+  "text": "Tranquila. Voy a llamar al técnico.",
+  "pitch": -2,
+  "sub": "Tranquila. Voy a llamar al *técnico*."
+ },
+ {
+  "id": "p2",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.88,
+  "lang": "es",
+  "text": "Solo viene los martes. Así que voy yo al martes.",
+  "pitch": -2,
+  "sub": "Solo viene los *martes*. Así que voy yo al *martes*."
+ },
+ {
+  "id": "n2",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.15,
+  "lang": "es",
+  "text": "¡Tío, es un programa de hace veinte años, que solo funciona en ese ordenador!",
+  "sub": "¡Tío, es un programa de hace *20 años* que solo funciona en *ese ordenador*!"
+ },
+ {
+  "id": "p3",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.86,
+  "lang": "es",
+  "text": "Y encima, hoy es fin de trimestre.",
+  "pitch": -2,
+  "sub": "Y encima, hoy es *fin de trimestre*."
+ },
+ {
+  "id": "n3",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.15,
+  "lang": "es",
+  "text": "¡Y no sabemos ni quién nos debe!",
+  "sub": "¡Y no sabemos ni *quién nos debe*!"
+ },
+ {
+  "id": "n4",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 0.95,
+  "lang": "es",
+  "text": "Tío. Klimafacturas.",
+  "sub": "Tío. *Klimafacturas*."
+ },
+ {
+  "id": "n5",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.08,
+  "lang": "es",
+  "text": "Facturas y cobras desde el móvil, incluso sin internet.",
+  "sub": "Facturas y cobras desde el móvil, *incluso sin internet*."
+ },
+ {
+  "id": "n6",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.08,
+  "lang": "es",
+  "text": "Te dice quién te debe, y se lo recuerdas con un clic.",
+  "sub": "Te dice *quién te debe*, y se lo recuerdas *con un clic*."
+ },
+ {
+  "id": "n7",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.05,
+  "lang": "es",
+  "text": "Y la gestoría entra y lo tiene todo.",
+  "sub": "Y la gestoría entra y *lo tiene todo*."
+ },
+ {
+  "id": "t1",
+  "who": "TÉCNICO",
+  "voice": "em_santa",
+  "speed": 1.0,
+  "lang": "es",
+  "text": "¿Alguien ha llamado al técnico?",
+  "sub": "¿Alguien ha llamado al *técnico*?"
+ },
+ {
+  "id": "p4",
+  "who": "PACO",
+  "voice": "em_alex",
+  "speed": 0.8,
+  "lang": "es",
+  "text": "Ya no.",
+  "pitch": -2,
+  "sub": "*Ya no.*"
+ },
+ {
+  "id": "n8",
+  "who": "NURIA",
+  "voice": "ef_dora",
+  "speed": 1.05,
+  "lang": "es",
+  "text": "Klimafacturas punto com. Con el código lanzamiento cincuenta, el primer mes a mitad de precio.",
+  "sub": "klimafacturas.com — código LANZAMIENTO50: el primer mes, a mitad de precio.",
+  "asr": "Klimafacturas punto com. Con el código lanzamiento 50, el primer mes a mitad de precio."
+ }
+]

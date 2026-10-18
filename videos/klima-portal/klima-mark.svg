@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Klima Solutions">
+  <rect width="64" height="64" rx="18" fill="#1a1216"/>
+  <g transform="translate(0 0) scale(1)">
+    <path d="M19 16H26V29.6L38.2 16H47.4L34.6 30.2L47.6 48H38.4L29.52 35.83L26 39.74V48H19Z" fill="#fbf6f2"/>
+    <path d="M51.80 6.10L53.18 10.82L57.90 12.20L53.18 13.58L51.80 18.30L50.42 13.58L45.70 12.20L50.42 10.82Z" fill="#c9407a"/>
+  </g>
+</svg>

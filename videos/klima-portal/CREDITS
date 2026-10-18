@@ -1,0 +1,19 @@
+El portal del martes — créditos de material de terceros
+
+Técnica y herramientas
+- Lemo-Opuscar (github.com/lemomo-ai/lemo-opuscar), licencia MIT: estilo «Sci-Fi Sitcom Toon»; el motor
+  vectorial toon.js (copiado y adaptado a vertical), la técnica de ojos, bocas, manos y extremidades de chars.js,
+  y las herramientas core/ (render, eventos, sfx.py, srt.py) y mux.sh (copia local en mux_local.sh).
+
+Voz
+- Kokoro v1.0 (hexgrad/Kokoro-82M), licencia Apache 2.0, con kokoro-onnx (MIT). Voces: ef_dora, em_alex, em_santa.
+- Comprobación de voz: Whisper small (OpenAI, MIT) con sherpa-onnx (Apache 2.0).
+
+Tipografías (SIL Open Font License 1.1, fonts/OFL.txt)
+- Baloo 2 (Ek Type), Lilita One (Juan Montoreano), VT323 (Peter Hull). Fuente: Google Fonts (github.com/google/fonts).
+
+Música y efectos
+- Partitura y foley sintetizados en código para esta película (music/score.py, mix.py). Sin muestras de terceros.
+
+Marca
+- Logotipo de Klimafacturas: propiedad de su titular (el cliente), usado con su permiso.
