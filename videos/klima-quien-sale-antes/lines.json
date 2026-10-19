@@ -1,0 +1,314 @@
+[
+ {
+  "id": "h1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Dos autónomos! ¡El mismo trabajo!",
+  "sub": "¡Dos autónomos! ¡El mismo trabajo!"
+ },
+ {
+  "id": "h2",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¿Quién sale antes?",
+  "sub": "¿Quién sale antes?"
+ },
+ {
+  "id": "c1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Primera prueba: una factura!",
+  "sub": "¡Primera prueba: una factura!"
+ },
+ {
+  "id": "j1",
+  "who": "JAVIER",
+  "voice": "em_alex",
+  "speed": 1.05,
+  "lang": "es",
+  "pitch": 2,
+  "text": "A ver... ¿cómo se hacía esto?",
+  "sub": "A ver… ¿cómo se hacía esto?"
+ },
+ {
+  "id": "e1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "Con cu erre y Verifactu.",
+  "sub": "Con QR y Verifactu.",
+  "asr": "Con QR y verifacto"
+ },
+ {
+  "id": "s1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Perfecto!",
+  "sub": "¡Perfecto!"
+ },
+ {
+  "id": "c2",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Segunda prueba: cobrar!",
+  "sub": "¡Segunda prueba: cobrar!"
+ },
+ {
+  "id": "j2",
+  "who": "JAVIER",
+  "voice": "em_alex",
+  "speed": 1.05,
+  "lang": "es",
+  "pitch": 2,
+  "text": "Hola... ¿me pagas ya?",
+  "sub": "Hola… ¿me pagas ya?"
+ },
+ {
+  "id": "e2",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "Pagan con tarjeta o con Bízum.",
+  "sub": "Pagan con tarjeta o con Bizum."
+ },
+ {
+  "id": "s2",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Factura cobrada!",
+  "sub": "¡Factura cobrada!"
+ },
+ {
+  "id": "c3",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Los gastos!",
+  "sub": "¡Los gastos!"
+ },
+ {
+  "id": "e3",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "Una foto, y el gasto se rellena solo.",
+  "sub": "Una foto, y el gasto se rellena solo."
+ },
+ {
+  "id": "s3",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Apuntado!",
+  "sub": "¡Apuntado!"
+ },
+ {
+  "id": "c4",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡El trimestre!",
+  "sub": "¡El trimestre!"
+ },
+ {
+  "id": "j4",
+  "who": "JAVIER",
+  "voice": "em_alex",
+  "speed": 1.05,
+  "lang": "es",
+  "pitch": 2,
+  "text": "¿¡Ya es día veinte!?",
+  "sub": "¿¡Ya es día 20!?"
+ },
+ {
+  "id": "e4",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "Sabe cuánto apartar para Hacienda.",
+  "sub": "Sabe cuánto apartar para Hacienda."
+ },
+ {
+  "id": "s4",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡A tiempo!",
+  "sub": "¡A tiempo!"
+ },
+ {
+  "id": "c5",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡La contabilidad!",
+  "sub": "¡La contabilidad!"
+ },
+ {
+  "id": "e5",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "Se hace sola, y su gestoría ya la tiene.",
+  "sub": "Se hace sola, y su gestoría ya la tiene."
+ },
+ {
+  "id": "s5",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Todo cuadrado!",
+  "sub": "¡Todo cuadrado!"
+ },
+ {
+  "id": "b1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Y además: el te pe uve, presupuestos, factura electrónica... y mucho más!",
+  "sub": "¡Y además: el TPV, presupuestos, factura electrónica… y mucho más!"
+ },
+ {
+  "id": "f1",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Cinco a cero! ¡Lucía se va a casa!",
+  "sub": "¡5 a 0! ¡Lucía se va a casa!"
+ },
+ {
+  "id": "l2",
+  "who": "LUCIA",
+  "voice": "ef_dora",
+  "speed": 1.08,
+  "lang": "es",
+  "pitch": 1,
+  "text": "¡Hasta mañana!",
+  "sub": "¡Hasta mañana!"
+ },
+ {
+  "id": "f2",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 0.98,
+  "lang": "es",
+  "text": "Javier... ¿pruebas tú?",
+  "sub": "Javier… ¿pruebas tú?"
+ },
+ {
+  "id": "s6",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.0,
+  "lang": "es",
+  "text": "¡Perfecto!",
+  "sub": "¡Perfecto!"
+ },
+ {
+  "id": "j7",
+  "who": "JAVIER",
+  "voice": "em_alex",
+  "speed": 1.05,
+  "lang": "es",
+  "pitch": 2,
+  "text": "¡Anda! ¡Qué fácil!",
+  "sub": "¡Anda! ¡Qué fácil!"
+ },
+ {
+  "id": "f3",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¡Klimafacturas! Factura, cobra... ¡y sal antes!",
+  "sub": "¡Klimafacturas! Factura, cobra… ¡y sal antes!"
+ },
+ {
+  "id": "f4",
+  "who": "HOST",
+  "voice": "em_santa",
+  "speed": 1.12,
+  "lang": "es",
+  "text": "¿Y tú? ¿A qué hora sales hoy?",
+  "sub": "¿Y tú? ¿A qué hora sales hoy?"
+ },
+ {
+  "id": "coa",
+  "who": "PUBLICO",
+  "voice": "em_alex",
+  "speed": 0.9,
+  "lang": "es",
+  "text": "¡Ooooh!",
+  "sub": ""
+ },
+ {
+  "id": "cba",
+  "who": "PUBLICO",
+  "voice": "em_alex",
+  "speed": 1.0,
+  "lang": "es",
+  "text": "¡Bieeen!",
+  "sub": ""
+ },
+ {
+  "id": "cos",
+  "who": "PUBLICO",
+  "voice": "em_santa",
+  "speed": 0.9,
+  "lang": "es",
+  "text": "¡Ooooh!",
+  "sub": ""
+ },
+ {
+  "id": "cbs",
+  "who": "PUBLICO",
+  "voice": "em_santa",
+  "speed": 1.0,
+  "lang": "es",
+  "text": "¡Bieeen!",
+  "sub": ""
+ },
+ {
+  "id": "cod",
+  "who": "PUBLICO",
+  "voice": "ef_dora",
+  "speed": 0.9,
+  "lang": "es",
+  "text": "¡Ooooh!",
+  "sub": ""
+ },
+ {
+  "id": "cbd",
+  "who": "PUBLICO",
+  "voice": "ef_dora",
+  "speed": 1.0,
+  "lang": "es",
+  "text": "¡Bieeen!",
+  "sub": ""
+ }
+]
