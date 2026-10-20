@@ -25,7 +25,7 @@ const ERR = [   // [x, y, radio x, radio y, título, explicación]
   [280, 398, 230, 42, 'Sin domicilio', 'El del cliente también va'],
   [690, 808, 190, 46, 'IVA en Canarias', 'Aquí se aplica IGIC (7 %)'],
   [705, 880, 200, 54, 'No cuadra', '100 + 21 son 121, no 112'],
-  [175, 1095, 135, 135, 'Sin QR Verifactu', 'Obligatorio desde 2027'],
+  [175, 1095, 135, 135, 'Sin QR Verifactu', 'Lo exigirá Verifactu'],
 ];
 function qr(g, x, y, s) {   // un QR de muestra (módulos deterministas, con sus tres esquinas)
   const n = 25, m = s / n; g.fillStyle = C.ink;
