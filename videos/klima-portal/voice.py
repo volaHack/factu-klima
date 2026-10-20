@@ -1,7 +1,8 @@
-"""Voces: out/raw/<id>.wav (Kokoro, 24 kHz) → voices/<id>.wav (48 kHz, procesada por personaje)
+"""Voces: out/raw/<id>.(wav|mp3) (ElevenLabs, Eleven v4) → voices/<id>.wav (48 kHz, procesada por personaje)
 + voices/dur.json (duración) + voices/lips.json (boca: apertura «o» y brillo «b» cada 1/24 s).
 - "pitch": semitonos (rubberband de ffmpeg, conserva el tempo). Paco −2, el bicho +7.
-- PACO: saturación ligera + subida en 180 Hz = voz grave y cascada; NURIA: algo más de presencia.
+- Se recorta el silencio de los extremos (umbral −45 dB, 40 ms de margen) para que los tiempos sean reales.
+- PACO: cuerpo en 180 Hz; NURIA: algo más de presencia; LOCUTOR: brillo y pegada de anuncio.
 Uso: python voice.py"""
 import json
 import os
@@ -35,16 +36,23 @@ def pitch(y, semis):
 
 dur, lips = {}, {}
 for l in L:
-    y, sr = sf.read(os.path.join(HERE, "out/raw", l["id"] + ".wav"))
-    if y.ndim > 1: y = y.mean(1)
-    y = soxr.resample(y, sr, SR)
+    src = next(os.path.join(HERE, "out/raw", l["id"] + e) for e in (".wav", ".mp3") if os.path.exists(os.path.join(HERE, "out/raw", l["id"] + e)))
+    with tempfile.TemporaryDirectory() as d:
+        w = os.path.join(d, "x.wav")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-ac", "1", "-ar", str(SR), w], check=True)
+        y, sr = sf.read(w)
+    a = np.abs(y); thr = a.max() * 10 ** (-45 / 20); k = np.convolve(a > thr, np.ones(240), "same") > 0
+    nz = np.flatnonzero(k); m = int(.04 * SR)
+    y = y[max(0, nz[0] - m): nz[-1] + m]
+    y[:int(.005 * SR)] *= np.linspace(0, 1, int(.005 * SR)); y[-int(.02 * SR):] *= np.linspace(1, 0, int(.02 * SR))
     if l.get("pitch"): y = pitch(y, l["pitch"])
     y = y / (np.abs(y).max() + 1e-9) * .9
     if l["who"] == "PACO":
-        sat = np.tanh(y * 2.4) / np.tanh(2.4); y = .7 * y + .3 * sat
-        y = peq(y, 180, 3.0, .8); y = peq(y, 2800, -1.5, 1.0)
+        y = peq(y, 180, 2.0, .8)
     elif l["who"] == "NURIA":
         y = peq(y, 3200, 2.0, .9)
+    elif l["who"] == "LOCUTOR":
+        y = peq(y, 120, 2.0, .7); y = peq(y, 4000, 2.5, .8)
     elif l["who"] == "TÉCNICO":
         y = peq(y, 1200, 3.0, .7); y = peq(y, 150, -4, .7)
     y = y / (np.abs(y).max() + 1e-9) * .9

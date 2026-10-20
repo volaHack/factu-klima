@@ -374,7 +374,7 @@ function tag(t) {
   text(s2, 28, 96, { font: '400 40px VT323', fill: '#a6fff6', align: 'left' });
   pop();
 }
-const WHO_COL = { PACO: '#d23a44', NURIA: '#f08a24', 'TÉCNICO': '#2d5fb3' };
+const WHO_COL = { PACO: '#d23a44', NURIA: '#f08a24', 'TÉCNICO': '#2d5fb3', LOCUTOR: '#1b1b1b' };
 const CUTS = [19.5 + OFF, T.end + OFF, RW[0]];
 const ALLVO = [...Object.entries(HVO), ...Object.entries(VO).map(([id, t0]) => [id, t0 + OFF])];
 const SUBS = ALLVO.map(([id, t0], i, arr) => {
