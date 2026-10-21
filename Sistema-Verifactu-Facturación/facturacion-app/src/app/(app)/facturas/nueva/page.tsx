@@ -422,6 +422,8 @@ export default function NuevaFacturaPage() {
             products={products}
             settings={ajustes}
             tarifaId={selectedClient?.tarifaId}
+            defaultDiscounts={clienteOcasional ? undefined : selectedClient?.defaultDiscounts}
+            cliente={clienteOcasional ? null : selectedClient}
             columnasCustom={columnasCustom}
           />
         )}

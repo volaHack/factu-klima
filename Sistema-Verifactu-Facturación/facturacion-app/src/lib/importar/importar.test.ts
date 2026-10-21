@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  decodificarTexto, detectarColumnas, detectarTipo, filaDeCabecera, leerCsv, numeroEs,
-  resumen, revisarClientes, revisarProductos, tipoImpositivo,
+  decodificarTexto, detectarColumnas, detectarTipo, esXlsBinario, filaDeCabecera, leerCsv, numeroEs,
+  resolverCategorias, resumen, revisarClientes, revisarProductos, tipoImpositivo,
 } from './importar';
 import type { Client, Product } from '@/lib/types';
 
@@ -141,5 +141,73 @@ describe('productos, fila a fila', () => {
 
   it('sin impuesto en la fila, el de la empresa', () => {
     expect(filas[4].ficha?.defaultTaxRate).toBe(7);
+  });
+});
+
+describe('las exportaciones de ISECAN', () => {
+  // ISECAN «exporta a Excel» un texto con tabuladores en Windows-1252, con
+  // una primera línea «Consulta1» y los importes entre comillas con el €.
+  const texto = [
+    'Consulta1\t\t\t\t',
+    'Registro\tCodigo\tDescripcion\tidFamilia\tPrecio_Venta\tUnidades_Caja\tCodigoBarras',
+    '1\t11016\tPAPAS ONDULADAS 45G\t42\t"1,59 €"\t24\t8412345678905',
+    '2\t15002\tFREGONA MICROFIBRA\t32\t"2,10 €"\t12\t',
+  ].join('\r\n');
+
+  it('un .xls que es texto no es un Excel binario; uno de verdad, sí', () => {
+    expect(esXlsBinario(new TextEncoder().encode(texto))).toBe(false);
+    expect(esXlsBinario(new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0]))).toBe(true);
+  });
+
+  it('se salta «Consulta1» y reconoce las columnas de artículos', () => {
+    const tabla = leerCsv(texto);
+    expect(detectarTipo(tabla)).toBe('productos');
+    const cab = filaDeCabecera(tabla, 'productos');
+    expect(cab).toBe(1);
+    expect(detectarColumnas(tabla[cab], 'productos')).toMatchObject({
+      ref: 1, name: 2, category: 3, unitPrice: 4, unitsPerPackage: 5, barcode: 6,
+    });
+    const filas = revisarProductos(tabla, cab + 1, detectarColumnas(tabla[cab], 'productos'), [], ctx);
+    expect(filas[0].ficha).toMatchObject({ ref: '11016', name: 'PAPAS ONDULADAS 45G', category: '42', unitPrice: 1.59, unitsPerPackage: 24, barcode: '8412345678905' });
+    expect(filas[1].ficha?.unitsPerPackage).toBe(12);
+  });
+
+  it('clientes: el código (la cuenta 430…) se guarda en la ficha', () => {
+    const t = leerCsv('Consulta1\t\t\nCodigo\tNombre\tNIF\tPoblacion\n4300000260\tBAR EL PUERTO\tB12345674\tArrecife\n');
+    const cab = filaDeCabecera(t, 'clientes');
+    const m = detectarColumnas(t[cab], 'clientes');
+    expect(m).toMatchObject({ codigo: 0, businessName: 1, nif: 2, city: 3 });
+    expect(revisarClientes(t, cab + 1, m, [], ctx)[0].ficha?.codigo).toBe('4300000260');
+  });
+
+  it('«Código postal» sigue siendo el código postal, no el del cliente', () => {
+    expect(detectarColumnas(['Código', 'Nombre', 'Código postal'], 'clientes')).toMatchObject({ codigo: 0, businessName: 1, postalCode: 2 });
+  });
+});
+
+describe('las familias, en categorías del programa', () => {
+  const categorias = [
+    { value: 'custom_isecan_42', label: 'PAPAS' },
+    { value: 'custom_isecan_32', label: 'FREGONAS' },
+    { value: 'otros', label: 'Sin familia' },
+    { value: 'custom_1', label: 'Cafés' },
+  ];
+  let k = 0;
+  const nuevoId = () => `nueva${++k}`;
+
+  it('por número de ISECAN, por nombre sin tildes ni mayúsculas, y la 0 es «sin familia»', () => {
+    const { porValor, nuevas } = resolverCategorias(['42', 'fregonas', 'CAFES', '0', 'custom_1', ''], categorias, nuevoId);
+    expect(Object.fromEntries(porValor)).toEqual({
+      '42': 'custom_isecan_42', fregonas: 'custom_isecan_32', CAFES: 'custom_1', '0': 'otros', custom_1: 'custom_1',
+    });
+    expect(nuevas).toEqual([]);
+  });
+
+  it('las que no existen se crean una sola vez', () => {
+    k = 0;
+    const { porValor, nuevas } = resolverCategorias(['Conservas', 'CONSERVAS', '77', 'Conservas'], categorias, nuevoId);
+    expect(nuevas).toEqual([{ id: 'nueva1', name: 'Conservas' }, { id: 'nueva2', name: 'Familia 77' }]);
+    expect(porValor.get('CONSERVAS')).toBe('nueva1');
+    expect(porValor.get('77')).toBe('nueva2');
   });
 });

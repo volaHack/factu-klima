@@ -50,6 +50,18 @@ export function decodificarTexto(bytes: Uint8Array): string {
   }
 }
 
+/**
+ * ¿Es un Excel de verdad (.xls binario, formato OLE2) o un texto con la
+ * extensión cambiada? Muchos programas de gestión (ISECAN, por ejemplo)
+ * «exportan a Excel» un texto separado por tabuladores y lo llaman .xls:
+ * Excel lo abre sin avisar, así que el usuario no tiene por qué saberlo.
+ * Esos se leen como CSV; los binarios de verdad, no.
+ */
+export function esXlsBinario(bytes: Uint8Array): boolean {
+  const firma = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  return bytes.length >= 8 && firma.every((b, i) => bytes[i] === b);
+}
+
 /** El separador que más se repite fuera de comillas en la primera línea con datos. */
 function detectarSeparador(texto: string): string {
   const primera = texto.split(/\r?\n/).find(l => l.trim()) ?? '';
@@ -126,11 +138,11 @@ export function normalizar(t: string): string {
 
 export type CampoCliente =
   | 'businessName' | 'tradeName' | 'nif' | 'email' | 'phone' | 'contactPerson'
-  | 'address' | 'postalCode' | 'city' | 'province' | 'country' | 'paymentDays' | 'notes';
+  | 'address' | 'postalCode' | 'city' | 'province' | 'country' | 'paymentDays' | 'notes' | 'codigo';
 
 export type CampoProducto =
   | 'name' | 'ref' | 'description' | 'category' | 'unitPrice' | 'unitPriceConImpuesto'
-  | 'defaultTaxRate' | 'stockQuantity' | 'costPrice' | 'barcode';
+  | 'defaultTaxRate' | 'unitsPerPackage' | 'stockQuantity' | 'costPrice' | 'barcode';
 
 type Campo = CampoCliente | CampoProducto;
 
@@ -154,16 +166,21 @@ const SINONIMOS: Record<TipoImportacion, [Campo, string[]][]> = {
     ['country', ['pais', 'country']],
     ['paymentDays', ['dias de pago', 'dias pago', 'vencimiento dias', 'plazo de pago', 'payment days']],
     ['notes', ['notas', 'observaciones', 'comentarios', 'notes']],
+    // El número con el que el almacén conoce al cliente. En ISECAN es la
+    // cuenta contable (4300000260).
+    ['codigo', ['codigo cliente', 'cod cliente', 'codigo', 'cod', 'cuenta', 'cuenta contable', 'subcuenta', 'id cliente', 'numero cliente', 'num cliente', 'n cliente']],
   ],
   productos: [
     ['ref', ['referencia', 'ref', 'codigo', 'cod', 'sku', 'codigo articulo', 'cod articulo', 'reference']],
-    ['barcode', ['codigo de barras', 'cod barras', 'ean', 'ean13', 'barcode', 'gtin']],
+    ['barcode', ['codigo de barras', 'cod barras', 'codigobarras', 'codbarras', 'ean', 'ean13', 'barcode', 'gtin']],
     ['name', ['nombre', 'articulo', 'producto', 'descripcion corta', 'concepto', 'name', 'titulo', 'descripcion']],
     ['description', ['descripcion larga', 'descripcion detallada', 'detalle', 'long description']],
-    ['category', ['categoria', 'familia', 'grupo', 'category', 'seccion']],
+    ['category', ['categoria', 'familia', 'grupo', 'category', 'seccion', 'idfamilia', 'id familia', 'cod familia', 'codigo familia']],
     ['unitPriceConImpuesto', ['pvp con iva', 'precio con iva', 'pvp iva incluido', 'precio iva incluido', 'pvp con igic', 'precio con igic', 'total con iva']],
     ['unitPrice', ['precio', 'pvp', 'precio venta', 'precio de venta', 'precio unitario', 'precio sin iva', 'base', 'importe', 'price', 'tarifa']],
     ['defaultTaxRate', ['iva', 'igic', 'tipo iva', 'iva %', 'impuesto', 'tipo impositivo', 'tax', 'vat rate', 'tipo igic']],
+    // Antes que el stock: «Unidades caja» no son las existencias.
+    ['unitsPerPackage', ['unidades caja', 'uds caja', 'unidades por caja', 'uds por caja', 'u c', 'unidadescaja', 'udscaja', 'uds bulto', 'unidades bulto', 'units per package']],
     ['stockQuantity', ['stock', 'existencias', 'cantidad', 'unidades', 'stock actual', 'quantity']],
     ['costPrice', ['coste', 'precio coste', 'precio de compra', 'precio compra', 'cost']],
   ],
@@ -172,10 +189,10 @@ const SINONIMOS: Record<TipoImportacion, [Campo, string[]][]> = {
 export const ETIQUETAS: Record<Campo, string> = {
   businessName: 'Razón social', tradeName: 'Nombre comercial', nif: 'NIF / CIF', email: 'Email',
   phone: 'Teléfono', contactPerson: 'Persona de contacto', address: 'Dirección', postalCode: 'Código postal',
-  city: 'Población', province: 'Provincia', country: 'País', paymentDays: 'Días de pago', notes: 'Notas',
+  city: 'Población', province: 'Provincia', country: 'País', paymentDays: 'Días de pago', notes: 'Notas', codigo: 'Código',
   name: 'Nombre', ref: 'Referencia', description: 'Descripción', category: 'Categoría',
   unitPrice: 'Precio (sin impuesto)', unitPriceConImpuesto: 'Precio con impuesto', defaultTaxRate: '% IVA / IGIC',
-  stockQuantity: 'Stock', costPrice: 'Coste', barcode: 'Código de barras',
+  stockQuantity: 'Stock', costPrice: 'Coste', barcode: 'Código de barras', unitsPerPackage: 'Unidades por caja',
 };
 
 /** Los campos en el orden en que se enseñan: lo imprescindible primero. */
@@ -379,6 +396,7 @@ export function revisarClientes(
       paymentDays: dias !== null && dias >= 0 && dias <= 365 ? Math.round(dias) : 30,
       defaultPaymentMethod: PaymentMethod.TRANSFERENCIA,
       notes: dato(fila, mapeo, 'notes'),
+      codigo: dato(fila, mapeo, 'codigo') || undefined,
       active: true,
       createdAt: ctx.ahora,
       updatedAt: ctx.ahora,
@@ -439,6 +457,7 @@ export function revisarProductos(
 
     const stock = numeroEs(dato(fila, mapeo, 'stockQuantity'));
     const coste = numeroEs(dato(fila, mapeo, 'costPrice'));
+    const porCaja = numeroEs(dato(fila, mapeo, 'unitsPerPackage'));
     const ficha: Product | null = errores.length ? null : {
       id: ctx.nuevoId(),
       ref,
@@ -452,12 +471,62 @@ export function revisarProductos(
       barcode: barcode || undefined,
       stockQuantity: stock ?? undefined,
       costeUltimaCompra: coste ?? undefined,
+      unitsPerPackage: porCaja !== null && porCaja > 0 ? porCaja : undefined,
       createdAt: ctx.ahora,
       updatedAt: ctx.ahora,
     };
 
     return { fila: inicioDatos + i + 1, estado, ficha, errores, avisos, titulo: name || '(sin nombre)' };
   });
+}
+
+/* ------------------------------------------------------------------
+   LAS FAMILIAS
+   ------------------------------------------------------------------ */
+
+/**
+ * La familia de cada producto, en las categorías del programa. Un archivo
+ * trae «CAFES», «Cafés» o el número de familia («15»); el producto necesita
+ * el identificador de una categoría que exista, o se queda sin ninguna.
+ *
+ * Se reconoce, por este orden: el identificador tal cual; el número de
+ * familia de una importación de ISECAN (categoría `custom_isecan_<n>`; la 0
+ * es «sin familia»); el nombre sin mayúsculas ni tildes. Las que no existen
+ * se devuelven en `nuevas` para crearlas antes de guardar los productos.
+ */
+export function resolverCategorias(
+  valores: readonly string[],
+  existentes: readonly { value: string; label: string }[],
+  nuevoId: () => string,
+): { porValor: Map<string, string>; nuevas: { id: string; name: string }[] } {
+  const porValor = new Map<string, string>();
+  const nuevas: { id: string; name: string }[] = [];
+  const porNombre = new Map(existentes.map(c => [normalizar(c.label), c.value]));
+  const ids = new Set(existentes.map(c => c.value));
+
+  for (const crudo of valores) {
+    const v = crudo.trim();
+    if (!v || porValor.has(v)) continue;
+    let id: string | undefined;
+    if (ids.has(v)) id = v;
+    else if (/^\d+$/.test(v)) {
+      const n = Number(v);
+      if (n === 0) id = 'otros';
+      else if (ids.has(`custom_isecan_${n}`)) id = `custom_isecan_${n}`;
+    }
+    id ??= porNombre.get(normalizar(v));
+    if (!id) {
+      const nombre = /^\d+$/.test(v) ? `Familia ${v}` : v;
+      id = porNombre.get(normalizar(nombre));
+      if (!id) {
+        id = nuevoId();
+        nuevas.push({ id, name: nombre });
+        porNombre.set(normalizar(nombre), id);
+      }
+    }
+    porValor.set(v, id);
+  }
+  return { porValor, nuevas };
 }
 
 /** Cuántas filas hay de cada tipo. */

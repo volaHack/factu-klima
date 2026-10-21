@@ -948,6 +948,33 @@ export interface Client {
    * se deduce del NIF (ver facturaElectronica/ambito.ts).
    */
   tipoFiscal?: 'empresa' | 'autonomo' | 'particular' | 'administracion';
+
+  /** Código con el que la empresa conoce al cliente (el de su programa anterior, p. ej.). Migración 067. */
+  codigo?: string;
+  /** Precio fijo o descuento para un artículo concreto (migración 067). Ver `condicionesDeVenta`. */
+  preciosEspeciales?: PrecioEspecial[];
+  /** Descuento para todos los artículos de una familia (migración 067). */
+  descuentosFamilia?: DescuentoFamilia[];
+}
+
+/**
+ * Lo que un cliente paga por un artículo, distinto de su tarifa. `precio`
+ * (sin impuesto) sustituye al de la tarifa; `descuento` va a la línea. Puede
+ * tener uno, otro o los dos. Apagado (`activo: false`) se guarda pero no se
+ * aplica.
+ */
+export interface PrecioEspecial {
+  productId: string;
+  precio?: number | null;
+  descuento?: number | null;
+  activo: boolean;
+}
+
+/** Descuento de un cliente para toda una familia (categoría) de artículos. */
+export interface DescuentoFamilia {
+  categoria: string;
+  descuento: number;
+  activo: boolean;
 }
 
 export interface Vendedor {

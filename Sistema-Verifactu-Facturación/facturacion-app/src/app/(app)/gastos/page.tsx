@@ -13,7 +13,7 @@ import {
   getProveedores, getCompanySettings, getObras,
 } from '@/lib/storage';
 import { calcularGasto, totalGastos, costeDeVehiculos, gastoVacio, CATEGORIAS_GASTO } from '@/lib/gastos';
-import { tieneModulo } from '@/lib/modulos';
+import { tieneModulo, modulosDe } from '@/lib/modulos';
 import { Gasto, GastoCategoria, Vehiculo, Client, Obra, PaymentMethod } from '@/lib/types';
 import { generateId, formatCurrency, formatDate, getToday, fotoParaLeer } from '@/lib/utils';
 import type { DatosTicket } from '@/lib/ia/ticket';
@@ -88,8 +88,8 @@ export default function GastosPage() {
     setVehiculos(v);
     setProveedores(p);
     setObras(o);
-    setModoVehiculos(tieneModulo(settings?.modulos, 'vehiculos'));
-    setModoObras(tieneModulo(settings?.modulos, 'obras'));
+    setModoVehiculos(tieneModulo(modulosDe(settings), 'vehiculos'));
+    setModoObras(tieneModulo(modulosDe(settings), 'obras'));
   };
 
   useEffect(() => {
@@ -101,8 +101,8 @@ export default function GastosPage() {
       setVehiculos(v);
       setProveedores(p);
       setObras(o);
-      setModoVehiculos(tieneModulo(settings?.modulos, 'vehiculos'));
-      setModoObras(tieneModulo(settings?.modulos, 'obras'));
+      setModoVehiculos(tieneModulo(modulosDe(settings), 'vehiculos'));
+      setModoObras(tieneModulo(modulosDe(settings), 'obras'));
       setIgic(!!settings?.igicEnabled);
       setMounted(true);
     })();

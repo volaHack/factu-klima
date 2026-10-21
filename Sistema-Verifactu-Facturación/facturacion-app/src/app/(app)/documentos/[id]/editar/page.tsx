@@ -7,11 +7,11 @@ import { ArrowLeft, Save, Send } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getInvoiceById, getProducts, getCompanySettings, saveDocumento, isSealed,
-  getAlmacenes,
+  getAlmacenes, getClientById,
 } from '@/lib/storage';
 import {
   Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, CompanySettings,
-  Product, Almacen,
+  Product, Almacen, Client,
 } from '@/lib/types';
 import { calculateInvoiceTotals } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -36,6 +36,8 @@ export default function EditarDocumentoPage() {
   const [clientNif, setClientNif] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [tarifaId, setTarifaId] = useState('');
+  // La ficha del cliente, para sus descuentos y precios especiales (sólo ventas).
+  const [cliente, setCliente] = useState<Client | null>(null);
   const [almacenId, setAlmacenId] = useState('');
   const [globalDiscounts, setGlobalDiscounts] = useState<[number, number, number]>([0, 0, 0]);
   const [issueDate, setIssueDate] = useState('');
@@ -75,6 +77,7 @@ export default function EditarDocumentoPage() {
         setClientNif(doc.clientNif || '');
         setClientAddress(doc.clientAddress || '');
         setTarifaId(doc.tarifaId || '');
+        if (doc.clientId && doc.sentido !== 'compra') setCliente((await getClientById(doc.clientId)) ?? null);
         setAlmacenId(doc.almacenId || '');
         setGlobalDiscounts([
           doc.globalDiscountPercent1 || 0,
@@ -307,6 +310,8 @@ export default function EditarDocumentoPage() {
         products={products}
         settings={settings}
         tarifaId={tarifaId}
+        defaultDiscounts={cliente?.defaultDiscounts}
+        cliente={cliente}
       />
 
       {/* Totales */}

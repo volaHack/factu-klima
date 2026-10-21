@@ -14,7 +14,7 @@ import {
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
   Almacen, Vendedor, Obra, Lote,
 } from '@/lib/types';
-import { tieneModulo } from '@/lib/modulos';
+import { tieneModulo, modulosDe } from '@/lib/modulos';
 import {
   generateId, getToday, addDays, calculateInvoiceTotals, formatCurrency,
 } from '@/lib/utils';
@@ -97,10 +97,10 @@ function NuevoDocumentoContent() {
         setAlmacenes(loadedAlmacenes);
         setVendedores(loadedVendedores);
         setObras(loadedObras);
-        setModoObras(tieneModulo(loadedSettings?.modulos, 'obras'));
+        setModoObras(tieneModulo(modulosDe(loadedSettings), 'obras'));
         setLotes(loadedLotes);
-        setModoLotes(tieneModulo(loadedSettings?.modulos, 'lotes'));
-        setModoRetenciones(tieneModulo(loadedSettings?.modulos, 'retenciones'));
+        setModoLotes(tieneModulo(modulosDe(loadedSettings), 'lotes'));
+        setModoRetenciones(tieneModulo(modulosDe(loadedSettings), 'retenciones'));
 
         const principalAlm = loadedAlmacenes.find(a => a.principal) || loadedAlmacenes[0];
         if (principalAlm) {
@@ -505,6 +505,7 @@ function NuevoDocumentoContent() {
         settings={settings}
         tarifaId={tarifaId}
         defaultDiscounts={selectedClient?.defaultDiscounts}
+        cliente={sentido === 'venta' ? selectedClient : null}
         lotes={modoLotes ? lotes : []}
       />
 

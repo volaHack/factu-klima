@@ -38,6 +38,7 @@ import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
 import { registrarActividad } from './perfilesCliente';
 import { totalAPagar } from './retenciones';
+import { leerDescuentosFamilia, leerPreciosEspeciales } from './preciosCliente';
 import { mapGastoFromDb, mapInvoiceFromDb, mapLineItemFromDb } from './mapeosDb';
 export { mapGastoFromDb, mapInvoiceFromDb, mapLineItemFromDb };
 
@@ -1013,6 +1014,12 @@ export async function saveClient(client: Client): Promise<void> {
     vat_number: client.vatNumber || null,
     dir3: client.dir3 && (client.dir3.oficinaContable || client.dir3.organoGestor || client.dir3.unidadTramitadora) ? client.dir3 : null,
     tipo_fiscal: client.tipoFiscal ?? null,
+    // Migración 067. Sólo se escriben si vienen: una pantalla que guarda la
+    // ficha sin conocerlos (el TPV, el importador) no puede dejar a un
+    // cliente sin sus precios especiales.
+    ...(client.codigo !== undefined ? { codigo: client.codigo.trim() || null } : {}),
+    ...(client.preciosEspeciales !== undefined ? { precios_especiales: client.preciosEspeciales } : {}),
+    ...(client.descuentosFamilia !== undefined ? { descuentos_familia: client.descuentosFamilia } : {}),
   };
 
   const offlineAvail = await isOfflineDbAvailable();
@@ -3369,6 +3376,12 @@ export function mapClientFromDb(c: any): Client {
     defaultDiscounts: Array.isArray(c.default_discounts)
       ? [Number(c.default_discounts[0] ?? 0), Number(c.default_discounts[1] ?? 0), Number(c.default_discounts[2] ?? 0)]
       : undefined,
+    // Sin la columna (copia local de antes de la migración 067) se quedan
+    // sin definir, no vacías: así guardar esa copia no borra lo que haya en
+    // el servidor (ver saveClient).
+    codigo: typeof c.codigo === 'string' ? c.codigo : undefined,
+    preciosEspeciales: c.precios_especiales === undefined ? undefined : leerPreciosEspeciales(c.precios_especiales),
+    descuentosFamilia: c.descuentos_familia === undefined ? undefined : leerDescuentosFamilia(c.descuentos_familia),
   };
 }
 

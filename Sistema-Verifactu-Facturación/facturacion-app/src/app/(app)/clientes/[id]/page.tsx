@@ -10,6 +10,7 @@ import { getClientById, getInvoices, getVendedores, getCompanySettings } from '@
 import { Client, Invoice, InvoiceStatus, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import CondicionesEspeciales from '@/components/clientes/CondicionesEspeciales';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -94,7 +95,7 @@ export default function ClientDetailPage() {
               {client.active ? 'Activo' : 'Inactivo'}
             </span>
           </div>
-          <p className="page-subtitle">{client.businessName} · {client.nif}</p>
+          <p className="page-subtitle">{client.codigo ? `Cód. ${client.codigo} · ` : ''}{client.businessName} · {client.nif}</p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
           {esProveedor ? (
@@ -219,6 +220,10 @@ export default function ClientDetailPage() {
               </table>
             </div>
           </div>
+
+          {!esProveedor && (
+            <CondicionesEspeciales client={client} settings={settings} onGuardado={setClient} />
+          )}
         </div>
 
         <div className="detail-sidebar">
@@ -275,6 +280,17 @@ export default function ClientDetailPage() {
                     <span className="badge badge-info">
                       {[client.defaultDiscounts[0], client.defaultDiscounts[1], client.defaultDiscounts[2]].filter(d => d > 0).map(d => `${d}%`).join(' + ')}
                     </span>
+                  </span>
+                </div>
+              )}
+              {!esProveedor && ((client.preciosEspeciales?.length ?? 0) > 0 || (client.descuentosFamilia?.length ?? 0) > 0) && (
+                <div className="def-row">
+                  <span className="def-label">Precios especiales</span>
+                  <span className="def-value">
+                    {[
+                      client.preciosEspeciales?.length ? `${client.preciosEspeciales.filter(p => p.activo).length} de ${client.preciosEspeciales.length} artículos` : '',
+                      client.descuentosFamilia?.length ? `${client.descuentosFamilia.filter(f => f.activo).length} de ${client.descuentosFamilia.length} familias` : '',
+                    ].filter(Boolean).join(' · ')}
                   </span>
                 </div>
               )}

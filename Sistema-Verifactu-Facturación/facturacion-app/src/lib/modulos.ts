@@ -249,6 +249,17 @@ export function apagar(activos: ModuloId[], id: ModuloId): ModuloId[] {
   return activos.filter(a => !fuera.has(a));
 }
 
+/**
+ * Los módulos encendidos de una empresa: los que eligió o, si no ha elegido
+ * nunca, los de su sector. Es lo mismo que enseña el menú lateral; una
+ * pantalla que mirara sólo `settings.modulos` vería «nada encendido» en una
+ * cuenta recién creada y escondería, por ejemplo, el lote en el albarán de
+ * un distribuidor de alimentación cuyo menú sí enseña «Lotes».
+ */
+export function modulosDe(settings: { modulos?: ModuloId[]; sector?: BusinessSector } | null | undefined): ModuloId[] {
+  return settings?.modulos ?? modulosPorDefecto(settings?.sector);
+}
+
 /** Si una empresa tiene encendido un módulo. */
 export function tieneModulo(activos: ModuloId[] | undefined, id: ModuloId): boolean {
   return (activos ?? []).includes(id);

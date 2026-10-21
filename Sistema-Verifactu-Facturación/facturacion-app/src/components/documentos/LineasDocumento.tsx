@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
-import { InvoiceLineItem, CompanySettings, Product, Lote } from '@/lib/types';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag } from 'lucide-react';
+import { InvoiceLineItem, CompanySettings, Product, Lote, Client } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { formatCurrency } from '@/lib/utils';
-import { recalcularLinea, lineaVacia, getPrecioProductoParaCliente } from '@/lib/documentos';
+import { recalcularLinea, lineaVacia, condicionesDeVenta } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
@@ -23,6 +23,12 @@ interface LineasDocumentoProps {
   settings: CompanySettings;
   tarifaId?: string;
   defaultDiscounts?: [number, number, number];
+  /**
+   * Las condiciones del cliente (precios especiales y descuentos por familia,
+   * migración 067). Sólo en documentos de VENTA: en una compra la ficha es la
+   * del proveedor y sus precios no son los nuestros.
+   */
+  cliente?: Pick<Client, 'preciosEspeciales' | 'descuentosFamilia'> | null;
   columnasCustom?: ColumnaPersonalizada[];
   /** Sin esto, el título lo pone el oficio de la empresa (ver `vocabularioDe`). */
   titulo?: string;
@@ -41,6 +47,7 @@ export default function LineasDocumento({
   settings,
   tarifaId,
   defaultDiscounts,
+  cliente,
   columnasCustom = [],
   titulo,
   lotes = [],
@@ -87,17 +94,18 @@ export default function LineasDocumento({
     const product = products.find(p => p.id === productId);
     const updated = [...lineItems];
     if (product) {
-      const resolvedPrice = getPrecioProductoParaCliente(product, tarifaId, settings.tarifas);
-      const d1 = updated[index].discountPercent || defaultDiscounts?.[0] || 0;
-      const d2 = updated[index].discountPercent2 || defaultDiscounts?.[1] || 0;
-      const d3 = updated[index].discountPercent3 || defaultDiscounts?.[2] || 0;
+      // Precio y descuentos con las condiciones del cliente: su precio
+      // especial, el descuento del artículo o el de la familia, y si no hay
+      // nada de eso, su tarifa y los descuentos de su ficha (documentos.ts).
+      const cond = condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
+      const [d1, d2, d3] = cond.descuentos;
 
       updated[index] = recalcularLinea({
         ...updated[index],
         productId: product.id,
         productName: product.name,
         productRef: product.ref,
-        unitPrice: resolvedPrice,
+        unitPrice: cond.unitPrice,
         unit: product.unit,
         taxRate: product.defaultTaxRate,
         // Las unidades por bulto vienen de la ficha del producto: se ponen
@@ -156,6 +164,20 @@ export default function LineasDocumento({
       nueva.discountPercent3 = defaultDiscounts[2] || 0;
     }
     onChange([...lineItems, recalcularLinea(nueva)]);
+  };
+
+  /** Qué condición de este cliente toca a este artículo, dicho en una frase. */
+  const condicionEspecial = (productId: string): string | null => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return null;
+    const cond = condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
+    const pct = (n: number) => `${n.toLocaleString('es-ES')} %`;
+    if (cond.origen === 'precio_especial') {
+      return `Precio especial de este cliente: ${formatCurrency(cond.unitPrice)}${cond.descuentos[0] ? ` con un ${pct(cond.descuentos[0])} de descuento` : ''}`;
+    }
+    if (cond.origen === 'descuento_articulo') return `Este cliente tiene un ${pct(cond.descuentos[0])} de descuento en este artículo`;
+    if (cond.origen === 'descuento_familia') return `Este cliente tiene un ${pct(cond.descuentos[0])} de descuento en esta familia`;
+    return null;
   };
 
   const removeLine = (index: number) => {
@@ -346,6 +368,13 @@ export default function LineasDocumento({
                   </label>
                 ))}
               </div>
+
+              {/* Si a este cliente se le cobra este artículo distinto, se dice:
+                  quien hace el albarán ve por qué el precio no es el de la
+                  tarifa, y si lo cambia a mano lo hace sabiéndolo. */}
+              {line.productId && cliente && condicionEspecial(line.productId) && (
+                <p className="lineas-doc-pie"><Tag size={12} aria-hidden /> {condicionEspecial(line.productId)}</p>
+              )}
 
               {/* Lo que de verdad se descarga del camión, dicho aquí para no
                   tener que multiplicarlo de cabeza. */}
