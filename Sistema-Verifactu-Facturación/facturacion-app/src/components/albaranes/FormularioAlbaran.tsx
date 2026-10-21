@@ -18,7 +18,7 @@ import {
 import { generateId, generateInvoiceNumber, sequenceFromNumber, getToday, formatCurrency, calculateInvoiceTotals } from '@/lib/utils';
 import { getTaxLabel } from '@/lib/constants';
 import { lineaVacia } from '@/lib/documentos';
-import { tieneModulo } from '@/lib/modulos';
+import { tieneModulo, modulosDe } from '@/lib/modulos';
 import { useToast } from '@/hooks/useToast';
 import { problemasDeLineas } from '@/lib/validation/lineas';
 
@@ -53,7 +53,7 @@ export default function FormularioAlbaran({ albaranId }: { albaranId?: string })
       setProducts(p.filter(pr => pr.active));
       setSettings(settings);
       setLotes(loadedLotes);
-      setModoLotes(tieneModulo(settings.modulos, 'lotes'));
+      setModoLotes(tieneModulo(modulosDe(settings), 'lotes'));
       if (albaranId) {
         const a = await getAlbaranById(albaranId);
         if (!a || a.status !== 'borrador') {
@@ -269,6 +269,8 @@ export default function FormularioAlbaran({ albaranId }: { albaranId?: string })
             products={products}
             settings={settings}
             tarifaId={selectedClient?.tarifaId}
+            defaultDiscounts={selectedClient?.defaultDiscounts}
+            cliente={selectedClient}
             lotes={modoLotes ? lotes : []}
           />
         )}

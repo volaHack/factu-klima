@@ -9,7 +9,7 @@ import {
   getOrdenesTrabajo, saveOrdenTrabajo, deleteOrdenTrabajo, getClients, getVendedores, getCompanySettings,
 } from '@/lib/storage';
 import { diasAbierta, numeroDeOrden, siguienteEstado } from '@/lib/ordenesTrabajo';
-import { tieneModulo } from '@/lib/modulos';
+import { tieneModulo, modulosDe } from '@/lib/modulos';
 import { OrdenTrabajo, EstadoOrdenTrabajo, Client, Vendedor } from '@/lib/types';
 import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
@@ -43,7 +43,7 @@ export default function OrdenesTrabajoPage() {
     setOrdenes(o);
     setClientes(c);
     setTecnicos(t);
-    setModoObras(tieneModulo(settings?.modulos, 'obras'));
+    setModoObras(tieneModulo(modulosDe(settings), 'obras'));
   };
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function OrdenesTrabajoPage() {
       setOrdenes(o);
       setClientes(c);
       setTecnicos(t);
-      setModoObras(tieneModulo(settings?.modulos, 'obras'));
+      setModoObras(tieneModulo(modulosDe(settings), 'obras'));
       setMounted(true);
     })();
     return () => { vivo = false; };

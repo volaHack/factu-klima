@@ -1,0 +1,24 @@
+«¿Cuántas te pasan?» — créditos de material de terceros
+
+Técnica y herramientas
+- Lemo-Opuscar (github.com/lemomo-ai/lemo-opuscar), licencia MIT: las herramientas de core/render (fotogramas,
+  eventos, control de lectura, vídeo) y mux.sh (copia local en mux_local.sh). La composición (main.js, world.js,
+  cards.js, pieces.js, data.js, timeline.js), lib.js y fx.js (de «La cadena») y el sonido (mix.py) están escritos
+  para estos vídeos.
+- onetake (github.com/feitangyuan/onetake): no se usa. Su licencia (PolyForm Noncommercial 1.0.0) no permite el uso
+  comercial y esto es un anuncio, así que de ella no se ha tomado código, scripts, plantillas, aspectos ni sonidos.
+  Solo se han seguido, escritos desde cero, principios generales que explica su documentación: una toma con cámara de
+  operador, golpes que se arrastran de uno al siguiente, pausas quietas, obturador real y efectos en una misma sala.
+
+Tipografías (SIL Open Font License 1.1; las licencias completas están en fonts/)
+- IBM Plex Sans e IBM Plex Mono (IBM Corp.): las de la marca, las mismas que usan la app y la web.
+
+Marca
+- El logotipo (el cuadrado tinta, la K y la chispa) se dibuja con las mismas coordenadas que public/klima-mark.svg de
+  la app, del cliente. El sello de lacre («Registro sellado · SHA-256 · Cadena íntegra») y el raíl rosa del papel siguen
+  el diseño de la web.
+- Los 30 dolores son textos propios; cada solución corresponde a una función del programa (ver TREATMENT.md, sección 4).
+- «Bizum» y «Verifactu» se nombran como forma de pago y como norma; no se usa ningún logotipo de terceros.
+
+Música y efectos
+- Pista, efectos y sala sintetizados en código para este vídeo (mix.py). Sin muestras ni música de terceros.

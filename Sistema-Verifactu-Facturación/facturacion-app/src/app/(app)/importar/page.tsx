@@ -20,17 +20,17 @@ import {
 
 import { useToast } from '@/hooks/useToast';
 import {
-  getClients, getCompanySettings, getProducts, saveClient, saveProduct,
+  getClients, getCompanyCategories, getCompanySettings, getProducts, saveClient, saveCompanySettings, saveProduct,
 } from '@/lib/storage';
 import {
-  ETIQUETAS, camposDe, celdaATexto, decodificarTexto, detectarColumnas, detectarTipo, filaDeCabecera,
-  leerCsv, resumen, revisarClientes, revisarProductos,
+  ETIQUETAS, camposDe, celdaATexto, decodificarTexto, detectarColumnas, detectarTipo, esXlsBinario, filaDeCabecera,
+  leerCsv, resolverCategorias, resumen, revisarClientes, revisarProductos,
   type EstadoFila, type FilaRevisada, type Mapeo, type Tabla, type TipoImportacion,
 } from '@/lib/importar/importar';
 import { generateId } from '@/lib/utils';
 import type { Client, Product } from '@/lib/types';
 
-const PROGRAMAS = 'Holded, Contasimple, Factusol, Quipu, Sage, Anfix, Billin o tu propia hoja de cálculo';
+const PROGRAMAS = 'Holded, Contasimple, Factusol, ISECAN, Quipu, Sage, Anfix, Billin o tu propia hoja de cálculo';
 
 const ESTADOS: Record<EstadoFila, { texto: string; clase: string }> = {
   nuevo: { texto: 'Se crea', clase: 'imp-estado--nuevo' },
@@ -85,10 +85,14 @@ export default function ImportarPage() {
         const { readSheet } = await import('read-excel-file/browser');
         const hoja = await readSheet(fichero);
         datos = hoja.map(f => f.map(celdaATexto)).filter(f => f.some(c => c !== ''));
-      } else if (/\.xls$/i.test(fichero.name)) {
-        throw new Error('Los .xls antiguos no se pueden leer. Ábrelo en Excel y guárdalo como .xlsx o como CSV.');
       } else {
-        datos = leerCsv(decodificarTexto(new Uint8Array(await fichero.arrayBuffer())));
+        const bytes = new Uint8Array(await fichero.arrayBuffer());
+        // Un .xls puede ser un texto con tabuladores (lo que «exporta a
+        // Excel» ISECAN, entre otros): ese se lee. Uno binario de verdad, no.
+        if (/\.xls$/i.test(fichero.name) && esXlsBinario(bytes)) {
+          throw new Error('Los .xls antiguos no se pueden leer. Ábrelo en Excel y guárdalo como .xlsx o como CSV.');
+        }
+        datos = leerCsv(decodificarTexto(bytes));
       }
       if (datos.length < 2) throw new Error('El archivo no tiene filas con datos.');
 
@@ -112,10 +116,38 @@ export default function ImportarPage() {
     setImportando({ hechos: 0, total: aCrear.length });
     const fallidos: string[] = [];
     let creados = 0;
+
+    // Las familias del archivo, en categorías del programa: se reconocen las
+    // que ya existen (por nombre o por su número) y se crean las que faltan,
+    // de una vez, antes de guardar ningún producto.
+    let categoriaDe = (valor: string | undefined): string => valor || 'otros';
+    if (tipo === 'productos') {
+      try {
+        const [ajustes, categorias] = await Promise.all([getCompanySettings(), getCompanyCategories()]);
+        const sello = Date.now();
+        const { porValor, nuevas } = resolverCategorias(
+          aCrear.map(f => (f.ficha as Product).category ?? ''), categorias, (() => { let n = 0; return () => `custom_${sello}_${++n}`; })(),
+        );
+        if (nuevas.length > 0 && ajustes) {
+          await saveCompanySettings({
+            ...ajustes,
+            customCategories: [
+              ...(ajustes.customCategories ?? []),
+              ...nuevas.map(c => ({ id: c.id, name: c.name, icon: 'Package', sector: ajustes.sector })),
+            ],
+          }, { categorias: true });
+        }
+        categoriaDe = valor => porValor.get((valor ?? '').trim()) ?? 'otros';
+      } catch (e) {
+        avisarError('No se han podido crear las familias', e instanceof Error ? e.message : 'Los productos irán a «Otros».');
+        categoriaDe = () => 'otros';
+      }
+    }
+
     for (const f of aCrear) {
       try {
         if (tipo === 'clientes') await saveClient(f.ficha as Client);
-        else await saveProduct(f.ficha as Product);
+        else await saveProduct({ ...(f.ficha as Product), category: categoriaDe((f.ficha as Product).category) });
         creados++;
       } catch (e) {
         fallidos.push(`Fila ${f.fila} (${f.titulo}): ${e instanceof Error ? e.message : 'error'}`);

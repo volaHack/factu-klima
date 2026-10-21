@@ -254,6 +254,10 @@ export default function EditInvoicePage() {
     );
   }
 
+  // Las condiciones del cliente, igual que al crearla: su tarifa, sus
+  // descuentos y sus precios especiales.
+  const clienteActual = clienteOcasional ? undefined : clients.find(c => c.id === clientId);
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -340,6 +344,9 @@ export default function EditInvoicePage() {
             onChange={setLineItems}
             products={products}
             settings={ajustes}
+            tarifaId={clienteActual?.tarifaId}
+            defaultDiscounts={clienteActual?.defaultDiscounts}
+            cliente={clienteActual}
             columnasCustom={columnasCustom}
           />
         )}

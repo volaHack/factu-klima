@@ -1,0 +1,42 @@
+¿Quién sale antes? (plano secuencia) — créditos de material de terceros
+
+Técnica y herramientas
+- Lemo-Opuscar (github.com/lemomo-ai/lemo-opuscar), licencia MIT: estilo «Game Show Flat» (gramática de plató,
+  rondas, veredictos y rótulos con trazo), las herramientas core/ (render de fotogramas, eventos, readcheck,
+  srt.py, core/lib.js) y mux.sh (copia local en mux_local.sh). El dibujo, los personajes, el plató, la cámara,
+  el collage, la partitura y la mezcla de esta película están escritos para ella (kit.js, chars.js, ui.js,
+  main.js, collage.js, mix.py).
+
+Dirección visual
+- darin-broll-skill (github.com/jidarin9383/darin-broll-skill), licencia MIT, Copyright (c) 2026 狗哥笔记 y
+  Copyright (c) 2026 Darin Ji: la gramática visual del collage de la ronda extra (campo de papel plano, recortes
+  en semitono con filete crema y sombra suave, cartulinas de acento, montaje pieza a pieza y pausa final). La skill
+  es un flujo de indicaciones; no se ha copiado código suyo. collage.js lleva su atribución.
+- onetake (github.com/feitangyuan/onetake): no se usa. Su licencia (PolyForm Noncommercial 1.0.0) no permite el
+  uso comercial, así que de ella no se ha tomado código, scripts, plantillas, aspectos ni sonidos. Solo se han
+  seguido, escritos desde cero, principios generales que explica su documentación (pausas de cámara quietas,
+  asentamiento al llegar, nada de confeti, una sala común para los efectos).
+
+Voz
+- Kokoro v1.0 (hexgrad/Kokoro-82M), licencia Apache 2.0, con kokoro-onnx (MIT). Voces: em_santa (presentador),
+  em_alex (Javier, +2 semitonos), ef_dora (Lucía, +1 semitono; y el público, apilado).
+- Comprobación de voz (no aparece en la película): Whisper small (OpenAI, MIT) con sherpa-onnx (Apache 2.0).
+
+Tipografías (SIL Open Font License 1.1; las licencias completas están en fonts/*-OFL.txt)
+- Fredoka (The Fredoka Project Authors): rótulos del plató, subtítulos y veredictos.
+- IBM Plex Sans (IBM Corp.) y Fraunces (The Fraunces Project Authors): la interfaz de Klimafacturas en el móvil,
+  las mismas que usa la aplicación.
+  Fuente de los archivos: github.com/google/fonts (carpetas ofl/fredoka, ofl/ibmplexsans, ofl/fraunces).
+
+Música y efectos
+- Partitura, foley, aplausos, murmullo del público y la sala del plató (una respuesta al impulso sintética)
+  hechos en código para esta película (mix.py). Sin muestras ni música de terceros.
+
+Marca
+- Nombre, logotipo e interfaz de Klimafacturas: propiedad de su titular (el cliente), redibujados con sus colores
+  y tipografías reales.
+- collage/*.png: capturas reales del programa Klimafacturas del cliente, hechas en local (Supabase simulado, datos
+  inventados: «Estudio Lucía», «Grupo Ribera SL», «Tienda Lucía»…). No contienen datos de ningún cliente real.
+  collage/ht/*.png son esas mismas capturas pasadas a semitono por halftone.py.
+- Personajes (Javier, Lucía, el presentador y el público), «Grupo Ribera SL», «Papelería Sol» y «Gestoría García»:
+  inventados para este anuncio.

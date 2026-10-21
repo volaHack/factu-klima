@@ -1,0 +1,58 @@
+{
+ "cadena": [
+  {
+   "num": "FAC-2026/0145",
+   "fecha": "2026-10-15",
+   "hora": "09:14",
+   "cliente": "Taller Ortiz",
+   "total": 290.4,
+   "anterior": "0000000000000000000000000000000000000000000000000000000000000000",
+   "huella": "ae850c9b99d6d023f95d0c97ef0acf68e9c4ce0b31c42d9e0c311328afd1cad0"
+  },
+  {
+   "num": "FAC-2026/0146",
+   "fecha": "2026-10-15",
+   "hora": "12:37",
+   "cliente": "Frutas Lola",
+   "total": 2420.0,
+   "anterior": "ae850c9b99d6d023f95d0c97ef0acf68e9c4ce0b31c42d9e0c311328afd1cad0",
+   "huella": "3882933b309e98fffe67b7ddfefd4547d76ce1777922ea34e4ea46d76d9caa88"
+  },
+  {
+   "num": "FAC-2026/0147",
+   "fecha": "2026-10-16",
+   "hora": "10:05",
+   "cliente": "Papelería Sol",
+   "total": 104.67,
+   "anterior": "3882933b309e98fffe67b7ddfefd4547d76ce1777922ea34e4ea46d76d9caa88",
+   "huella": "cd05e0c7562c40b8292030327852f524969ff395409ed8c9989b72e0523a064e"
+  },
+  {
+   "num": "FAC-2026/0148",
+   "fecha": "2026-10-16",
+   "hora": "16:48",
+   "cliente": "Clínica Mar",
+   "total": 550.55,
+   "anterior": "cd05e0c7562c40b8292030327852f524969ff395409ed8c9989b72e0523a064e",
+   "huella": "1b19013efed58145b0b391c3f406139ac0ad3ee00482c91c6541b5acf12d35af"
+  },
+  {
+   "num": "FAC-2026/0149",
+   "fecha": "2026-10-19",
+   "hora": "10:42",
+   "cliente": "Grupo Ribera SL",
+   "total": 1210.0,
+   "anterior": "1b19013efed58145b0b391c3f406139ac0ad3ee00482c91c6541b5acf12d35af",
+   "huella": "7da777a8180039aa67b5146a8893efecc0206ba5c3a706e1fc698b71ccd1af78"
+  }
+ ],
+ "centimo": {
+  "total": 1210.01,
+  "huella": "c10f2ecfc4823b6c8dc11844c1acc2b3640c277741c2685513369271375c0e2e"
+ },
+ "tocada": {
+  "i": 1,
+  "total": 242.0,
+  "huella": "006515b1fb09efde4149c0473745ff41dd08c92251eeeb4d5c26b26344d985b1"
+ }
+}

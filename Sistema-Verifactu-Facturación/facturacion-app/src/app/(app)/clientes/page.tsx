@@ -51,6 +51,7 @@ export default function ClientesPage() {
     contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'ES',
     paymentDays: 30, defaultPaymentMethod: PaymentMethod.TRANSFERENCIA as PaymentMethod,
     notes: '', active: true, esProveedor: false, vendedorId: '',
+    codigo: '',
     tarifaId: '',
     defaultDiscounts: [0, 0, 0] as [number, number, number],
     dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
@@ -127,6 +128,7 @@ export default function ClientesPage() {
       list = list.filter(c =>
         c.businessName.toLowerCase().includes(q) ||
         c.tradeName.toLowerCase().includes(q) ||
+        (c.codigo ?? '').toLowerCase().includes(q) ||
         c.nif.toLowerCase().includes(q) ||
         c.city.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q)
@@ -228,6 +230,7 @@ export default function ClientesPage() {
       notes: '', active: true,
       esProveedor: tipoContactoFilter === 'proveedores',
       vendedorId: '',
+      codigo: '',
       tarifaId: '',
       defaultDiscounts: [0, 0, 0],
       dir3: { oficinaContable: '', organoGestor: '', unidadTramitadora: '' },
@@ -248,6 +251,7 @@ export default function ClientesPage() {
       notes: client.notes, active: client.active,
       esProveedor: client.esProveedor ?? false,
       vendedorId: client.vendedorId || '',
+      codigo: client.codigo || '',
       tarifaId: client.tarifaId || '',
       defaultDiscounts: client.defaultDiscounts || [0, 0, 0],
       dir3: {
@@ -273,8 +277,13 @@ export default function ClientesPage() {
       return;
     }
     const client: Client = {
+      // Se parte de la ficha guardada: lo que este formulario no enseña (su
+      // grupo, su ruta, sus precios especiales…) no se puede perder al
+      // guardar un cambio de teléfono.
+      ...(editingClient ?? {}),
       id: editingClient?.id || generateId(),
       ...form,
+      codigo: form.codigo.trim(),
       vatNumber: form.vatNumber ? form.vatNumber.trim().toUpperCase() : undefined,
       vendedorId: form.vendedorId || undefined,
       tarifaId: form.tarifaId || undefined,
@@ -532,6 +541,7 @@ export default function ClientesPage() {
                   <td className="mono">{client.nif}</td>
                   <td className="primary">
                     <Link href={`/clientes/${client.id}`} className="cell-link">
+                      {client.codigo && <span className="mono" style={{ color: 'var(--text-muted)', marginRight: 'var(--space-2)' }}>{client.codigo}</span>}
                       {client.tradeName || client.businessName}
                     </Link>
                     {client.tradeName && <span className="cell-sub">{client.businessName}</span>}
@@ -612,6 +622,10 @@ export default function ClientesPage() {
                 <div className="form-group">
                   <label className="form-label">Nombre comercial (opcional)</label>
                   <input className="form-input" value={form.tradeName} onChange={e => updateForm('tradeName', e.target.value)} placeholder="Ej: Acme" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Código (opcional)</label>
+                  <input className="form-input mono" value={form.codigo} onChange={e => updateForm('codigo', e.target.value)} placeholder="Ej: 260" autoComplete="off" />
                 </div>
               </div>
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>

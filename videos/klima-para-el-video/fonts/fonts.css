@@ -1,0 +1,5 @@
+/* Tipografías de la marca (SIL Open Font License 1.1; licencias en este mismo directorio). */
+@font-face { font-family: 'Plex'; src: url('IBMPlexSans-var.ttf') format('truetype'); font-weight: 100 700; font-style: normal; }
+@font-face { font-family: 'PlexMono'; src: url('IBMPlexMono-500-latin.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'PlexMono'; src: url('IBMPlexMono-600-latin.woff2') format('woff2'); font-weight: 600; }
+@font-face { font-family: 'PlexMono'; src: url('IBMPlexMono-700-latin.woff2') format('woff2'); font-weight: 700; }

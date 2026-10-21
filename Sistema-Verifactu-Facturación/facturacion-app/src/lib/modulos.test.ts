@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
+import { modulosDe,
   MODULOS, GRUPOS_MODULO, modulosPorDefecto, encender, apagar, tieneModulo,
   type ModuloId,
 } from './modulos';
@@ -129,6 +129,19 @@ describe('con qué arranca cada sector', () => {
 
   it('quien no ha elegido sector arranca con lo básico', () => {
     expect(modulosPorDefecto(undefined).length).toBeGreaterThan(0);
+  });
+});
+
+describe('los módulos de una empresa', () => {
+  it('sin elegir nunca, los de su sector: lo mismo que enseña el menú', () => {
+    expect(modulosDe({ sector: 'alimentacion' })).toEqual(modulosPorDefecto('alimentacion'));
+    expect(modulosDe({ sector: 'alimentacion' })).toContain('lotes');
+    expect(modulosDe(null)).toEqual(modulosPorDefecto());
+  });
+
+  it('si ha elegido, lo suyo, aunque sea nada', () => {
+    expect(modulosDe({ sector: 'alimentacion', modulos: ['tpv'] })).toEqual(['tpv']);
+    expect(modulosDe({ sector: 'alimentacion', modulos: [] })).toEqual([]);
   });
 });
 

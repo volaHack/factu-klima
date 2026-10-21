@@ -1,7 +1,8 @@
 // Lógica compartida de documentos (factura, presupuesto, pedido, albarán…).
 import {
-  Invoice, InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento,
+  Invoice, InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento, Client,
 } from './types';
+import { descuentoFamiliaDe, precioEspecialDe } from './preciosCliente';
 import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax } from './utils';
 import { getDefaultTaxRate } from './constants';
 import { vocabularioDe } from './vocabulario';
@@ -83,6 +84,50 @@ export function getPrecioProductoParaCliente(
     }
   }
   return product.unitPrice;
+}
+
+/** De dónde sale el precio de una línea de venta (para decírselo a quien la hace). */
+export type OrigenPrecio = 'precio_especial' | 'descuento_articulo' | 'descuento_familia' | 'tarifa';
+
+/**
+ * Precio y descuentos de una línea de VENTA al elegir el artículo, con las
+ * condiciones del cliente (migración 067). Manda lo más concreto:
+ *
+ *   1. Precio especial del cliente para ese artículo: sustituye al de la
+ *      tarifa y a los descuentos de su ficha. Si además lleva descuento, va
+ *      en la línea (ISECAN permite los dos a la vez).
+ *   2. Descuento del cliente para ese artículo, sobre el precio de su tarifa.
+ *   3. Descuento del cliente para la familia del artículo, sobre su tarifa.
+ *   4. Lo de siempre: su tarifa y los descuentos de su ficha.
+ *
+ * En 2 y 3 el descuento ocupa el primer hueco y los otros dos (pronto pago,
+ * especial…) siguen siendo los de la ficha: son acuerdos distintos que se
+ * suman en cascada, no se pisan.
+ */
+export function condicionesDeVenta(
+  product: { id: string; category?: string; unitPrice: number; tarifaPrices?: Record<string, number> },
+  opts: {
+    tarifaId?: string;
+    tarifas?: Array<{ id: string; porcentajeDefecto?: number }>;
+    defaultDiscounts?: [number, number, number];
+    cliente?: Pick<Client, 'preciosEspeciales' | 'descuentosFamilia'> | null;
+  },
+): { unitPrice: number; descuentos: [number, number, number]; origen: OrigenPrecio } {
+  const ficha = opts.defaultDiscounts ?? [0, 0, 0];
+  const deTarifa = getPrecioProductoParaCliente(product, opts.tarifaId, opts.tarifas);
+  const especial = precioEspecialDe(opts.cliente, product.id);
+
+  if (especial?.precio) {
+    return { unitPrice: especial.precio, descuentos: [especial.descuento ?? 0, 0, 0], origen: 'precio_especial' };
+  }
+  if (especial?.descuento) {
+    return { unitPrice: deTarifa, descuentos: [especial.descuento, ficha[1] || 0, ficha[2] || 0], origen: 'descuento_articulo' };
+  }
+  const familia = descuentoFamiliaDe(opts.cliente, product.category);
+  if (familia) {
+    return { unitPrice: deTarifa, descuentos: [familia.descuento, ficha[1] || 0, ficha[2] || 0], origen: 'descuento_familia' };
+  }
+  return { unitPrice: deTarifa, descuentos: [ficha[0] || 0, ficha[1] || 0, ficha[2] || 0], origen: 'tarifa' };
 }
 
 /** Calcula las unidades pendientes de recibir (compras) y pendientes de entregar (ventas) */

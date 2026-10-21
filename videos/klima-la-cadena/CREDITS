@@ -1,0 +1,27 @@
+«La cadena» — créditos de material de terceros
+
+Técnica y herramientas
+- Lemo-Opuscar (github.com/lemomo-ai/lemo-opuscar), licencia MIT: las herramientas de core/render (fotogramas,
+  eventos, control de lectura, vídeo) y mux.sh (copia local en mux_local.sh). La composición (main.js, world.js,
+  paper.js, cards.js, fx.js, lib.js), la cadena (cadena.py) y el sonido (mix.py) están escritos para este vídeo.
+- onetake (github.com/feitangyuan/onetake): no se usa. Su licencia (PolyForm Noncommercial 1.0.0) no permite el uso
+  comercial y esto es un anuncio, así que de ella no se ha tomado código, scripts, plantillas, aspectos ni sonidos.
+  Solo se han seguido, escritos desde cero, principios generales que explica su documentación: una toma con cámara de
+  operador, golpes que se arrastran de uno al siguiente, pausas quietas, obturador real y efectos en una misma sala.
+
+Tipografías (SIL Open Font License 1.1; las licencias completas están en fonts/)
+- IBM Plex Sans e IBM Plex Mono (IBM Corp.) y Fraunces (The Fraunces Project Authors): las de la marca, las mismas
+  que usan la app y la web. Fuente de los archivos: github.com/google/fonts (ofl/ibmplexsans, ofl/fraunces) y
+  Google Fonts (IBM Plex Mono, Fraunces cursiva).
+
+Imagen y marca
+- img/mostrador-1920.webp: la foto de la portada de klimafacturas.com (public/img de la app), del cliente.
+- img/klima-mark.svg: el logotipo de la app (public/klima-mark.svg), del cliente. El sello de lacre, el raíl de la
+  cadena y la firma tipográfica (Plex en negrita con una palabra en Fraunces cursiva) siguen el diseño de la web.
+- Las facturas, sus clientes e importes («Grupo Ribera SL», «Frutas Lola», «Papelería Sol», «Clínica Mar»,
+  «Taller Ortiz») son inventados. Las huellas son SHA-256 de verdad, calculadas por cadena.py con el mismo esquema
+  que la cinta de la web.
+- «Bizum» se nombra como forma de pago; el círculo con la «B» es un dibujo genérico, no su logotipo.
+
+Música y efectos
+- Pista, efectos y sala sintetizados en código para este vídeo (mix.py). Sin muestras ni música de terceros.
