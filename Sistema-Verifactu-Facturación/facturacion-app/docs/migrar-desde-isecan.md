@@ -4,7 +4,8 @@ ISECAN «exporta a Excel» cada tabla como un **texto separado por tabuladores**
 `.xls`, una primera línea `Consulta1` y los importes entre comillas con el euro (`"1,79 €"`). El importador
 (`/importar`) lo lee tal cual desde octubre de 2026: no hace falta abrirlo en Excel ni convertirlo.
 
-Las facturas antiguas **no** se pasan (ver la cabecera de `src/lib/importar/importar.ts`): se quedan en ISECAN.
+Las facturas antiguas **no** se pasan como facturas (ver la cabecera de `src/lib/importar/importar.ts`): se
+quedan emitidas en ISECAN. Lo que sí se trae es su **historial de consulta**; ver «El histórico» al final.
 
 ## Qué tabla va a dónde
 
@@ -84,3 +85,23 @@ Klimafacturas tiene seis: transferencia, efectivo, domiciliación, pagaré, tarj
 2. Descuento del cliente para el artículo, sobre su tarifa.
 3. Descuento del cliente para la familia del artículo, sobre su tarifa.
 4. Su tarifa y los descuentos de su ficha.
+
+## El histórico (Cabeceras, Bases, Pagos, Relaciones)
+
+Estas cuatro tablas son los documentos ya emitidos en ISECAN: **solo cabeceras**, sin líneas de artículo. No
+pueden entrar en `invoices`: el trigger de Veri*Factu les crearía un registro pendiente de enviar a la AEAT,
+contarían en los modelos y en la contabilidad, y no se podrían borrar. Van a `historico_documentos`
+(migración 068), que solo se consulta: en la ficha de cada cliente o proveedor sale «Historial en ISECAN» con
+las facturas por año, la última factura, lo que quedó sin facturar y la lista de documentos.
+
+| Tabla de ISECAN | En `historico_documentos` |
+|---|---|
+| Cabeceras | Un documento por fila, según `Tipo` (ver `Tipos.txt`): 13 factura de venta, 12 albarán de venta, 10 pedido de venta, 8 factura de compra, 7 albarán de compra. El resto (entradas y salidas de almacén, regularizaciones, inventarios) no se pasa. |
+| Bases | `bases`: base y cuota por tipo de IGIC. La suma cuadra con `Impuestos` y `Total` de la cabecera. |
+| Pagos | `forma_pago`: la descripción de su `idFormaPago` en FormasPago. Es la forma de pago del documento, **no** un cobro: ISECAN deja `Pagado` a cero, así que de aquí no se sabe qué está cobrado. |
+| Relaciones | `pasa_a`: el documento posterior (`Tipo_D2` → `Tipo_D1`). Un albarán sin nada no llegó a facturarse. |
+
+- De los pedidos solo se pasan los que no llegaron a nada: los demás ya están en su factura.
+- `[FI=dd/mm/aaaa]` en Observaciones es una marca interna de ISECAN y se quita.
+- `idProveedorCliente` es el código del contacto: se enlaza con la ficha por el campo **Código**.
+

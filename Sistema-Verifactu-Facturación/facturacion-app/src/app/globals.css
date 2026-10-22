@@ -15624,3 +15624,9 @@ body {
   color: var(--text-secondary);
 }
 .chart-nota strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* Historial del programa anterior (ficha de cliente): en el móvil, la forma de pago sobra. */
+@media (max-width: 640px) {
+  .historial-anterior .col-forma { display: none; }
+  .historial-anterior .table th, .historial-anterior .table td { padding-left: var(--space-2); padding-right: var(--space-2); }
+}

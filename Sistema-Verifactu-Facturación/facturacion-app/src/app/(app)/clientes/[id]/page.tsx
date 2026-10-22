@@ -11,6 +11,7 @@ import { Client, Invoice, InvoiceStatus, Vendedor, CompanySettings } from '@/lib
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import CondicionesEspeciales from '@/components/clientes/CondicionesEspeciales';
+import HistorialAnterior from '@/components/clientes/HistorialAnterior';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -224,6 +225,8 @@ export default function ClientDetailPage() {
           {!esProveedor && (
             <CondicionesEspeciales client={client} settings={settings} onGuardado={setClient} />
           )}
+
+          <HistorialAnterior clientId={client.id} esProveedor={Boolean(esProveedor)} desde={fechaDesde} hasta={fechaHasta} />
         </div>
 
         <div className="detail-sidebar">
