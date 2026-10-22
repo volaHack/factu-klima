@@ -11,6 +11,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { idsMarcados } from './conciliar';
+import { todasLasFilas } from '../porTandas';
 import { diasParaCaducar, type Saldo } from './sincronia';
 import type { ConexionGuardada } from './sincronizar';
 
@@ -58,8 +59,10 @@ export async function conexionesDe(db: SupabaseClient, userId: string): Promise<
 /** Los movimientos que la empresa ya ha conciliado con un cobro, un pago o un gasto. */
 export async function conciliadosDe(db: SupabaseClient, userId: string): Promise<Map<string, string>> {
   const [cobros, gastos] = await Promise.all([
-    db.from('cobros_pagos').select('tipo, number, notas').eq('user_id', userId).like('notas', '%[banco:%'),
-    db.from('gastos').select('concepto, notas').eq('user_id', userId).like('notas', '%[banco:%'),
+    todasLasFilas((desde, hasta) => db.from('cobros_pagos').select('tipo, number, notas').eq('user_id', userId)
+      .like('notas', '%[banco:%').order('id').range(desde, hasta)),
+    todasLasFilas((desde, hasta) => db.from('gastos').select('concepto, notas').eq('user_id', userId)
+      .like('notas', '%[banco:%').order('id').range(desde, hasta)),
   ]);
   const hechos = new Map<string, string>();
   for (const c of (cobros.data ?? []) as { tipo: string; number: string; notas: string }[]) {

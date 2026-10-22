@@ -35,6 +35,7 @@ interface FakeChain {
   in: () => FakeChain;
   order: () => FakeChain;
   limit: () => FakeChain;
+  range: (desde: number, hasta: number) => Promise<ChainResult>;
   single: () => Promise<{ data: Row | null; error: null }>;
   maybeSingle: () => Promise<{ data: Row | null; error: null }>;
   upsert: (row: Row) => Promise<{ data: null; error: null }>;
@@ -53,6 +54,8 @@ function makeSupabase(store: Store, rpcCalls: Array<{ fn: string; args: Row }> =
       in: () => obj,
       order: () => obj,
       limit: () => obj,
+      // Como Supabase: sólo el tramo pedido.
+      range: async (desde: number, hasta: number) => ({ data: rows().slice(desde, hasta + 1), error: null }),
       single: async () => ({ data: rows()[0] ?? null, error: null }),
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
   upsert: async (row: Row) => {

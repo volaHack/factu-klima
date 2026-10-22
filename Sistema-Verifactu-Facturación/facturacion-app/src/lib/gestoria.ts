@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import { todasLasFilas } from './porTandas';
 
 /**
  * ACCESO DE LA GESTORÍA
@@ -171,15 +172,17 @@ export async function empresasQueLlevo(): Promise<EmpresaGestionada[]> {
 
 /** Las facturas selladas de una empresa en un año. Sólo lectura. */
 export async function facturasDeEmpresa(userId: string, anio: number): Promise<FacturaDeEmpresa[]> {
-  const { data, error } = await db()
+  const { data, error } = await todasLasFilas((desde, hasta) => db()
     .from('invoices')
     .select('id, number, issue_date, client_name, subtotal, total_tax, total, status')
     .eq('user_id', userId)
     .not('sealed_at', 'is', null)
     .gte('issue_date', `${anio}-01-01`)
     .lte('issue_date', `${anio}-12-31`)
-    .order('issue_date', { ascending: false });
-  if (error) throw new Error(error.message);
+    .order('issue_date', { ascending: false })
+    .order('id')
+    .range(desde, hasta));
+  if (error) throw new Error((error as { message: string }).message);
   return (data ?? []) as FacturaDeEmpresa[];
 }
 

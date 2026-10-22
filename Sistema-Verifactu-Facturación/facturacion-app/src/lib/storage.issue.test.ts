@@ -36,6 +36,7 @@ interface FakeChain {
   in: () => FakeChain;
   order: () => FakeChain;
   limit: () => FakeChain;
+  range: (desde: number, hasta: number) => Promise<ChainResult>;
   maybeSingle: () => Promise<{ data: Row | null; error: null }>;
   is: () => FakeChain;
   not: () => FakeChain;
@@ -62,6 +63,8 @@ function makeSupabase(store: Store) {
       in: () => obj,
       order: () => obj,
       limit: () => obj,
+      // Como Supabase: sólo el tramo pedido.
+      range: async (desde: number, hasta: number) => ({ data: rows().slice(desde, hasta + 1), error: null }),
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
       is: () => obj,
       not: () => obj,

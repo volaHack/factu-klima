@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseServicio } from '@/lib/supabase/servicio';
+import { todasLasFilas } from '@/lib/porTandas';
 import { cronAutorizado } from '@/lib/seguridad/secretos';
 import { correoDisponible, enviarCorreo } from '@/lib/recordatorios/correo';
 import { AJUSTES_POR_DEFECTO, CAMPO_AJUSTES, facturaDeFila, faltaLaTabla, type AjustesRecordatorios } from '@/lib/recordatorios/filas';
@@ -46,13 +47,18 @@ export async function GET(request: Request) {
 
   for (const cuenta of cuentas) {
     const [fac, cli, aj, rec] = await Promise.all([
-      db.from('invoices').select('*').eq('user_id', cuenta.id).in('status', ['emitida', 'pendiente', 'vencida', 'parcial']).lt('due_date', hoy),
-      db.from('clients').select('id, business_name, email').eq('user_id', cuenta.id),
+      todasLasFilas((desde, hasta) => db.from('invoices').select('*').eq('user_id', cuenta.id)
+        .in('status', ['emitida', 'pendiente', 'vencida', 'parcial']).lt('due_date', hoy).order('id').range(desde, hasta)),
+      todasLasFilas((desde, hasta) => db.from('clients').select('id, business_name, email').eq('user_id', cuenta.id)
+        .order('id').range(desde, hasta)),
       db.from('company_settings').select('business_name, trade_name, email, phone, iban').eq('user_id', cuenta.id).order('updated_at', { ascending: false }).limit(1),
-      db.from('recordatorios_cobro').select('cliente_id, enviado_en').eq('user_id', cuenta.id).order('enviado_en', { ascending: false }).limit(2000),
+      // Entero: con el tope de 1.000 filas, a quien se le avisó hace tiempo
+      // parecería no avisado nunca y se le volvería a escribir antes de hora.
+      todasLasFilas((desde, hasta) => db.from('recordatorios_cobro').select('cliente_id, enviado_en').eq('user_id', cuenta.id)
+        .order('enviado_en', { ascending: false }).order('id').range(desde, hasta)),
     ]);
     if (rec.error) {
-      resumen.errores.push(faltaLaTabla(rec.error) ? 'Falta la migración 051 (recordatorios_cobro).' : rec.error.message);
+      resumen.errores.push(faltaLaTabla(rec.error) ? 'Falta la migración 051 (recordatorios_cobro).' : (rec.error as { message: string }).message);
       break; // sin registro no se puede saber qué se ha enviado: mejor no enviar nada
     }
     if (fac.error || !fac.data?.length) continue;

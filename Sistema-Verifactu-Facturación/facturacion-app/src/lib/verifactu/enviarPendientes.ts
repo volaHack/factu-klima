@@ -10,6 +10,7 @@ import { estadoLocalDe, parsearRespuestaAeat, resumirRespuesta } from '@/lib/ver
 import { productorDePlataforma } from '@/lib/plataforma/productor';
 import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
 import { ESTADOS_PENDIENTES } from '@/lib/verifactu/entorno';
+import { todasLasFilas } from '@/lib/porTandas';
 
 const TAMANO_LOTE = 100;
 
@@ -213,12 +214,17 @@ export async function enviarPendientes(
     db.from('invoices')
       .select('id, client_name, client_nif, client_vat_number, es_intracomunitaria, clave_regimen_iva, tipo, documento_origen_number, documento_origen_id, issue_date, notes, datos_extras')
       .in('id', idsFactura),
-    db.from('invoice_tax_breakdown').select('invoice_id, rate, base_amount, tax_amount').in('invoice_id', idsFactura),
-    db.from('invoice_line_items').select('invoice_id, product_name').in('invoice_id', idsFactura),
+    todasLasFilas((desde, hasta) => db.from('invoice_tax_breakdown').select('invoice_id, rate, base_amount, tax_amount')
+      .in('invoice_id', idsFactura).order('invoice_id').order('id').range(desde, hasta)),
+    todasLasFilas((desde, hasta) => db.from('invoice_line_items').select('invoice_id, product_name')
+      .in('invoice_id', idsFactura).order('invoice_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta)),
+    // Sólo el registro inmediatamente anterior a cada uno del lote, que es
+    // el que se encadena: pedir «todos los anteriores» se quedaba en los
+    // 1.000 primeros y, pasado el registro 1.000, el encadenamiento salía vacío.
     db.from('verifactu_registros')
       .select('indice, id_emisor, num_serie, fecha_expedicion')
       .eq('user_id', userId)
-      .lt('indice', lote[lote.length - 1].indice + 1),
+      .in('indice', [...new Set(lote.map(r => r.indice - 1))]),
   ]);
 
   const porFactura = new Map((facturas ?? []).map(f => [f.id, f as unknown as FilaFactura]));

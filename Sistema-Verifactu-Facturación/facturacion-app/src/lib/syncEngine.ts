@@ -6,6 +6,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { faltaSegundoFactor } from '@/lib/seguridad/sesionCliente';
 import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
+import { porTrozos, todasLasFilas } from './porTandas';
 import {
   getSyncQueue,
   removeSyncItem,
@@ -427,9 +428,12 @@ export async function fullDownloadToOffline(): Promise<void> {
       { data: products },
       { data: settings },
     ] = await Promise.all([
-      mio(supabase.from('invoices').select('*')).order('issue_date', { ascending: false }),
-      mio(supabase.from('clients').select('*')).order('business_name', { ascending: true }),
-      supabase.from('products').select('*').order('name', { ascending: true }),
+      todasLasFilas((desde, hasta) => mio(supabase.from('invoices').select('*'))
+        .order('issue_date', { ascending: false }).order('id').range(desde, hasta)),
+      todasLasFilas((desde, hasta) => mio(supabase.from('clients').select('*'))
+        .order('business_name', { ascending: true }).order('id').range(desde, hasta)),
+      todasLasFilas((desde, hasta) => supabase.from('products').select('*')
+        .order('name', { ascending: true }).order('id').range(desde, hasta)),
       mio(supabase.from('company_settings').select('*')).order('updated_at', { ascending: false }).limit(1),
     ]);
 
@@ -437,8 +441,10 @@ export async function fullDownloadToOffline(): Promise<void> {
       // Also fetch line items and tax breakdowns
       const invoiceIds = invoices.map((i: { id: string }) => i.id);
       const [{ data: lineItems }, { data: taxBreakdown }] = await Promise.all([
-        supabase.from('invoice_line_items').select('*').in('invoice_id', invoiceIds),
-        supabase.from('invoice_tax_breakdown').select('*').in('invoice_id', invoiceIds),
+        porTrozos(invoiceIds, trozo => todasLasFilas((desde, hasta) => supabase.from('invoice_line_items').select('*')
+          .in('invoice_id', trozo).order('invoice_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta))),
+        porTrozos(invoiceIds, trozo => todasLasFilas((desde, hasta) => supabase.from('invoice_tax_breakdown').select('*')
+          .in('invoice_id', trozo).order('invoice_id').order('id').range(desde, hasta))),
       ]);
 
       // Store invoices with embedded line items and tax breakdown

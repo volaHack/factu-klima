@@ -32,6 +32,7 @@ import { urlDelSitio } from '../sitio';
 import { avisosImportantes, huellaAvisos, tocaAvisar } from './avisos';
 import { correoAvisos, correoResumen, type Destinatario } from './correos';
 import { mesAnteriorA, resumenDelMes } from './resumen';
+import { porTrozos, todasLasFilas } from '../porTandas';
 
 interface Preferencias {
   user_id: string;
@@ -65,14 +66,16 @@ export async function datosDeEmpresa(db: SupabaseClient, userId: string): Promis
   const [{ data: ajustes }, { data: filas }, { data: filasGastos }] = await Promise.all([
     db.from('company_settings').select('business_name, trade_name, nif, igic_enabled').eq('user_id', userId)
       .order('updated_at', { ascending: false }).limit(1).maybeSingle(),
-    db.from('invoices').select('*').eq('user_id', userId),
-    db.from('gastos').select('*').eq('user_id', userId),
+    todasLasFilas((desde, hasta) => db.from('invoices').select('*').eq('user_id', userId).order('id').range(desde, hasta)),
+    todasLasFilas((desde, hasta) => db.from('gastos').select('*').eq('user_id', userId).order('id').range(desde, hasta)),
   ]);
   const ids = (filas ?? []).map((f: { id: string }) => f.id);
   const [{ data: lineas }, { data: impuestos }] = ids.length
     ? await Promise.all([
-      db.from('invoice_line_items').select('*').in('invoice_id', ids),
-      db.from('invoice_tax_breakdown').select('*').in('invoice_id', ids),
+      porTrozos(ids, trozo => todasLasFilas((desde, hasta) => db.from('invoice_line_items').select('*')
+        .in('invoice_id', trozo).order('invoice_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta))),
+      porTrozos(ids, trozo => todasLasFilas((desde, hasta) => db.from('invoice_tax_breakdown').select('*')
+        .in('invoice_id', trozo).order('invoice_id').order('id').range(desde, hasta))),
     ])
     : [{ data: [] }, { data: [] }];
   const porFactura = <T extends { invoice_id: string }>(lista: T[] | null) => {

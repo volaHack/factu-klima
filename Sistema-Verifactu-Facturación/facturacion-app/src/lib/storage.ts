@@ -38,6 +38,7 @@ import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
 import { registrarActividad } from './perfilesCliente';
 import { totalAPagar } from './retenciones';
+import { porTrozos, todasLasFilas } from './porTandas';
 import { leerDescuentosFamilia, leerPreciosEspeciales } from './preciosCliente';
 import { mapGastoFromDb, mapInvoiceFromDb, mapLineItemFromDb } from './mapeosDb';
 export { mapGastoFromDb, mapInvoiceFromDb, mapLineItemFromDb };
@@ -100,9 +101,17 @@ function backgroundRefresh<T>(
 }
 
 /** Las consultas de refresco, compartidas por la carga y la revisión periódica. */
-const consultaClientes = async () =>
-  soloDe(supabase().from('clients').select('*'), await idParaLeer()).order('business_name', { ascending: true });
-const consultaProductos = () => supabase().from('products').select('*').order('name', { ascending: true });
+//
+// Todas pasan por `todasLasFilas`: Supabase corta cada respuesta en 1.000
+// filas y lo demás no llegaba (ver lib/porTandas). El `id` del final es el
+// desempate que hace que las tandas no se solapen.
+const consultaClientes = async () => {
+  const userId = await idParaLeer();
+  return todasLasFilas((desde, hasta) => soloDe(supabase().from('clients').select('*'), userId)
+    .order('business_name', { ascending: true }).order('id').range(desde, hasta));
+};
+const consultaProductos = () => todasLasFilas((desde, hasta) => supabase().from('products').select('*')
+  .order('name', { ascending: true }).order('id').range(desde, hasta));
 
 export type DatosRevisables = 'invoices' | 'clients' | 'products';
 
@@ -200,25 +209,28 @@ async function getInvoicesFromSupabase(): Promise<Invoice[]> {
   if (!navigator.onLine) return [];
 
   const userId = await idParaLeer();
-  const { data: invoicesData, error } = await soloDe(supabase()
+  const { data: invoicesData, error } = await todasLasFilas((desde, hasta) => soloDe(supabase()
     .from('invoices')
     .select('*'), userId)
-    .order('issue_date', { ascending: false });
+    .order('issue_date', { ascending: false }).order('id').range(desde, hasta));
 
   if (error || !invoicesData) return [];
 
   const invoiceIds = invoicesData.map((i: { id: string }) => i.id);
 
-  const { data: lineItemsData } = await supabase()
+  // Con miles de facturas, los ids no caben en una sola petición, y sus
+  // líneas pasan de mil: por trozos y, cada trozo, por tandas.
+  const { data: lineItemsData } = await porTrozos(invoiceIds, trozo => todasLasFilas((desde, hasta) => supabase()
     .from('invoice_line_items')
     .select('*')
-    .in('invoice_id', invoiceIds)
-    .order('sort_order', { ascending: true });
+    .in('invoice_id', trozo)
+    .order('invoice_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta)));
 
-  const { data: taxData } = await supabase()
+  const { data: taxData } = await porTrozos(invoiceIds, trozo => todasLasFilas((desde, hasta) => supabase()
     .from('invoice_tax_breakdown')
     .select('*')
-    .in('invoice_id', invoiceIds);
+    .in('invoice_id', trozo)
+    .order('id').range(desde, hasta)));
 
   const invoices = invoicesData.map((inv: Record<string, unknown>) =>
     mapInvoiceFromDb(
@@ -394,11 +406,14 @@ async function nextFreeInvoiceNumber(
   requestedNumber: string,
   invoice: Invoice,
 ): Promise<Invoice> {
-  const { data } = await supabase()
+  // Todos los de la serie: pasados mil, los últimos no llegaban y un
+  // número ya usado parecía libre.
+  const { data } = await todasLasFilas((desde, hasta) => supabase()
     .from('invoices')
     .select('id, number')
     .eq('user_id', userId)
-    .eq('series', series);
+    .eq('series', series)
+    .order('id').range(desde, hasta));
 
   // Sólo cuentan los números de OTRAS facturas: re-guardar un borrador
   // existente (editar/emitir) no debe renumerarlo aunque su número ya esté
@@ -939,10 +954,7 @@ export async function getClients(): Promise<Client[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await soloDe(supabase()
-    .from('clients')
-    .select('*'), await idParaLeer())
-    .order('business_name', { ascending: true });
+  const { data, error } = await consultaClientes();
 
   if (error || !data) return [];
 
@@ -1371,10 +1383,10 @@ export async function getTraspasos(): Promise<TraspasoAlmacen[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await todasLasFilas((desde, hasta) => supabase()
     .from('traspasos')
     .select('*, traspaso_line_items(*)')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).order('id').range(desde, hasta));
 
   if (error || !data) return [];
 
@@ -1490,10 +1502,10 @@ export async function getRegularizaciones(): Promise<RegularizacionStock[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await todasLasFilas((desde, hasta) => supabase()
     .from('regularizaciones_stock')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).order('id').range(desde, hasta));
 
   if (error || !data) return [];
 
@@ -1592,10 +1604,7 @@ export async function getProducts(): Promise<Product[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
-    .from('products')
-    .select('*')
-    .order('name', { ascending: true });
+  const { data, error } = await consultaProductos();
 
   if (error || !data) return [];
 
@@ -1985,18 +1994,18 @@ export async function getAlbaranes(): Promise<Albaran[]> {
 async function getAlbaranesFromSupabase(): Promise<Albaran[]> {
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await todasLasFilas((desde, hasta) => supabase()
     .from('albaranes')
     .select('*')
-    .order('issue_date', { ascending: false });
+    .order('issue_date', { ascending: false }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   const ids = data.map((a: { id: string }) => a.id);
-  const { data: lineItems } = await supabase()
+  const { data: lineItems } = await porTrozos(ids, trozo => todasLasFilas((desde, hasta) => supabase()
     .from('albaran_line_items')
     .select('*')
-    .in('albaran_id', ids)
-    .order('sort_order', { ascending: true });
+    .in('albaran_id', trozo)
+    .order('albaran_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta)));
 
   const out = data.map((a: { id: string }) =>
     mapAlbaranFromDb(a, (lineItems || []).filter((li: { albaran_id: string }) => li.albaran_id === a.id)));
@@ -2063,11 +2072,14 @@ async function nextFreeAlbaranNumber(
   requestedNumber: string,
   albaran: Albaran,
 ): Promise<Albaran> {
-  const { data } = await supabase()
+  // Todos los de la serie: pasados mil, los últimos no llegaban y un
+  // número ya usado parecía libre.
+  const { data } = await todasLasFilas((desde, hasta) => supabase()
     .from('albaranes')
     .select('id, number')
     .eq('user_id', userId)
-    .eq('series', series);
+    .eq('series', series)
+    .order('id').range(desde, hasta));
 
   // Igual que en facturas: sólo cuentan los números de OTROS albaranes.
   // Re-guardar uno existente no debe renumerarlo aunque su número ya esté
@@ -2388,27 +2400,27 @@ export async function getDevoluciones(): Promise<Devolucion[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('devoluciones');
     if (cached.length > 0) {
-      backgroundRefresh('devoluciones', () =>
-        supabase().from('devoluciones').select('*').order('issue_date', { ascending: false })
-      );
+      backgroundRefresh('devoluciones', () => todasLasFilas((desde, hasta) =>
+        supabase().from('devoluciones').select('*').order('issue_date', { ascending: false }).order('id').range(desde, hasta)
+      ));
       return cached.map(d => mapDevolucionFromDb(d, d._lineItems || []));
     }
   }
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await todasLasFilas((desde, hasta) => supabase()
     .from('devoluciones')
     .select('*')
-    .order('issue_date', { ascending: false });
+    .order('issue_date', { ascending: false }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   const ids = data.map((d: { id: string }) => d.id);
-  const { data: lineItems } = await supabase()
+  const { data: lineItems } = await porTrozos(ids, trozo => todasLasFilas((desde, hasta) => supabase()
     .from('devolucion_line_items')
     .select('*')
-    .in('devolucion_id', ids)
-    .order('sort_order', { ascending: true });
+    .in('devolucion_id', trozo)
+    .order('devolucion_id').order('sort_order', { ascending: true }).order('id').range(desde, hasta)));
 
   const out = data.map((d: { id: string }) =>
     mapDevolucionFromDb(d, (lineItems || []).filter((li: { devolucion_id: string }) => li.devolucion_id === d.id)));
@@ -2630,19 +2642,19 @@ export async function getAbonos(): Promise<Abono[]> {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     const cached = await getAll<any>('abonos');
     if (cached.length > 0) {
-      backgroundRefresh('abonos', () =>
-        supabase().from('abonos').select('*').order('issue_date', { ascending: false })
-      );
+      backgroundRefresh('abonos', () => todasLasFilas((desde, hasta) =>
+        supabase().from('abonos').select('*').order('issue_date', { ascending: false }).order('id').range(desde, hasta)
+      ));
       return cached.map(mapAbonoFromDb);
     }
   }
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase()
+  const { data, error } = await todasLasFilas((desde, hasta) => supabase()
     .from('abonos')
     .select('*')
-    .order('issue_date', { ascending: false });
+    .order('issue_date', { ascending: false }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   if (offlineAvail) {
@@ -4339,9 +4351,9 @@ export async function getCobrosPagos(filtro?: { tipo?: TipoCobroPago; contrapart
   if (offlineAvail) {
     const cached = await getAll<any>('cobros_pagos');
     if (cached.length > 0) {
-      backgroundRefresh('cobros_pagos', () =>
-        supabase().from('cobros_pagos').select('*').order('fecha', { ascending: false })
-      );
+      backgroundRefresh('cobros_pagos', () => todasLasFilas((desde, hasta) =>
+        supabase().from('cobros_pagos').select('*').order('fecha', { ascending: false }).order('id').range(desde, hasta)
+      ));
       let list = cached.map(mapCobroPagoFromDb);
       if (filtro?.tipo) list = list.filter(c => c.tipo === filtro.tipo);
       if (filtro?.contraparteId) list = list.filter(c => c.contraparteId === filtro.contraparteId);
@@ -4351,11 +4363,12 @@ export async function getCobrosPagos(filtro?: { tipo?: TipoCobroPago; contrapart
 
   if (!navigator.onLine) return [];
 
-  let query = supabase().from('cobros_pagos').select('*').order('fecha', { ascending: false });
-  if (filtro?.tipo) query = query.eq('tipo', filtro.tipo);
-  if (filtro?.contraparteId) query = query.eq('contraparte_id', filtro.contraparteId);
-
-  const { data, error } = await query;
+  const { data, error } = await todasLasFilas((desde, hasta) => {
+    let query = supabase().from('cobros_pagos').select('*');
+    if (filtro?.tipo) query = query.eq('tipo', filtro.tipo);
+    if (filtro?.contraparteId) query = query.eq('contraparte_id', filtro.contraparteId);
+    return query.order('fecha', { ascending: false }).order('id').range(desde, hasta);
+  });
   if (error || !data) return [];
 
   if (await isOfflineDbAvailable()) {
@@ -4790,7 +4803,9 @@ export async function getGastos(): Promise<Gasto[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await soloDe(supabase().from('gastos').select('*'), await idParaLeer()).order('fecha', { ascending: false });
+  const userId = await idParaLeer();
+  const { data, error } = await todasLasFilas((desde, hasta) =>
+    soloDe(supabase().from('gastos').select('*'), userId).order('fecha', { ascending: false }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   if (await isOfflineDbAvailable()) {
@@ -5042,7 +5057,8 @@ export async function getLotes(): Promise<Lote[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase().from('lotes').select('*').order('fecha_caducidad', { ascending: true, nullsFirst: false });
+  const { data, error } = await todasLasFilas((desde, hasta) =>
+    supabase().from('lotes').select('*').order('fecha_caducidad', { ascending: true, nullsFirst: false }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   if (await isOfflineDbAvailable()) {
@@ -5488,7 +5504,8 @@ export async function getNumerosSerie(): Promise<NumeroSerie[]> {
 
   if (!navigator.onLine) return [];
 
-  const { data, error } = await supabase().from('numeros_serie').select('*').order('numero_serie', { ascending: true });
+  const { data, error } = await todasLasFilas((desde, hasta) =>
+    supabase().from('numeros_serie').select('*').order('numero_serie', { ascending: true }).order('id').range(desde, hasta));
   if (error || !data) return [];
 
   if (await isOfflineDbAvailable()) {
