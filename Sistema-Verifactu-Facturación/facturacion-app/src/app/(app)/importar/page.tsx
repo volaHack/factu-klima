@@ -24,7 +24,7 @@ import {
 } from '@/lib/storage';
 import {
   ETIQUETAS, camposDe, celdaATexto, decodificarTexto, detectarColumnas, detectarTipo, esXlsBinario, filaDeCabecera,
-  leerCsv, resolverCategorias, resumen, revisarClientes, revisarProductos,
+  leerCsv, resolverCategorias, resumen, revisarClientes, revisarProductos, unirFilasPartidas,
   type EstadoFila, type FilaRevisada, type Mapeo, type Tabla, type TipoImportacion,
 } from '@/lib/importar/importar';
 import { generateId } from '@/lib/utils';
@@ -84,7 +84,7 @@ export default function ImportarPage() {
       if (/\.xlsx$/i.test(fichero.name)) {
         const { readSheet } = await import('read-excel-file/browser');
         const hoja = await readSheet(fichero);
-        datos = hoja.map(f => f.map(celdaATexto)).filter(f => f.some(c => c !== ''));
+        datos = unirFilasPartidas(hoja.map(f => f.map(celdaATexto)).filter(f => f.some(c => c !== '')));
       } else {
         const bytes = new Uint8Array(await fichero.arrayBuffer());
         // Un .xls puede ser un texto con tabuladores (lo que «exporta a
@@ -92,7 +92,7 @@ export default function ImportarPage() {
         if (/\.xls$/i.test(fichero.name) && esXlsBinario(bytes)) {
           throw new Error('Los .xls antiguos no se pueden leer. Ábrelo en Excel y guárdalo como .xlsx o como CSV.');
         }
-        datos = leerCsv(decodificarTexto(bytes));
+        datos = unirFilasPartidas(leerCsv(decodificarTexto(bytes)));
       }
       if (datos.length < 2) throw new Error('El archivo no tiene filas con datos.');
 

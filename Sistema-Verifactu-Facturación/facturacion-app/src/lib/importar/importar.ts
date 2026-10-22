@@ -115,6 +115,29 @@ export function leerCsv(texto: string): Tabla {
     .filter(f => f.some(c => c !== ''));
 }
 
+/**
+ * ISECAN escribe cada línea de un campo largo (las observaciones) en una fila
+ * aparte: misma columna, todo lo demás vacío y sin número de «Registro». Esas
+ * filas se suman, línea a línea, a la ficha de arriba.
+ *
+ * Sólo se hace cuando la cabecera empieza por «Registro»: en cualquier otro
+ * listado una primera celda vacía no significa nada.
+ */
+export function unirFilasPartidas(tabla: Tabla): Tabla {
+  const cab = tabla.slice(0, 10).findIndex(f => normalizar(f[0] ?? '') === 'registro');
+  if (cab < 0) return tabla;
+  const out: Tabla = tabla.slice(0, cab + 1);
+  for (const fila of tabla.slice(cab + 1)) {
+    const anterior = out.length > cab + 1 ? out[out.length - 1] : null;
+    if ((fila[0] ?? '') !== '' || !anterior) { out.push([...fila]); continue; }
+    fila.forEach((c, i) => {
+      if (c === '') return;
+      anterior[i] = anterior[i] ? `${anterior[i]}\n${c}` : c;
+    });
+  }
+  return out;
+}
+
 /** Una celda de Excel (texto, número, fecha, booleano) como texto. */
 export function celdaATexto(v: unknown): string {
   if (v === null || v === undefined) return '';
