@@ -11,7 +11,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
-import { RankedBars, StatusDonut, ChartLegend } from '@/components/charts/Charts';
+import { RankedBars } from '@/components/charts/Charts';
 import { useColoresGrafica, SERIES } from '@/components/charts/theme';
 import {
   getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
@@ -31,6 +31,39 @@ interface CategoryOption {
   label: string;
   icon: string;
   isCustom?: boolean;
+}
+
+/** Barras que caben legibles en una tarjeta; lo demás va resumido debajo. */
+const RANKING_MAX = 10;
+
+/**
+ * Lo que vale lo que hay en el almacén: a coste medio si se conoce y, si no,
+ * a precio de venta. Antes se usaba siempre el de venta y un producto sin
+ * existencias anotadas contaba como una unidad; las existencias negativas
+ * (ventas antes de dar entrada a la compra) no restan.
+ */
+function valorStock(p: Product): number {
+  const unidades = Math.max(0, p.stockQuantity ?? 0);
+  const coste = p.costePmp ?? 0;
+  return unidades * (coste > 0 ? coste : p.unitPrice);
+}
+
+/** «Las otras 38 categorías: 120.000 € (34 %)», bajo un ranking recortado. */
+function RestoDelRanking<T>({ filas, total, valor, formato }: {
+  filas: T[];
+  total: number;
+  valor: (fila: T) => number;
+  formato: (n: number) => string;
+}) {
+  if (filas.length === 0) return null;
+  const suma = filas.reduce((n, f) => n + valor(f), 0);
+  const pct = total > 0 ? Math.round((suma / total) * 100) : 0;
+  return (
+    <p className="chart-nota">
+      {filas.length === 1 ? 'La otra categoría' : `Las otras ${filas.length} categorías`}:{' '}
+      <strong>{formato(suma)}</strong> ({pct} % del total). Todas, en «Tabla».
+    </p>
+  );
 }
 
 export default function ProductosPage() {
@@ -408,35 +441,35 @@ export default function ProductosPage() {
   // Datos de la analítica, con su vista en tabla
   const { accent } = useColoresGrafica();
 
-  const categoryDistributionData = useMemo(() => {
-    const colors = SERIES;
-    return categories.map((cat, idx) => {
-      const count = products.filter(p => p.category === cat.value).length;
-      return {
-        name: cat.label,
-        value: count,
-        color: colors[idx % colors.length]
-      };
-    }).filter(c => c.value > 0);
-  }, [products, categories]);
+  // Con un catálogo de distribuidor (cincuenta familias, mil quinientos
+  // artículos) una barra por familia son rayas de 3 px con los nombres
+  // pisados, y un donut de 58 porciones es un arcoíris. Se dibujan las diez
+  // que más pesan y el resto se dice en una línea, con su importe: sumado en
+  // una barra «Resto» sería más larga que la mayor y aplastaría a las demás.
+  // La vista en tabla sigue teniendo todas.
+  const porFamilia = useMemo(() => categories.map(cat => {
+    const delGrupo = products.filter(p => p.category === cat.value);
+    return {
+      name: cat.label,
+      count: delGrupo.length,
+      total: Number(delGrupo.reduce((sum, p) => sum + valorStock(p), 0).toFixed(2)),
+    };
+  }), [products, categories]);
 
-  const categoryStockValueData = useMemo(() => {
-    return categories.map(cat => {
-      const catProducts = products.filter(p => p.category === cat.value);
-      const totalVal = catProducts.reduce((sum, p) => sum + (p.unitPrice * (p.stockQuantity ?? 1)), 0);
-      return {
-        name: cat.label,
-        total: Number(totalVal.toFixed(2)),
-        count: catProducts.length
-      };
-    }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-  }, [products, categories]);
+  const stockPorFamilia = useMemo(
+    () => porFamilia.filter(c => c.total > 0).sort((a, b) => b.total - a.total),
+    [porFamilia],
+  );
+  const productosPorFamilia = useMemo(
+    () => porFamilia.filter(c => c.count > 0).sort((a, b) => b.count - a.count),
+    [porFamilia],
+  );
 
   if (!mounted) {
     return <PageSkeleton variant="list" label="Cargando Productos y categorías" />;
   }
 
-  const totalInventoryValue = products.reduce((sum, p) => sum + (p.unitPrice * (p.stockQuantity ?? 1)), 0);
+  const totalInventoryValue = products.reduce((sum, p) => sum + valorStock(p), 0);
 
   return (
     <div className="animate-fade-in">
@@ -507,46 +540,58 @@ export default function ProductosPage() {
           {products.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
               <ChartCard
-                title="Valor Monetario del Stock por Categoría"
-                subtitle="Inversión acumulada en inventario por familia de producto"
-                height={220}
-                isEmpty={categoryStockValueData.length === 0}
-                emptyLabel="Sin datos de productos"
+                title="Valor del stock por categoría"
+                subtitle={stockPorFamilia.length > RANKING_MAX
+                  ? `Las ${RANKING_MAX} categorías con más dinero en almacén, a precio de coste`
+                  : 'Dinero en almacén de cada categoría, a precio de coste'}
+                height={300}
+                isEmpty={stockPorFamilia.length === 0}
+                emptyLabel="Ningún producto tiene existencias"
                 tableColumns={[
                   { key: 'name', label: 'Categoría' },
                   { key: 'count', label: 'Productos', align: 'right' },
-                  { key: 'total', label: 'Valor Stock', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+                  { key: 'total', label: 'Valor del stock', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
                 ]}
-                tableRows={categoryStockValueData}
-              >
-                <RankedBars data={categoryStockValueData} color={accent} />
-              </ChartCard>
-
-              <ChartCard
-                title="Distribución de productos"
-                subtitle="Número de referencias registradas en cada categoría"
-                height={220}
-                isEmpty={categoryDistributionData.length === 0}
-                emptyLabel="Sin datos"
-                tableColumns={[
-                  { key: 'name', label: 'Categoría' },
-                  { key: 'value', label: 'Número de productos', align: 'right' },
-                ]}
-                tableRows={categoryDistributionData}
+                tableRows={stockPorFamilia}
                 legend={
-                  <ChartLegend
-                    items={categoryDistributionData.map(c => ({
-                      name: c.name,
-                      value: `${c.value} productos`,
-                      color: c.color
-                    }))}
+                  <RestoDelRanking
+                    filas={stockPorFamilia.slice(RANKING_MAX)}
+                    total={stockPorFamilia.reduce((n, c) => n + c.total, 0)}
+                    valor={c => c.total}
+                    formato={formatCurrency}
                   />
                 }
               >
-                <StatusDonut
-                  data={categoryDistributionData}
-                  centerLabel="Categorías"
-                  centerValue={String(categoryDistributionData.length)}
+                <RankedBars data={stockPorFamilia.slice(0, RANKING_MAX)} color={accent} ariaLabel="Valor del stock por categoría" />
+              </ChartCard>
+
+              <ChartCard
+                title="Productos por categoría"
+                subtitle={productosPorFamilia.length > RANKING_MAX
+                  ? `Las ${RANKING_MAX} categorías con más referencias`
+                  : 'Referencias de cada categoría'}
+                height={300}
+                isEmpty={productosPorFamilia.length === 0}
+                emptyLabel="Sin datos"
+                tableColumns={[
+                  { key: 'name', label: 'Categoría' },
+                  { key: 'count', label: 'Productos', align: 'right' },
+                ]}
+                tableRows={productosPorFamilia}
+                legend={
+                  <RestoDelRanking
+                    filas={productosPorFamilia.slice(RANKING_MAX)}
+                    total={products.length}
+                    valor={c => c.count}
+                    formato={n => `${n.toLocaleString('es-ES')} productos`}
+                  />
+                }
+              >
+                <RankedBars
+                  data={productosPorFamilia.slice(0, RANKING_MAX).map(c => ({ name: c.name, total: c.count }))}
+                  color={SERIES[0]}
+                  formato="numero"
+                  ariaLabel="Productos por categoría"
                 />
               </ChartCard>
             </div>

@@ -416,6 +416,7 @@ export default function ClientesPage() {
                 data={paymentMethodDistribution}
                 centerLabel="Clientes"
                 centerValue={String(clients.length)}
+                unidad={['cliente', 'clientes']}
               />
               <ChartLegend
                 items={paymentMethodDistribution.map(d => ({

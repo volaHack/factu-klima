@@ -15614,3 +15614,13 @@ body {
 .public-layout-force-light h1,
 .public-layout-force-light h2 { text-wrap: balance; }
 .home-hero-actions { margin-top: var(--space-6); }
+
+/* Lo que no cabe en un ranking recortado, dicho en una línea bajo el gráfico. */
+.chart-nota {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-secondary);
+}
+.chart-nota strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }

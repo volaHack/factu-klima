@@ -298,18 +298,32 @@ export function AreaTrendChart({
 export function RankedBars({
   data,
   color,
+  ariaLabel = 'Ranking por importe facturado',
+  formato = 'euros',
 }: {
+  /** En orden de importancia: el primero sale arriba. */
   data: { name: string; total: number }[];
   color?: string;
+  ariaLabel?: string;
+  /** Importes (por defecto) o recuentos, que no llevan € ni decimales. */
+  formato?: 'euros' | 'numero';
 }) {
   const { accent, ink } = useGrafica();
   const fill = color ?? accent;
+  const corto = formato === 'euros'
+    ? compactEuro
+    : (v: number | string) => (Number.isInteger(Number(v)) ? Number(v).toLocaleString('es-ES') : '');
+  const largo = (v: number) => (formato === 'euros' ? formatCurrency(v) : v.toLocaleString('es-ES'));
 
   // Se proyecta a los dos campos que el gráfico usa: si un llamante pasa
   // objetos con otras claves (los productos traen `ref`), ninguna acaba
   // repartida sobre un nodo del DOM.
+  //
+  // Y se le da la vuelta: en horizontal Nivo pinta el primer dato ABAJO, y
+  // todos los rankings llegan de mayor a menor, así que el primero de la
+  // lista acababa al fondo y el último arriba.
   const plot = useMemo<BarDatum[]>(
-    () => data.map(({ name, total }) => ({ name, total })),
+    () => data.map(({ name, total }) => ({ name, total })).reverse(),
     [data],
   );
 
@@ -324,7 +338,7 @@ export function RankedBars({
           dominantBaseline="central"
           style={{ fill: ink.secondary, fontSize: 11, fontFamily: 'inherit' }}
         >
-          {compactEuro(Number(b.data.value))}
+          {corto(Number(b.data.value))}
         </text>
       ))}
     </g>
@@ -346,16 +360,18 @@ export function RankedBars({
       enableLabel={false}
       enableGridX
       enableGridY={false}
-      axisBottom={{ tickSize: 0, tickPadding: 8, format: compactEuro, tickValues: 4 }}
+      // Tres marcas: con cuatro o cinco, en un móvil «500k1.0M1.5M2.0M» se
+      // escribían una encima de otra.
+      axisBottom={{ tickSize: 0, tickPadding: 8, format: corto, tickValues: 3 }}
       // Los 136 px del margen caben unas 20 letras a 11 px: un nombre de
       // sociedad más largo se cortaba por la IZQUIERDA («…adería Artesana»).
       // Se recorta por el final y el nombre entero sigue en el tooltip.
       axisLeft={{ tickSize: 0, tickPadding: 8, format: v => recortaEtiqueta(String(v), 20) }}
       tooltip={({ data: d, color: c }) => (
-        <Tip color={c} label={String(d.name)} value={formatCurrency(Number(d.total))} />
+        <Tip color={c} label={String(d.name)} value={largo(Number(d.total))} />
       )}
       role="img"
-      ariaLabel="Ranking por importe facturado"
+      ariaLabel={ariaLabel}
     />
   );
 }
@@ -370,10 +386,12 @@ export interface DonutSlice {
   color: string;
 }
 
-export function StatusDonut({ data, centerLabel, centerValue }: {
+export function StatusDonut({ data, centerLabel, centerValue, unidad = ['factura', 'facturas'] }: {
   data: DonutSlice[];
   centerLabel: string;
   centerValue: string;
+  /** Qué se cuenta, en singular y plural, para el tooltip. */
+  unidad?: [string, string];
 }) {
   const { ink, reducido } = useGrafica();
   const slices = useMemo(
@@ -402,7 +420,7 @@ export function StatusDonut({ data, centerLabel, centerValue }: {
           <Tip
             color={datum.color}
             label={String(datum.label)}
-            value={`${datum.value} ${datum.value === 1 ? 'factura' : 'facturas'}`}
+            value={`${datum.value} ${datum.value === 1 ? unidad[0] : unidad[1]}`}
           />
         )}
         animate={!reducido}

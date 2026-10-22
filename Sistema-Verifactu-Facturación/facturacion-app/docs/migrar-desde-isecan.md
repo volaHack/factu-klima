@@ -39,6 +39,27 @@ Las facturas antiguas **no** se pasan (ver la cabecera de `src/lib/importar/impo
 - La tarifa con el precio más alto suele ser la general (PVP); la más baja, presente en casi todos los artículos,
   puede ser el **coste**: confirmarlo con la empresa antes de usarla como tarifa de venta.
 
+## Trampas de la exportación
+
+- **Observaciones partidas**: cada línea de un campo largo sale en una fila aparte, en la misma columna, con el
+  resto vacío y sin `Registro`. El importador las vuelve a unir a la ficha de arriba (`unirFilasPartidas`).
+  Ahí suelen venir las condiciones de cobro («30 dias relacion mensual», «Fecha Cobro Fact.: 20») y la
+  sucursal, que coincide con el `Nombre_Comercial`.
+- **Marcas internas** en las observaciones: `[O=n]` (y su errata `[0=n]`) no aportan nada. `[NC]`, `[RC]` y
+  `[P=…]` no están documentadas: se dejan en la nota tal cual.
+- **«Borrado en el Programa Anterior»** en las observaciones de un artículo: viene de la migración anterior a
+  ISECAN. Sin precio ni existencias, no merece la pena pasarlo.
+- **Códigos de barras** guardados como número: salen en notación científica (`8,4125E+12`) y ya no se pueden
+  recuperar. Hay que volver a exportar esa columna como texto. Los que salen bien se comprueban con su dígito
+  de control; los UPC de 11 cifras han perdido el 0 inicial.
+- **Códigos postales** guardados como número: los de provincias que empiezan por 0 salen con 4 cifras
+  (`8025` → `08025`).
+- **Tipos de IGIC** antiguos en artículos dados de baja: el 6,5 % y el 13,5 % de 2019 hoy son el 7 % y el 15 %.
+  Los que la empresa usa (por ejemplo 5, 15 o 20) se ponen en Ajustes → tipos de IGIC para que salgan en las
+  facturas.
+- **Mismo NIF en varias fichas**: son tiendas de una misma cadena. Se agrupan en *Grupos y cadenas*.
+- **Pseudo-artículos** «RETENCION n %»: en Klimafacturas la retención se aplica con el módulo de IRPF.
+
 ## Formas de pago
 
 Klimafacturas tiene seis: transferencia, efectivo, domiciliación, pagaré, tarjeta y Bizum.

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   decodificarTexto, detectarColumnas, detectarTipo, esXlsBinario, filaDeCabecera, leerCsv, numeroEs,
-  resolverCategorias, resumen, revisarClientes, revisarProductos, tipoImpositivo,
+  resolverCategorias, resumen, revisarClientes, revisarProductos, tipoImpositivo, unirFilasPartidas,
 } from './importar';
 import type { Client, Product } from '@/lib/types';
 
@@ -178,6 +178,27 @@ describe('las exportaciones de ISECAN', () => {
     const m = detectarColumnas(t[cab], 'clientes');
     expect(m).toMatchObject({ codigo: 0, businessName: 1, nif: 2, city: 3 });
     expect(revisarClientes(t, cab + 1, m, [], ctx)[0].ficha?.codigo).toBe('4300000260');
+  });
+
+  it('las observaciones largas vienen partidas en filas sin «Registro»: se vuelven a unir', () => {
+    // ISECAN escribe cada línea de un campo largo en una fila aparte, en la
+    // misma columna y con el resto vacío. Sin unirlas, cada línea sería una
+    // ficha sin nombre y la observación se perdería.
+    const t = unirFilasPartidas(leerCsv([
+      'Consulta1\t\t\t',
+      'Registro\tCodigo\tNombre\tObservaciones',
+      '3\t4300000000\tBAR EL PUERTO S.L.\tCondiciones: 30 dias',
+      '\t\t\tFecha Cobro Fact.: 20',
+      '4\t4300000001\tOTRO S.L.\t',
+    ].join('\r\n')));
+    expect(t).toHaveLength(4);
+    expect(t[2]).toEqual(['3', '4300000000', 'BAR EL PUERTO S.L.', 'Condiciones: 30 dias\nFecha Cobro Fact.: 20']);
+    expect(t[3][1]).toBe('4300000001');
+  });
+
+  it('sin la columna «Registro» no se une nada: una celda vacía al principio es sólo eso', () => {
+    const filas = [['Nombre', 'NIF'], ['', 'B12345674'], ['BAR', '']];
+    expect(unirFilasPartidas(filas)).toEqual(filas);
   });
 
   it('«Código postal» sigue siendo el código postal, no el del cliente', () => {
