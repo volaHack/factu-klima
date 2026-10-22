@@ -8,6 +8,7 @@
 
 import { createClient } from '../supabase/client';
 import { guardarEnCuenta, leerDeCuenta } from '../cuentaMetadatos';
+import { todasLasFilas } from '../porTandas';
 import type { ApunteContable, LineaApunte, Periodicidad, Plantilla, Prestamo } from './apuntes';
 
 export type AlmacenApuntes = 'tabla' | 'cuenta';
@@ -58,11 +59,12 @@ async function uid(): Promise<string> {
 export async function getApuntes(): Promise<{ apuntes: ApunteContable[]; almacen: AlmacenApuntes }> {
   const db = createClient();
   const yo = await uid();
-  const { data, error } = await db.from('apuntes_contables').select('*').eq('user_id', yo).order('fecha', { ascending: true });
+  const { data, error } = await todasLasFilas((desde, hasta) => db.from('apuntes_contables').select('*').eq('user_id', yo)
+    .order('fecha', { ascending: true }).order('id').range(desde, hasta));
   const enCuenta = (await leerDeCuenta<Compacto>(CAMPO).catch(() => [] as Compacto[])).map(deCompacto);
   if (error) {
     if (faltaLaTabla(error)) return { apuntes: enCuenta, almacen: 'cuenta' };
-    throw new Error(error.message);
+    throw new Error((error as { message: string }).message);
   }
   // La tabla ya existe: lo que quedara en la cuenta se pasa a ella.
   if (enCuenta.length) {

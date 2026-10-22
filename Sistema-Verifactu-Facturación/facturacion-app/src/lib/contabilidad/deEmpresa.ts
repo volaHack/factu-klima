@@ -17,18 +17,18 @@ import { mapClientFromDb, mapGastoFromDb, mapInvoiceFromDb, mapSettingsFromDb } 
 import { DEFAULT_COMPANY_SETTINGS } from '../constants';
 import { montarContabilidad, type Contabilidad } from './cargar';
 import { apunteDeFila } from './apuntesAlmacen';
-
-const TROZO = 150;
+import { porTrozos, todasLasFilas } from '../porTandas';
 
 export async function cargarContabilidadDeEmpresa(userId: string): Promise<Contabilidad> {
   const db = createClient();
   const [fac, cli, gas, aj] = await Promise.all([
-    db.from('invoices').select('*').eq('user_id', userId).order('issue_date', { ascending: true }),
-    db.from('clients').select('*').eq('user_id', userId),
-    db.from('gastos').select('*').eq('user_id', userId),
+    todasLasFilas((desde, hasta) => db.from('invoices').select('*').eq('user_id', userId)
+      .order('issue_date', { ascending: true }).order('id').range(desde, hasta)),
+    todasLasFilas((desde, hasta) => db.from('clients').select('*').eq('user_id', userId).order('id').range(desde, hasta)),
+    todasLasFilas((desde, hasta) => db.from('gastos').select('*').eq('user_id', userId).order('id').range(desde, hasta)),
     db.from('company_settings').select('*').eq('user_id', userId).order('updated_at', { ascending: false }).limit(1),
   ]);
-  const fallo = fac.error ?? cli.error ?? gas.error;
+  const fallo = (fac.error ?? cli.error ?? gas.error) as { message: string } | null;
   if (fallo) throw new Error('No se han podido leer los datos de la empresa: ' + fallo.message);
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -36,18 +36,18 @@ export async function cargarContabilidadDeEmpresa(userId: string): Promise<Conta
   // El desglose por tipos, en trozos para no pasarse de largo en la URL.
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const desglose = new Map<string, any[]>();
-  for (let i = 0; i < filas.length; i += TROZO) {
-    const ids = filas.slice(i, i + TROZO).map(f => f.id);
-    const { data } = await db.from('invoice_tax_breakdown').select('*').in('invoice_id', ids);
-    for (const t of data ?? []) {
-      const lista = desglose.get(t.invoice_id) ?? [];
-      lista.push(t);
-      desglose.set(t.invoice_id, lista);
-    }
+  const { data: tramos, error: falloTramos } = await porTrozos(filas.map(f => f.id), trozo => todasLasFilas((desde, hasta) =>
+    db.from('invoice_tax_breakdown').select('*').in('invoice_id', trozo).order('invoice_id').order('id').range(desde, hasta)));
+  if (falloTramos) throw new Error('No se ha podido leer el desglose de impuestos de las facturas.');
+  for (const t of tramos ?? []) {
+    const lista = desglose.get(t.invoice_id) ?? [];
+    lista.push(t);
+    desglose.set(t.invoice_id, lista);
   }
 
   // Los apuntes a mano, si la empresa tiene la migración 052 (si no, no hay).
-  const ap = await db.from('apuntes_contables').select('*').eq('user_id', userId);
+  const ap = await todasLasFilas((desde, hasta) =>
+    db.from('apuntes_contables').select('*').eq('user_id', userId).order('id').range(desde, hasta));
 
   const ajustes = aj.data?.[0];
   return montarContabilidad({
