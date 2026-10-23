@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Plus, Mail, Phone, MapPin, Building2, Eye, User, Calendar, Search, UserCheck } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Mail, Phone, MapPin, Building2, Eye, User, Calendar, Search, UserCheck, History } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import { getClientById, getInvoices, getVendedores, getCompanySettings } from '@/lib/storage';
@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import CondicionesEspeciales from '@/components/clientes/CondicionesEspeciales';
 import HistorialAnterior from '@/components/clientes/HistorialAnterior';
+import { getHistoricoDeFicha, NOMBRE_ORIGEN, resumenHistorico, type DocumentoHistorico } from '@/lib/historico';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -22,6 +23,9 @@ export default function ClientDetailPage() {
   const [mounted, setMounted] = useState(false);
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  // Con la ficha a la que pertenece: al pasar de una ficha a otra no se ve
+  // ni un instante el historial de la anterior.
+  const [anterior, setAnterior] = useState<{ id: string; docs: DocumentoHistorico[] } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -44,6 +48,28 @@ export default function ClientDetailPage() {
       setMounted(true);
     })();
   }, [params.id]);
+
+  // Lo del programa anterior va aparte: viene del servidor y no tiene por
+  // qué esperar a la ficha, ni la ficha a él.
+  useEffect(() => {
+    let vivo = true;
+    const id = params.id as string;
+    getHistoricoDeFicha(id)
+      .then(docs => { if (vivo) setAnterior({ id, docs }); })
+      .catch(() => { if (vivo) setAnterior({ id, docs: [] }); });
+    return () => { vivo = false; };
+  }, [params.id]);
+  const historico = anterior && anterior.id === params.id ? anterior.docs : null;
+
+  const resumenAnterior = useMemo(() => {
+    if (!historico?.length) return null;
+    const r = resumenHistorico(historico);
+    return {
+      ...r,
+      facturas: r.anios.reduce((n, a) => n + a.facturas, 0),
+      total: Math.round(r.anios.reduce((t, a) => t + a.total, 0) * 100) / 100,
+    };
+  }, [historico]);
 
   const invoicesFiltradas = useMemo(() => {
     return invoices.filter(inv => {
@@ -113,6 +139,34 @@ export default function ClientDetailPage() {
 
       <div className="detail-layout">
         <div className="detail-main">
+          {resumenAnterior && historico && (
+            <a href="#historial-anterior" className="aviso-historial">
+              <History size={16} aria-hidden />
+              <span>
+                En {NOMBRE_ORIGEN[historico[0].origen] ?? 'el programa anterior'}:{' '}
+                {resumenAnterior.facturas > 0 ? (
+                  <>
+                    <strong>
+                      {resumenAnterior.facturas.toLocaleString('es-ES')}{' '}
+                      {esProveedor ? 'facturas recibidas' : 'facturas'}
+                    </strong>{' '}
+                    por <strong>{formatCurrency(resumenAnterior.total)}</strong>
+                  </>
+                ) : (
+                  <strong>{historico.length.toLocaleString('es-ES')} documentos</strong>
+                )}
+                {resumenAnterior.ultimaFactura && <>, la última el {formatDate(resumenAnterior.ultimaFactura)}</>}
+                {resumenAnterior.pendientes.albaranes > 0 && (
+                  <> · <strong>{resumenAnterior.pendientes.albaranes}</strong> {resumenAnterior.pendientes.albaranes === 1 ? 'albarán' : 'albaranes'} sin factura</>
+                )}
+                {resumenAnterior.pendientes.pedidos > 0 && (
+                  <> · <strong>{resumenAnterior.pendientes.pedidos}</strong> {resumenAnterior.pendientes.pedidos === 1 ? 'pedido' : 'pedidos'} sin servir</>
+                )}
+              </span>
+              <span className="aviso-historial-ir">Ver historial</span>
+            </a>
+          )}
+
           {/* Stats */}
           <div className="kpi-grid kpi-grid--tres" style={{ marginBottom: 'var(--space-6)' }}>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
@@ -222,11 +276,11 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
+          <HistorialAnterior docs={historico} esProveedor={Boolean(esProveedor)} desde={fechaDesde} hasta={fechaHasta} />
+
           {!esProveedor && (
             <CondicionesEspeciales client={client} settings={settings} onGuardado={setClient} />
           )}
-
-          <HistorialAnterior clientId={client.id} esProveedor={Boolean(esProveedor)} desde={fechaDesde} hasta={fechaHasta} />
         </div>
 
         <div className="detail-sidebar">

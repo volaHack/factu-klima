@@ -146,6 +146,25 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
   },
   {
+    ruta: '/historico',
+    titulo: 'Historial del programa anterior',
+    paraQue: 'Lo que la empresa facturó, albaranó y pidió en su programa de antes (ISECAN…), para consultarlo sin tener que abrirlo.',
+    pasos: [
+      'Arriba tienes lo facturado, las facturas de compra y lo que quedó sin facturar o sin servir. Pulsa una de esas dos fichas para ver esos documentos.',
+      'Pulsa un año de la tabla «Por año» para ver solo sus documentos.',
+      'En el buscador escribe el nombre del cliente, su NIF, su código o el número del documento.',
+      'Pulsa el nombre del cliente para ir a su ficha: allí está su historial con el resumen por año.',
+    ],
+    saber: [
+      'Es solo consulta: estos documentos no se envían a Veri*Factu ni cuentan en los modelos de IGIC ni en la contabilidad.',
+      'Si un documento no lleva cliente es que su código del programa anterior no tiene ficha aquí.',
+      'En ISECAN muchas compras se apuntaban sin importe: el total de compras es solo de las que sí lo llevan.',
+    ],
+    relacionadas: [
+      { ruta: '/clientes', texto: 'Ver los clientes' },
+    ],
+  },
+  {
     ruta: '/productos',
     titulo: 'Productos',
     paraQue: 'Tu catálogo: lo que vendes, a qué precio y cuánto te queda.',

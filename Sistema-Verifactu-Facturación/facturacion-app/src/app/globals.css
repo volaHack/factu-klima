@@ -15630,3 +15630,54 @@ body {
   .historial-anterior .col-forma { display: none; }
   .historial-anterior .table th, .historial-anterior .table td { padding-left: var(--space-2); padding-right: var(--space-2); }
 }
+
+/* El aviso de arriba de la ficha: en el móvil el historial queda muy abajo. */
+.aviso-historial {
+  display: flex; align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  font-size: var(--text-xs); line-height: 1.5;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.aviso-historial > svg { flex-shrink: 0; color: var(--accent-400); }
+.aviso-historial strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.aviso-historial-ir { margin-left: auto; flex-shrink: 0; font-weight: 600; color: var(--accent-400); white-space: nowrap; }
+.aviso-historial:hover { border-color: var(--accent-500); }
+.historial-anterior { scroll-margin-top: var(--space-6); }
+
+/* Pantalla del historial entero (/historico). */
+.historico .search-bar { max-width: 320px; }
+.historico .filters-bar .form-select { width: auto; min-width: 150px; }
+.historico-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--text-muted); }
+.historico-obs { max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.historico-tercero { color: var(--text-muted); }
+.historico-anio { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+.historico-check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-secondary); }
+.historico-pie { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.kpi-card--boton { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.kpi-card--boton:hover { border-color: var(--kpi-color); }
+.kpi-card--boton:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .historico .search-bar { max-width: none; }
+  .historico .filters-bar .form-select { flex: 1 1 40%; min-width: 0; }
+  .historico .table th, .historico .table td { padding-left: var(--space-2); padding-right: var(--space-2); }
+  .historico-obs { max-width: 24ch; }
+  /* En el móvil, cada documento es una tarjeta: número y total arriba, el cliente debajo. */
+  .historico-docs thead { display: none; }
+  .historico-docs, .historico-docs tbody { display: block; }
+  .historico-docs tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-3);
+    padding: var(--space-3) 0; border-bottom: 1px solid var(--border-subtle);
+  }
+  .historico-docs td { display: block; padding: 0 !important; border: 0 !important; }
+  .historico-docs .historico-col-doc { grid-column: 1; grid-row: 1; }
+  .historico-docs td.amount { grid-column: 2; grid-row: 1 / span 2; }
+  .historico-docs .historico-col-ficha { grid-column: 1; grid-row: 2; margin-top: var(--space-1); }
+  .historico-docs .table-empty { grid-column: 1 / -1; }
+  .aviso-historial { flex-wrap: wrap; }
+  .aviso-historial-ir { margin-left: 0; }
+}

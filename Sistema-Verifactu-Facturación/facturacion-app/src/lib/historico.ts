@@ -22,6 +22,9 @@ export interface DocumentoHistorico {
   serie: string;
   numero: string;
   fecha: string | null;
+  /** La ficha de aquí; sin ella, el código que tenía en el otro programa. */
+  clientId: string | null;
+  codigoTercero: string | null;
   base: number;
   impuestos: number;
   total: number;
@@ -40,6 +43,8 @@ export function documentoDeFila(f: any): DocumentoHistorico {
     serie: f.serie ?? '',
     numero: f.numero,
     fecha: f.fecha ?? null,
+    clientId: f.client_id ?? null,
+    codigoTercero: f.codigo_tercero ?? null,
     base: Number(f.base) || 0,
     impuestos: Number(f.impuestos) || 0,
     total: Number(f.total) || 0,
@@ -71,7 +76,182 @@ export const NOMBRE_TIPO: Record<TipoHistorico, string> = {
   albaran_compra: 'Albarán',
 };
 
+/** En una lista que mezcla ventas y compras, la compra se dice. */
+export const ETIQUETA_TIPO: Record<TipoHistorico, string> = {
+  factura_venta: 'Factura',
+  albaran_venta: 'Albarán',
+  pedido_venta: 'Pedido',
+  factura_compra: 'Factura de compra',
+  albaran_compra: 'Albarán de compra',
+};
+
 export const NOMBRE_ORIGEN: Record<string, string> = { isecan: 'ISECAN' };
+
+// ------------------------------------------------------------
+// La pantalla del historial entero
+// ------------------------------------------------------------
+
+/** Una fila de `resumen_historico()` (migración 069): un tipo en un año. */
+export interface FilaResumenHistorico {
+  anio: number | null;
+  tipo: TipoHistorico;
+  documentos: number;
+  total: number;
+  pendientes: number;
+  totalPendiente: number;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+export function filaResumenDe(f: any): FilaResumenHistorico {
+  return {
+    anio: f.anio == null ? null : Number(f.anio),
+    tipo: f.tipo,
+    documentos: Number(f.documentos) || 0,
+    total: Number(f.total) || 0,
+    pendientes: Number(f.pendientes) || 0,
+    totalPendiente: Number(f.total_pendiente) || 0,
+  };
+}
+
+/** Lo sumado por la base de datos: diecisiete mil documentos no caben en un teléfono. */
+export async function getResumenHistorico(): Promise<FilaResumenHistorico[]> {
+  const { data, error } = await createClient().rpc('resumen_historico');
+  if (error) {
+    if (faltaLaTabla(error) || /resumen_historico/.test(error.message ?? '')) return [];
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as unknown[]).map(filaResumenDe);
+}
+
+/** ¿Hay historial de otro programa? Devuelve de cuál, para el menú. */
+export async function origenDelHistorico(): Promise<string | null> {
+  const { data, error } = await createClient().from('historico_documentos').select('origen').limit(1);
+  if (error) return null;
+  return data?.[0]?.origen ?? null;
+}
+
+/** Compras apuntadas sin importe: en ISECAN muchas se guardaban a 0 €. */
+export async function comprasSinImporte(): Promise<number> {
+  const { count, error } = await createClient().from('historico_documentos').select('id', { count: 'exact', head: true })
+    .in('tipo', ['factura_compra', 'albaran_compra']).eq('total', 0);
+  return error ? 0 : count ?? 0;
+}
+
+export interface FiltroHistorico {
+  /** Lo que se escribe en el buscador: número, código o texto de las observaciones. */
+  texto?: string;
+  /** Fichas cuyo nombre, NIF o código casa con el texto (se buscan aquí, en el teléfono). */
+  clientIds?: string[];
+  tipo?: TipoHistorico | '';
+  anio?: string;
+  soloPendientes?: boolean;
+}
+
+/** Fichas que se mandan como mucho en una búsqueda: van en la dirección de la petición. */
+export const FICHAS_POR_BUSQUEDA = 100;
+
+/** En minúsculas y sin tildes: «García» se encuentra escribiendo «garcia». */
+const plano = (t: string) => Array.from(t.toLowerCase().normalize('NFD'))
+  .filter(c => c.charCodeAt(0) < 0x300 || c.charCodeAt(0) > 0x36f).join('');
+
+/** Las fichas cuyo nombre, nombre comercial, NIF o código contiene el texto. */
+export function fichasQueCasan(
+  fichas: readonly { id: string; businessName?: string; tradeName?: string; nif?: string; codigo?: string }[],
+  texto: string,
+): string[] {
+  const t = plano(texto.trim());
+  if (t.length < 2) return [];
+  return fichas
+    .filter(f => [f.businessName, f.tradeName, f.nif, f.codigo].some(v => v && plano(v).includes(t)))
+    .map(f => f.id);
+}
+
+/**
+ * Los caracteres que en un filtro `or` de PostgREST separan o agrupan
+ * condiciones: escritos en el buscador, partirían la petición.
+ */
+export function textoParaFiltro(texto: string): string {
+  return texto.replace(/[,()*%\\"]/g, ' ').trim();
+}
+
+/** Las condiciones `or` del buscador; vacío si no hay nada que buscar. */
+export function condicionesDeBusqueda(texto: string, clientIds: readonly string[] = []): string[] {
+  const t = textoParaFiltro(texto);
+  const ids = clientIds.slice(0, FICHAS_POR_BUSQUEDA);
+  if (!t && ids.length === 0) return [];
+  const condiciones: string[] = [];
+  if (t) {
+    // «T24/100269» es como se ve un pedido, pero el número guardado es 100269.
+    const numero = t.includes('/') ? t.slice(t.lastIndexOf('/') + 1).trim() || t : t;
+    condiciones.push(`numero.ilike.*${numero}*`, `codigo_tercero.ilike.*${t}*`, `observaciones.ilike.*${t}*`);
+  }
+  if (ids.length) condiciones.push(`client_id.in.(${ids.join(',')})`);
+  return condiciones;
+}
+
+/** Una página de documentos con los filtros puestos, el más reciente primero. */
+export async function buscarHistorico(
+  filtro: FiltroHistorico, desde: number, cuantos: number,
+): Promise<{ docs: DocumentoHistorico[]; total: number }> {
+  let q = createClient().from('historico_documentos').select('*', { count: 'exact' });
+  if (filtro.tipo) q = q.eq('tipo', filtro.tipo);
+  if (filtro.anio) q = q.gte('fecha', `${filtro.anio}-01-01`).lte('fecha', `${filtro.anio}-12-31`);
+  if (filtro.soloPendientes) q = q.not('tipo', 'in', '(factura_venta,factura_compra)').eq('pasa_a', '{}');
+  const condiciones = condicionesDeBusqueda(filtro.texto ?? '', filtro.clientIds);
+  if (condiciones.length) q = q.or(condiciones.join(','));
+  const { data, error, count } = await q
+    .order('fecha', { ascending: false, nullsFirst: false }).order('numero', { ascending: false }).order('id')
+    .range(desde, desde + cuantos - 1);
+  if (error) {
+    if (faltaLaTabla(error)) return { docs: [], total: 0 };
+    throw new Error(error.message);
+  }
+  return { docs: (data ?? []).map(documentoDeFila), total: count ?? 0 };
+}
+
+export interface ResumenGeneral {
+  ventas: { facturas: number; total: number };
+  compras: { facturas: number; total: number };
+  albaranesSinFactura: { documentos: number; total: number };
+  pedidosSinServir: { documentos: number; total: number };
+  /** Por año, del más reciente al más antiguo; los documentos sin fecha, al final. */
+  anios: { anio: number | null; ventas: number; facturado: number; compras: number; comprado: number }[];
+}
+
+export function resumenGeneral(filas: readonly FilaResumenHistorico[]): ResumenGeneral {
+  const r: ResumenGeneral = {
+    ventas: { facturas: 0, total: 0 },
+    compras: { facturas: 0, total: 0 },
+    albaranesSinFactura: { documentos: 0, total: 0 },
+    pedidosSinServir: { documentos: 0, total: 0 },
+    anios: [],
+  };
+  const porAnio = new Map<number | null, ResumenGeneral['anios'][number]>();
+  const delAnio = (anio: number | null) => {
+    let a = porAnio.get(anio);
+    if (!a) { a = { anio, ventas: 0, facturado: 0, compras: 0, comprado: 0 }; porAnio.set(anio, a); }
+    return a;
+  };
+  for (const f of filas) {
+    if (f.tipo === 'factura_venta') {
+      r.ventas.facturas += f.documentos;
+      r.ventas.total = r2(r.ventas.total + f.total);
+      const a = delAnio(f.anio); a.ventas += f.documentos; a.facturado = r2(a.facturado + f.total);
+    } else if (f.tipo === 'factura_compra') {
+      r.compras.facturas += f.documentos;
+      r.compras.total = r2(r.compras.total + f.total);
+      const a = delAnio(f.anio); a.compras += f.documentos; a.comprado = r2(a.comprado + f.total);
+    } else if (f.tipo === 'albaran_venta') {
+      r.albaranesSinFactura.documentos += f.pendientes;
+      r.albaranesSinFactura.total = r2(r.albaranesSinFactura.total + f.totalPendiente);
+    } else if (f.tipo === 'pedido_venta') {
+      r.pedidosSinServir.documentos += f.pendientes;
+      r.pedidosSinServir.total = r2(r.pedidosSinServir.total + f.totalPendiente);
+    }
+  }
+  r.anios = [...porAnio.values()].sort((a, b) => (b.anio ?? -1) - (a.anio ?? -1));
+  return r;
+}
 
 /**
  * El número como lo conocían: ISECAN ya mete el año en el número de las

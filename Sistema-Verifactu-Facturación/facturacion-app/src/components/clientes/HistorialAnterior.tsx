@@ -6,33 +6,28 @@
  * lista de documentos. Solo consulta; ver lib/historico.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { History } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import {
-  getHistoricoDeFicha, NOMBRE_ORIGEN, NOMBRE_TIPO, numeroVisible, quedoPendiente, resumenHistorico,
+  NOMBRE_ORIGEN, NOMBRE_TIPO, numeroVisible, quedoPendiente, resumenHistorico,
   type DocumentoHistorico,
 } from '@/lib/historico';
 
 const DE_A_POCO = 25;
 
 interface Props {
-  clientId: string;
+  /** Los de esta ficha (getHistoricoDeFicha); los carga la ficha, que los usa también arriba. */
+  docs: DocumentoHistorico[] | null;
   esProveedor: boolean;
   /** El filtro de fechas de la ficha (aaaa-mm-dd), que vale también aquí. */
   desde?: string;
   hasta?: string;
 }
 
-export default function HistorialAnterior({ clientId, esProveedor, desde, hasta }: Props) {
-  const [docs, setDocs] = useState<DocumentoHistorico[] | null>(null);
+export default function HistorialAnterior({ docs, esProveedor, desde, hasta }: Props) {
   const [visibles, setVisibles] = useState(DE_A_POCO);
-
-  useEffect(() => {
-    let vivo = true;
-    getHistoricoDeFicha(clientId).then(d => { if (vivo) setDocs(d); }).catch(() => { if (vivo) setDocs([]); });
-    return () => { vivo = false; };
-  }, [clientId]);
 
   const filtrados = useMemo(() => (docs ?? []).filter(d => {
     if (desde && (!d.fecha || d.fecha < desde)) return false;
@@ -47,7 +42,7 @@ export default function HistorialAnterior({ clientId, esProveedor, desde, hasta 
   const filtro = Boolean(desde || hasta);
 
   return (
-    <div className="card historial-anterior" style={{ marginTop: 'var(--space-6)' }}>
+    <div className="card historial-anterior" id="historial-anterior" style={{ marginTop: 'var(--space-6)' }}>
       <div className="card-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
           <h3 className="card-title"><History size={16} aria-hidden /> Historial en {origen}</h3>
@@ -56,6 +51,7 @@ export default function HistorialAnterior({ clientId, esProveedor, desde, hasta 
             ni en los modelos de IGIC, ni en la contabilidad.
           </p>
         </div>
+        <Link href="/historico" className="btn btn-ghost btn-sm">Todo el historial</Link>
       </div>
 
       {filtrados.length === 0 ? (
