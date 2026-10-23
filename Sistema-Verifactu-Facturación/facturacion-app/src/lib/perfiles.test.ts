@@ -21,6 +21,8 @@ describe('puedeEntrar', () => {
     expect(puedeEntrar('empleado', '/ajustes')).toBe(false);
     expect(puedeEntrar('empleado', '/informes')).toBe(false);
     expect(puedeEntrar('empleado', '/listados-fiscales/303')).toBe(false);
+    // El historial suma lo facturado por año: es dinero agregado.
+    expect(puedeEntrar('empleado', '/historico')).toBe(false);
   });
 
   it('el prefijo es por segmento: /informes no veda /informes-algo', () => {

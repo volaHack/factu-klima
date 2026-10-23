@@ -8,13 +8,14 @@ import {
   Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
   ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
   WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe, ListOrdered, Landmark, Banknote, Tag, Sparkles, BookOpenCheck, BellRing, UsersRound, FileCode2,
+  Send, Globe, ListOrdered, Landmark, Banknote, Tag, Sparkles, BookOpenCheck, BellRing, UsersRound, FileCode2, History,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
 import { empresasQueLlevo, invitacionesPendientes } from '@/lib/gestoria';
+import { NOMBRE_ORIGEN, origenDelHistorico } from '@/lib/historico';
 import type { CompanySettings } from '@/lib/types';
 import { usePerfiles } from '@/lib/perfilesCliente';
 import { puedeEntrar } from '@/lib/perfiles';
@@ -122,6 +123,12 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   // invitado a una: a quien sólo factura lo suyo no le estorba una
   // sección que no va a usar nunca.
   const [tieneGestoria, setTieneGestoria] = useState(false);
+  // Lo mismo con el historial del programa anterior: solo sale si se cargó.
+  const [origenHistorico, setOrigenHistorico] = useState<string | null>(null);
+
+  useEffect(() => {
+    origenDelHistorico().then(setOrigenHistorico).catch(() => {});
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -233,6 +240,10 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         <nav className="sidebar-nav">
           <span className="sidebar-section-label">Gestión operativa</span>
           {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV (Caja)', icon: Store }] : baseNavItems)
+            // Justo debajo de los clientes: es su historial de antes.
+            .flatMap(item => (origenHistorico && item.href === '/clientes'
+              ? [item, { href: '/historico', label: `Historial ${NOMBRE_ORIGEN[origenHistorico] ?? 'anterior'}`, icon: History }]
+              : [item]))
             // Mientras no se sepan los módulos se enseña todo: esconder menús
             // y hacerlos aparecer medio segundo después es peor que esperar.
             .filter(item => !modulos || !('modulo' in item) || !item.modulo || modulos.includes(item.modulo))
