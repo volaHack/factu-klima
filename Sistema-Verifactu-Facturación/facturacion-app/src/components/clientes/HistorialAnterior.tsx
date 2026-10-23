@@ -119,7 +119,9 @@ export default function HistorialAnterior({ docs, esProveedor, desde, hasta }: P
                         <> <span className="badge badge-warning">{d.tipo === 'pedido_venta' ? 'Sin servir' : 'Sin factura'}</span></>
                       )}
                     </td>
-                    <td className="mono" title={d.observaciones ?? undefined}>{numeroVisible(d)}</td>
+                    <td className="mono" title={d.observaciones ?? undefined}>
+                      <Link href={`/documentos/historico/${d.id}`} className="cell-link">{numeroVisible(d)}</Link>
+                    </td>
                     <td>{d.fecha ? formatDate(d.fecha) : '—'}</td>
                     <td className="col-forma">{d.formaPago ?? '—'}</td>
                     <td className="amount">{formatCurrency(d.total)}</td>

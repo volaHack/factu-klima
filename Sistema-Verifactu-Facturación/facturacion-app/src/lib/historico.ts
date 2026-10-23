@@ -55,6 +55,20 @@ export function documentoDeFila(f: any): DocumentoHistorico {
   };
 }
 
+/**
+ * Quién mira. Las listas son las de su propia cuenta, como las de los
+ * documentos de Klima: una gestoría también puede leer el historial de las
+ * empresas que lleva (política de la 068), y no debe salirle mezclado.
+ */
+async function cuentaDeLaSesion(): Promise<string | null> {
+  try {
+    const { data } = await createClient().auth.getSession();
+    return data?.session?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Los documentos de una ficha, el más reciente primero. Sin la tabla (migración 068), ninguno. */
 export async function getHistoricoDeFicha(clientId: string): Promise<DocumentoHistorico[]> {
   const db = createClient();
@@ -125,15 +139,20 @@ export async function getResumenHistorico(): Promise<FilaResumenHistorico[]> {
 
 /** ¿Hay historial de otro programa? Devuelve de cuál, para el menú. */
 export async function origenDelHistorico(): Promise<string | null> {
-  const { data, error } = await createClient().from('historico_documentos').select('origen').limit(1);
+  let q = createClient().from('historico_documentos').select('origen');
+  const cuenta = await cuentaDeLaSesion();
+  if (cuenta) q = q.eq('user_id', cuenta);
+  const { data, error } = await q.limit(1);
   if (error) return null;
   return data?.[0]?.origen ?? null;
 }
 
 /** Compras apuntadas sin importe: en ISECAN muchas se guardaban a 0 €. */
 export async function comprasSinImporte(): Promise<number> {
-  const { count, error } = await createClient().from('historico_documentos').select('id', { count: 'exact', head: true })
-    .in('tipo', ['factura_compra', 'albaran_compra']).eq('total', 0);
+  let q = createClient().from('historico_documentos').select('id', { count: 'exact', head: true });
+  const cuenta = await cuentaDeLaSesion();
+  if (cuenta) q = q.eq('user_id', cuenta);
+  const { count, error } = await q.in('tipo', ['factura_compra', 'albaran_compra']).eq('total', 0);
   return error ? 0 : count ?? 0;
 }
 
@@ -194,6 +213,8 @@ export async function buscarHistorico(
   filtro: FiltroHistorico, desde: number, cuantos: number,
 ): Promise<{ docs: DocumentoHistorico[]; total: number }> {
   let q = createClient().from('historico_documentos').select('*', { count: 'exact' });
+  const cuenta = await cuentaDeLaSesion();
+  if (cuenta) q = q.eq('user_id', cuenta);
   if (filtro.tipo) q = q.eq('tipo', filtro.tipo);
   if (filtro.anio) q = q.gte('fecha', `${filtro.anio}-01-01`).lte('fecha', `${filtro.anio}-12-31`);
   if (filtro.soloPendientes) q = q.not('tipo', 'in', '(factura_venta,factura_compra)').eq('pasa_a', '{}');
@@ -255,13 +276,17 @@ export function resumenGeneral(filas: readonly FilaResumenHistorico[]): ResumenG
 
 /**
  * El número como lo conocían: ISECAN ya mete el año en el número de las
- * facturas (serie 24, número 24000001), pero no en el de los pedidos
- * (serie T24, número 3203).
+ * facturas (serie 24, número 24000001), pero no en el de los albaranes ni
+ * en el de los pedidos (serie T24, número 3203). Que empiece por la serie
+ * no basta: el albarán 25 de la serie 25 es «25/25», no «25».
  */
 export function numeroVisible(d: Pick<DocumentoHistorico, 'serie' | 'numero'>): string {
-  if (!d.serie || d.numero.startsWith(d.serie)) return d.numero;
+  if (!d.serie || (d.numero.startsWith(d.serie) && d.numero.length - d.serie.length >= CIFRAS_TRAS_EL_ANIO)) return d.numero;
   return `${d.serie.toUpperCase()}/${d.numero}`;
 }
+
+/** Las facturas llevan seis cifras tras el año; con cuatro ya no puede ser un albarán (llegan a tres). */
+const CIFRAS_TRAS_EL_ANIO = 4;
 
 /** Un albarán o pedido que no llegó a ningún documento posterior. */
 export function quedoPendiente(d: Pick<DocumentoHistorico, 'tipo' | 'pasaA'>): boolean {
@@ -303,4 +328,223 @@ export function resumenHistorico(docs: readonly DocumentoHistorico[]): ResumenHi
   }
   const anios = [...porAnio.values()].sort((a, b) => b.anio.localeCompare(a.anio));
   return { anios, ultimaFactura, pendientes };
+}
+
+// ------------------------------------------------------------
+// En la lista de Documentos
+// ------------------------------------------------------------
+
+/**
+ * Un documento del historial con las columnas de la lista de Documentos
+ * (vista `historico_listado`, migración 070).
+ */
+export interface FilaListadoHistorico {
+  id: string;
+  origen: string;
+  tipo: 'factura' | 'albaran' | 'pedido';
+  sentido: 'venta' | 'compra';
+  /** Como se conocía: «T24/100269» en los pedidos. */
+  numero: string;
+  fecha: string | null;
+  clientId: string | null;
+  cliente: string | null;
+  clienteNif: string | null;
+  codigoTercero: string | null;
+  total: number;
+  /** emitida (facturas), facturado (pasó a otro documento) o pendiente. */
+  estado: 'emitida' | 'facturado' | 'pendiente';
+  observaciones: string | null;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+export function filaListadoDe(f: any): FilaListadoHistorico {
+  return {
+    id: f.id,
+    origen: f.origen,
+    tipo: f.tipo,
+    sentido: f.sentido,
+    numero: f.numero,
+    fecha: f.fecha ?? null,
+    clientId: f.client_id ?? null,
+    cliente: f.cliente ?? null,
+    clienteNif: f.cliente_nif ?? null,
+    codigoTercero: f.codigo_tercero ?? null,
+    total: Number(f.total) || 0,
+    estado: f.estado,
+    observaciones: f.observaciones ?? null,
+  };
+}
+
+/** Lo que dice la columna Estado de un documento del historial. */
+export function estadoDeHistorico(d: Pick<FilaListadoHistorico, 'tipo' | 'estado'>): string {
+  if (d.estado === 'emitida') return 'Emitida';
+  if (d.tipo === 'pedido') return d.estado === 'facturado' ? 'Servido' : 'Sin servir';
+  return d.estado === 'facturado' ? 'Facturado' : 'Sin facturar';
+}
+
+/** El tipo y el estado de la lista de Documentos, como los calcula la vista (070). */
+export function tipoYEstado(d: Pick<DocumentoHistorico, 'tipo' | 'pasaA'>): Pick<FilaListadoHistorico, 'tipo' | 'estado'> {
+  const tipo = d.tipo.startsWith('factura') ? 'factura' : d.tipo.startsWith('albaran') ? 'albaran' : 'pedido';
+  const estado = tipo === 'factura' ? 'emitida' : d.pasaA.length > 0 ? 'facturado' : 'pendiente';
+  return { tipo, estado };
+}
+
+/** Los desplegables de Documentos; «todos» es no filtrar. */
+export interface FiltroDocumentos {
+  tipo: string;
+  sentido: string;
+  estado: string;
+  texto: string;
+}
+
+/** Las columnas por las que se ordena la lista de Documentos. */
+export type CampoDocumentos =
+  'number' | 'tipo' | 'sentido' | 'issueDate' | 'clientName' | 'documentoOrigenNumber' | 'total' | 'status';
+
+/** La columna de la vista que va con cada una. Ninguno del historial tiene origen: van por fecha. */
+export const COLUMNA_DE_ORDEN: Record<CampoDocumentos, string> = {
+  number: 'numero',
+  tipo: 'tipo',
+  sentido: 'sentido',
+  issueDate: 'fecha',
+  clientName: 'cliente',
+  documentoOrigenNumber: 'fecha',
+  total: 'total',
+  status: 'estado',
+};
+
+const TIPOS_DEL_HISTORIAL = ['factura', 'albaran', 'pedido'];
+const ESTADOS_DEL_HISTORIAL = ['emitida', 'facturado', 'pendiente'];
+
+/**
+ * ¿Puede salir algo del historial con estos filtros? Presupuestos y
+ * borradores no venían en la copia; las rectificativas van como facturas
+ * con el total en negativo, y pagadas no se sabe cuáles (en ISECAN lo
+ * cobrado estaba siempre a 0).
+ */
+export function filtroAlcanzaHistorial(f: Pick<FiltroDocumentos, 'tipo' | 'estado'>): boolean {
+  return (f.tipo === 'todos' || TIPOS_DEL_HISTORIAL.includes(f.tipo))
+    && (f.estado === 'todos' || ESTADOS_DEL_HISTORIAL.includes(f.estado));
+}
+
+/** Las condiciones `or` del buscador de Documentos sobre la vista; vacío si no hay nada que buscar. */
+export function busquedaEnListado(texto: string): string[] {
+  const t = textoParaFiltro(texto);
+  if (!t) return [];
+  return ['numero', 'cliente', 'razon_social', 'cliente_nif', 'codigo_tercero', 'observaciones']
+    .map(c => `${c}.ilike.*${t}*`);
+}
+
+/**
+ * Una página del historial para la lista de Documentos, con sus filtros y
+ * en su orden. La base de datos filtra y ordena: son miles.
+ */
+export async function listarHistorico(
+  filtro: FiltroDocumentos,
+  orden: { campo: CampoDocumentos; asc: boolean },
+  desde: number,
+  cuantos: number,
+): Promise<{ filas: FilaListadoHistorico[]; total: number }> {
+  if (!filtroAlcanzaHistorial(filtro)) return { filas: [], total: 0 };
+  let q = createClient().from('historico_listado').select('*', { count: 'exact' });
+  const cuenta = await cuentaDeLaSesion();
+  if (cuenta) q = q.eq('user_id', cuenta);
+  if (filtro.tipo !== 'todos') q = q.eq('tipo', filtro.tipo);
+  if (filtro.sentido !== 'todos') q = q.eq('sentido', filtro.sentido);
+  if (filtro.estado !== 'todos') q = q.eq('estado', filtro.estado);
+  const condiciones = busquedaEnListado(filtro.texto);
+  if (condiciones.length) q = q.or(condiciones.join(','));
+  const columna = COLUMNA_DE_ORDEN[orden.campo];
+  q = q.order(columna, { ascending: orden.asc, nullsFirst: orden.asc });
+  if (columna !== 'fecha') q = q.order('fecha', { ascending: false, nullsFirst: false });
+  const { data, error, count } = await q.order('id').range(desde, desde + cuantos - 1);
+  if (error) {
+    if (faltaLaTabla(error)) return { filas: [], total: 0 };
+    throw new Error(error.message);
+  }
+  return { filas: (data ?? []).map(filaListadoDe), total: count ?? 0 };
+}
+
+/**
+ * Junta dos listas ya ordenadas sin reordenar ninguna: la del historial
+ * llega en el orden de la base de datos y así se queda, aunque ordene las
+ * tildes o las mayúsculas un poco distinto que el teléfono.
+ */
+export function mezclarOrdenadas<A, B>(a: readonly A[], b: readonly B[], va: (x: A, y: B) => number): (A | B)[] {
+  const r: (A | B)[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) r.push(va(a[i], b[j]) <= 0 ? a[i++] : b[j++]);
+  for (; i < a.length; i++) r.push(a[i]);
+  for (; j < b.length; j++) r.push(b[j]);
+  return r;
+}
+
+// ------------------------------------------------------------
+// Un documento
+// ------------------------------------------------------------
+
+/** Cómo lo nombra `pasa_a` de los demás: «factura_venta:26/26003518». */
+export function claveDeDocumento(d: Pick<DocumentoHistorico, 'tipo' | 'serie' | 'numero'>): string {
+  return `${d.tipo}:${d.serie}/${d.numero}`;
+}
+
+/** «factura_venta:26/26003518» → sus partes; null si no tiene esa forma. */
+export function partesDeClave(clave: string): { tipo: TipoHistorico; serie: string; numero: string } | null {
+  const m = /^(factura_venta|albaran_venta|pedido_venta|factura_compra|albaran_compra):([^/]*)\/(.+)$/.exec(clave);
+  return m ? { tipo: m[1] as TipoHistorico, serie: m[2], numero: m[3] } : null;
+}
+
+export interface DetalleHistorico {
+  doc: DocumentoHistorico;
+  cliente: string | null;
+  clienteNif: string | null;
+  /** Los documentos a los que pasó (el albarán, a su factura). */
+  pasoA: DocumentoHistorico[];
+  /** Los que pasaron a este (los albaranes de una factura). */
+  vieneDe: DocumentoHistorico[];
+}
+
+/** Un documento del historial con su ficha y los documentos con los que se enlaza; null si no está. */
+export async function getDetalleHistorico(id: string): Promise<DetalleHistorico | null> {
+  const db = createClient();
+  const { data, error } = await db.from('historico_documentos').select('*').eq('id', id).maybeSingle();
+  if (error) {
+    if (faltaLaTabla(error)) return null;
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+  const doc = documentoDeFila(data);
+
+  const [nombre, siguientes, anteriores] = await Promise.all([
+    db.from('historico_listado').select('cliente, cliente_nif').eq('id', id).maybeSingle(),
+    Promise.all(doc.pasaA.map(partesDeClave).filter((p): p is NonNullable<typeof p> => p !== null).map(p => db.from('historico_documentos')
+      .select('*').eq('user_id', data.user_id).eq('origen', doc.origen)
+      .eq('tipo', p.tipo).eq('serie', p.serie).eq('numero', p.numero).limit(1))),
+    db.from('historico_documentos').select('*').eq('user_id', data.user_id).eq('origen', doc.origen)
+      .contains('pasa_a', [claveDeDocumento(doc)])
+      .order('fecha', { ascending: true, nullsFirst: false }).order('numero').limit(200),
+  ]);
+
+  return {
+    doc,
+    cliente: nombre.data?.cliente ?? null,
+    clienteNif: nombre.data?.cliente_nif ?? null,
+    pasoA: siguientes.flatMap(r => r.data ?? []).map(documentoDeFila),
+    vieneDe: (anteriores.data ?? []).map(documentoDeFila),
+  };
+}
+
+/**
+ * Cuántas facturas (o albaranes) del programa anterior hay, y de cuál:
+ * para avisar en Facturas y en Albaranes de que están en Documentos.
+ * null si no hay ninguno o no se pudo saber.
+ */
+export async function contarHistorico(tipo: FilaListadoHistorico['tipo']): Promise<{ origen: string; total: number } | null> {
+  let q = createClient().from('historico_listado').select('origen', { count: 'exact' }).eq('tipo', tipo);
+  const cuenta = await cuentaDeLaSesion();
+  if (cuenta) q = q.eq('user_id', cuenta);
+  const { data, count, error } = await q.limit(1);
+  if (error || !count || !data?.[0]) return null;
+  return { origen: data[0].origen, total: count };
 }

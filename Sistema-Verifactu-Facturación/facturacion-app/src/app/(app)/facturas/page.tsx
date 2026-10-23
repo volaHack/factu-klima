@@ -23,6 +23,7 @@ import { INVOICE_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
+import AvisoHistorial from '@/components/documentos/AvisoHistorial';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
@@ -456,6 +457,8 @@ export default function FacturasPage() {
           </Link>
         </div>
       </div>
+
+      <AvisoHistorial tipo="factura" />
 
       {/* Panel de analítica */}
       {showAnalytics && invoices.length > 0 && (

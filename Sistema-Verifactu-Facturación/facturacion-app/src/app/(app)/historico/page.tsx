@@ -279,7 +279,9 @@ export default function HistoricoPage() {
                 return (
                   <tr key={d.id}>
                     <td className="historico-col-doc">
-                      <span className="mono" title={d.observaciones ?? undefined}>{numeroVisible(d)}</span>
+                      <Link href={`/documentos/historico/${d.id}`} className="cell-link mono" title={d.observaciones ?? undefined}>
+                        {numeroVisible(d)}
+                      </Link>
                       <span className="historico-sub">
                         {ETIQUETA_TIPO[d.tipo]} · {d.fecha ? formatDate(d.fecha) : 'sin fecha'}
                         {quedoPendiente(d) && (
