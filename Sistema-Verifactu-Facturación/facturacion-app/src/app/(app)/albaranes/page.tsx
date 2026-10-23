@@ -18,6 +18,7 @@ import { Albaran, AlbaranStatus } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ALBARAN_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import AvisoHistorial from '@/components/documentos/AvisoHistorial';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'total' | 'status';
 
@@ -258,6 +259,8 @@ export default function AlbaranesPage() {
           </Link>
         </div>
       </div>
+
+      <AvisoHistorial tipo="albaran" />
 
       {counts.porFacturar > 0 && (
         <FacturarPeriodo

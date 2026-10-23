@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  FICHAS_POR_BUSQUEDA, condicionesDeBusqueda, documentoDeFila, fichasQueCasan, filaResumenDe, numeroVisible, quedoPendiente,
-  resumenGeneral, resumenHistorico, textoParaFiltro, type DocumentoHistorico, type FilaResumenHistorico,
+  FICHAS_POR_BUSQUEDA, busquedaEnListado, claveDeDocumento, condicionesDeBusqueda, documentoDeFila, estadoDeHistorico,
+  fichasQueCasan, filaListadoDe, filaResumenDe, filtroAlcanzaHistorial, mezclarOrdenadas, numeroVisible, partesDeClave,
+  quedoPendiente, resumenGeneral, resumenHistorico, textoParaFiltro, tipoYEstado, type DocumentoHistorico, type FilaResumenHistorico,
 } from './historico';
 
 const doc = (o: Partial<DocumentoHistorico>): DocumentoHistorico => ({
@@ -18,6 +19,11 @@ describe('número como lo conocían', () => {
   it('los pedidos no: serie delante', () => {
     expect(numeroVisible({ serie: 't24', numero: '100269' })).toBe('T24/100269');
     expect(numeroVisible({ serie: '', numero: '7' })).toBe('7');
+  });
+  it('un albarán cuyo número empieza como la serie también la lleva delante', () => {
+    expect(numeroVisible({ serie: '25', numero: '25' })).toBe('25/25');
+    expect(numeroVisible({ serie: '26', numero: '260' })).toBe('26/260');
+    expect(numeroVisible({ serie: '26', numero: '1' })).toBe('26/1');
   });
 });
 
@@ -148,5 +154,66 @@ describe('el resumen de toda la cuenta', () => {
     expect(filaResumenDe({ anio: 2026, tipo: 'albaran_venta', documentos: '309', total: '197319.18', pendientes: 299, total_pendiente: '186567.12' }))
       .toEqual({ anio: 2026, tipo: 'albaran_venta', documentos: 309, total: 197319.18, pendientes: 299, totalPendiente: 186567.12 });
     expect(filaResumenDe({ anio: null, tipo: 'albaran_compra', documentos: 2, total: '0', pendientes: 1, total_pendiente: '0' }).anio).toBeNull();
+  });
+});
+
+describe('el historial dentro de Documentos', () => {
+  it('el estado se dice como en la lista: un pedido se sirve, un albarán se factura', () => {
+    expect(estadoDeHistorico({ tipo: 'factura', estado: 'emitida' })).toBe('Emitida');
+    expect(estadoDeHistorico({ tipo: 'albaran', estado: 'pendiente' })).toBe('Sin facturar');
+    expect(estadoDeHistorico({ tipo: 'albaran', estado: 'facturado' })).toBe('Facturado');
+    expect(estadoDeHistorico({ tipo: 'pedido', estado: 'pendiente' })).toBe('Sin servir');
+    expect(estadoDeHistorico({ tipo: 'pedido', estado: 'facturado' })).toBe('Servido');
+  });
+
+  it('el estado de un documento suelto, igual que en la vista', () => {
+    expect(tipoYEstado(doc({ tipo: 'factura_compra' }))).toEqual({ tipo: 'factura', estado: 'emitida' });
+    expect(tipoYEstado(doc({ tipo: 'albaran_compra', pasaA: ['factura_compra:26/311'] }))).toEqual({ tipo: 'albaran', estado: 'facturado' });
+    expect(tipoYEstado(doc({ tipo: 'pedido_venta' }))).toEqual({ tipo: 'pedido', estado: 'pendiente' });
+  });
+
+  it('presupuestos, borradores o pagadas no los hay en el historial: ni se pregunta', () => {
+    expect(filtroAlcanzaHistorial({ tipo: 'todos', estado: 'todos' })).toBe(true);
+    expect(filtroAlcanzaHistorial({ tipo: 'albaran', estado: 'pendiente' })).toBe(true);
+    expect(filtroAlcanzaHistorial({ tipo: 'presupuesto', estado: 'todos' })).toBe(false);
+    expect(filtroAlcanzaHistorial({ tipo: 'rectificativa', estado: 'todos' })).toBe(false);
+    expect(filtroAlcanzaHistorial({ tipo: 'todos', estado: 'borrador' })).toBe(false);
+    expect(filtroAlcanzaHistorial({ tipo: 'factura', estado: 'pagada' })).toBe(false);
+  });
+
+  it('el buscador mira número, nombre, razón social, NIF, código y observaciones', () => {
+    expect(busquedaEnListado(' T24/100269 ')).toEqual([
+      'numero.ilike.*T24/100269*', 'cliente.ilike.*T24/100269*', 'razon_social.ilike.*T24/100269*',
+      'cliente_nif.ilike.*T24/100269*', 'codigo_tercero.ilike.*T24/100269*', 'observaciones.ilike.*T24/100269*',
+    ]);
+    expect(busquedaEnListado('a,b')[0]).toBe('numero.ilike.*a b*');
+    expect(busquedaEnListado(' (*) ')).toEqual([]);
+  });
+
+  it('la fila de la vista llega con el total como texto', () => {
+    const f = filaListadoDe({ id: 'a', origen: 'isecan', tipo: 'pedido', sentido: 'venta', numero: 'T24/100269',
+      fecha: null, client_id: null, cliente: null, cliente_nif: null, codigo_tercero: '60', total: '12.50',
+      estado: 'pendiente', observaciones: null });
+    expect(f.total).toBe(12.5);
+    expect(f.codigoTercero).toBe('60');
+    expect(f.fecha).toBeNull();
+  });
+
+  it('dos listas ordenadas se juntan sin reordenar ninguna', () => {
+    const klima = [{ f: 9 }, { f: 5 }, { f: 1 }];
+    // Del historial, en el orden en que lo dio la base de datos (aquí, empate entre 5 y 5).
+    const historial = [{ f: 7, id: 'x' }, { f: 5, id: 'y' }, { f: 5, id: 'z' }, { f: 0, id: 'w' }];
+    const r = mezclarOrdenadas(klima, historial, (a, b) => b.f - a.f);
+    expect(r.map(x => x.f)).toEqual([9, 7, 5, 5, 5, 1, 0]);
+    expect(r.filter(x => 'id' in x).map(x => (x as { id: string }).id)).toEqual(['x', 'y', 'z', 'w']);
+    expect(mezclarOrdenadas([], historial, () => 0)).toEqual(historial);
+  });
+
+  it('pasa_a nombra los documentos como tipo:serie/número, y se puede deshacer', () => {
+    expect(claveDeDocumento({ tipo: 'albaran_venta', serie: '26', numero: '235' })).toBe('albaran_venta:26/235');
+    expect(partesDeClave('factura_venta:26/26003518')).toEqual({ tipo: 'factura_venta', serie: '26', numero: '26003518' });
+    expect(partesDeClave('factura_compra:/16')).toEqual({ tipo: 'factura_compra', serie: '', numero: '16' });
+    expect(partesDeClave('otra_cosa:1/2')).toBeNull();
+    expect(partesDeClave('factura_venta:26')).toBeNull();
   });
 });

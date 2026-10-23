@@ -15658,6 +15658,8 @@ body {
 .historico-anio { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
 .historico-check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-secondary); }
 .historico-pie { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.tabla-atenuada { opacity: 0.55; transition: opacity 0.15s ease; }
+.tabla-cargando { padding: var(--space-8) var(--space-4) !important; text-align: center; color: var(--text-muted); }
 .kpi-card--boton { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .kpi-card--boton:hover { border-color: var(--kpi-color); }
 .kpi-card--boton:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
