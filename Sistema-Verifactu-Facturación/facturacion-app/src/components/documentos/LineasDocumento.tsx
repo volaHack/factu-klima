@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw } from 'lucide-react';
 import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getInvoices } from '@/lib/storage';
-import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, type PrecioAnterior } from '@/lib/documentos';
+import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, avisosDeLinea, type PrecioAnterior } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
@@ -136,20 +136,61 @@ export default function LineasDocumento({
     onChange(updated);
   };
 
+  /**
+   * El precio, los descuentos y el impuesto que tocan a un artículo en este
+   * documento. En una venta, con las condiciones del cliente: su precio
+   * especial, el descuento del artículo o el de la familia y, si no hay
+   * nada de eso, su tarifa y los descuentos de su ficha (documentos.ts). En
+   * una compra, el precio y el impuesto de compra de la ficha, sin tarifas
+   * ni descuentos, que son los de nuestros clientes.
+   */
+  const condicionesDe = (product: Product) => {
+    const compra = sentido === 'compra' ? condicionesDeCompra(product) : null;
+    const cond = compra
+      ? { unitPrice: compra.unitPrice, descuentos: [0, 0, 0] as const }
+      : condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
+    return {
+      unitPrice: cond.unitPrice,
+      descuentos: cond.descuentos,
+      taxRate: compra ? compra.taxRate : product.defaultTaxRate,
+    };
+  };
+
+  // Al elegir artículo, el cursor pasa a la cantidad; con Intro en una
+  // casilla, a la línea siguiente (o a una nueva si es la última).
+  const contenedor = useRef<HTMLDivElement>(null);
+  const focoPendiente = useRef<{ linea: number; donde: 'producto' | 'cantidad' } | null>(null);
+  useEffect(() => {
+    const f = focoPendiente.current;
+    if (!f) return;
+    focoPendiente.current = null;
+    const ficha = contenedor.current?.querySelector(`[data-linea="${f.linea}"]`);
+    const destino = f.donde === 'producto'
+      ? ficha?.querySelector<HTMLInputElement>('input[role="combobox"]')
+      : ficha?.querySelector<HTMLInputElement>('.lineas-doc-campos input');
+    destino?.focus();
+    destino?.select?.();
+  });
+
+  const alPulsarEnCampos = (index: number) => (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement) || e.target.type === 'checkbox') return;
+    e.preventDefault();
+    if (index < lineItems.length - 1) {
+      focoPendiente.current = { linea: index + 1, donde: 'producto' };
+      onChange([...lineItems]);
+    } else {
+      focoPendiente.current = { linea: index + 1, donde: 'producto' };
+      addLine();
+    }
+  };
+
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     const updated = [...lineItems];
     if (product) {
-      // Precio y descuentos con las condiciones del cliente: su precio
-      // especial, el descuento del artículo o el de la familia, y si no hay
-      // nada de eso, su tarifa y los descuentos de su ficha (documentos.ts).
-      // En una compra: el precio de compra de la ficha, sin las tarifas ni
-      // los descuentos, que son los de nuestros clientes.
-      const compra = sentido === 'compra' ? condicionesDeCompra(product) : null;
-      const cond = compra
-        ? { unitPrice: compra.unitPrice, descuentos: [0, 0, 0] }
-        : condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
+      const cond = condicionesDe(product);
       const [d1, d2, d3] = cond.descuentos;
+      focoPendiente.current = { linea: index, donde: 'cantidad' };
 
       updated[index] = recalcularLinea({
         ...updated[index],
@@ -158,7 +199,7 @@ export default function LineasDocumento({
         productRef: product.ref,
         unitPrice: cond.unitPrice,
         unit: product.unit,
-        taxRate: compra ? compra.taxRate : product.defaultTaxRate,
+        taxRate: cond.taxRate,
         // Las unidades por bulto vienen de la ficha del producto: se ponen
         // una vez y no hay que teclearlas en cada factura.
         unitsPerPackage: product.unitsPerPackage,
@@ -217,6 +258,32 @@ export default function LineasDocumento({
     onChange([...lineItems, recalcularLinea(nueva)]);
   };
 
+  /**
+   * Las líneas cuyo precio no es el que tocaría ahora: pasa al cambiar de
+   * cliente (o de tarifa) con las líneas ya puestas.
+   */
+  const lineasConOtroPrecio = lineItems.filter(l => {
+    const p = l.productId ? products.find(x => x.id === l.productId) : undefined;
+    if (!p) return false;
+    const c = condicionesDe(p);
+    return Math.abs(c.unitPrice - l.unitPrice) > 0.00005
+      || c.descuentos[0] !== (l.discountPercent || 0)
+      || c.descuentos[1] !== (l.discountPercent2 || 0)
+      || c.descuentos[2] !== (l.discountPercent3 || 0);
+  }).length;
+
+  const aplicarCondiciones = () => {
+    onChange(lineItems.map(l => {
+      const p = l.productId ? products.find(x => x.id === l.productId) : undefined;
+      if (!p) return l;
+      const c = condicionesDe(p);
+      return recalcularLinea({
+        ...l, unitPrice: c.unitPrice,
+        discountPercent: c.descuentos[0], discountPercent2: c.descuentos[1], discountPercent3: c.descuentos[2],
+      });
+    }));
+  };
+
   /** Qué condición de este cliente toca a este artículo, dicho en una frase. */
   const condicionEspecial = (productId: string): string | null => {
     const product = products.find(p => p.id === productId);
@@ -246,6 +313,16 @@ export default function LineasDocumento({
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
         <h3 className="card-title" style={{ margin: 0 }}>{titulo ?? voz.titulo}</h3>
+        {lineasConOtroPrecio > 0 && (clienteId || tarifaId || sentido === 'compra') && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs lineas-doc-recalcular"
+            onClick={aplicarCondiciones}
+            title="Pone a cada línea el precio y los descuentos que tocan ahora (tarifa, precios especiales y descuentos de la ficha). Las cantidades no cambian."
+          >
+            <RefreshCw size={13} /> Recalcular {lineasConOtroPrecio === 1 ? 'el precio de 1 línea' : `precios de ${lineasConOtroPrecio} líneas`}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost btn-xs"
@@ -265,10 +342,11 @@ export default function LineasDocumento({
           casilla. Cada campo lleva ahora su rótulo al lado, así que se lee sin
           buscar, y los campos se reparten solos cuando la pantalla es
           estrecha en vez de quedarse en una tira ilegible. */}
-      <div className="lineas-doc">
+      <div className="lineas-doc" ref={contenedor}>
         {lineItems.map((line, index) => {
+          const producto = line.productId ? products.find(p => p.id === line.productId) : undefined;
           return (
-            <div className="lineas-doc-ficha" key={line.id}>
+            <div className="lineas-doc-ficha" key={line.id} data-linea={index}>
               <div className="lineas-doc-cabeza">
                 <BuscadorProducto
                   className="lineas-doc-producto"
@@ -277,6 +355,7 @@ export default function LineasDocumento({
                   onSelect={id => handleProductSelect(index, id)}
                   ariaLabel={`${voz.linea} de la línea ${index + 1}`}
                   placeholder={`Buscar ${voz.linea}: referencia, nombre o código`}
+                  sentido={sentido}
                 />
                 <div className="lineas-doc-importe">{formatCurrency(line.subtotal)}</div>
                 <button
@@ -290,7 +369,7 @@ export default function LineasDocumento({
                 </button>
               </div>
 
-              <div className="lineas-doc-campos">
+              <div className="lineas-doc-campos" onKeyDown={alPulsarEnCampos(index)}>
                 {porCajas ? (
                   <>
                     {/* CAJ.: cajas completas. Se puede dejar en blanco y
@@ -346,9 +425,11 @@ export default function LineasDocumento({
                     <select
                       value={line.loteId ?? ''}
                       onChange={e => {
+                        // Los dos campos en el mismo cambio: hechos uno detrás de
+                        // otro, el segundo partía de la línea sin el primero y el
+                        // lote elegido se perdía.
                         const lote = lotes.find(l => l.id === e.target.value);
-                        handleLineChange(index, 'loteId', lote?.id);
-                        handleLineChange(index, 'loteCodigo', lote?.codigo);
+                        cambiarLinea(index, l => ({ ...l, loteId: lote?.id, loteCodigo: lote?.codigo }));
                       }}
                     >
                       <option value="">— Elegir lote —</option>
@@ -446,6 +527,13 @@ export default function LineasDocumento({
                   </p>
                 );
               })()}
+
+              {/* Stock, coste, precio a cero, artículo repetido (documentos.ts). */}
+              {avisosDeLinea(line, index, lineItems, producto, sentido).map((a, i) => (
+                a.tipo === 'aviso'
+                  ? <p key={i} className="lineas-doc-aviso" role="status"><AlertTriangle size={13} /> {a.texto}</p>
+                  : <p key={i} className="lineas-doc-pie"><Info size={12} aria-hidden /> {a.texto}</p>
+              ))}
 
               {/* Lo que de verdad se descarga del camión, dicho aquí para no
                   tener que multiplicarlo de cabeza. */}

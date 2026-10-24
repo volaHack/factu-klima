@@ -17,7 +17,7 @@
  */
 
 import { InvoiceStatus, type Client, type Invoice, type Product } from '../types';
-import { pendientesPorProducto } from '../documentos';
+import { pendientesPorProducto, costeDe } from '../documentos';
 import type { FilaResumenHistorico } from '../historico';
 
 const NO_CUENTA: readonly string[] = [InvoiceStatus.BORRADOR, InvoiceStatus.ANULADA, InvoiceStatus.RECHAZADO, InvoiceStatus.PRE_APROBACION];
@@ -32,10 +32,8 @@ function uds(n: number): string {
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-/** El coste de un artículo: el precio medio y, sin él, la última compra o el precio de compra. */
-export function costeDe(p: Pick<Product, 'costePmp' | 'costeUltimaCompra' | 'purchasePrice'>): number {
-  return [p.costePmp, p.costeUltimaCompra, p.purchasePrice].find(v => (v ?? 0) > 0) ?? 0;
-}
+// El coste de un artículo vive en documentos.ts (lo usan también las líneas).
+export { costeDe };
 
 /** Las ventas que cuentan: facturas de venta emitidas que no vienen de un albarán ya contado, y los albaranes servidos. */
 export function documentosDeVenta(facturas: readonly Invoice[]): Invoice[] {

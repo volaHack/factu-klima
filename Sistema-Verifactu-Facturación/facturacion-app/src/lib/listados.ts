@@ -85,7 +85,11 @@ export type FuenteListado =
   | { clase: 'albaranes' }
   | { clase: 'cobrosPagos'; tipo: CobroPago['tipo'] }
   | { clase: 'regularizaciones' }
-  | { clase: 'traspasos' };
+  | { clase: 'traspasos' }
+  /** Lo que mete o saca mercancía del almacén (los mismos que mueven el stock). */
+  | { clase: 'movimientosAlmacen'; sentido: 'entrada' | 'salida' }
+  /** Cobros con dinero sin aplicar a ninguna factura: anticipos del cliente. */
+  | { clase: 'entregasACuenta' };
 
 export interface Relacion {
   id: string;
@@ -153,6 +157,12 @@ export const RELACIONES: Relacion[] = [
   { id: 'regularizaciones', nombre: 'Regularizaciones de stock', grupo: 'almacen',
     fuente: { clase: 'regularizaciones' },
     columnaNombre: 'Producto', porTercero: false, conPendientes: false, enUnidades: true, requiere: 'almacenes' },
+  { id: 'entradas_almacen', nombre: 'Entradas de almacén', grupo: 'almacen',
+    fuente: { clase: 'movimientosAlmacen', sentido: 'entrada' },
+    columnaNombre: 'Proveedor / motivo', porTercero: true, conPendientes: false },
+  { id: 'salidas_almacen', nombre: 'Salidas de almacén', grupo: 'almacen',
+    fuente: { clase: 'movimientosAlmacen', sentido: 'salida' },
+    columnaNombre: 'Cliente / motivo', porTercero: true, conPendientes: false },
   { id: 'traspasos', nombre: 'Traspasos entre almacenes', grupo: 'almacen',
     fuente: { clase: 'traspasos' },
     columnaNombre: 'Origen → destino', porTercero: false, conPendientes: false, enUnidades: true, requiere: 'almacenes' },
@@ -164,6 +174,9 @@ export const RELACIONES: Relacion[] = [
   { id: 'pagos', nombre: 'Pagos', grupo: 'tesoreria',
     fuente: { clase: 'cobrosPagos', tipo: 'pago' },
     columnaNombre: 'Proveedor', porTercero: true, conPendientes: false },
+  { id: 'entregas_cuenta', nombre: 'Entregas a cuenta', grupo: 'tesoreria',
+    fuente: { clase: 'entregasACuenta' },
+    columnaNombre: 'Cliente', porTercero: true, conPendientes: false },
 ];
 
 export function relacionPorId(id: string): Relacion | undefined {
@@ -210,9 +223,14 @@ export function filasDeDocumentos(
       neto: inv.subtotal,
       impuestos: inv.totalTax,
       total: inv.total,
-      // Pendiente = queda dinero por cobrar o pagar. Una anulada no debe
-      // nada a nadie, aunque su importe siga en los libros.
-      pendiente: inv.status !== 'anulada' && (inv.paidAmount ?? 0) < inv.total,
+      // En una factura, pendiente = queda dinero por cobrar o pagar. En un
+      // albarán, un pedido o un presupuesto, que aún no ha pasado a factura
+      // (o a albarán). Una anulada no debe nada a nadie.
+      pendiente: inv.status !== 'anulada' && (
+        (inv.tipo ?? 'factura') === 'factura' || inv.tipo === 'rectificativa'
+          ? (inv.paidAmount ?? 0) < inv.total
+          : inv.status !== 'facturado' && !invoices.some(o => o.documentoOrigenId === inv.id && o.status !== 'anulada')
+      ),
     }));
 }
 
@@ -293,6 +311,79 @@ export function filasDeTraspasos(traspasos: TraspasoAlmacen[]): FilaListado[] {
     total: t.lineItems.reduce((s, l) => s + l.quantity, 0),
     pendiente: false,
   }));
+}
+
+/**
+ * Lo que entra o sale del almacén: los documentos que mueven el stock (los
+ * mismos que cuenta la base de datos, migración 074: albaranes servidos o
+ * recibidos y facturas que no vienen de un albarán) y las regularizaciones
+ * que suben o bajan. El importe es el del documento; las unidades, en la
+ * columna de referencia.
+ */
+export function filasDeMovimientosAlmacen(
+  invoices: Invoice[],
+  regs: RegularizacionStock[],
+  sentido: 'entrada' | 'salida',
+): FilaListado[] {
+  const delSentido = sentido === 'entrada' ? 'compra' : 'venta';
+  const noCuenta = ['borrador', 'anulada', 'rechazado', 'pre_aprobacion'];
+  const albaranes = new Set(invoices.filter(i => i.tipo === 'albaran').map(i => i.id));
+  const docs = invoices.filter(i => (i.sentido ?? 'venta') === delSentido && !noCuenta.includes(i.status)
+    && (i.tipo === 'albaran' || ((i.tipo ?? 'factura') === 'factura' && !(i.documentoOrigenId && albaranes.has(i.documentoOrigenId)))));
+  const filas: FilaListado[] = docs.map(i => {
+    const uds = i.lineItems.filter(l => l.productId).reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+    return {
+      id: i.id,
+      serie: i.series,
+      numero: i.number,
+      secuencia: secuenciaDe(i.number),
+      fecha: i.issueDate,
+      nombre: i.clientName,
+      documento: `${i.tipo === 'albaran' ? 'Albarán' : i.posSessionId ? 'Ticket' : 'Factura'} · ${uds} uds`,
+      neto: i.subtotal,
+      impuestos: i.totalTax,
+      total: i.total,
+      pendiente: false,
+    };
+  });
+  for (const r of regs) {
+    if (sentido === 'entrada' ? r.diferencia <= 0 : r.diferencia >= 0) continue;
+    filas.push({
+      id: r.id,
+      serie: r.almacenNombre,
+      numero: r.productRef,
+      secuencia: secuenciaDe(r.productRef),
+      fecha: r.fecha,
+      nombre: `Regularización: ${r.productName}`,
+      documento: `${r.motivo} · ${Math.abs(r.diferencia)} uds`,
+      neto: 0,
+      impuestos: 0,
+      total: 0,
+      pendiente: false,
+    });
+  }
+  return filas;
+}
+
+/** Los cobros con parte sin aplicar a ninguna factura: lo que el cliente ha dejado a cuenta. */
+export function filasDeEntregasACuenta(movimientos: CobroPago[]): FilaListado[] {
+  return movimientos
+    .filter(m => m.tipo === 'cobro')
+    .map(m => ({ m, libre: Math.round((m.importeTotal - m.desglose.reduce((s, d) => s + (d.importeAplicado || 0), 0)) * 100) / 100 }))
+    .filter(x => x.libre > 0)
+    .map(({ m, libre }) => ({
+      id: m.id,
+      serie: m.series,
+      numero: m.number,
+      secuencia: secuenciaDe(m.number),
+      fecha: m.fecha,
+      nombre: m.contraparteNombre,
+      documento: m.desglose.length ? `Aplicado a ${m.desglose.map(d => d.invoiceNumber).join(', ')}` : 'Sin aplicar a ninguna factura',
+      neto: libre,
+      impuestos: 0,
+      total: libre,
+      pendiente: true,
+    }));
 }
 
 // ============================================================
