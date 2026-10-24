@@ -9,6 +9,9 @@ import { clientesDeRuta, albaranesPendientesDeRuta, resumenDeRuta, DIAS_SEMANA }
 import { RutaReparto, Client, Invoice } from '@/lib/types';
 import { generateId, formatCurrency, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const rutaVacia = (): Omit<RutaReparto, 'id' | 'createdAt' | 'updatedAt'> => ({ nombre: '' });
 
@@ -16,6 +19,9 @@ export default function RutasRepartoPage() {
   const [mounted, setMounted] = useState(false);
   const [rutas, setRutas] = useState<RutaReparto[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
+  // El buscador de la lista.
+  const [busca, setBusca] = useState('');
+  const rutasVisibles = useMemo(() => rutas.filter(r => casaTexto(busca, r.nombre, ...clientesDeRuta(r.id, clientes).map(c => `${c.businessName} ${c.tradeName} ${c.city}`))), [rutas, busca, clientes]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expandida, setExpandida] = useState<string | null>(null);
 
@@ -123,6 +129,8 @@ export default function RutasRepartoPage() {
         </button>
       </div>
 
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar ruta o un cliente de la ruta" total={rutas.length} visibles={rutasVisibles.length} />
+
       <div className="card">
         <div className="table-responsive">
           <table className="table">
@@ -137,7 +145,7 @@ export default function RutasRepartoPage() {
               </tr>
             </thead>
             <tbody>
-              {rutas.length === 0 ? (
+              {rutasVisibles.length === 0 ? (
                 <TableEmpty
                   colSpan={6}
                   icon={Truck}
@@ -145,7 +153,7 @@ export default function RutasRepartoPage() {
                   hint="Crea una ruta y asígnale los clientes de esa zona o de ese día."
                 />
               ) : (
-                rutas.map(r => {
+                rutasVisibles.map(r => {
                   const resumen = resumenDeRuta(r.id, clientes, invoices);
                   const pendientes = albaranesPendientesDeRuta(r.id, clientes, invoices);
                   const abierta = expandida === r.id;
@@ -186,14 +194,13 @@ export default function RutasRepartoPage() {
                                   </span>
                                 ))}
                                 {sinRuta.length > 0 && (
-                                  <select
-                                    className="form-select form-select-sm"
-                                    value=""
-                                    onChange={e => e.target.value && asignarCliente(e.target.value, r.id)}
-                                  >
-                                    <option value="">+ Añadir cliente…</option>
-                                    {sinRuta.map(c => <option key={c.id} value={c.id}>{c.businessName}</option>)}
-                                  </select>
+                                  <BuscadorFicha
+                                    fichas={sinRuta}
+                                    value={""}
+                                    onSelect={id => { if (id) asignarCliente(id, r.id); }}
+                                    placeholder="+ Añadir cliente: buscar por nombre o NIF"
+                                    className="buscador-sm"
+                                  />
                                 )}
                               </div>
                             </div>

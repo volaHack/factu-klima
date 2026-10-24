@@ -16036,3 +16036,51 @@ body {
   .menu-arbol-rama { padding-top: 11px; padding-bottom: 11px; }
 }
 
+
+/* --- Buscador universal: filas con detalle, pie con atajos --- */
+.cmd-palette { max-width: 640px; }
+.cmd-palette-results { max-height: min(460px, 60vh); }
+.cmd-palette-item-texto { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cmd-palette-item-texto > svg { flex-shrink: 0; color: var(--accent-400); }
+.cmd-palette-item-texto > div { display: flex; flex-direction: column; min-width: 0; }
+.cmd-palette-item-texto strong { color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-palette-item-texto small { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-palette-item-extra { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; color: var(--text-secondary); flex-shrink: 0; margin-left: var(--space-3); }
+.cmd-palette-vacio { padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.cmd-palette-pie {
+  display: flex; flex-wrap: wrap; gap: 6px var(--space-4);
+  padding: 8px var(--space-4);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  font-size: 11px; color: var(--text-muted);
+}
+.cmd-palette-pie kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px; margin-right: 2px;
+  border: 1px solid var(--border-strong); border-radius: 4px;
+  font-family: inherit; font-size: 10px; background: var(--bg-secondary);
+}
+.cmd-palette-pie-atajo { margin-left: auto; }
+@media (max-width: 640px) {
+  .cmd-palette-overlay { padding: var(--space-3); padding-top: max(var(--space-3), env(safe-area-inset-top)); }
+  .cmd-palette-results { max-height: calc(100dvh - 170px); }
+  .cmd-palette-pie { display: none; }
+  .cmd-palette-item { padding-top: 11px; padding-bottom: 11px; }
+}
+
+/* El buscador de ficha dentro de una fila compacta (añadir cliente a un grupo o ruta). */
+.buscador-sm .buscador-producto-caja { min-height: 32px; padding-top: 4px !important; padding-bottom: 4px !important; font-size: var(--text-sm); }
+
+/* --- Caja de buscar de una lista (components/ui/CajaBusqueda) --- */
+.caja-busqueda { position: relative; display: flex; align-items: center; margin-bottom: var(--space-3); max-width: 520px; }
+.caja-busqueda .form-input { padding-left: 36px; padding-right: 96px; width: 100%; }
+.caja-busqueda .form-input::-webkit-search-cancel-button { display: none; }
+.caja-busqueda-lupa { position: absolute; left: 12px; color: var(--text-muted); pointer-events: none; }
+.caja-busqueda-cuenta { position: absolute; right: 38px; font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.caja-busqueda-borrar {
+  position: absolute; right: 6px;
+  width: 28px; height: 28px; border: none; background: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm, 6px); color: var(--text-muted);
+}
+.caja-busqueda-borrar:hover { background: var(--bg-card-hover); color: var(--text-primary); }

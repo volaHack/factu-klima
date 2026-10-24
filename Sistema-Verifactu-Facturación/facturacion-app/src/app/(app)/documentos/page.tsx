@@ -18,6 +18,7 @@ import {
   type CampoDocumentos, type FilaListadoHistorico,
 } from '@/lib/historico';
 import { useToast } from '@/hooks/useToast';
+import { casaTexto } from '@/lib/casaTexto';
 
 type DocumentoSortField = CampoDocumentos;
 
@@ -158,15 +159,11 @@ function DocumentosContent() {
       if (sentidoFiltro !== 'todos' && sentido !== sentidoFiltro) return false;
       if (estadoFiltro !== 'todos' && doc.status !== estadoFiltro) return false;
 
-      if (search.trim()) {
-        const query = search.toLowerCase();
-        const num = (doc.number || '').toLowerCase();
-        const cli = (doc.clientName || '').toLowerCase();
-        const nif = (doc.clientNif || '').toLowerCase();
-        const orig = (doc.documentoOrigenNumber || '').toLowerCase();
-        if (!num.includes(query) && !cli.includes(query) && !nif.includes(query) && !orig.includes(query)) {
-          return false;
-        }
+      if (search.trim() && !casaTexto(search,
+        doc.number, doc.clientName, doc.clientNif, doc.documentoOrigenNumber, doc.issueDate, doc.total, String(doc.total).replace('.', ','), doc.notes,
+        ...doc.lineItems.map(l => `${l.productName} ${l.productRef}`),
+      )) {
+        return false;
       }
       return true;
     }).sort((a, b) => compararFilas({ de: 'klima', doc: a }, { de: 'klima', doc: b }, sortField, sortDir));

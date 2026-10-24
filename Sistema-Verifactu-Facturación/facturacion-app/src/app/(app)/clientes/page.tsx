@@ -21,6 +21,7 @@ import ComprobacionIdentidad, { problemasDeFicha } from '@/components/clientes/C
 import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identidad';
 import { useToast } from '@/hooks/useToast';
 import { NOMBRE_TIPO_FISCAL, tipoFiscalDe } from '@/lib/facturaElectronica/ambito';
+import { casaTexto } from '@/lib/casaTexto';
 
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
@@ -126,15 +127,10 @@ function ClientesPageContenido() {
     if (tipoContactoFilter === 'proveedores') list = list.filter(c => c.esProveedor);
 
     if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(c =>
-        c.businessName.toLowerCase().includes(q) ||
-        c.tradeName.toLowerCase().includes(q) ||
-        (c.codigo ?? '').toLowerCase().includes(q) ||
-        c.nif.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q)
-      );
+      // Sin tildes y con varias palabras: «pepe arrecife», «928 11», «jose».
+      list = list.filter(c => casaTexto(search,
+        c.businessName, c.tradeName, c.codigo, c.nif, c.city, c.province, c.postalCode, c.email, c.phone, c.contactPerson, c.address,
+      ));
     }
 
     list.sort((a, b) => {

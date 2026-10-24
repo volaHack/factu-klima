@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import DevolucionFormModal from '@/components/devoluciones/DevolucionFormModal';
 import AbonoFormModal from '@/components/devoluciones/AbonoFormModal';
 import AplicarAbonoModal from '@/components/devoluciones/AplicarAbonoModal';
+import { casaTexto } from '@/lib/casaTexto';
 
 type Tab = 'devoluciones' | 'abonos';
 
@@ -60,18 +61,12 @@ export default function DevolucionesAbonosPage() {
 
   const devFiltradas = useMemo(() => {
     if (!search) return devoluciones;
-    const q = search.toLowerCase();
-    return devoluciones.filter(d =>
-      d.number.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q) || d.clientNif.toLowerCase().includes(q)
-    );
+    return devoluciones.filter(d => casaTexto(search, d.number, d.clientName, d.clientNif, ...d.lineItems.map(l => l.productName)));
   }, [devoluciones, search]);
 
   const abonosFiltrados = useMemo(() => {
     if (!search) return abonos;
-    const q = search.toLowerCase();
-    return abonos.filter(a =>
-      a.number.toLowerCase().includes(q) || a.clientName.toLowerCase().includes(q) || a.clientNif.toLowerCase().includes(q)
-    );
+    return abonos.filter(a => casaTexto(search, a.number, a.clientName, a.clientNif, a.total));
   }, [abonos, search]);
 
   const handleAnularAbono = async (abono: Abono) => {

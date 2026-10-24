@@ -26,6 +26,7 @@ import { pendientesPorProducto } from '@/lib/documentos';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
+import { casaTexto } from '@/lib/casaTexto';
 
 interface CategoryOption {
   value: string;
@@ -207,13 +208,8 @@ function ProductosPageContenido() {
   const filteredProducts = useMemo(() => {
     let result = [...products];
     if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.ref.toLowerCase().includes(q) ||
-        (p.supplierRef && p.supplierRef.toLowerCase().includes(q)) ||
-        p.description.toLowerCase().includes(q)
-      );
+      // Sin tildes y con varias palabras; también el código de barras (escáner) y la familia.
+      result = result.filter(p => casaTexto(search, p.name, p.ref, p.supplierRef, p.barcode, p.description, p.category, p.notes));
     }
     if (categoryFilter) result = result.filter(p => p.category === categoryFilter);
 
@@ -493,6 +489,11 @@ function ProductosPageContenido() {
 
   // «+» de Artículos en el menú de Mantenimientos.
   useNuevoDeLaDireccion(mounted && !!settings, () => openCreateProduct());
+  // Un artículo elegido en el buscador universal (Ctrl+K) se abre en su ficha.
+  useNuevoDeLaDireccion(mounted && products.length > 0, id => {
+    const p = products.find(x => x.id === id);
+    if (p) openEditProduct(p);
+  }, 'editar');
 
   if (!mounted) {
     return <PageSkeleton variant="list" label="Cargando Productos y categorías" />;

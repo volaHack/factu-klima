@@ -38,6 +38,7 @@ import AvisoPlantillaDeOtroOficio from '@/components/facturas/AvisoPlantillaDeOt
 import {
   clienteManualComoDatosExtras, customColsDeLineas, type ClienteManual
 } from '@/lib/plantillas/datos';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -349,18 +350,13 @@ export default function NuevaFacturaPage() {
                   Se usa el cliente ocasional definido abajo.
                 </div>
               ) : (
-                <select
-                  className="form-select"
+                <BuscadorFicha
+                  fichas={clients}
                   value={clientId}
-                  onChange={e => handleClientChange(e.target.value)}
-                >
-                  <option value="">-- Seleccionar cliente --</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.tradeName || c.businessName} ({c.nif})
-                    </option>
-                  ))}
-                </select>
+                  onSelect={id => handleClientChange(id)}
+                  placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
+                  ariaLabel="Cliente"
+                />
               )}
             </div>
             <div className="form-group">

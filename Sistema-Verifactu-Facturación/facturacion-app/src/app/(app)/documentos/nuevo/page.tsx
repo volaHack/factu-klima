@@ -26,6 +26,7 @@ import {
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 function NuevoDocumentoContent() {
   const router = useRouter();
@@ -305,18 +306,13 @@ function NuevoDocumentoContent() {
 
           <div className="form-group">
             <label className="form-label">Seleccionar {labelContraparte}</label>
-            <select
-              className="form-select"
+            <BuscadorFicha
+              fichas={clients}
               value={clientId}
-              onChange={e => handleClientSelect(e.target.value)}
-            >
-              <option value="">-- {labelContraparte} ocasional / Manual --</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.tradeName || c.businessName} {c.nif ? `(${c.nif})` : ''}
-                </option>
-              ))}
-            </select>
+              onSelect={id => handleClientSelect(id)}
+              placeholder={`Buscar ${labelContraparte.toLowerCase()} (vacío: ocasional / manual)`}
+              ariaLabel={labelContraparte}
+            />
           </div>
 
           <div className="form-group">

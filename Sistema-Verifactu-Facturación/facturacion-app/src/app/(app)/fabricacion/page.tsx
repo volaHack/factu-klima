@@ -9,6 +9,9 @@ import { costeDeEscandallo, componentesFaltantes } from '@/lib/fabricacion';
 import { Escandallo, ComponenteEscandallo, Product, Almacen } from '@/lib/types';
 import { generateId, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const escandalloVacio = (): Omit<Escandallo, 'id' | 'createdAt' | 'updatedAt'> => ({
   productId: '', productRef: '', productName: '', componentes: [],
@@ -18,6 +21,9 @@ export default function FabricacionPage() {
   const [mounted, setMounted] = useState(false);
   const [escandallos, setEscandallos] = useState<Escandallo[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  // El buscador de la lista.
+  const [busca, setBusca] = useState('');
+  const escandallosVisibles = useMemo(() => escandallos.filter(e => casaTexto(busca, e.productName, ...e.componentes.map(c => products.find(p => p.id === c.productId)?.name))), [escandallos, busca, products]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
 
   const [showModal, setShowModal] = useState(false);
@@ -165,6 +171,8 @@ export default function FabricacionPage() {
         </button>
       </div>
 
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar producto fabricado o componente" total={escandallos.length} visibles={escandallosVisibles.length} />
+
       <div className="card">
         <div className="table-responsive">
           <table className="table">
@@ -177,7 +185,7 @@ export default function FabricacionPage() {
               </tr>
             </thead>
             <tbody>
-              {escandallos.length === 0 ? (
+              {escandallosVisibles.length === 0 ? (
                 <TableEmpty
                   colSpan={4}
                   icon={Factory}
@@ -185,7 +193,7 @@ export default function FabricacionPage() {
                   hint="Crea la receta de un producto fabricado: de qué componentes sale y cuántos hacen falta."
                 />
               ) : (
-                escandallos.map(e => (
+                escandallosVisibles.map(e => (
                   <tr key={e.id}>
                     <td><strong>{e.productName}</strong></td>
                     <td style={{ textAlign: 'right' }}>{e.componentes.length}</td>
@@ -220,14 +228,13 @@ export default function FabricacionPage() {
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label required">Producto que se fabrica</label>
-                  <select
-                    className="form-select" required disabled={!!editando}
+                  <BuscadorProducto
+                    products={products}
                     value={form.productId}
-                    onChange={e => setForm({ ...form, productId: e.target.value })}
-                  >
-                    <option value="">Selecciona producto</option>
-                    {products.map(p => <option key={p.id} value={p.id}>[{p.ref}] {p.name}</option>)}
-                  </select>
+                    onSelect={id => setForm({ ...form, productId: id })}
+                    placeholder="Buscar artículo a fabricar"
+                    disabled={!!editando}
+                  />
                 </div>
 
                 <div style={{ marginTop: 'var(--space-4)' }}>
@@ -236,16 +243,12 @@ export default function FabricacionPage() {
                     <div key={i} className="form-row" style={{ marginTop: 'var(--space-2)', alignItems: 'flex-end' }}>
                       <div className="form-group" style={{ flex: 2 }}>
                         <label className="form-label">Producto</label>
-                        <select
-                          className="form-select"
+                        <BuscadorProducto
+                          products={products.filter(p => p.id !== form.productId)}
                           value={c.productId}
-                          onChange={e => actualizarComponente(i, { productId: e.target.value })}
-                        >
-                          <option value="">Selecciona producto</option>
-                          {products.filter(p => p.id !== form.productId).map(p => (
-                            <option key={p.id} value={p.id}>[{p.ref}] {p.name}</option>
-                          ))}
-                        </select>
+                          onSelect={id => actualizarComponente(i, { productId: id })}
+                          placeholder="Buscar componente"
+                        />
                       </div>
                       <div className="form-group" style={{ flex: 1 }}>
                         <label className="form-label">Cantidad</label>

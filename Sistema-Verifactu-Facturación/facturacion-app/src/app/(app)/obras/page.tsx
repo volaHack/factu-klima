@@ -11,6 +11,9 @@ import { rentabilidadDeObras, numeroDeObra } from '@/lib/obras';
 import { Obra, EstadoObra, Invoice, Gasto, Client } from '@/lib/types';
 import { generateId, formatCurrency, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const obraVacia = (numero: string): Omit<Obra, 'id' | 'createdAt' | 'updatedAt'> => ({
   numero, nombre: '', estado: 'abierta', fechaApertura: getToday(),
@@ -57,9 +60,12 @@ export default function ObrasPage() {
   const rentabilidad = useMemo(() => rentabilidadDeObras(obras, invoices, gastos), [obras, invoices, gastos]);
   const porId = useMemo(() => new Map(rentabilidad.map(r => [r.obraId, r])), [rentabilidad]);
 
+  const [busca, setBusca] = useState('');
   const visibles = useMemo(
-    () => (filtroEstado ? obras.filter(o => o.estado === filtroEstado) : obras),
-    [obras, filtroEstado],
+    () => obras
+      .filter(o => !filtroEstado || o.estado === filtroEstado)
+      .filter(o => casaTexto(busca, o.numero, o.nombre, o.clienteNombre)),
+    [obras, filtroEstado, busca],
   );
 
   const abrirNueva = () => {
@@ -142,6 +148,8 @@ export default function ObrasPage() {
           Todas
         </button>
       </div>
+
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar obra: número, nombre o cliente" total={obras.length} visibles={visibles.length} />
 
       <div className="card">
         <div className="table-responsive">
@@ -242,17 +250,15 @@ export default function ObrasPage() {
                 <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                   <div className="form-group">
                     <label className="form-label">Cliente</label>
-                    <select
-                      className="form-select"
+                    <BuscadorFicha
+                      fichas={clientes}
                       value={form.clienteId ?? ''}
-                      onChange={e => {
-                        const cli = clientes.find(c => c.id === e.target.value);
+                      onSelect={id => {
+                        const cli = clientes.find(c => c.id === id);
                         setForm({ ...form, clienteId: cli?.id, clienteNombre: cli?.businessName });
                       }}
-                    >
-                      <option value="">— Sin cliente —</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.businessName}</option>)}
-                    </select>
+                      placeholder="Sin cliente · buscar por nombre o NIF"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Presupuesto</label>

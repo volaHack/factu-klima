@@ -13,6 +13,7 @@ import { generateId, generateInvoiceNumber, getToday, formatCurrency } from '@/l
 import { DEVOLUCION_REASONS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 interface DevolucionFormModalProps {
   clients: Client[];
@@ -249,17 +250,13 @@ export default function DevolucionFormModal({
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">
               <label className="form-label required">Cliente</label>
-              <select
-                className="form-select"
+              <BuscadorFicha
+                fichas={clients}
                 value={clientId}
-                onChange={e => handleClientChange(e.target.value)}
+                onSelect={id => handleClientChange(id)}
+                placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
                 disabled={origin !== 'manual'}
-              >
-                <option value="">-- Seleccionar cliente --</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.tradeName || c.businessName} ({c.nif})</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="form-group">
               <label className="form-label required">Fecha</label>

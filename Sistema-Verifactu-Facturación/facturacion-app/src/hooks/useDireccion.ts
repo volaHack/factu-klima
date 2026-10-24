@@ -33,11 +33,11 @@ export function usePestanaDeLaDireccion<T extends string>(validas: readonly T[],
  * una sola vez, y lo quita de la dirección para que recargar no lo vuelva a
  * abrir.
  */
-export function useNuevoDeLaDireccion(listo: boolean, abrir: (valor: string) => void): void {
+export function useNuevoDeLaDireccion(listo: boolean, abrir: (valor: string) => void, param = 'nuevo'): void {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const pedido = params.get('nuevo');
+  const pedido = params.get(param);
   const hecho = useRef<string | null>(null);
   const abrirActual = useRef(abrir);
   useEffect(() => { abrirActual.current = abrir; });
@@ -49,7 +49,7 @@ export function useNuevoDeLaDireccion(listo: boolean, abrir: (valor: string) => 
     hecho.current = clave;
     abrirActual.current(pedido);
     const resto = new URLSearchParams(params.toString());
-    resto.delete('nuevo');
+    resto.delete(param);
     router.replace(resto.size ? `${pathname}?${resto}` : pathname, { scroll: false });
-  }, [listo, pedido, params, pathname, router]);
+  }, [listo, pedido, params, pathname, router, param]);
 }

@@ -19,6 +19,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ALBARAN_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import AvisoHistorial from '@/components/documentos/AvisoHistorial';
+import { casaTexto } from '@/lib/casaTexto';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'total' | 'status';
 
@@ -62,12 +63,10 @@ export default function AlbaranesPage() {
   const filtered = useMemo(() => {
     let result = [...albaranes];
     if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(a =>
-        a.number.toLowerCase().includes(q) ||
-        a.clientName.toLowerCase().includes(q) ||
-        a.clientNif.toLowerCase().includes(q)
-      );
+      result = result.filter(a => casaTexto(search,
+        a.number, a.clientName, a.clientNif, a.issueDate, a.total, String(a.total).replace('.', ','),
+        ...a.lineItems.map(l => `${l.productName} ${l.productRef}`),
+      ));
     }
     if (statusFilter.length > 0) {
       result = result.filter(a => statusFilter.includes(a.status));
