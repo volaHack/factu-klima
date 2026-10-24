@@ -13,7 +13,8 @@ import { createClient } from './supabase/client';
 import { todasLasFilas } from './porTandas';
 import { faltaLaTabla } from './recordatorios/filas';
 
-export type TipoHistorico = 'factura_venta' | 'albaran_venta' | 'pedido_venta' | 'factura_compra' | 'albaran_compra';
+export type TipoHistorico =
+  'factura_venta' | 'albaran_venta' | 'pedido_venta' | 'presupuesto_venta' | 'factura_compra' | 'albaran_compra';
 
 export interface DocumentoHistorico {
   id: string;
@@ -86,6 +87,7 @@ export const NOMBRE_TIPO: Record<TipoHistorico, string> = {
   factura_venta: 'Factura',
   albaran_venta: 'Albarán',
   pedido_venta: 'Pedido',
+  presupuesto_venta: 'Presupuesto',
   factura_compra: 'Factura',
   albaran_compra: 'Albarán',
 };
@@ -95,6 +97,7 @@ export const ETIQUETA_TIPO: Record<TipoHistorico, string> = {
   factura_venta: 'Factura',
   albaran_venta: 'Albarán',
   pedido_venta: 'Pedido',
+  presupuesto_venta: 'Presupuesto',
   factura_compra: 'Factura de compra',
   albaran_compra: 'Albarán de compra',
 };
@@ -217,7 +220,7 @@ export async function buscarHistorico(
   if (cuenta) q = q.eq('user_id', cuenta);
   if (filtro.tipo) q = q.eq('tipo', filtro.tipo);
   if (filtro.anio) q = q.gte('fecha', `${filtro.anio}-01-01`).lte('fecha', `${filtro.anio}-12-31`);
-  if (filtro.soloPendientes) q = q.not('tipo', 'in', '(factura_venta,factura_compra)').eq('pasa_a', '{}');
+  if (filtro.soloPendientes) q = q.not('tipo', 'in', '(factura_venta,factura_compra,presupuesto_venta)').eq('pasa_a', '{}');
   const condiciones = condicionesDeBusqueda(filtro.texto ?? '', filtro.clientIds);
   if (condiciones.length) q = q.or(condiciones.join(','));
   const { data, error, count } = await q
@@ -235,6 +238,7 @@ export interface ResumenGeneral {
   compras: { facturas: number; total: number };
   albaranesSinFactura: { documentos: number; total: number };
   pedidosSinServir: { documentos: number; total: number };
+  presupuestos: { documentos: number; total: number };
   /** Por año, del más reciente al más antiguo; los documentos sin fecha, al final. */
   anios: { anio: number | null; ventas: number; facturado: number; compras: number; comprado: number }[];
 }
@@ -245,6 +249,7 @@ export function resumenGeneral(filas: readonly FilaResumenHistorico[]): ResumenG
     compras: { facturas: 0, total: 0 },
     albaranesSinFactura: { documentos: 0, total: 0 },
     pedidosSinServir: { documentos: 0, total: 0 },
+    presupuestos: { documentos: 0, total: 0 },
     anios: [],
   };
   const porAnio = new Map<number | null, ResumenGeneral['anios'][number]>();
@@ -268,6 +273,9 @@ export function resumenGeneral(filas: readonly FilaResumenHistorico[]): ResumenG
     } else if (f.tipo === 'pedido_venta') {
       r.pedidosSinServir.documentos += f.pendientes;
       r.pedidosSinServir.total = r2(r.pedidosSinServir.total + f.totalPendiente);
+    } else if (f.tipo === 'presupuesto_venta') {
+      r.presupuestos.documentos += f.documentos;
+      r.presupuestos.total = r2(r.presupuestos.total + f.total);
     }
   }
   r.anios = [...porAnio.values()].sort((a, b) => (b.anio ?? -1) - (a.anio ?? -1));
@@ -288,9 +296,12 @@ export function numeroVisible(d: Pick<DocumentoHistorico, 'serie' | 'numero'>): 
 /** Las facturas llevan seis cifras tras el año; con cuatro ya no puede ser un albarán (llegan a tres). */
 const CIFRAS_TRAS_EL_ANIO = 4;
 
-/** Un albarán o pedido que no llegó a ningún documento posterior. */
+/**
+ * Un albarán o pedido que no llegó a ningún documento posterior. Un
+ * presupuesto no: que no se aceptara no deja nada sin facturar.
+ */
 export function quedoPendiente(d: Pick<DocumentoHistorico, 'tipo' | 'pasaA'>): boolean {
-  return d.tipo !== 'factura_venta' && d.tipo !== 'factura_compra' && d.pasaA.length === 0;
+  return (d.tipo === 'albaran_venta' || d.tipo === 'albaran_compra' || d.tipo === 'pedido_venta') && d.pasaA.length === 0;
 }
 
 export interface AnioHistorico {
@@ -341,7 +352,7 @@ export function resumenHistorico(docs: readonly DocumentoHistorico[]): ResumenHi
 export interface FilaListadoHistorico {
   id: string;
   origen: string;
-  tipo: 'factura' | 'albaran' | 'pedido';
+  tipo: 'factura' | 'albaran' | 'pedido' | 'presupuesto';
   sentido: 'venta' | 'compra';
   /** Como se conocía: «T24/100269» en los pedidos. */
   numero: string;
@@ -377,15 +388,16 @@ export function filaListadoDe(f: any): FilaListadoHistorico {
 
 /** Lo que dice la columna Estado de un documento del historial. */
 export function estadoDeHistorico(d: Pick<FilaListadoHistorico, 'tipo' | 'estado'>): string {
-  if (d.estado === 'emitida') return 'Emitida';
+  if (d.estado === 'emitida') return d.tipo === 'presupuesto' ? 'Emitido' : 'Emitida';
   if (d.tipo === 'pedido') return d.estado === 'facturado' ? 'Servido' : 'Sin servir';
   return d.estado === 'facturado' ? 'Facturado' : 'Sin facturar';
 }
 
 /** El tipo y el estado de la lista de Documentos, como los calcula la vista (070). */
 export function tipoYEstado(d: Pick<DocumentoHistorico, 'tipo' | 'pasaA'>): Pick<FilaListadoHistorico, 'tipo' | 'estado'> {
-  const tipo = d.tipo.startsWith('factura') ? 'factura' : d.tipo.startsWith('albaran') ? 'albaran' : 'pedido';
-  const estado = tipo === 'factura' ? 'emitida' : d.pasaA.length > 0 ? 'facturado' : 'pendiente';
+  const tipo = d.tipo.startsWith('factura') ? 'factura' : d.tipo.startsWith('albaran') ? 'albaran'
+    : d.tipo.startsWith('presupuesto') ? 'presupuesto' : 'pedido';
+  const estado = tipo === 'factura' || tipo === 'presupuesto' ? 'emitida' : d.pasaA.length > 0 ? 'facturado' : 'pendiente';
   return { tipo, estado };
 }
 
@@ -413,14 +425,14 @@ export const COLUMNA_DE_ORDEN: Record<CampoDocumentos, string> = {
   status: 'estado',
 };
 
-const TIPOS_DEL_HISTORIAL = ['factura', 'albaran', 'pedido'];
+const TIPOS_DEL_HISTORIAL = ['factura', 'albaran', 'pedido', 'presupuesto'];
 const ESTADOS_DEL_HISTORIAL = ['emitida', 'facturado', 'pendiente'];
 
 /**
- * ¿Puede salir algo del historial con estos filtros? Presupuestos y
- * borradores no venían en la copia; las rectificativas van como facturas
- * con el total en negativo, y pagadas no se sabe cuáles (en ISECAN lo
- * cobrado estaba siempre a 0).
+ * ¿Puede salir algo del historial con estos filtros? Borradores no venían
+ * en la copia; las rectificativas van como facturas con el total en
+ * negativo, y pagadas no se sabe cuáles (en ISECAN lo cobrado estaba
+ * siempre a 0).
  */
 export function filtroAlcanzaHistorial(f: Pick<FiltroDocumentos, 'tipo' | 'estado'>): boolean {
   return (f.tipo === 'todos' || TIPOS_DEL_HISTORIAL.includes(f.tipo))
@@ -491,7 +503,7 @@ export function claveDeDocumento(d: Pick<DocumentoHistorico, 'tipo' | 'serie' | 
 
 /** «factura_venta:26/26003518» → sus partes; null si no tiene esa forma. */
 export function partesDeClave(clave: string): { tipo: TipoHistorico; serie: string; numero: string } | null {
-  const m = /^(factura_venta|albaran_venta|pedido_venta|factura_compra|albaran_compra):([^/]*)\/(.+)$/.exec(clave);
+  const m = /^(factura_venta|albaran_venta|pedido_venta|presupuesto_venta|factura_compra|albaran_compra):([^/]*)\/(.+)$/.exec(clave);
   return m ? { tipo: m[1] as TipoHistorico, serie: m[2], numero: m[3] } : null;
 }
 

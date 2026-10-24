@@ -35,6 +35,7 @@ const TIPOS: { value: TipoHistorico | ''; label: string }[] = [
   { value: 'factura_venta', label: 'Facturas' },
   { value: 'albaran_venta', label: 'Albaranes' },
   { value: 'pedido_venta', label: 'Pedidos' },
+  { value: 'presupuesto_venta', label: 'Presupuestos' },
   { value: 'factura_compra', label: 'Facturas de compra' },
   { value: 'albaran_compra', label: 'Albaranes de compra' },
 ];
@@ -154,18 +155,34 @@ export default function HistoricoPage() {
           <div className="kpi-card-value">{resumen.compras.facturas.toLocaleString('es-ES')}</div>
           <div className="kpi-card-label">Facturas de compra</div>
         </div>
-        <button
-          type="button"
-          className="kpi-card kpi-card--boton"
-          style={{ '--kpi-color': 'var(--color-warning)', '--kpi-bg': 'var(--color-warning-bg)' } as React.CSSProperties}
-          onClick={() => { setTipo('albaran_venta'); setSoloPendientes(true); setAnio(''); caja.current?.scrollIntoView({ behavior: 'smooth' }); }}
-        >
-          <div className="kpi-card-value">{formatCurrency(resumen.albaranesSinFactura.total)}</div>
-          <div className="kpi-card-label">
-            {resumen.albaranesSinFactura.documentos.toLocaleString('es-ES')}{' '}
-            {resumen.albaranesSinFactura.documentos === 1 ? 'albarán' : 'albaranes'} sin factura
-          </div>
-        </button>
+        {/* Sin albaranes por facturar (en ISECAN los «albaranes» sin factura
+            eran presupuestos), la tarjeta es la de los presupuestos. */}
+        {resumen.albaranesSinFactura.documentos > 0 ? (
+          <button
+            type="button"
+            className="kpi-card kpi-card--boton"
+            style={{ '--kpi-color': 'var(--color-warning)', '--kpi-bg': 'var(--color-warning-bg)' } as React.CSSProperties}
+            onClick={() => { setTipo('albaran_venta'); setSoloPendientes(true); setAnio(''); caja.current?.scrollIntoView({ behavior: 'smooth' }); }}
+          >
+            <div className="kpi-card-value">{formatCurrency(resumen.albaranesSinFactura.total)}</div>
+            <div className="kpi-card-label">
+              {resumen.albaranesSinFactura.documentos.toLocaleString('es-ES')}{' '}
+              {resumen.albaranesSinFactura.documentos === 1 ? 'albarán' : 'albaranes'} sin factura
+            </div>
+          </button>
+        ) : resumen.presupuestos.documentos > 0 ? (
+          <button
+            type="button"
+            className="kpi-card kpi-card--boton"
+            style={{ '--kpi-color': 'var(--color-info)', '--kpi-bg': 'var(--color-info-bg)' } as React.CSSProperties}
+            onClick={() => { setTipo('presupuesto_venta'); setSoloPendientes(false); setAnio(''); caja.current?.scrollIntoView({ behavior: 'smooth' }); }}
+          >
+            <div className="kpi-card-value">{resumen.presupuestos.documentos.toLocaleString('es-ES')}</div>
+            <div className="kpi-card-label">
+              {resumen.presupuestos.documentos === 1 ? 'Presupuesto' : 'Presupuestos'} por {formatCurrency(resumen.presupuestos.total)}
+            </div>
+          </button>
+        ) : null}
         <button
           type="button"
           className="kpi-card kpi-card--boton"
