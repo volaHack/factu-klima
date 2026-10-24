@@ -1,16 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard, FileText, Users, Package, BarChart3,
-  Settings, Plus, ChevronLeft, ShieldCheck, Plug, Store,
-  ClipboardList, RotateCcw, LayoutTemplate, Files, Warehouse,
-  WalletCards, Receipt, TrendingUp, Briefcase, Wrench, Boxes, Percent, Building2, Truck, Fingerprint, FileCheck, Factory,
-  Send, Globe, ListOrdered, Landmark, Banknote, Tag, Sparkles, BookOpenCheck, BellRing, UsersRound, FileCode2, History,
-} from 'lucide-react';
+import { Plus, ChevronLeft } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import MenuPrincipal, { type Hoja } from './MenuPrincipal';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
@@ -27,91 +22,14 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number }>;
-}
-
-function SidebarLink({ item, pathname, onClose, collapsed }: {
-  item: NavItem;
-  pathname: string;
-  onClose: () => void;
-  collapsed: boolean;
-}) {
-  // Por tramos enteros de la ruta: con un simple startsWith, estar en
-  // /listados-fiscales encendía también «Listados» (/listados).
-  const isActive =
-    pathname === item.href ||
-    (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
-
-  return (
-    <Link
-      href={item.href}
-      className={`sidebar-link ${isActive ? 'active' : ''}`}
-      onClick={onClose}
-      aria-current={isActive ? 'page' : undefined}
-      title={collapsed ? item.label : undefined}
-    >
-      <item.icon size={18} />
-      <span>{item.label}</span>
-    </Link>
-  );
-}
-
-// Cada entrada dice de qué módulo depende. Las que no dicen nada salen
-// siempre: facturar, cobrar y los clientes son el suelo del programa, no un
-// módulo que se pueda apagar.
-const baseNavItems: { href: string; label: string; icon: typeof FileText; modulo?: ModuloId }[] = [
-  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
-  { href: '/asistencia', label: 'Asistente', icon: Sparkles },
-  { href: '/facturas', label: 'Facturas', icon: FileText },
-  { href: '/documentos', label: 'Documentos', icon: Files },
-  { href: '/tesoreria', label: 'Tesorería y cobros', icon: WalletCards },
-  { href: '/banco', label: 'Banco', icon: Banknote },
-  { href: '/conciliacion', label: 'Conciliación bancaria', icon: Landmark },
-  { href: '/recordatorios', label: 'Recordatorios de cobro', icon: BellRing },
-  { href: '/clientes', label: 'Clientes y proveedores', icon: Users },
-  { href: '/productos', label: 'Productos', icon: Package },
-  { href: '/almacenes', label: 'Almacenes y stock', icon: Warehouse, modulo: 'almacenes' },
-  { href: '/albaranes', label: 'Albaranes', icon: ClipboardList, modulo: 'albaranes' },
-  { href: '/devoluciones', label: 'Abonos y devoluciones', icon: RotateCcw, modulo: 'rectificativas' },
-  { href: '/gastos', label: 'Gastos', icon: Receipt, modulo: 'gastos' },
-  { href: '/comisiones', label: 'Comisiones', icon: TrendingUp, modulo: 'comisiones' },
-  { href: '/obras', label: 'Obras y expedientes', icon: Briefcase, modulo: 'obras' },
-  { href: '/ordenes-trabajo', label: 'Órdenes de trabajo', icon: Wrench, modulo: 'ordenes_trabajo' },
-  { href: '/lotes', label: 'Lotes y trazabilidad', icon: Boxes, modulo: 'lotes' },
-  { href: '/ofertas', label: 'Ofertas y promociones', icon: Tag, modulo: 'ofertas' },
-  { href: '/rappels', label: 'Rappels por volumen', icon: Percent, modulo: 'rappels' },
-  { href: '/grupos-clientes', label: 'Grupos y cadenas', icon: Building2, modulo: 'grupos_clientes' },
-  { href: '/rutas-reparto', label: 'Rutas de reparto', icon: Truck, modulo: 'rutas' },
-  { href: '/numeros-serie', label: 'Números de serie', icon: Fingerprint, modulo: 'numeros_serie' },
-  { href: '/retenciones', label: 'Retención de IRPF', icon: FileCheck, modulo: 'retenciones' },
-  { href: '/fabricacion', label: 'Fabricación', icon: Factory, modulo: 'produccion' },
-  { href: '/sii', label: 'SII (envío inmediato)', icon: Send, modulo: 'sii' },
-  { href: '/intracomunitarias', label: 'Intracomunitarias', icon: Globe, modulo: 'intracomunitarias' },
-];
-
-const controlItems = [
-  { href: '/informes', label: 'Informes y fiscal', icon: BarChart3 },
-  { href: '/contabilidad', label: 'Contabilidad', icon: BookOpenCheck },
-  // «Listados fiscales» son los modelos oficiales (347, 303, 420…), que
-  // no tienen nada que ver con «Listados» —las relaciones imprimibles de
-  // toda la vida—. Van seguidos a propósito, pero con nombres distintos.
-  { href: '/listados-fiscales', label: 'Listados fiscales', icon: Landmark },
-  { href: '/listados', label: 'Listados', icon: ListOrdered },
-  { href: '/plantillas', label: 'Diseño de documentos', icon: LayoutTemplate },
-  { href: '/integridad', label: 'Integridad', icon: ShieldCheck },
-  { href: '/verifactu', label: 'Verifactu', icon: Plug },
-  { href: '/factura-electronica', label: 'Factura electrónica', icon: FileCode2 },
-  { href: '/equipo', label: 'Equipo', icon: UsersRound },
-  { href: '/ajustes', label: 'Ajustes', icon: Settings },
-];
+// Qué sale en el menú: el árbol (MenuPrincipal) con las hojas de los
+// módulos que la empresa tiene encendidos y que el perfil de trabajo activo
+// puede abrir. Facturar, cobrar y las fichas salen siempre: son el suelo
+// del programa, no un módulo que se pueda apagar.
 
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   // El menú sólo enseña lo que el perfil de trabajo activo puede abrir.
   const { activo: perfilActivo } = usePerfiles();
-  const entra = (href: string) => !perfilActivo || puedeEntrar(perfilActivo.rol, href);
   const pathname = usePathname();
   const [brandName, setBrandName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -125,6 +43,16 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const [tieneGestoria, setTieneGestoria] = useState(false);
   // Lo mismo con el historial del programa anterior: solo sale si se cargó.
   const [origenHistorico, setOrigenHistorico] = useState<string | null>(null);
+
+  // Mientras no se sepan los módulos se enseña todo: esconder menús y
+  // hacerlos aparecer medio segundo después es peor que esperar.
+  const visible = useCallback((h: Hoja) => {
+    if (h.modulo && modulos && !modulos.includes(h.modulo)) return false;
+    if (h.requiere === 'tpv' && !tpvActive) return false;
+    if (h.requiere === 'historico' && !origenHistorico) return false;
+    if (h.requiere === 'gestoria' && !tieneGestoria) return false;
+    return !perfilActivo || puedeEntrar(perfilActivo.rol, h.lista.split('?')[0]);
+  }, [modulos, tpvActive, origenHistorico, tieneGestoria, perfilActivo]);
 
   useEffect(() => {
     origenDelHistorico().then(setOrigenHistorico).catch(() => {});
@@ -238,37 +166,15 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
 
         {/* Navigation */}
         <nav className="sidebar-nav">
-          <span className="sidebar-section-label">Gestión operativa</span>
-          {(tpvActive ? [...baseNavItems, { href: '/tpv', label: 'TPV (Caja)', icon: Store }] : baseNavItems)
-            // Justo debajo de los clientes: es su historial de antes.
-            .flatMap(item => (origenHistorico && item.href === '/clientes'
-              ? [item, { href: '/historico', label: `Historial ${NOMBRE_ORIGEN[origenHistorico] ?? 'anterior'}`, icon: History }]
-              : [item]))
-            // Mientras no se sepan los módulos se enseña todo: esconder menús
-            // y hacerlos aparecer medio segundo después es peor que esperar.
-            .filter(item => !modulos || !('modulo' in item) || !item.modulo || modulos.includes(item.modulo))
-            .filter(item => entra(item.href))
-            .map(item => (
-            <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
-          ))}
-
-          {controlItems.some(item => entra(item.href)) && (
-            <span className="sidebar-section-label" style={{ marginTop: 'var(--space-5)' }}>
-              Control y cumplimiento
-            </span>
-          )}
-          {controlItems.filter(item => entra(item.href)).map(item => (
-            <SidebarLink key={item.href} item={item} pathname={pathname} onClose={onClose} collapsed={collapsed} />
-          ))}
-
-          {tieneGestoria && entra('/gestoria') && (
-            <SidebarLink
-              item={{ href: '/gestoria', label: 'Gestoría', icon: Briefcase }}
-              pathname={pathname}
+          <Suspense fallback={null}>
+            <MenuPrincipal
+              visible={visible}
               onClose={onClose}
               collapsed={collapsed}
+              onExpand={onToggleCollapse}
+              nombreHistorial={origenHistorico ? (NOMBRE_ORIGEN[origenHistorico] ?? 'anterior') : undefined}
             />
-          )}
+          </Suspense>
         </nav>
 
         {/* CTA */}

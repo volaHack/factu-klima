@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import {
   WalletCards, ArrowDownLeft, ArrowUpRight, Calendar, Users,
@@ -24,8 +25,8 @@ import { useToast } from '@/hooks/useToast';
 
 type Tab = 'vencimientos' | 'cobros' | 'pagos' | 'extractos';
 
-export default function TesoreriaPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('vencimientos');
+function TesoreriaPageContenido() {
+  const [activeTab, setActiveTab] = usePestanaDeLaDireccion<Tab>(['vencimientos', 'cobros', 'pagos', 'extractos'], 'vencimientos');
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -297,6 +298,11 @@ export default function TesoreriaPage() {
       toastError('Error al eliminar registro', err instanceof Error ? err.message : 'Error desconocido');
     }
   };
+
+  // «+» de Cobros o Pagos en el menú de Mantenimientos.
+  useNuevoDeLaDireccion(mounted && !loading, valor => {
+    if (valor === 'cobro' || valor === 'pago') handleOpenCreatePaymentModal(valor);
+  });
 
   if (!mounted || loading) return <PageSkeleton />;
 
@@ -916,5 +922,15 @@ export default function TesoreriaPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Suspense: la pantalla lee de la dirección la pestaña y el «nuevo» que
+// pide el menú de Mantenimientos (hooks/useDireccion).
+export default function TesoreriaPage() {
+  return (
+    <Suspense fallback={<PageSkeleton variant="list" label="Cargando tesorería" />}>
+      <TesoreriaPageContenido />
+    </Suspense>
   );
 }

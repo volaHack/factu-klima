@@ -79,6 +79,14 @@ function DocumentosContent() {
   const [search, setSearch] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<string>(tipoParam || 'todos');
   const [sentidoFiltro, setSentidoFiltro] = useState<string>(sentidoParam || 'todos');
+  // Al pasar de una hoja del menú Mantenimientos a otra la página no se
+  // vuelve a montar: los filtros siguen a la dirección cuando esta cambia.
+  const [paramsVistos, setParamsVistos] = useState(`${tipoParam}|${sentidoParam}`);
+  if (paramsVistos !== `${tipoParam}|${sentidoParam}`) {
+    setParamsVistos(`${tipoParam}|${sentidoParam}`);
+    setTipoFiltro(tipoParam || 'todos');
+    setSentidoFiltro(sentidoParam || 'todos');
+  }
   const [estadoFiltro, setEstadoFiltro] = useState<string>('todos');
   const [sortField, setSortField] = useState<DocumentoSortField>('issueDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
