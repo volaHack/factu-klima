@@ -1,6 +1,6 @@
 // Lógica compartida de documentos (factura, presupuesto, pedido, albarán…).
 import {
-  Invoice, InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento, Client,
+  Invoice, InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento, Client, Product,
 } from './types';
 import { descuentoFamiliaDe, precioEspecialDe } from './preciosCliente';
 import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax } from './utils';
@@ -130,30 +130,119 @@ export function condicionesDeVenta(
   return { unitPrice: deTarifa, descuentos: [ficha[0] || 0, ficha[1] || 0, ficha[2] || 0], origen: 'tarifa' };
 }
 
-/** Calcula las unidades pendientes de recibir (compras) y pendientes de entregar (ventas) */
+/**
+ * El precio y el impuesto que propone una línea de COMPRA: el precio de
+ * compra de la ficha o, si no se ha puesto, lo que costó la última entrada
+ * y, sin entradas, el precio medio. Nunca el de venta: comprar a precio de
+ * venta se come el margen sin que nadie lo vea. El impuesto, el de compra
+ * si lo tiene y si no el de venta.
+ */
+export function condicionesDeCompra(
+  product: Pick<Product, 'purchasePrice' | 'costeUltimaCompra' | 'costePmp' | 'purchaseTaxRate' | 'defaultTaxRate'>,
+): { unitPrice: number; taxRate: number } {
+  const unitPrice = [product.purchasePrice, product.costeUltimaCompra, product.costePmp].find(v => (v ?? 0) > 0) ?? 0;
+  return { unitPrice, taxRate: product.purchaseTaxRate ?? product.defaultTaxRate };
+}
+
+/**
+ * Las unidades pendientes de recibir (pedidos de compra) y de entregar
+ * (pedidos de venta) de un producto.
+ *
+ * Cuenta lo pedido menos lo ya servido: los albaranes y facturas que
+ * salieron de cada pedido (documentoOrigenId) descuentan sus unidades, así
+ * que un pedido servido a medias deja pendiente solo lo que falta y uno
+ * servido del todo deja de contar. Los borradores, rechazados, anulados y
+ * facturados no comprometen nada.
+ */
 export function calcularPendientesProducto(
   productId: string,
   invoices: Invoice[],
 ): { pendienteRecibir: number; pendienteEntregar: number } {
-  let pendienteRecibir = 0;
-  let pendienteEntregar = 0;
+  return pendientesPorProducto(invoices).get(productId) ?? { pendienteRecibir: 0, pendienteEntregar: 0 };
+}
 
+/** Lo mismo para todo el catálogo de una pasada (la lista de productos). */
+export function pendientesPorProducto(
+  invoices: Invoice[],
+): Map<string, { pendienteRecibir: number; pendienteEntregar: number }> {
+  const noCuenta: readonly InvoiceStatus[] = [InvoiceStatus.ANULADA, InvoiceStatus.FACTURADO, InvoiceStatus.BORRADOR, InvoiceStatus.RECHAZADO];
+  const clave = (pedido: string, producto: string) => `${pedido}|${producto}`;
+
+  // Lo ya servido de cada pedido, por producto.
+  const servido = new Map<string, number>();
   for (const inv of invoices) {
-    if (inv.tipo !== 'pedido') continue;
-    if (inv.status === InvoiceStatus.ANULADA || inv.status === InvoiceStatus.FACTURADO) continue;
-
+    if (!inv.documentoOrigenId || inv.tipo === 'pedido' || inv.tipo === 'presupuesto') continue;
+    if (inv.status === InvoiceStatus.ANULADA) continue;
     for (const li of inv.lineItems) {
-      if (li.productId === productId) {
-        if (inv.sentido === 'compra') {
-          pendienteRecibir += Number(li.quantity || 0);
-        } else {
-          pendienteEntregar += Number(li.quantity || 0);
-        }
-      }
+      if (!li.productId) continue;
+      const k = clave(inv.documentoOrigenId, li.productId);
+      servido.set(k, (servido.get(k) ?? 0) + Number(li.quantity || 0));
     }
   }
 
-  return { pendienteRecibir, pendienteEntregar };
+  const salida = new Map<string, { pendienteRecibir: number; pendienteEntregar: number }>();
+  for (const inv of invoices) {
+    if (inv.tipo !== 'pedido' || noCuenta.includes(inv.status)) continue;
+    const pedido = new Map<string, number>();
+    for (const li of inv.lineItems) {
+      if (li.productId) pedido.set(li.productId, (pedido.get(li.productId) ?? 0) + Number(li.quantity || 0));
+    }
+    for (const [productId, uds] of pedido) {
+      const falta = Math.max(0, uds - (servido.get(clave(inv.id, productId)) ?? 0));
+      if (!falta) continue;
+      const fila = salida.get(productId) ?? { pendienteRecibir: 0, pendienteEntregar: 0 };
+      if (inv.sentido === 'compra') fila.pendienteRecibir += falta;
+      else fila.pendienteEntregar += falta;
+      salida.set(productId, fila);
+    }
+  }
+  return salida;
+}
+
+/** Un precio que ya se puso en un documento anterior. */
+export interface PrecioAnterior {
+  unitPrice: number;
+  descuentos: [number, number, number];
+  numero: string;
+  fecha: string;
+  tipo: TipoDocumento;
+  /** Nombre de la ficha, cuando el precio es de otro cliente o proveedor. */
+  tercero?: string;
+}
+
+/**
+ * Lo último que se puso de un producto: a ESTE cliente (o proveedor) y, si
+ * no, a cualquiera del mismo sentido (la última venta o la última compra).
+ * Cuenta todo lo que llegó a enviarse o servirse —facturas, albaranes,
+ * pedidos y presupuestos—; ni borradores, ni rechazados, ni anulados.
+ */
+export function preciosAnteriores(
+  docs: readonly Invoice[],
+  productId: string,
+  opts: { clienteId?: string | null; sentido: SentidoDocumento; excluirId?: string },
+): { cliente: PrecioAnterior | null; ultimo: PrecioAnterior | null } {
+  const fuera: readonly InvoiceStatus[] = [InvoiceStatus.BORRADOR, InvoiceStatus.RECHAZADO, InvoiceStatus.ANULADA];
+  let cliente: { p: PrecioAnterior; orden: string } | null = null;
+  let ultimo: { p: PrecioAnterior; orden: string } | null = null;
+
+  for (const d of docs) {
+    if (d.id === opts.excluirId || (d.sentido ?? 'venta') !== opts.sentido || fuera.includes(d.status)) continue;
+    if (d.tipo === 'rectificativa') continue;
+    const li = d.lineItems.find(l => l.productId === productId && Number(l.quantity) > 0);
+    if (!li) continue;
+    const orden = `${d.issueDate}|${d.createdAt ?? ''}`;
+    const p: PrecioAnterior = {
+      unitPrice: li.unitPrice,
+      descuentos: [li.discountPercent || 0, li.discountPercent2 || 0, li.discountPercent3 || 0],
+      numero: d.number,
+      fecha: d.issueDate,
+      tipo: d.tipo ?? 'factura',
+      tercero: d.clientName,
+    };
+    if (!ultimo || orden > ultimo.orden) ultimo = { p, orden };
+    if (opts.clienteId && d.clientId === opts.clienteId && (!cliente || orden > cliente.orden)) cliente = { p, orden };
+  }
+  return { cliente: cliente?.p ?? null, ultimo: ultimo?.p ?? null };
 }
 
 /** Número y serie para un documento nuevo de un tipo/sentido. */

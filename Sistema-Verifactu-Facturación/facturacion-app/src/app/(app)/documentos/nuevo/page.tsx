@@ -507,6 +507,8 @@ function NuevoDocumentoContent() {
         defaultDiscounts={selectedClient?.defaultDiscounts}
         cliente={sentido === 'venta' ? selectedClient : null}
         lotes={modoLotes ? lotes : []}
+        sentido={sentido}
+        clienteId={selectedClient?.id}
       />
 
       {/* Totales */}

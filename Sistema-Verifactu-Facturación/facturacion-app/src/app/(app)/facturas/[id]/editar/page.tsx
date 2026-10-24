@@ -348,6 +348,8 @@ export default function EditInvoicePage() {
             defaultDiscounts={clienteActual?.defaultDiscounts}
             cliente={clienteActual}
             columnasCustom={columnasCustom}
+            clienteId={clienteActual?.id}
+            documentoId={params.id as string}
           />
         )}
 

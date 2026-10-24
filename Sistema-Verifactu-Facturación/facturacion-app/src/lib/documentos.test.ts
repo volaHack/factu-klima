@@ -245,6 +245,50 @@ describe('calcularPendientesProducto', () => {
   });
 });
 
+describe('calcularPendientesProducto: lo servido descuenta', () => {
+  it('un pedido servido a medias deja solo lo que falta; uno servido del todo no cuenta', async () => {
+    const { calcularPendientesProducto } = await import('./documentos');
+    const invoices = [
+      { id: 'pc', tipo: 'pedido', sentido: 'compra', status: InvoiceStatus.EMITIDA, lineItems: [{ productId: 'p1', quantity: 20 }] },
+      { id: 'ac', tipo: 'albaran', sentido: 'compra', status: InvoiceStatus.EXPEDIDO, documentoOrigenId: 'pc', lineItems: [{ productId: 'p1', quantity: 12 }] },
+      { id: 'pv', tipo: 'pedido', sentido: 'venta', status: InvoiceStatus.APROBADO, lineItems: [{ productId: 'p1', quantity: 5 }, { productId: 'p2', quantity: 9 }] },
+      { id: 'av', tipo: 'albaran', sentido: 'venta', status: InvoiceStatus.EXPEDIDO, documentoOrigenId: 'pv', lineItems: [{ productId: 'p1', quantity: 5 }] },
+      { id: 'ax', tipo: 'albaran', sentido: 'venta', status: InvoiceStatus.ANULADA, documentoOrigenId: 'pv', lineItems: [{ productId: 'p2', quantity: 9 }] },
+      { id: 'pb', tipo: 'pedido', sentido: 'venta', status: InvoiceStatus.BORRADOR, lineItems: [{ productId: 'p1', quantity: 50 }] },
+    ] as any;
+    expect(calcularPendientesProducto('p1', invoices)).toEqual({ pendienteRecibir: 8, pendienteEntregar: 0 });
+    expect(calcularPendientesProducto('p2', invoices)).toEqual({ pendienteRecibir: 0, pendienteEntregar: 9 });
+  });
+});
+
+describe('preciosAnteriores', () => {
+  const doc = (id: string, extra: Record<string, unknown>, precio: number, dto = 0) => ({
+    id, number: id.toUpperCase(), tipo: 'factura', sentido: 'venta', status: InvoiceStatus.EMITIDA,
+    clientId: 'c1', clientName: 'Bar Pepe', issueDate: '2026-01-01', createdAt: '2026-01-01T10:00:00Z',
+    lineItems: [{ productId: 'p1', quantity: 2, unitPrice: precio, discountPercent: dto }], ...extra,
+  });
+  const docs = [
+    doc('a', {}, 10),
+    doc('b', { issueDate: '2026-03-01', tipo: 'albaran', status: InvoiceStatus.EXPEDIDO }, 11, 5),
+    doc('c', { issueDate: '2026-04-01', clientId: 'c2', clientName: 'Hotel Sol' }, 12),
+    doc('d', { issueDate: '2026-05-01', status: InvoiceStatus.BORRADOR }, 99),
+    doc('e', { issueDate: '2026-06-01', sentido: 'compra', clientId: 'prov' }, 6),
+  ] as any;
+
+  it('lo último a este cliente y lo último a cualquiera', async () => {
+    const { preciosAnteriores } = await import('./documentos');
+    const r = preciosAnteriores(docs, 'p1', { clienteId: 'c1', sentido: 'venta' });
+    expect(r.cliente).toMatchObject({ unitPrice: 11, descuentos: [5, 0, 0], numero: 'B', tipo: 'albaran' });
+    expect(r.ultimo).toMatchObject({ unitPrice: 12, tercero: 'Hotel Sol' });
+  });
+
+  it('las compras van aparte y el documento que se edita no cuenta', async () => {
+    const { preciosAnteriores } = await import('./documentos');
+    expect(preciosAnteriores(docs, 'p1', { clienteId: 'prov', sentido: 'compra' }).cliente?.unitPrice).toBe(6);
+    expect(preciosAnteriores(docs, 'p1', { clienteId: 'c2', sentido: 'venta', excluirId: 'c' }).cliente).toBeNull();
+  });
+});
+
 describe('Fase 3: Valoración de Costes (PMP) y Multi-Almacén', () => {
   it('calcula PMP ponderado correctamente en compras sucesivas', () => {
     // Fórmula PMP: ((Stock * PMP_ant) + (Cant * Precio)) / (Stock + Cant)

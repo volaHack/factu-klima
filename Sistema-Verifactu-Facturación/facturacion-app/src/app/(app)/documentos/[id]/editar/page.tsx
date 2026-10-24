@@ -312,6 +312,9 @@ export default function EditarDocumentoPage() {
         tarifaId={tarifaId}
         defaultDiscounts={cliente?.defaultDiscounts}
         cliente={cliente}
+        sentido={documento.sentido === 'compra' ? 'compra' : 'venta'}
+        clienteId={documento.clientId}
+        documentoId={documento.id}
       />
 
       {/* Totales */}

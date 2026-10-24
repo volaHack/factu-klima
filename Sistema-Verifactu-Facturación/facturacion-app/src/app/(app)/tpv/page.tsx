@@ -20,7 +20,7 @@ import TpvTables from '@/components/tpv/TpvTables';
 import {
   getProducts, getCompanySettings, saveCompanySettings, getCompanyCategories,
   getActivePosSession, openPosSession, closePosSession, ensureWalkInClient,
-  issueInvoice, adjustStock, saveProduct, getOnboardingStatus, getInvoices, getOfertas, getLotes,
+  issueInvoice, saveProduct, getOnboardingStatus, getInvoices, getOfertas, getLotes,
 } from '@/lib/storage';
 import {
   getOpenChecks, createOpenCheck, saveOpenCheck, deleteOpenCheck, addLineToCheck, OpenCheck,
@@ -719,12 +719,12 @@ export default function TpvPage() {
     for (const line of lines) {
       if (!line.productId.startsWith('custom-')) {
         try {
-          await adjustStock(line.productId, -line.quantity);
-          // Inventario IA: contador de unidades vendidas (base del orden
-          // inteligente del grid). saveProduct encola el upsert si está offline.
+          // El stock lo descuenta la base de datos al emitirse el ticket
+          // (migración 074). Aquí solo el contador de unidades vendidas
+          // (base del orden inteligente del grid), sin pisar ese stock.
           const prod = products.find(p => p.id === line.productId);
           if (prod) {
-            await saveProduct({ ...prod, unitsSold: (prod.unitsSold ?? 0) + line.quantity });
+            await saveProduct({ ...prod, unitsSold: (prod.unitsSold ?? 0) + line.quantity }, { conservarStock: true });
           }
         } catch {
           toastError('Aviso de stock', `No se pudo actualizar el stock de ${line.productName}.`);

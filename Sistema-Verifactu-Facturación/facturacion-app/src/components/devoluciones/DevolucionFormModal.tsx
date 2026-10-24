@@ -12,6 +12,7 @@ import {
 import { generateId, generateInvoiceNumber, getToday, formatCurrency } from '@/lib/utils';
 import { DEVOLUCION_REASONS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 interface DevolucionFormModalProps {
   clients: Client[];
@@ -309,16 +310,13 @@ export default function DevolucionFormModal({
               </div>
               {lineItems.map((line, index) => (
                 <div className="line-item-row" key={line.id}>
-                  <select
+                  <BuscadorProducto
+                    products={products}
                     value={line.productId}
-                    onChange={e => handleProductSelect(index, e.target.value)}
-                    style={{ minWidth: 0 }}
-                  >
-                    <option value="">Seleccionar producto</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>[{p.ref}] {p.name}</option>
-                    ))}
-                  </select>
+                    onSelect={id => handleProductSelect(index, id)}
+                    ariaLabel={`Producto de la línea ${index + 1}`}
+                    placeholder="Buscar producto"
+                  />
                   <input
                     type="number"
                     min={0}

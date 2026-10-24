@@ -272,6 +272,7 @@ export default function FormularioAlbaran({ albaranId }: { albaranId?: string })
             defaultDiscounts={selectedClient?.defaultDiscounts}
             cliente={selectedClient}
             lotes={modoLotes ? lotes : []}
+            clienteId={selectedClient?.id}
           />
         )}
 

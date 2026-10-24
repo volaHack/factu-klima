@@ -14,14 +14,14 @@ import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars } from '@/components/charts/Charts';
 import { useColoresGrafica, SERIES } from '@/components/charts/theme';
 import {
-  getProducts, saveProduct as persistProduct, deleteProduct as removeProduct,
+  getProducts, saveProduct as persistProduct, deleteProduct as removeProduct, adjustStock,
   getCompanyCategories, addCustomCategory, deleteCustomCategory, deleteCategories, updateCustomCategory, getCompanySettings,
   getInvoices,
 } from '@/lib/storage';
 import { Product, TaxRate, UnitOfMeasure, CompanySettings, Invoice } from '@/lib/types';
 import { formatCurrency, generateId, processImageFile } from '@/lib/utils';
 import { UNITS_OF_MEASURE, ICON_PRESETS, getTaxLabel, getDefaultTaxRate } from '@/lib/constants';
-import { calcularPendientesProducto } from '@/lib/documentos';
+import { pendientesPorProducto } from '@/lib/documentos';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
@@ -66,10 +66,13 @@ function RestoDelRanking<T>({ filas, total, valor, formato }: {
   );
 }
 
+const SIN_PENDIENTES = { pendienteRecibir: 0, pendienteEntregar: 0 };
+
 export default function ProductosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const pendientes = useMemo(() => pendientesPorProducto(invoices), [invoices]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [mounted, setMounted] = useState(false);
   
@@ -105,6 +108,10 @@ export default function ProductosPage() {
     tarifaPrices: {} as Record<string, number>,
     costePmp: 0,
     costeUltimaCompra: 0,
+    purchasePrice: 0,
+    // '' = el mismo impuesto que en la venta.
+    purchaseTaxRate: '' as number | '',
+    notes: '',
   });
 
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -144,7 +151,7 @@ export default function ProductosPage() {
     if (!confirm(`¿Poner el ${tipo} % a ${productosConTipoRaro.length} productos? Las facturas ya emitidas no cambian; las nuevas usarán el ${tipo} %.`)) return;
     setCorrigiendoTipos(true);
     try {
-      for (const p of productosConTipoRaro) await persistProduct({ ...p, defaultTaxRate: tipo, updatedAt: new Date().toISOString() });
+      for (const p of productosConTipoRaro) await persistProduct({ ...p, defaultTaxRate: tipo, updatedAt: new Date().toISOString() }, { conservarStock: true });
       success('Productos corregidos', `${productosConTipoRaro.length} al ${tipo} %`);
       await loadData();
     } catch (e) {
@@ -275,6 +282,9 @@ export default function ProductosPage() {
       tarifaPrices: {},
       costePmp: 0,
       costeUltimaCompra: 0,
+      purchasePrice: 0,
+      purchaseTaxRate: '',
+      notes: '',
     });
     setShowModal(true);
   };
@@ -298,6 +308,9 @@ export default function ProductosPage() {
       tarifaPrices: p.tarifaPrices || {},
       costePmp: p.costePmp ?? 0,
       costeUltimaCompra: p.costeUltimaCompra ?? 0,
+      purchasePrice: p.purchasePrice ?? 0,
+      purchaseTaxRate: p.purchaseTaxRate ?? '',
+      notes: p.notes || '',
     });
     setShowModal(true);
   };
@@ -309,6 +322,9 @@ export default function ProductosPage() {
       ...form,
       costePmp: Number(form.costePmp || 0),
       costeUltimaCompra: Number(form.costeUltimaCompra || 0),
+      purchasePrice: Number(form.purchasePrice || 0),
+      purchaseTaxRate: form.purchaseTaxRate === '' ? undefined : Number(form.purchaseTaxRate),
+      notes: form.notes.trim() || undefined,
       supplierRef: form.supplierRef.trim() || undefined,
       imageUrl: form.imageUrl || undefined,
       unitsPerPackage: Number(form.unitsPerPackage) > 0 ? Number(form.unitsPerPackage) : undefined,
@@ -316,7 +332,16 @@ export default function ProductosPage() {
       updatedAt: new Date().toISOString(),
     };
     try {
-      await persistProduct(product);
+      if (editing) {
+        // El stock lo mueven los documentos mientras la ficha está abierta:
+        // guardarla no lo pisa. Si se ha cambiado a mano, se apunta solo la
+        // diferencia con lo que había al abrirla.
+        await persistProduct(product, { conservarStock: true });
+        const diferencia = Number(form.stockQuantity || 0) - (editing.stockQuantity ?? 0);
+        if (diferencia !== 0) await adjustStock(editing.id, diferencia);
+      } else {
+        await persistProduct(product);
+      }
       await reloadProducts();
       setShowModal(false);
       success(editing ? 'Producto actualizado' : 'Producto creado', form.name);
@@ -384,7 +409,7 @@ export default function ProductosPage() {
     try {
       await deleteCustomCategory(cat.value);
       for (const p of linkedProducts) {
-        await persistProduct({ ...p, category: 'otros' });
+        await persistProduct({ ...p, category: 'otros' }, { conservarStock: true });
       }
       await reloadCategories();
       await reloadProducts();
@@ -416,7 +441,7 @@ export default function ProductosPage() {
     try {
       await deleteCategories(seleccionadas.map(c => c.value));
       for (const p of productosAfectados) {
-        await persistProduct({ ...p, category: 'otros' });
+        await persistProduct({ ...p, category: 'otros' }, { conservarStock: true });
       }
       if (categoryFilter && catSeleccion.has(categoryFilter)) setCategoryFilter('');
       await reloadCategories();
@@ -689,7 +714,8 @@ export default function ProductosPage() {
                   const cat = getCategoryInfo(p.category);
                   const isLowStock = p.lowStockThreshold != null && (p.stockQuantity ?? 0) <= p.lowStockThreshold;
                   const isOutOfStock = (p.stockQuantity ?? 0) <= 0;
-                  const { pendienteRecibir, pendienteEntregar } = calcularPendientesProducto(p.id, invoices);
+                  const { pendienteRecibir, pendienteEntregar } = pendientes.get(p.id) ?? SIN_PENDIENTES;
+                  const disponible = (p.stockQuantity ?? 0) + pendienteRecibir - pendienteEntregar;
 
                   return (
                     <tr key={p.id}>
@@ -738,6 +764,15 @@ export default function ProductosPage() {
                         <span className={`badge ${isOutOfStock ? 'badge-danger' : isLowStock ? 'badge-warning' : 'badge-success'}`}>
                           {p.stockQuantity ?? 0} {p.unit}
                         </span>
+                        {(pendienteRecibir > 0 || pendienteEntregar > 0) && (
+                          <span
+                            className="producto-disponible mono"
+                            data-negativo={disponible < 0 || undefined}
+                            title="Stock + pendiente de recibir − pendiente de entregar"
+                          >
+                            Disp. {disponible} {p.unit}
+                          </span>
+                        )}
                       </td>
                       <td data-m={pendienteRecibir > 0 ? 'dato' : 'oculto'} data-label="Por recibir">
                         {pendienteRecibir > 0 ? (
@@ -905,7 +940,7 @@ export default function ProductosPage() {
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
-                  <label className="form-label">Precio Unitario Base (€)</label>
+                  <label className="form-label">Precio de venta (€)</label>
                   <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => updateForm('unitPrice', e.target.value)} />
                 </div>
                 <div className="form-group">
@@ -932,6 +967,96 @@ export default function ProductosPage() {
                   </p>
                 </div>
               </div>
+
+              <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
+                <div className="form-group">
+                  <TaxRateSlider
+                    label={`Impuesto de venta (${getTaxLabel(settings)})`}
+                    value={form.defaultTaxRate}
+                    onChange={v => setForm(prev => ({ ...prev, defaultTaxRate: v }))}
+                  />
+                </div>
+              </div>
+
+              {/* Lo de comprar: el precio al que lo vende el proveedor, lo
+                  que costó la última entrada y el coste medio. Las compras
+                  actualizan los dos últimos solas; se pueden corregir a mano
+                  al dar de alta el catálogo. */}
+              <fieldset className="producto-compra">
+                <legend>Compra y costes</legend>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="prod-precio-compra">Precio de compra (€)</label>
+                    <input id="prod-precio-compra" className="form-input" type="number" step="0.0001" min="0" value={form.purchasePrice} onChange={e => updateForm('purchasePrice', e.target.value)} />
+                    <p className="form-hint">El que se propone en pedidos, albaranes y facturas de compra.</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="prod-precio-entrada">Precio de última entrada (€)</label>
+                    <input id="prod-precio-entrada" className="form-input" type="number" step="0.0001" min="0" value={form.costeUltimaCompra} onChange={e => updateForm('costeUltimaCompra', e.target.value)} />
+                    <p className="form-hint">Lo que costó en la última compra recibida.</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="prod-precio-medio">Precio medio (€)</label>
+                    <input id="prod-precio-medio" className="form-input" type="number" step="0.0001" min="0" value={form.costePmp} onChange={e => updateForm('costePmp', e.target.value)} />
+                    <p className="form-hint">Coste medio ponderado de todo lo comprado.</p>
+                  </div>
+                </div>
+                <div className="form-row" style={{ marginTop: 'var(--space-3)' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.purchaseTaxRate === ''}
+                        onChange={e => setForm(prev => ({ ...prev, purchaseTaxRate: e.target.checked ? '' : prev.defaultTaxRate }))}
+                      />
+                      Impuesto de compra igual que el de venta
+                    </label>
+                    {form.purchaseTaxRate !== '' && (
+                      <TaxRateSlider
+                        label={`Impuesto de compra (${getTaxLabel(settings)})`}
+                        value={form.purchaseTaxRate}
+                        onChange={v => setForm(prev => ({ ...prev, purchaseTaxRate: v }))}
+                      />
+                    )}
+                  </div>
+                  {form.unitPrice > 0 && (Number(form.purchasePrice) || Number(form.costePmp)) > 0 && (() => {
+                    const coste = Number(form.purchasePrice) || Number(form.costePmp);
+                    const margen = ((form.unitPrice - coste) / form.unitPrice) * 100;
+                    return (
+                      <div className="form-group">
+                        <span className="form-label">Margen sobre la venta</span>
+                        <strong className="mono" style={{ color: margen < 0 ? 'var(--color-danger)' : undefined }}>
+                          {margen.toFixed(1).replace('.', ',')} %
+                        </strong>
+                        <p className="form-hint">Con el {Number(form.purchasePrice) ? 'precio de compra' : 'precio medio'}.</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+                {editing && (() => {
+                  const { pendienteRecibir, pendienteEntregar } = pendientes.get(editing.id) ?? SIN_PENDIENTES;
+                  const disponible = Number(form.stockQuantity || 0) + pendienteRecibir - pendienteEntregar;
+                  return (
+                    <div className="producto-pendientes">
+                      <div>
+                        <span>Pendiente de recibir</span>
+                        <strong className="mono">{pendienteRecibir} {editing.unit}</strong>
+                        <small>En pedidos de compra sin recibir del todo</small>
+                      </div>
+                      <div>
+                        <span>Pendiente de entregar</span>
+                        <strong className="mono">{pendienteEntregar} {editing.unit}</strong>
+                        <small>En pedidos de venta sin servir del todo</small>
+                      </div>
+                      <div data-negativo={disponible < 0 || undefined}>
+                        <span>Disponible</span>
+                        <strong className="mono">{disponible} {editing.unit}</strong>
+                        <small>Stock + por recibir − por entregar</small>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </fieldset>
 
               {/* Matriz de Precios por Tarifa si existen tarifas configuradas */}
               {settings?.tarifas && settings.tarifas.length > 0 && (
@@ -982,6 +1107,11 @@ export default function ProductosPage() {
               <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                 <label className="form-label">Descripción corta (opcional)</label>
                 <textarea className="form-textarea" rows={2} value={form.description} onChange={e => updateForm('description', e.target.value)} />
+              </div>
+
+              <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+                <label className="form-label" htmlFor="prod-observaciones">Observaciones</label>
+                <textarea id="prod-observaciones" className="form-textarea" rows={3} value={form.notes} onChange={e => updateForm('notes', e.target.value)} placeholder="Notas internas: no salen en los documentos" />
               </div>
 
               <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>

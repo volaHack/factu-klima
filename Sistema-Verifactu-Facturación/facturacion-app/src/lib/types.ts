@@ -1036,6 +1036,12 @@ export interface Product {
   costePmp?: number;
   /** Coste de la última compra registrada */
   costeUltimaCompra?: number;
+  /** Precio de compra al proveedor: el que se propone en las líneas de compra (migración 072). */
+  purchasePrice?: number;
+  /** Impuesto de compra (%). Vacío = el mismo que el de venta. */
+  purchaseTaxRate?: number;
+  /** Observaciones internas de la ficha. */
+  notes?: string;
   /** Desglose de existencias por almacén: { [almacenId]: stock } */
   stocksByAlmacen?: Record<string, number>;
 }
