@@ -14339,6 +14339,9 @@ body:has(.app-content > .asis) {
     color: var(--text-primary);
   }
   .header-actions .apple-guide-icon { width: 24px; height: 24px; background: transparent; }
+  /* Aquí el botón ya es solo el icono de 44 px; el texto se ocultaba
+     por debajo de 640 y entre 641 y 768 quedaba metido bajo el icono. */
+  .header-actions .apple-guide-text { display: none; }
 
   .header-breadcrumb { flex: 1; min-width: 0; }
   .header-breadcrumb span { font-size: var(--text-base); }
@@ -15336,6 +15339,17 @@ body {
 .enlace-portal-url .form-input { flex: 1; min-width: 0; font-size: var(--text-xs); }
 .enlace-portal-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .enlace-portal-renovar { margin-top: var(--space-3); }
+/* En el teléfono, los modos de mandarlo en una rejilla: WhatsApp y
+   Correo uno al lado del otro, «Ver como el cliente» debajo a todo lo
+   ancho, y «Cambiar enlace» al final, centrado y discreto. En fila, cada
+   uno caía donde le cabía y con tamaños distintos. */
+@media (max-width: 640px) {
+  .enlace-portal-url .btn { flex-shrink: 0; }
+  .enlace-portal-acciones { display: grid; grid-template-columns: 1fr 1fr; }
+  .enlace-portal-acciones .btn { justify-content: center; }
+  .enlace-portal-acciones .btn:last-child { grid-column: 1 / -1; }
+  .enlace-portal-renovar { display: flex; width: 100%; justify-content: center; color: var(--text-muted); }
+}
 
 .cobro-online { display: flex; flex-direction: column; gap: var(--space-3); max-width: 680px; }
 .cobro-online-estado { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-weight: 600; color: var(--text-secondary); }
@@ -15774,7 +15788,7 @@ body {
 }
 
 /* ============================================================
-   TABLAS QUE EN EL TELÉFONO SON TARJETAS (.tabla-tarjetas)
+   TABLAS QUE EN EL TELÉFONO Y LA TABLETA SON TARJETAS (.tabla-tarjetas)
    ------------------------------------------------------------
    Nueve columnas no caben en 360 px: la tabla se deslizaba de lado y
    solo se veían el NIF y el nombre. En el teléfono cada fila pasa a ser
@@ -15783,9 +15797,11 @@ body {
    acciones. Cada celda dice qué papel tiene con `data-m`:
      titulo · importe · sub · dato (con `data-label`) · estado ·
      acciones · menu · check · oculto
-   En pantalla ancha no cambia nada: sigue siendo la tabla de siempre.
+   En la tableta (hasta 1023 px) la tabla de Clientes medía 1.329 px y la
+   de Productos 1.491 en una pantalla de 754: también tarjetas, de dos en
+   dos. En pantalla ancha no cambia nada: sigue siendo la tabla de siempre.
    ============================================================ */
-@media screen and (max-width: 640px) {
+@media screen and (max-width: 1023px) {
   .tabla-tarjetas,
   .tabla-tarjetas tbody { display: block; width: 100%; min-width: 0 !important; }
   .tabla-tarjetas thead { display: none; }
@@ -15837,4 +15853,13 @@ body {
   .tabla-tarjetas td[data-m="acciones"] .btn-xs,
   .tabla-tarjetas td[data-m="acciones"] .btn-icon,
   .tabla-tarjetas td[data-m="menu"] .btn-icon { min-width: 40px; min-height: 40px; justify-content: center; }
+}
+/* En la tableta, dos tarjetas por fila: a todo lo ancho, una tarjeta de
+   750 px dejaba el importe a un palmo del nombre. */
+@media screen and (min-width: 641px) and (max-width: 1023px) {
+  .tabla-tarjetas tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tabla-tarjetas tbody tr { align-content: flex-start; border-bottom: 1px solid var(--border-subtle); }
+  .tabla-tarjetas tbody tr:nth-child(odd) { border-right: 1px solid var(--border-subtle); }
+  .tabla-tarjetas tbody tr:last-child { border-bottom: 1px solid var(--border-subtle); }
+  .tabla-tarjetas tbody tr:has(> td[colspan]) { grid-column: 1 / -1; border-right: 0; }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Copy, ExternalLink, Globe, Loader2, Mail, MessageCircle, RefreshCw, X } from 'lucide-react';
 import { enlacePortal, renovarEnlacePortal } from '@/lib/storage';
 
@@ -11,6 +12,10 @@ import { enlacePortal, renovarEnlacePortal } from '@/lib/storage';
  * facturas y las pague, con las formas habituales de mandárselo. El mismo
  * enlace sirve siempre; «Cambiar enlace» anula el anterior (por si se ha
  * mandado a quien no era).
+ *
+ * La ventana se monta en <body>, no al lado del botón: en la lista de
+ * Clientes el botón vive dentro de una celda de la tabla, y la ventana
+ * heredaba su letra, sus colores y el tamaño de sus botones.
  */
 export default function EnlacePortal({ clientId, clienteNombre, telefono, email, factura, compacto = false }: {
   clientId: string;
@@ -58,7 +63,7 @@ export default function EnlacePortal({ clientId, clienteNombre, telefono, email,
         <Globe size={compacto ? 14 : 16} />{!compacto && ' Enlace de pago'}
       </button>
 
-      {abierto && (
+      {abierto && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setAbierto(false)}>
           <div className="modal enlace-portal" role="dialog" aria-label="Enlace del portal del cliente" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -100,7 +105,8 @@ export default function EnlacePortal({ clientId, clienteNombre, telefono, email,
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
