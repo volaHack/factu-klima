@@ -15962,3 +15962,77 @@ body {
   color: var(--text-secondary);
 }
 .lineas-doc-sugerencia strong { color: var(--text-primary); }
+
+/* ============================================================
+   MENÚ LATERAL EN ÁRBOL (components/layout/MenuPrincipal)
+   ============================================================ */
+.menu-arbol, .menu-arbol ul { list-style: none; margin: 0; padding: 0; }
+.menu-arbol { display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-2); }
+
+.menu-arbol-rama {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%;
+  padding: 8px var(--space-3);
+  border: none; background: none; cursor: pointer; text-align: left;
+  border-radius: var(--radius-md);
+  font: inherit; font-size: var(--text-sm); font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.menu-arbol-rama:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.menu-arbol-rama > svg:first-child { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.75; }
+.menu-arbol-rama.contiene-activa { color: var(--text-primary); }
+.menu-arbol-rama.contiene-activa > svg:first-child { color: var(--accent-400); opacity: 1; }
+.menu-arbol-flecha { margin-left: auto; flex-shrink: 0; opacity: 0.6; transition: transform var(--transition-fast); }
+[aria-expanded="true"] > .menu-arbol-rama .menu-arbol-flecha { transform: rotate(90deg); }
+
+.menu-arbol > li > ul {
+  margin: 2px 0 6px 20px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-color);
+}
+
+.menu-arbol-hoja { display: flex; align-items: center; border-radius: var(--radius-md); }
+.menu-arbol-hoja:hover { background: var(--bg-card-hover); }
+.menu-arbol-hoja > a:first-child {
+  flex: 1; min-width: 0;
+  padding: 6px var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  /* Los nombres largos («Facturas de compra rectificativas») pasan a dos
+     líneas: cortados con puntos suspensivos no se distinguían. */
+  white-space: normal;
+}
+.menu-arbol-hoja:hover > a:first-child { color: var(--text-primary); }
+.menu-arbol-hoja.active { background: var(--accent-glow); }
+.menu-arbol-hoja.active > a:first-child { color: var(--accent-400); font-weight: 600; }
+
+.menu-arbol-nuevo {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; margin-right: 2px; flex-shrink: 0;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+.menu-arbol-hoja:hover .menu-arbol-nuevo,
+.menu-arbol-hoja.active .menu-arbol-nuevo,
+.menu-arbol-nuevo:focus-visible { opacity: 1; }
+.menu-arbol-nuevo:hover { background: var(--accent-glow); color: var(--accent-400); }
+
+/* Plegado: solo el icono de cada rama, centrado. */
+.sidebar.collapsed .menu-arbol-rama { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.collapsed .menu-arbol-rama span,
+.sidebar.collapsed .menu-arbol-flecha { display: none; }
+
+/* En pantallas táctiles no hay «pasar por encima»: el + se ve siempre y
+   todo se pulsa con el dedo. */
+@media (hover: none) {
+  .menu-arbol-nuevo { opacity: 1; width: 36px; height: 36px; }
+  .menu-arbol-hoja > a:first-child { padding-top: 10px; padding-bottom: 10px; }
+  .menu-arbol-rama { padding-top: 11px; padding-bottom: 11px; }
+}
+

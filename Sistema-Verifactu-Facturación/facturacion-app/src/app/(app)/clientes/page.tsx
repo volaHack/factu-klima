@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
@@ -31,14 +32,14 @@ function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadT
   return limpio.oficinaContable || limpio.organoGestor || limpio.unidadTramitadora ? limpio : undefined;
 }
 
-export default function ClientesPage() {
+function ClientesPageContenido() {
   const [clients, setClients] = useState<Client[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [tipoContactoFilter, setTipoContactoFilter] = useState<'todos' | 'clientes' | 'proveedores'>('todos');
+  const [tipoContactoFilter, setTipoContactoFilter] = usePestanaDeLaDireccion<'todos' | 'clientes' | 'proveedores'>(['todos', 'clientes', 'proveedores'], 'todos', 'tipo');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -310,6 +311,12 @@ export default function ClientesPage() {
       return { ...prev, defaultDiscounts: next };
     });
   };
+
+  // «+» de Clientes o Proveedores en el menú de Mantenimientos.
+  useNuevoDeLaDireccion(mounted, () => {
+    openCreateModal();
+    if (tipoContactoFilter === 'proveedores') setForm(f => ({ ...f, esProveedor: true }));
+  });
 
   if (!mounted) {
     return <PageSkeleton variant="list" label="Cargando los clientes" />;
@@ -828,5 +835,15 @@ export default function ClientesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Suspense: la pantalla lee de la dirección la pestaña y el «nuevo» que
+// pide el menú de Mantenimientos (hooks/useDireccion).
+export default function ClientesPage() {
+  return (
+    <Suspense fallback={<PageSkeleton variant="list" label="Cargando los clientes" />}>
+      <ClientesPageContenido />
+    </Suspense>
   );
 }

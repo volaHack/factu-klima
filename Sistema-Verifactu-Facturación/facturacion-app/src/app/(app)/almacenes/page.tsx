@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import {
   Warehouse, ArrowLeftRight, ClipboardCheck, Plus, Edit2, Trash2,
   CheckCircle2, AlertTriangle, Search, MapPin, Package, ArrowRight,
@@ -25,8 +26,8 @@ import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 type Tab = 'almacenes' | 'existencias' | 'traspasos' | 'regularizaciones';
 
-export default function AlmacenesPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('almacenes');
+function AlmacenesPageContenido() {
+  const [activeTab, setActiveTab] = usePestanaDeLaDireccion<Tab>(['almacenes', 'existencias', 'traspasos', 'regularizaciones'], 'almacenes');
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -347,6 +348,12 @@ export default function AlmacenesPage() {
       return match.includes(searchTerm.toLowerCase());
     });
   }, [products, searchTerm]);
+
+  // «+» de Regularizaciones o Traspasos en el menú de Mantenimientos.
+  useNuevoDeLaDireccion(mounted && !loading, () => {
+    if (activeTab === 'traspasos') handleOpenTraspasoModal();
+    else if (activeTab === 'regularizaciones') handleOpenRegModal();
+  });
 
   if (!mounted || loading) return <PageSkeleton />;
 
@@ -1070,5 +1077,15 @@ export default function AlmacenesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Suspense: la pantalla lee de la dirección la pestaña y el «nuevo» que
+// pide el menú de Mantenimientos (hooks/useDireccion).
+export default function AlmacenesPage() {
+  return (
+    <Suspense fallback={<PageSkeleton variant="list" label="Cargando almacenes" />}>
+      <AlmacenesPageContenido />
+    </Suspense>
   );
 }

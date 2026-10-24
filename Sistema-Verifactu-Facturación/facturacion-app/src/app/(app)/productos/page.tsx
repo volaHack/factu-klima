@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
@@ -68,7 +69,7 @@ function RestoDelRanking<T>({ filas, total, valor, formato }: {
 
 const SIN_PENDIENTES = { pendienteRecibir: 0, pendienteEntregar: 0 };
 
-export default function ProductosPage() {
+function ProductosPageContenido() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -489,6 +490,9 @@ export default function ProductosPage() {
     () => porFamilia.filter(c => c.count > 0).sort((a, b) => b.count - a.count),
     [porFamilia],
   );
+
+  // «+» de Artículos en el menú de Mantenimientos.
+  useNuevoDeLaDireccion(mounted && !!settings, () => openCreateProduct());
 
   if (!mounted) {
     return <PageSkeleton variant="list" label="Cargando Productos y categorías" />;
@@ -1238,5 +1242,15 @@ export default function ProductosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Suspense: la pantalla lee de la dirección la pestaña y el «nuevo» que
+// pide el menú de Mantenimientos (hooks/useDireccion).
+export default function ProductosPage() {
+  return (
+    <Suspense fallback={<PageSkeleton variant="list" label="Cargando Productos y categorías" />}>
+      <ProductosPageContenido />
+    </Suspense>
   );
 }
