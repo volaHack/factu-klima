@@ -32,8 +32,9 @@ describe('qué quedó pendiente', () => {
     expect(quedoPendiente(doc({ tipo: 'albaran_venta' }))).toBe(true);
     expect(quedoPendiente(doc({ tipo: 'albaran_compra', pasaA: ['factura_compra:25/16'] }))).toBe(false);
   });
-  it('una factura nunca está «pendiente de facturar»', () => {
+  it('una factura nunca está «pendiente de facturar», ni un presupuesto que no se aceptó', () => {
     expect(quedoPendiente(doc({ tipo: 'factura_venta' }))).toBe(false);
+    expect(quedoPendiente(doc({ tipo: 'presupuesto_venta' }))).toBe(false);
   });
 });
 
@@ -131,6 +132,7 @@ describe('el resumen de toda la cuenta', () => {
     fila({ anio: 2025, tipo: 'albaran_venta', documentos: 2, total: 20, pendientes: 1, totalPendiente: 0.1 }),
     fila({ anio: 2024, tipo: 'pedido_venta', documentos: 2, total: 30, pendientes: 2, totalPendiente: 30 }),
     fila({ anio: null, tipo: 'albaran_compra', documentos: 2, total: 0, pendientes: 1, totalPendiente: 0 }),
+    fila({ anio: 2026, tipo: 'presupuesto_venta', documentos: 3, total: 300.5 }),
   ]);
 
   it('ventas y compras por separado, sin errores de redondeo', () => {
@@ -141,6 +143,7 @@ describe('el resumen de toda la cuenta', () => {
   it('lo que quedó sin facturar o sin servir', () => {
     expect(r.albaranesSinFactura).toEqual({ documentos: 5, total: 40.15 });
     expect(r.pedidosSinServir).toEqual({ documentos: 2, total: 30 });
+    expect(r.presupuestos).toEqual({ documentos: 3, total: 300.5 });
   });
 
   it('los años, el más reciente primero, solo con facturas', () => {
@@ -164,18 +167,20 @@ describe('el historial dentro de Documentos', () => {
     expect(estadoDeHistorico({ tipo: 'albaran', estado: 'facturado' })).toBe('Facturado');
     expect(estadoDeHistorico({ tipo: 'pedido', estado: 'pendiente' })).toBe('Sin servir');
     expect(estadoDeHistorico({ tipo: 'pedido', estado: 'facturado' })).toBe('Servido');
+    expect(estadoDeHistorico({ tipo: 'presupuesto', estado: 'emitida' })).toBe('Emitido');
   });
 
   it('el estado de un documento suelto, igual que en la vista', () => {
     expect(tipoYEstado(doc({ tipo: 'factura_compra' }))).toEqual({ tipo: 'factura', estado: 'emitida' });
     expect(tipoYEstado(doc({ tipo: 'albaran_compra', pasaA: ['factura_compra:26/311'] }))).toEqual({ tipo: 'albaran', estado: 'facturado' });
     expect(tipoYEstado(doc({ tipo: 'pedido_venta' }))).toEqual({ tipo: 'pedido', estado: 'pendiente' });
+    expect(tipoYEstado(doc({ tipo: 'presupuesto_venta' }))).toEqual({ tipo: 'presupuesto', estado: 'emitida' });
   });
 
-  it('presupuestos, borradores o pagadas no los hay en el historial: ni se pregunta', () => {
+  it('borradores o pagadas no los hay en el historial: ni se pregunta', () => {
     expect(filtroAlcanzaHistorial({ tipo: 'todos', estado: 'todos' })).toBe(true);
     expect(filtroAlcanzaHistorial({ tipo: 'albaran', estado: 'pendiente' })).toBe(true);
-    expect(filtroAlcanzaHistorial({ tipo: 'presupuesto', estado: 'todos' })).toBe(false);
+    expect(filtroAlcanzaHistorial({ tipo: 'presupuesto', estado: 'todos' })).toBe(true);
     expect(filtroAlcanzaHistorial({ tipo: 'rectificativa', estado: 'todos' })).toBe(false);
     expect(filtroAlcanzaHistorial({ tipo: 'todos', estado: 'borrador' })).toBe(false);
     expect(filtroAlcanzaHistorial({ tipo: 'factura', estado: 'pagada' })).toBe(false);
