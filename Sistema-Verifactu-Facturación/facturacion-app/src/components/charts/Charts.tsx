@@ -435,10 +435,14 @@ export function StatusDonut({ data, centerLabel, centerValue, unidad = ['factura
   );
 }
 
-/** Leyenda con punto de color + etiqueta + valor: el color nunca va solo. */
-export function ChartLegend({ items }: { items: { name: string; value: string; color: string }[] }) {
+/**
+ * Leyenda con punto de color + etiqueta + valor: el color nunca va solo.
+ * `enLista`: una fila por elemento con el valor a la derecha, para cuando
+ * los nombres son largos y en fila se mezclarían con los números.
+ */
+export function ChartLegend({ items, enLista = false }: { items: { name: string; value: string; color: string }[]; enLista?: boolean }) {
   return (
-    <ul className="chart-legend">
+    <ul className={enLista ? 'chart-legend chart-legend--lista' : 'chart-legend'}>
       {items.map(item => (
         <li key={item.name}>
           <span className="chart-legend-dot" style={{ background: item.color }} />

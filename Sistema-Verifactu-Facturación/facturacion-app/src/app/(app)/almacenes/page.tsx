@@ -543,12 +543,11 @@ export default function AlmacenesPage() {
       {activeTab === 'existencias' && (
         <div className="card">
           <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-            <div className="search-box" style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} />
+            <div className="search-box" style={{ maxWidth: 360 }}>
+              <Search size={16} />
               <input
                 type="text"
                 className="form-input"
-                style={{ paddingLeft: 36 }}
                 placeholder="Buscar por nombre, ref..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -755,7 +754,7 @@ export default function AlmacenesPage() {
 
       {/* MODAL ALMACÉN */}
       {showAlmacenModal && (
-        <div className="modal-backdrop">
+        <div className="modal-overlay">
           <div className="modal card" style={{ maxWidth: 480 }}>
             <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
               {editingAlmacen ? 'Editar Almacén' : 'Nuevo Almacén'}
@@ -823,7 +822,7 @@ export default function AlmacenesPage() {
 
       {/* MODAL TRASPASO */}
       {showTraspasoModal && (
-        <div className="modal-backdrop">
+        <div className="modal-overlay">
           <div className="modal card" style={{ maxWidth: 640 }}>
             <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
               Nuevo Traspaso entre Almacenes
@@ -963,7 +962,7 @@ export default function AlmacenesPage() {
 
       {/* MODAL REGULARIZACIÓN */}
       {showRegModal && (
-        <div className="modal-backdrop">
+        <div className="modal-overlay">
           <div className="modal card" style={{ maxWidth: 500 }}>
             <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
               Ajuste de Inventario / Regularización

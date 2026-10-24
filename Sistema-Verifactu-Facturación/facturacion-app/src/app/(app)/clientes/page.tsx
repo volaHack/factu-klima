@@ -14,6 +14,7 @@ import { getClients, saveClient as persistClient, deleteClient as removeClient, 
 import { Client, Invoice, PaymentMethod, Vendedor, CompanySettings } from '@/lib/types';
 import { formatCurrency, generateId } from '@/lib/utils';
 import { isFactura } from '@/lib/documentos';
+import { repartoPorFormaDePago } from '@/lib/repartoFormasPago';
 import { PAYMENT_METHODS, PROVINCES, PAISES_SELECTOR, esPaisUeNoEspana } from '@/lib/constants';
 import ComprobacionIdentidad, { problemasDeFicha } from '@/components/clientes/ComprobacionIdentidad';
 import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identidad';
@@ -198,28 +199,14 @@ export default function ClientesPage() {
       .slice(0, 6);
   }, [clients, invoices]);
 
-  const paymentMethodDistribution = useMemo(() => {
-    const methodCounts = new Map<string, number>();
-    clients.forEach(c => {
-      const pm = c.defaultPaymentMethod || 'transferencia';
-      methodCounts.set(pm, (methodCounts.get(pm) || 0) + 1);
-    });
-
-    const colors = SERIES;
-    const pmLabels: Record<string, string> = {
-      transferencia: 'Transferencia bancaria',
-      tarjeta: 'Tarjeta de crédito',
-      efectivo: 'Efectivo / Contado',
-      domiciliacion: 'Domiciliación SEPA',
-      bizum: 'Bizum / Móvil'
-    };
-
-    return Array.from(methodCounts.entries()).map(([method, count], idx) => ({
-      name: pmLabels[method] || method,
-      value: count,
-      color: colors[idx % colors.length]
-    }));
-  }, [clients]);
+  // Cómo pagan los de la pestaña que se mira: los clientes, los proveedores o todos.
+  const contactosDeLaPestana = useMemo(
+    () => clients.filter(c => tipoContactoFilter === 'todos' || (tipoContactoFilter === 'proveedores') === Boolean(c.esProveedor)),
+    [clients, tipoContactoFilter],
+  );
+  const reparto = useMemo(() => repartoPorFormaDePago(contactosDeLaPestana), [contactosDeLaPestana]);
+  const quienes: [string, string] = tipoContactoFilter === 'proveedores' ? ['proveedor', 'proveedores']
+    : tipoContactoFilter === 'clientes' ? ['cliente', 'clientes'] : ['ficha', 'fichas'];
 
   const openCreateModal = () => {
     setEditingClient(null);
@@ -408,27 +395,28 @@ export default function ClientesPage() {
 
         <ChartCard
           title="Formas de pago preferidas"
-          subtitle="Distribución en cartera de clientes"
+          subtitle={tipoContactoFilter === 'proveedores' ? 'Cómo se paga a tus proveedores'
+            : tipoContactoFilter === 'clientes' ? 'Cómo te pagan tus clientes' : 'Clientes y proveedores, según su ficha'}
+          height={200}
+          isEmpty={reparto.length === 0}
+          emptyLabel="Sin fichas todavía"
+          legend={
+            <ChartLegend
+              enLista
+              items={reparto.map((d, i) => ({
+                name: d.nombre,
+                value: `${d.cuantos.toLocaleString('es-ES')} · ${d.porcentaje}`,
+                color: SERIES[i % SERIES.length],
+              }))}
+            />
+          }
         >
-          {paymentMethodDistribution.length > 0 ? (
-            <>
-              <StatusDonut
-                data={paymentMethodDistribution}
-                centerLabel="Clientes"
-                centerValue={String(clients.length)}
-                unidad={['cliente', 'clientes']}
-              />
-              <ChartLegend
-                items={paymentMethodDistribution.map(d => ({
-                  name: d.name,
-                  value: `${d.value} (${Math.round((d.value / clients.length) * 100)}%)`,
-                  color: d.color
-                }))}
-              />
-            </>
-          ) : (
-            <div className="empty-state-card">Sin clientes registrados</div>
-          )}
+          <StatusDonut
+            data={reparto.map((d, i) => ({ name: d.nombre, value: d.cuantos, color: SERIES[i % SERIES.length] }))}
+            centerLabel={quienes[1]}
+            centerValue={contactosDeLaPestana.length.toLocaleString('es-ES')}
+            unidad={quienes}
+          />
         </ChartCard>
       </div>
 
@@ -450,7 +438,7 @@ export default function ClientesPage() {
       </div>
 
       <div className="table-container">
-        <table className="table table--sortable">
+        <table className="table table--sortable tabla-tarjetas">
           <thead>
             <tr>
               <th
@@ -539,20 +527,20 @@ export default function ClientesPage() {
 
               return (
                 <tr key={client.id}>
-                  <td className="mono">{client.nif}</td>
-                  <td className="primary">
+                  <td className="mono" data-m="dato" data-label="NIF">{client.nif}</td>
+                  <td className="primary" data-m="titulo">
                     <Link href={`/clientes/${client.id}`} className="cell-link">
                       {client.codigo && <span className="mono" style={{ color: 'var(--text-muted)', marginRight: 'var(--space-2)' }}>{client.codigo}</span>}
                       {client.tradeName || client.businessName}
                     </Link>
                     {client.tradeName && <span className="cell-sub">{client.businessName}</span>}
                   </td>
-                  <td>
+                  <td data-m="dato">
                     <span className={`badge ${client.esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
                       {client.esProveedor ? 'Proveedor' : 'Cliente'}
                     </span>
                   </td>
-                  <td>
+                  <td data-m="oculto">
                     {matchedTarifa ? (
                       <span className="badge badge-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                         <Tag size={11} /> {matchedTarifa.nombre}
@@ -566,19 +554,19 @@ export default function ClientesPage() {
                       </span>
                     )}
                   </td>
-                  <td>{client.city}</td>
-                  <td>
+                  <td data-m="dato">{client.city}</td>
+                  <td data-m="oculto">
                     {client.contactPerson}
                     {client.phone && <span className="cell-sub">{client.phone}</span>}
                   </td>
-                  <td>{stats.count}</td>
-                  <td className="amount">{formatCurrency(stats.total)}</td>
-                  <td>
+                  <td data-m="dato" data-label="Facturas">{stats.count}</td>
+                  <td className="amount" data-m="importe">{formatCurrency(stats.total)}</td>
+                  <td data-m="estado">
                     <span className={`badge ${client.active ? 'badge-activo' : 'badge-inactivo'}`}>
                       {client.active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td>
+                  <td data-m="acciones">
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                       <Link href={`/clientes/${client.id}`} className="btn btn-ghost btn-xs" title="Ver ficha">
                         <Eye size={14} />

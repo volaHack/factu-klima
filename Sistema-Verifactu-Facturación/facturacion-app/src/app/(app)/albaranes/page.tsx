@@ -328,7 +328,7 @@ export default function AlbaranesPage() {
 
       {/* Table */}
       <div className="table-container">
-        <table className="table table--sortable">
+        <table className="table table--sortable tabla-tarjetas">
           <thead>
             <tr>
               <th className="table-checkbox">
@@ -360,7 +360,7 @@ export default function AlbaranesPage() {
           <tbody>
             {paginated.map(a => (
               <tr key={a.id}>
-                <td className="table-checkbox">
+                <td className="table-checkbox" data-m="check">
                   <input
                     aria-label="Seleccionar esta fila"
                     type="checkbox"
@@ -368,19 +368,19 @@ export default function AlbaranesPage() {
                     onChange={() => toggleSelect(a.id)}
                   />
                 </td>
-                <td className="mono primary">
+                <td className="mono primary" data-m="titulo">
                   <Link href={`/albaranes/${a.id}`} className="cell-link">{a.number}</Link>
                 </td>
-                <td className="primary">{a.clientName}</td>
-                <td>{formatDate(a.issueDate)}</td>
-                <td>
+                <td className="primary" data-m="sub">{a.clientName}</td>
+                <td data-m="dato">{formatDate(a.issueDate)}</td>
+                <td data-m="estado">
                   <span className={`badge badge-${a.status}`}>
                     <span className="badge-dot" />
                     {statusLabel(a.status)}
                   </span>
                 </td>
-                <td className="amount">{formatCurrency(a.total)}</td>
-                <td>
+                <td className="amount" data-m="importe">{formatCurrency(a.total)}</td>
+                <td data-m="menu">
                   <button
                     className="btn btn-ghost btn-icon btn-sm"
                     aria-label={`Acciones para ${a.number}`}

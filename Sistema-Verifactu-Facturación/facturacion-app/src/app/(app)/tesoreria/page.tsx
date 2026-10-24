@@ -445,12 +445,11 @@ export default function TesoreriaPage() {
       {activeTab === 'vencimientos' && (
         <div className="card">
           <div className="filter-bar" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-            <div className="search-box" style={{ position: 'relative', flex: 1, minWidth: 260, maxWidth: 360 }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} />
+            <div className="search-box" style={{ minWidth: 260, maxWidth: 360 }}>
+              <Search size={16} />
               <input
                 type="text"
                 className="form-input"
-                style={{ paddingLeft: 36 }}
                 placeholder="Buscar por factura, cliente, NIF..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -780,7 +779,7 @@ export default function TesoreriaPage() {
 
       {/* MODAL REGISTRAR COBRO / PAGO */}
       {showModal && (
-        <div className="modal-backdrop">
+        <div className="modal-overlay">
           <div className="modal card" style={{ maxWidth: 640 }}>
             <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
               {modalTipo === 'cobro' ? 'Registrar Cobro (Cliente)' : 'Registrar Pago (Proveedor)'}
