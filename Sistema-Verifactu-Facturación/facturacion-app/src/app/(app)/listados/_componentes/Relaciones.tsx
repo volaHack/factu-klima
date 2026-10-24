@@ -33,6 +33,7 @@ import {
 import { formatCurrency, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { imprimirHtml } from './papel';
+import AtajosFechas from '@/components/ui/AtajosFechas';
 
 
 /** El primer día del mes en curso, que es el acotado que se pide nueve de cada diez veces. */
@@ -196,11 +197,14 @@ export default function Relaciones() {
             desde={<input className="form-input" type="number" value={filtro.numeroDesde ?? ''} onChange={e => cambiar('numeroDesde', e.target.value === '' ? undefined : Number(e.target.value))} placeholder="1" />}
             hasta={<input className="form-input" type="number" value={filtro.numeroHasta ?? ''} onChange={e => cambiar('numeroHasta', e.target.value === '' ? undefined : Number(e.target.value))} placeholder="Sin tope" />}
           />
-          <Rango
-            titulo="Fecha"
-            desde={<input className="form-input" type="date" value={filtro.fechaDesde ?? ''} onChange={e => cambiar('fechaDesde', e.target.value)} />}
-            hasta={<input className="form-input" type="date" value={filtro.fechaHasta ?? ''} onChange={e => cambiar('fechaHasta', e.target.value)} />}
-          />
+          <div>
+            <Rango
+              titulo="Fecha"
+              desde={<input className="form-input" type="date" value={filtro.fechaDesde ?? ''} onChange={e => cambiar('fechaDesde', e.target.value)} />}
+              hasta={<input className="form-input" type="date" value={filtro.fechaHasta ?? ''} onChange={e => cambiar('fechaHasta', e.target.value)} />}
+            />
+            <AtajosFechas desde={filtro.fechaDesde} hasta={filtro.fechaHasta} onElegir={(d, h) => setFiltro(prev => ({ ...prev, fechaDesde: d, fechaHasta: h }))} />
+          </div>
           {relacion.porTercero && (
             <Rango
               titulo={relacion.columnaNombre}

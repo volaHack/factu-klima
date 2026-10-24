@@ -28,6 +28,7 @@ import { secuenciaDe } from '@/lib/listados';
 import { formatCurrency, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { imprimirHtml } from './papel';
+import AtajosFechas from '@/components/ui/AtajosFechas';
 
 type ClaseImpreso =
   | { clase: 'doc'; tipo: Invoice['tipo']; sentido: 'venta' | 'compra' }
@@ -268,6 +269,7 @@ export function VistaImpresos({ datos }: { datos: DatosImpresos }) {
             </div>
           )}
         </div>
+        <AtajosFechas desde={desde} hasta={hasta} onElegir={(d, h) => { setDesde(d); setHasta(h); }} />
         {tipo.de.clase === 'doc' && (
           <label className="form-check listados-casillas">
             <input type="checkbox" checked={conBorradores} onChange={e => setConBorradores(e.target.checked)} />

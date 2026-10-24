@@ -27,6 +27,7 @@ import {
 import { formatCurrency, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { imprimirHtml, descargarCsv } from './papel';
+import AtajosFechas from '@/components/ui/AtajosFechas';
 
 function primeroDeAnio(): string {
   return `${new Date().getFullYear()}-01-01`;
@@ -210,6 +211,9 @@ export function VistaListados({ datos, ajustes }: { datos: DatosListados; ajuste
                 </div>
               )}
             </div>
+            {listado.usa.fechas && (
+              <AtajosFechas desde={filtro.desde} hasta={filtro.hasta} onElegir={(d, h) => setFiltro(prev => ({ ...prev, desde: d, hasta: h }))} />
+            )}
             {(listado.usa.activos || listado.usa.conStock) && (
               <div className="listados-casillas">
                 {listado.usa.activos && (

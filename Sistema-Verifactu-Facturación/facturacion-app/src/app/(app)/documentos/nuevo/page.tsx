@@ -27,6 +27,7 @@ import LineasDocumento from '@/components/documentos/LineasDocumento';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import ResumenFichaElegida from '@/components/clientes/ResumenFichaElegida';
 
 function NuevoDocumentoContent() {
   const router = useRouter();
@@ -137,9 +138,10 @@ function NuevoDocumentoContent() {
     load();
   }, [sentidoParam]);
 
-  const handleClientSelect = (id: string) => {
+  // `nueva`: la ficha recién creada desde el buscador, que aún no está en `clients`.
+  const handleClientSelect = (id: string, nueva?: Client) => {
     setClientId(id);
-    const client = clients.find(c => c.id === id);
+    const client = nueva ?? clients.find(c => c.id === id);
     if (client) {
       setClientName(client.tradeName || client.businessName);
       setClientNif(client.nif);
@@ -312,7 +314,10 @@ function NuevoDocumentoContent() {
               onSelect={id => handleClientSelect(id)}
               placeholder={`Buscar ${labelContraparte.toLowerCase()} (vacío: ocasional / manual)`}
               ariaLabel={labelContraparte}
+              esProveedor={sentido === 'compra'}
+              alCrear={c => { setClients(prev => [...prev, c]); handleClientSelect(c.id, c); }}
             />
+            <ResumenFichaElegida ficha={clients.find(c => c.id === clientId)} />
           </div>
 
           <div className="form-group">

@@ -7,7 +7,7 @@ import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, exp
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getInvoices } from '@/lib/storage';
-import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, avisosDeLinea, type PrecioAnterior } from '@/lib/documentos';
+import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, avisosDeLinea, habitualesDe, type PrecioAnterior } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
@@ -106,6 +106,13 @@ export default function LineasDocumento({
     getInvoices().then(d => { if (vivo) setAnteriores(d); }).catch(() => {});
     return () => { vivo = false; };
   }, []);
+
+  // Lo que suele pedir este cliente (o vender este proveedor): se ofrece al
+  // pinchar en una línea vacía, antes de escribir nada.
+  const habituales = React.useMemo(
+    () => habitualesDe(anteriores, clienteId, sentido, 10).map(id => products.find(p => p.id === id)).filter((p): p is Product => !!p),
+    [anteriores, clienteId, sentido, products],
+  );
 
   /** Lo que se sugiere en la línea: lo último a esta ficha o, si no, lo último a cualquiera. */
   const sugerencia = (line: InvoiceLineItem): { p: PrecioAnterior; deEste: boolean } | null => {
@@ -356,6 +363,7 @@ export default function LineasDocumento({
                   ariaLabel={`${voz.linea} de la línea ${index + 1}`}
                   placeholder={`Buscar ${voz.linea}: referencia, nombre o código`}
                   sentido={sentido}
+                  sugeridos={habituales}
                 />
                 <div className="lineas-doc-importe">{formatCurrency(line.subtotal)}</div>
                 <button

@@ -32,6 +32,7 @@ import {
   lineasConCustomCols, type ClienteManual
 } from '@/lib/plantillas/datos';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import ResumenFichaElegida from '@/components/clientes/ResumenFichaElegida';
 
 const CLIENTE_MANUAL_VACIO: ClienteManual = {
   nombre: '', nif: '', direccion: '', cp: '', ciudad: '', provincia: '', email: '', telefono: '',
@@ -303,13 +304,17 @@ export default function EditInvoicePage() {
                   Se usa el cliente ocasional definido abajo.
                 </div>
               ) : (
+                <>
                 <BuscadorFicha
                   fichas={clients}
                   value={clientId}
                   onSelect={id => { setClientId(id); setAbonoSelection(null); if (id) setClienteOcasional(false); }}
                   placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
                   ariaLabel="Cliente"
+                  alCrear={c => { setClients(prev => [...prev, c]); setClientId(c.id); setAbonoSelection(null); setClienteOcasional(false); }}
                 />
+                <ResumenFichaElegida ficha={clients.find(c => c.id === clientId)} excluirId={params.id as string} />
+                </>
               )}
             </div>
             <div className="form-group">

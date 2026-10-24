@@ -16,7 +16,8 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X } from 'lucide-react';
+import { Plus, Search, SearchCheck, X } from 'lucide-react';
+import VentanaBusqueda, { type ColumnaVentana, type FiltroVentana } from './VentanaBusqueda';
 
 const MAXIMO = 50;
 
@@ -42,12 +43,19 @@ export interface BuscadorEnListaProps<T> {
   /** Lo que se sugiere con la caja vacía (p. ej. los más usados). */
   sugeridos?: readonly T[];
   pista?: string;
+  /** La ventana de búsqueda (lupa o F2): sus columnas y filtros rápidos. */
+  ventana?: { titulo: string; columnas: ColumnaVentana<T>[]; filtros?: FiltroVentana<T>[] };
+  /** Cómo se titulan los sugeridos («Lo que suele pedir», «Los más usados»). */
+  tituloSugeridos?: string;
+  /** «Crear nuevo» cuando lo buscado no existe; recibe lo escrito. */
+  crear?: { etiqueta: string; accion: (texto: string) => void };
 }
 
 export default function BuscadorEnLista<T>({
   items, value, onSelect, idDe, etiqueta, buscar, unico, opcion, placeholder, ariaLabel, className, autoFocus, disabled,
-  sugeridos, pista = 'Escribe parte del nombre, el código o lo que sepas.',
+  sugeridos, pista = 'Escribe parte del nombre, el código o lo que sepas.', ventana, crear, tituloSugeridos = 'Los más usados',
 }: BuscadorEnListaProps<T>) {
+  const [ventanaAbierta, setVentanaAbierta] = useState<{ texto: string } | null>(null);
   const elegido = useMemo(() => items.find(i => idDe(i) === value) ?? null, [items, value, idDe]);
   // null: no se está escribiendo y la caja enseña lo elegido.
   const [texto, setTexto] = useState<string | null>(null);
@@ -117,14 +125,31 @@ export default function BuscadorEnLista<T>({
       if (item) elegir(item);
     } else if (e.key === 'Escape') {
       if (abierto) { e.preventDefault(); e.stopPropagation(); setTexto(null); setCaja(null); }
+    } else if (e.key === 'F2' && ventana) {
+      // F2, como en los programas de siempre: la ventana con toda la lista.
+      e.preventDefault();
+      abrirVentana();
     }
+  };
+
+  const abrirVentana = () => {
+    setVentanaAbierta({ texto: texto ?? '' });
+    setTexto(null);
+    setCaja(null);
+  };
+
+  const crearCon = (t: string) => {
+    setTexto(null);
+    setCaja(null);
+    setVentanaAbierta(null);
+    crear?.accion(t);
   };
 
   const valorCaja = texto ?? (elegido ? etiqueta(elegido) : '');
   const idActivo = abierto && visibles[activo] ? `${idLista}-${activo}` : undefined;
 
   return (
-    <div className={`buscador-producto${className ? ` ${className}` : ''}`}>
+    <div className={`buscador-producto${ventana && !disabled ? ' con-ventana' : ''}${className ? ` ${className}` : ''}`}>
       <Search size={15} className="buscador-producto-lupa" aria-hidden="true" />
       <input
         ref={input}
@@ -160,6 +185,34 @@ export default function BuscadorEnLista<T>({
           <X size={14} />
         </button>
       )}
+      {ventana && !disabled && (
+        <button
+          type="button"
+          className="buscador-producto-ventana"
+          onMouseDown={e => e.preventDefault()}
+          onClick={abrirVentana}
+          aria-label={`${ventana.titulo} (F2)`}
+          title={`${ventana.titulo} (F2)`}
+        >
+          <SearchCheck size={16} />
+        </button>
+      )}
+      {ventanaAbierta && ventana && (
+        <VentanaBusqueda
+          titulo={ventana.titulo}
+          items={items}
+          idDe={idDe}
+          buscar={buscar}
+          columnas={ventana.columnas}
+          filtros={ventana.filtros}
+          textoInicial={ventanaAbierta.texto}
+          elegidoId={value}
+          onElegir={item => { setVentanaAbierta(null); onSelect(idDe(item)); input.current?.focus(); }}
+          onCerrar={() => setVentanaAbierta(null)}
+          crear={crear ? { etiqueta: crear.etiqueta, accion: crearCon } : undefined}
+          baja={item => !!opcion(item).baja}
+        />
+      )}
 
       {abierto && caja && createPortal(
         <div
@@ -173,10 +226,17 @@ export default function BuscadorEnLista<T>({
           {!texto?.trim() && visibles.length === 0 ? (
             <p className="buscador-producto-pista">{pista}</p>
           ) : visibles.length === 0 ? (
-            <p className="buscador-producto-pista">Nada con «{texto?.trim()}».</p>
+            <>
+              <p className="buscador-producto-pista">Nada con «{texto?.trim()}».</p>
+              {crear && (
+                <button type="button" className="buscador-producto-crear" onClick={() => crearCon(texto?.trim() ?? '')}>
+                  <Plus size={14} /> {crear.etiqueta} «{texto?.trim()}»
+                </button>
+              )}
+            </>
           ) : (
             <>
-              {!texto?.trim() && <p className="buscador-producto-pista">Los más usados · o escribe para buscar</p>}
+              {!texto?.trim() && <p className="buscador-producto-pista">{tituloSugeridos} · o escribe para buscar</p>}
               {visibles.map((item, i) => {
                 const o = opcion(item);
                 return (
@@ -195,7 +255,7 @@ export default function BuscadorEnLista<T>({
                 );
               })}
               {resultados.length > MAXIMO && (
-                <p className="buscador-producto-pista">Hay más: escribe algo más para afinar.</p>
+                <p className="buscador-producto-pista">Hay más: escribe algo más para afinar{ventana ? ' o abre la lupa (F2)' : ''}.</p>
               )}
             </>
           )}

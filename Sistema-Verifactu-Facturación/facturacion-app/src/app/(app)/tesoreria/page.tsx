@@ -794,6 +794,8 @@ function TesoreriaPageContenido() {
                   value={selectedClientForPayment}
                   onSelect={id => handleClientChangeInModal(id)}
                   placeholder={modalTipo === 'cobro' ? 'Buscar cliente' : 'Buscar proveedor'}
+                  esProveedor={modalTipo === 'pago'}
+                  alCrear={c => { setClients(prev => [...prev, c]); handleClientChangeInModal(c.id); }}
                 />
               </div>
 
