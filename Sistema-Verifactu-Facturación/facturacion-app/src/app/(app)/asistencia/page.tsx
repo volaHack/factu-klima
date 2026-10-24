@@ -33,6 +33,8 @@ import {
 import { getPlantillas } from '@/lib/plantillas/almacen';
 import { createClient } from '@/lib/supabase/client';
 import { retratoDelPanel, retratoEnPalabras, type RetratoDelPanel } from '@/lib/asistencia/contexto';
+import { operativaEnPalabras, fichasParaLaPregunta } from '@/lib/asistencia/operativa';
+import { getResumenHistorico, origenDelHistorico } from '@/lib/historico';
 import { dictadoDisponible, empezarDictado, type Dictado } from '@/lib/asistencia/dictado';
 import {
   audioAWav, bytesABase64, empezarGrabacion, grabacionDisponible, motivoDeFalloDeGrabacion,
@@ -186,6 +188,8 @@ export default function AsistenciaPage() {
   const [montado, setMontado] = useState(false);
   const [usuario, setUsuario] = useState<string | null>(null);
   const [retrato, setRetrato] = useState<RetratoDelPanel | null>(null);
+  // Los datos en bruto, para sacar la ficha de lo que nombre cada pregunta.
+  const datosRef = useRef<Parameters<typeof fichasParaLaPregunta>[1] | null>(null);
   const [actualizadoEn, setActualizadoEn] = useState(0);
   const [ahora, setAhora] = useState(0);
 
@@ -243,11 +247,20 @@ export default function AsistenciaPage() {
         getGastos().catch(() => []), getVehiculos().catch(() => []), getLotes().catch(() => []),
         getDevoluciones().catch(() => []), getAbonos().catch(() => []),
       ]);
-      const nuevo = retratoDelPanel({
-        facturas, albaranes, devoluciones, abonos, clientes, ajustes, productos,
-        almacenes, vendedores, obras, vehiculos, gastos, lotes,
-        tienePlantillaPropia: plantillas.length > 0,
-      });
+      // El historial del programa anterior, ya sumado por la base de datos.
+      const [historico, origenHistorico] = await Promise.all([
+        getResumenHistorico().catch(() => []),
+        origenDelHistorico().catch(() => null),
+      ]);
+      const nuevo = {
+        ...retratoDelPanel({
+          facturas, albaranes, devoluciones, abonos, clientes, ajustes, productos,
+          almacenes, vendedores, obras, vehiculos, gastos, lotes,
+          tienePlantillaPropia: plantillas.length > 0,
+        }),
+        operativa: operativaEnPalabras({ facturas, productos, clientes, historico, origenHistorico }),
+      };
+      datosRef.current = { facturas, productos, clientes };
       setRetrato(nuevo);
       setActualizadoEn(Date.now());
       return nuevo;
@@ -432,7 +445,11 @@ export default function AsistenciaPage() {
           modo: 'asistencia',
           enVivo: true,
           pregunta: limpia,
-          situacion: actual ? retratoEnPalabras(actual) : [],
+          // Primero la ficha de lo que la pregunta nombra: es lo que más
+          // falta hace y lo que antes se quedaba fuera.
+          situacion: actual
+            ? [...(datosRef.current ? fichasParaLaPregunta(limpia, datosRef.current) : []), ...retratoEnPalabras(actual)]
+            : [],
           historial,
         }),
       });

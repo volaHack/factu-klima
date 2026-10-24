@@ -9,6 +9,9 @@ import { resumenGrupos, clientesDelGrupo } from '@/lib/gruposClientes';
 import { GrupoCliente, Client, Invoice } from '@/lib/types';
 import { generateId, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const grupoVacio = (): Omit<GrupoCliente, 'id' | 'createdAt' | 'updatedAt'> => ({ nombre: '' });
 
@@ -48,6 +51,9 @@ export default function GruposClientesPage() {
   }, []);
 
   const resumen = useMemo(() => resumenGrupos(grupos, clientes, invoices), [grupos, clientes, invoices]);
+  // El buscador de la lista.
+  const [busca, setBusca] = useState('');
+  const resumenVisible = useMemo(() => resumen.filter(r => casaTexto(busca, grupos.find(g => g.id === r.grupoId)?.nombre, ...clientesDelGrupo(r.grupoId, clientes).map(c => `${c.businessName} ${c.tradeName} ${c.nif}`))), [resumen, busca, grupos, clientes]);
   const sinGrupo = clientes.filter(c => !c.esProveedor && !c.grupoId);
 
   const abrirNuevo = () => {
@@ -124,6 +130,8 @@ export default function GruposClientesPage() {
         </button>
       </div>
 
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar grupo o un cliente de la cadena" total={resumen.length} visibles={resumenVisible.length} />
+
       <div className="card">
         <div className="table-responsive">
           <table className="table">
@@ -138,7 +146,7 @@ export default function GruposClientesPage() {
               </tr>
             </thead>
             <tbody>
-              {resumen.length === 0 ? (
+              {resumenVisible.length === 0 ? (
                 <TableEmpty
                   colSpan={6}
                   icon={Building2}
@@ -146,7 +154,7 @@ export default function GruposClientesPage() {
                   hint="Crea un grupo y asígnale las sucursales de una misma cadena para verlas juntas."
                 />
               ) : (
-                resumen.map(r => {
+                resumenVisible.map(r => {
                   const grupo = grupos.find(g => g.id === r.grupoId)!;
                   const abierto = expandido === r.grupoId;
                   return (
@@ -184,14 +192,13 @@ export default function GruposClientesPage() {
                                 </span>
                               ))}
                               {sinGrupo.length > 0 && (
-                                <select
-                                  className="form-select form-select-sm"
-                                  value=""
-                                  onChange={e => e.target.value && asignarCliente(e.target.value, r.grupoId)}
-                                >
-                                  <option value="">+ Añadir cliente…</option>
-                                  {sinGrupo.map(c => <option key={c.id} value={c.id}>{c.businessName}</option>)}
-                                </select>
+                                <BuscadorFicha
+                                  fichas={sinGrupo}
+                                  value={""}
+                                  onSelect={id => { if (id) asignarCliente(id, r.grupoId); }}
+                                  placeholder="+ Añadir cliente: buscar por nombre o NIF"
+                                  className="buscador-sm"
+                                />
                               )}
                             </div>
                           </td>

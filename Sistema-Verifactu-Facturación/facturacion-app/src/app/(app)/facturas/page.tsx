@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 import AvisoHistorial from '@/components/documentos/AvisoHistorial';
+import { casaTexto } from '@/lib/casaTexto';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
@@ -163,12 +164,11 @@ export default function FacturasPage() {
     let result = invoices.filter(isFactura);
 
     if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(inv =>
-        inv.number.toLowerCase().includes(q) ||
-        inv.clientName.toLowerCase().includes(q) ||
-        inv.clientNif.toLowerCase().includes(q)
-      );
+      // Número, cliente, NIF, importe, fecha o un artículo de las líneas.
+      result = result.filter(inv => casaTexto(search,
+        inv.number, inv.clientName, inv.clientNif, inv.issueDate, inv.total, String(inv.total).replace('.', ','), inv.notes,
+        ...inv.lineItems.map(l => `${l.productName} ${l.productRef}`),
+      ));
     }
 
     if (docTypeFilter === 'facturas') {

@@ -6,6 +6,7 @@ import { saveAbono, getCompanySettings, saveCompanySettings } from '@/lib/storag
 import { Client, Abono } from '@/lib/types';
 import { generateId, generateInvoiceNumber, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 interface AbonoFormModalProps {
   clients: Client[];
@@ -93,16 +94,12 @@ export default function AbonoFormModal({
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <div className="form-group">
             <label className="form-label required">Cliente</label>
-            <select
-              className="form-select"
+            <BuscadorFicha
+              fichas={clients}
               value={clientId}
-              onChange={e => setClientId(e.target.value)}
-            >
-              <option value="">-- Seleccionar cliente --</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.tradeName || c.businessName} ({c.nif})</option>
-              ))}
-            </select>
+              onSelect={id => setClientId(id)}
+              placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
+            />
           </div>
 
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>

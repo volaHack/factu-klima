@@ -31,6 +31,7 @@ import {
   clienteManualComoDatosExtras, clienteManualDesdeDatosExtras, customColsDeLineas,
   lineasConCustomCols, type ClienteManual
 } from '@/lib/plantillas/datos';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 const CLIENTE_MANUAL_VACIO: ClienteManual = {
   nombre: '', nif: '', direccion: '', cp: '', ciudad: '', provincia: '', email: '', telefono: '',
@@ -302,10 +303,13 @@ export default function EditInvoicePage() {
                   Se usa el cliente ocasional definido abajo.
                 </div>
               ) : (
-                <select className="form-select" value={clientId} onChange={e => { setClientId(e.target.value); setAbonoSelection(null); if (e.target.value) setClienteOcasional(false); }}>
-                  <option value="">-- Seleccionar --</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.tradeName || c.businessName} ({c.nif})</option>)}
-                </select>
+                <BuscadorFicha
+                  fichas={clients}
+                  value={clientId}
+                  onSelect={id => { setClientId(id); setAbonoSelection(null); if (id) setClienteOcasional(false); }}
+                  placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
+                  ariaLabel="Cliente"
+                />
               )}
             </div>
             <div className="form-group">

@@ -82,7 +82,9 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           </div>
           <input
             type="text"
-            placeholder="Buscar facturas, clientes, productos..."
+            placeholder="Buscar en todo: cliente, artículo, nº, NIF, importe, pantalla…"
+            aria-label="Buscar en todo"
+            onFocus={onSearchClick}
             readOnly
           />
           <span className="search-bar-shortcut">Ctrl+K</span>

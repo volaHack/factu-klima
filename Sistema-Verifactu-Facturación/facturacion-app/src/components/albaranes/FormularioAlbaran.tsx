@@ -21,6 +21,7 @@ import { lineaVacia } from '@/lib/documentos';
 import { tieneModulo, modulosDe } from '@/lib/modulos';
 import { useToast } from '@/hooks/useToast';
 import { problemasDeLineas } from '@/lib/validation/lineas';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 /**
  * El formulario de un albarán: nuevo o, con `albaranId`, un borrador que
@@ -221,18 +222,13 @@ export default function FormularioAlbaran({ albaranId }: { albaranId?: string })
           <div className="form-row">
             <div className="form-group">
               <label className="form-label required">Cliente</label>
-              <select
-                className="form-select"
+              <BuscadorFicha
+                fichas={clients}
                 value={clientId}
-                onChange={e => setClientId(e.target.value)}
-              >
-                <option value="">-- Seleccionar cliente --</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.tradeName || c.businessName} ({c.nif})
-                  </option>
-                ))}
-              </select>
+                onSelect={id => setClientId(id)}
+                placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
+                ariaLabel="Cliente"
+              />
             </div>
             <div className="form-group">
               <label className="form-label required">Fecha del albarán</label>

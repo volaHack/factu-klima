@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/useToast';
 import { vocabularioDe } from '@/lib/vocabulario';
 import type { BusinessSector } from '@/lib/types';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import { casaTexto } from '@/lib/casaTexto';
 
 type Tab = 'almacenes' | 'existencias' | 'traspasos' | 'regularizaciones';
 
@@ -344,8 +345,7 @@ function AlmacenesPageContenido() {
   // Filtrado de productos para la tabla de existencias
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      const match = `${p.name} ${p.ref} ${p.category} ${p.supplierRef || ''}`.toLowerCase();
-      return match.includes(searchTerm.toLowerCase());
+      return casaTexto(searchTerm, p.name, p.ref, p.category, p.supplierRef, p.barcode);
     });
   }, [products, searchTerm]);
 

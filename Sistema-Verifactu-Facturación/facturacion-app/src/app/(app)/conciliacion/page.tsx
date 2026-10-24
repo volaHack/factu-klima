@@ -27,6 +27,8 @@ import { conciliar, esSegura, resumen, type Linea, type Propuesta } from '@/lib/
 import {
   confirmar, crearGastoDesde, guardarIgnorados, leerIgnorados, sugerirGasto, type DatosGastoNuevo,
 } from '@/lib/banco/acciones';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 type Filtro = 'pendientes' | 'todos' | 'conciliados' | 'ignorados';
 
@@ -93,6 +95,7 @@ export default function ConciliacionPage() {
   const [tipoGeneral, setTipoGeneral] = useState(21);
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set());
   const [filtro, setFiltro] = useState<Filtro>('pendientes');
+  const [busca, setBusca] = useState('');
   const [eleccion, setEleccion] = useState<Record<string, number>>({});
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [gastoPara, setGastoPara] = useState<{ mov: MovimientoBanco; datos: DatosGastoNuevo } | null>(null);
@@ -139,7 +142,7 @@ export default function ConciliacionPage() {
     if (filtro === 'conciliados') return !!l.hecho;
     if (filtro === 'ignorados') return !l.hecho && l.ignorado;
     return !l.hecho && !l.ignorado;
-  }), [lineas, filtro]);
+  }).filter(l => casaTexto(busca, l.mov.concepto, l.mov.fecha, l.mov.importe, String(l.mov.importe).replace('.', ','))), [lineas, filtro, busca]);
 
   const abrir = async (fichero: File | undefined) => {
     if (!fichero) return;
@@ -320,6 +323,8 @@ export default function ConciliacionPage() {
               </button>
             )}
           </div>
+
+          <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar movimiento: concepto, fecha o importe" total={lineas.length} visibles={visibles.length} />
 
           {visibles.length === 0 ? (
             <div className="card banco-vacio">

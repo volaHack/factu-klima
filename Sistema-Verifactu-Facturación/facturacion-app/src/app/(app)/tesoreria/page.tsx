@@ -22,6 +22,8 @@ import {
 import { generateId, formatDate, formatCurrency, getToday } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import { casaTexto } from '@/lib/casaTexto';
 
 type Tab = 'vencimientos' | 'cobros' | 'pagos' | 'extractos';
 
@@ -147,10 +149,7 @@ function TesoreriaPageContenido() {
       .filter(v => {
         if (filtroSentido === 'venta' && v.invoice.sentido === 'compra') return false;
         if (filtroSentido === 'compra' && v.invoice.sentido !== 'compra') return false;
-        if (searchTerm) {
-          const match = `${v.invoice.number} ${v.invoice.clientName} ${v.invoice.clientNif}`.toLowerCase();
-          if (!match.includes(searchTerm.toLowerCase())) return false;
-        }
+        if (searchTerm && !casaTexto(searchTerm, v.invoice.number, v.invoice.clientName, v.invoice.clientNif, v.invoice.total, String(v.invoice.total).replace('.', ','))) return false;
         return true;
       })
       .sort((a, b) => (a.invoice.dueDate || a.invoice.issueDate).localeCompare(b.invoice.dueDate || b.invoice.issueDate));
@@ -672,17 +671,13 @@ function TesoreriaPageContenido() {
             <div className="form-row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div className="form-group" style={{ flex: 2, minWidth: 260, margin: 0 }}>
                 <label className="form-label">Cliente / Proveedor</label>
-                <select
-                  className="form-select"
+                <BuscadorFicha
+                  fichas={clients}
                   value={selectedContraparteId}
-                  onChange={e => setSelectedContraparteId(e.target.value)}
-                >
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.businessName} {c.nif ? `(${c.nif})` : ''} {c.esProveedor ? '[Proveedor]' : '[Cliente]'}
-                    </option>
-                  ))}
-                </select>
+                  onSelect={id => setSelectedContraparteId(id)}
+                  placeholder="Buscar cliente o proveedor"
+                  ariaLabel="Cliente o proveedor"
+                />
               </div>
 
               <div className="form-group" style={{ flex: 1, minWidth: 140, margin: 0 }}>
@@ -794,20 +789,12 @@ function TesoreriaPageContenido() {
             <form onSubmit={handleSaveCobroPago}>
               <div className="form-group">
                 <label className="form-label">{modalTipo === 'cobro' ? 'Cliente' : 'Proveedor'} *</label>
-                <select
-                  className="form-select"
+                <BuscadorFicha
+                  fichas={clients.filter(c => modalTipo === 'cobro' ? !c.esProveedor : c.esProveedor)}
                   value={selectedClientForPayment}
-                  onChange={e => handleClientChangeInModal(e.target.value)}
-                  required
-                >
-                  {clients
-                    .filter(c => modalTipo === 'cobro' ? !c.esProveedor : c.esProveedor)
-                    .map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.businessName} {c.nif ? `(${c.nif})` : ''}
-                      </option>
-                    ))}
-                </select>
+                  onSelect={id => handleClientChangeInModal(id)}
+                  placeholder={modalTipo === 'cobro' ? 'Buscar cliente' : 'Buscar proveedor'}
+                />
               </div>
 
               <div className="form-row">

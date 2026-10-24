@@ -13,6 +13,9 @@ import { tieneModulo, modulosDe } from '@/lib/modulos';
 import { OrdenTrabajo, EstadoOrdenTrabajo, Client, Vendedor } from '@/lib/types';
 import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const ETIQUETA_ESTADO: Record<EstadoOrdenTrabajo, string> = {
   abierta: 'Abierta', en_curso: 'En curso', cerrada: 'Cerrada',
@@ -60,9 +63,12 @@ export default function OrdenesTrabajoPage() {
     return () => { vivo = false; };
   }, []);
 
+  const [busca, setBusca] = useState('');
   const visibles = useMemo(
-    () => (filtroEstado ? ordenes.filter(o => o.estado === filtroEstado) : ordenes),
-    [ordenes, filtroEstado],
+    () => ordenes
+      .filter(o => !filtroEstado || o.estado === filtroEstado)
+      .filter(o => casaTexto(busca, o.numero, o.clienteNombre, o.descripcion, o.fecha, tecnicos.find(t => t.id === o.tecnicoId)?.nombre)),
+    [ordenes, filtroEstado, busca, tecnicos],
   );
 
   const abrirNueva = () => {
@@ -142,6 +148,8 @@ export default function OrdenesTrabajoPage() {
         <button type="button" className={`tab ${filtroEstado === 'en_curso' ? 'active' : ''}`} onClick={() => setFiltroEstado('en_curso')}>En curso</button>
         <button type="button" className={`tab ${filtroEstado === 'cerrada' ? 'active' : ''}`} onClick={() => setFiltroEstado('cerrada')}>Cerradas</button>
       </div>
+
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar orden: número, cliente, descripción o técnico" total={ordenes.length} visibles={visibles.length} />
 
       <div className="card">
         <div className="table-responsive">
@@ -261,17 +269,15 @@ export default function OrdenesTrabajoPage() {
                 <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                   <div className="form-group">
                     <label className="form-label">Cliente</label>
-                    <select
-                      className="form-select"
+                    <BuscadorFicha
+                      fichas={clientes}
                       value={form.clienteId ?? ''}
-                      onChange={e => {
-                        const cli = clientes.find(c => c.id === e.target.value);
+                      onSelect={id => {
+                        const cli = clientes.find(c => c.id === id);
                         setForm({ ...form, clienteId: cli?.id, clienteNombre: cli?.businessName });
                       }}
-                    >
-                      <option value="">— Sin cliente —</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.businessName}</option>)}
-                    </select>
+                      placeholder="Sin cliente · buscar por nombre o NIF"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Técnico</label>

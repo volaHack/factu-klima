@@ -19,6 +19,8 @@ import { generateId, formatCurrency, formatDate, getToday, fotoParaLeer } from '
 import type { DatosTicket } from '@/lib/ia/ticket';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import { casaTexto } from '@/lib/casaTexto';
 
 type Tab = 'gastos' | 'vehiculos';
 type GastoSortField = 'fecha' | 'concepto' | 'categoria' | 'proveedorNombre' | 'baseImponible' | 'total';
@@ -112,7 +114,7 @@ export default function GastosPage() {
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     const list = gastos
-      .filter(g => !q || g.concepto.toLowerCase().includes(q) || (g.proveedorNombre ?? '').toLowerCase().includes(q))
+      .filter(g => !q || casaTexto(q, g.concepto, g.proveedorNombre, g.categoria, g.total, String(g.total).replace('.', ','), g.fecha))
       .filter(g => !filtroCategoria || g.categoria === filtroCategoria)
       .filter(g => !filtroDesde || g.fecha >= filtroDesde)
       .filter(g => !filtroHasta || g.fecha <= filtroHasta);
@@ -591,21 +593,15 @@ export default function GastosPage() {
                 <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                   <div className="form-group">
                     <label className="form-label">Proveedor</label>
-                    <select
-                      className="form-select"
-                      value={gastoForm.proveedorId ?? (gastoForm.proveedorNombre ? '__sin_ficha' : '')}
-                      onChange={e => {
-                        if (e.target.value === '__sin_ficha') return;
-                        const prov = proveedores.find(p => p.id === e.target.value);
+                    <BuscadorFicha
+                      fichas={proveedores}
+                      value={gastoForm.proveedorId ?? ''}
+                      onSelect={id => {
+                        const prov = proveedores.find(p => p.id === id);
                         setGastoForm({ ...gastoForm, proveedorId: prov?.id, proveedorNombre: prov?.businessName });
                       }}
-                    >
-                      <option value="">— Sin proveedor —</option>
-                      {!gastoForm.proveedorId && gastoForm.proveedorNombre && (
-                        <option value="__sin_ficha">{gastoForm.proveedorNombre} (sin ficha)</option>
-                      )}
-                      {proveedores.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
-                    </select>
+                      placeholder={!gastoForm.proveedorId && gastoForm.proveedorNombre ? `${gastoForm.proveedorNombre} (sin ficha) · buscar proveedor` : 'Sin proveedor · buscar por nombre o NIF'}
+                    />
                   </div>
                   {modoVehiculos && (
                     <div className="form-group">

@@ -12,6 +12,8 @@ import {
 import { Lote, Product, Invoice, Client, EstadoLote } from '@/lib/types';
 import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 type Tab = 'lotes' | 'trazabilidad';
 
@@ -450,14 +452,12 @@ export default function LotesPage() {
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label required">Producto</label>
-                    <select
-                      className="form-select" required
+                    <BuscadorProducto
+                      products={products}
                       value={form.productId}
-                      onChange={e => setForm({ ...form, productId: e.target.value })}
-                    >
-                      <option value="">Selecciona producto</option>
-                      {products.map(p => <option key={p.id} value={p.id}>[{p.ref}] {p.name}</option>)}
-                    </select>
+                      onSelect={id => setForm({ ...form, productId: id })}
+                      placeholder="Buscar artículo: referencia, nombre o código"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label required">Código de lote</label>
@@ -500,17 +500,15 @@ export default function LotesPage() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Proveedor</label>
-                    <select
-                      className="form-select"
+                    <BuscadorFicha
+                      fichas={proveedores}
                       value={form.proveedorId ?? ''}
-                      onChange={e => {
-                        const prov = proveedores.find(p => p.id === e.target.value);
+                      onSelect={id => {
+                        const prov = proveedores.find(p => p.id === id);
                         setForm({ ...form, proveedorId: prov?.id, proveedorNombre: prov?.businessName });
                       }}
-                    >
-                      <option value="">— Sin especificar —</option>
-                      {proveedores.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
-                    </select>
+                      placeholder="Sin especificar · buscar proveedor"
+                    />
                   </div>
                 </div>
 

@@ -30,6 +30,7 @@ import {
 } from '@/lib/facturaElectronica/leer';
 import { guardarFacturaRecibida, vincularGastos, yaRecibida } from '@/lib/facturaElectronica/almacen';
 import { formatCurrency, generateId } from '@/lib/utils';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 
 interface Datos {
   fecha: string;
@@ -343,13 +344,15 @@ export default function BuzonPage() {
                   <div className="buzon-campos">
                     <label>Fecha<input type="date" className="form-input" value={e.datos.fecha} onChange={v => cambiarDatos(e, { fecha: v.target.value })} /></label>
                     <label>Proveedor
-                      <select className="form-select" value={e.datos.proveedorId ?? ''} onChange={v => {
-                        const p = proveedores.find(x => x.id === v.target.value);
-                        cambiarDatos(e, { proveedorId: p?.id, proveedorNombre: p?.businessName ?? e.datos!.proveedorNombre });
-                      }}>
-                        <option value="">{e.datos.proveedorNombre ? `${e.datos.proveedorNombre} (sin ficha)` : 'Sin proveedor'}</option>
-                        {proveedores.map(p => <option key={p.id} value={p.id}>{p.businessName}</option>)}
-                      </select>
+                      <BuscadorFicha
+                        fichas={proveedores}
+                        value={e.datos.proveedorId ?? ''}
+                        onSelect={id => {
+                          const p = proveedores.find(x => x.id === id);
+                          cambiarDatos(e, { proveedorId: p?.id, proveedorNombre: p?.businessName ?? e.datos!.proveedorNombre });
+                        }}
+                        placeholder={e.datos.proveedorNombre ? `${e.datos.proveedorNombre} (sin ficha) · buscar` : 'Sin proveedor · buscar'}
+                      />
                     </label>
                     <label className="buzon-campo-ancho">Concepto<input className="form-input" value={e.datos.concepto} maxLength={120} onChange={v => cambiarDatos(e, { concepto: v.target.value })} /></label>
                     <label>Categoría

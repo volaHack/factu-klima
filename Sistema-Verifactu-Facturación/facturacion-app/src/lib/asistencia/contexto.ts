@@ -183,6 +183,9 @@ export interface RetratoDelPanel {
   verifactuActivo: boolean;
   impuesto: 'IVA' | 'IGIC';
   plan: string;
+
+  /** Stock, pendientes, ventas y compras ya sumados (operativa.ts). */
+  operativa?: string[];
 }
 
 function dias(desde: string): number {
@@ -938,6 +941,10 @@ export function retratoEnPalabras(r: RetratoDelPanel): string[] {
       lineas.push(`- ${d.cliente}: ${formatoEuros(d.importe)} en ${d.facturas} factura${d.facturas === 1 ? '' : 's'} sin cobrar${d.vencidas > 0 ? `, ${d.vencidas} vencida${d.vencidas === 1 ? '' : 's'}` : ''}.`);
     });
   }
+
+  // Lo del día a día —stock, pendientes, qué se vende y a quién—, antes
+  // de las listas largas: si no cabe todo, se pierde el detalle, no esto.
+  if (r.operativa?.length) lineas.push(...r.operativa);
 
   if (r.clientes.length > 0) {
     const ordenados = [...r.clientes].sort((a, b) => b.totalFacturado - a.totalFacturado);

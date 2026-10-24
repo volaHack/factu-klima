@@ -27,6 +27,9 @@ import {
 import type { Oferta, TipoOferta, AlcanceOferta, Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const DIAS = [
   { valor: 1, letra: 'L' }, { valor: 2, letra: 'M' }, { valor: 3, letra: 'X' },
@@ -95,6 +98,7 @@ function ofertaNueva(): Oferta {
 
 export default function OfertasPage() {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
+  const [busca, setBusca] = useState('');
   const [productos, setProductos] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<{ value: string; label: string }[]>([]);
   const [editando, setEditando] = useState<Oferta | null>(null);
@@ -184,8 +188,16 @@ export default function OfertasPage() {
           </div>
         </div>
       ) : (
+        <>
+        <CajaBusqueda
+          value={busca}
+          onChange={setBusca}
+          placeholder="Buscar oferta: nombre o artículo"
+          total={ofertas.length}
+          visibles={ofertas.filter(o => casaTexto(busca, o.nombre, ...o.alcanceIds.map(id => productos.find(p => p.id === id)?.name ?? id))).length}
+        />
         <div className="ofertas-lista">
-          {ofertas.map(oferta => {
+          {ofertas.filter(o => casaTexto(busca, o.nombre, ...o.alcanceIds.map(id => productos.find(p => p.id === id)?.name ?? id))).map(oferta => {
             const motivo = motivoNoVigente(oferta);
             return (
               <div key={oferta.id} className={`ofertas-ficha ${oferta.activa ? '' : 'is-apagada'}`}>
@@ -224,6 +236,7 @@ export default function OfertasPage() {
             );
           })}
         </div>
+        </>
       )}
 
       {editando && (
@@ -373,15 +386,29 @@ function EditorOferta({ oferta: inicial, productos, categorias, onGuardar, onCer
           </div>
 
           {o.alcance === 'producto' && (
-            <div className="ofertas-selector">
-              {productos.slice(0, 80).map(p => (
-                <label key={p.id} className={`ofertas-chip ${o.alcanceIds.includes(p.id) ? 'is-elegido' : ''}`}>
-                  <input type="checkbox" hidden checked={o.alcanceIds.includes(p.id)} onChange={() => alternarId(p.id)} />
-                  {p.name}
-                </label>
-              ))}
-              {productos.length === 0 && <p className="form-hint">No hay productos en el catálogo todavía.</p>}
-            </div>
+            <>
+              {/* Con mil quinientos artículos no se pueden enseñar todos
+                  como botones (antes salían solo los ochenta primeros): se
+                  buscan y se van añadiendo. */}
+              <BuscadorProducto
+                products={productos.filter(p => !o.alcanceIds.includes(p.id))}
+                value=""
+                onSelect={id => { if (id) alternarId(id); }}
+                placeholder="Añadir artículo: referencia, nombre o código"
+              />
+              <div className="ofertas-selector" style={{ marginTop: 'var(--space-2)' }}>
+                {o.alcanceIds.map(id => {
+                  const p = productos.find(x => x.id === id);
+                  return (
+                    <button key={id} type="button" className="ofertas-chip is-elegido" onClick={() => alternarId(id)} title="Quitar">
+                      {p?.name ?? 'Artículo borrado'} ×
+                    </button>
+                  );
+                })}
+                {o.alcanceIds.length === 0 && productos.length > 0 && <p className="form-hint">Busca y añade los artículos a los que se aplica.</p>}
+                {productos.length === 0 && <p className="form-hint">No hay productos en el catálogo todavía.</p>}
+              </div>
+            </>
           )}
 
           {o.alcance === 'categoria' && (
@@ -569,17 +596,15 @@ function CamposDelTipo({ o, set, productos }: {
         </div>
         <div className="form-group">
           <label className="form-label">Qué se regala</label>
-          <select
-            className="form-select"
+          <BuscadorProducto
+            products={productos}
             value={o.regaloProductId ?? ''}
-            onChange={e => {
-              const p = productos.find(x => x.id === e.target.value);
-              set({ regaloProductId: e.target.value || undefined, regaloNombre: p?.name });
+            onSelect={id => {
+              const p = productos.find(x => x.id === id);
+              set({ regaloProductId: id || undefined, regaloNombre: p?.name });
             }}
-          >
-            <option value="">Elige un artículo…</option>
-            {productos.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+            placeholder="Buscar el artículo de regalo"
+          />
           <span className="form-hint">El regalo se propone al cobrar; lo añade el cajero, no aparece solo.</span>
         </div>
       </>

@@ -9,6 +9,9 @@ import { resumenRappels } from '@/lib/rappels';
 import { RappelConfig, TramoRappel, Invoice, Client } from '@/lib/types';
 import { generateId, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
+import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import CajaBusqueda from '@/components/ui/CajaBusqueda';
+import { casaTexto } from '@/lib/casaTexto';
 
 const configVacia = (): Omit<RappelConfig, 'id' | 'createdAt' | 'updatedAt'> => ({
   nombre: '', tramos: [{ desde: 0, porcentaje: 0 }], activo: true,
@@ -17,6 +20,9 @@ const configVacia = (): Omit<RappelConfig, 'id' | 'createdAt' | 'updatedAt'> => 
 export default function RappelsPage() {
   const [mounted, setMounted] = useState(false);
   const [configs, setConfigs] = useState<RappelConfig[]>([]);
+  // El buscador de la lista.
+  const [busca, setBusca] = useState('');
+  const configsVisibles = useMemo(() => configs.filter(c => casaTexto(busca, c.nombre, c.clienteNombre)), [configs, busca]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
   const [desde, setDesde] = useState('');
@@ -140,6 +146,8 @@ export default function RappelsPage() {
         </div>
       </div>
 
+      <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar regla: nombre o cliente" total={configs.length} visibles={configsVisibles.length} />
+
       <div className="card">
         <div className="rentabilidad-totales" style={{ marginBottom: 'var(--space-4)' }}>
           <div><span>Reglas activas</span><strong>{resumen.length}</strong></div>
@@ -159,7 +167,7 @@ export default function RappelsPage() {
               </tr>
             </thead>
             <tbody>
-              {configs.length === 0 ? (
+              {configsVisibles.length === 0 ? (
                 <TableEmpty
                   colSpan={6}
                   icon={Percent}
@@ -167,7 +175,7 @@ export default function RappelsPage() {
                   hint="Crea una regla con sus tramos: a partir de tanto facturado, tanto por ciento de vuelta."
                 />
               ) : (
-                configs.map(c => {
+                configsVisibles.map(c => {
                   const r = resumen.find(x => x.configId === c.id);
                   return (
                     <tr key={c.id}>
@@ -217,17 +225,15 @@ export default function RappelsPage() {
 
                 <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                   <label className="form-label">Cliente</label>
-                  <select
-                    className="form-select"
+                  <BuscadorFicha
+                    fichas={clientes}
                     value={form.clienteId ?? ''}
-                    onChange={e => {
-                      const cli = clientes.find(c => c.id === e.target.value);
+                    onSelect={id => {
+                      const cli = clientes.find(c => c.id === id);
                       setForm({ ...form, clienteId: cli?.id, clienteNombre: cli?.businessName });
                     }}
-                  >
-                    <option value="">— Cualquier cliente —</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.businessName}</option>)}
-                  </select>
+                    placeholder="Cualquier cliente · o busca uno"
+                  />
                 </div>
 
                 <div style={{ marginTop: 'var(--space-4)' }}>
