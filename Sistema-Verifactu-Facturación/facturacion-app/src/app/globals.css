@@ -16084,3 +16084,35 @@ body {
   border-radius: var(--radius-sm, 6px); color: var(--text-muted);
 }
 .caja-busqueda-borrar:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+/* ============================================================
+   LISTADOS, IMPRESOS Y RELACIONES
+   ============================================================ */
+.listados-pestanas { margin-bottom: var(--space-4); }
+.listados-pestanas .tab { display: inline-flex; align-items: center; gap: 6px; }
+.listados-cuerpo { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.listados-indice { padding: var(--space-3); position: sticky; top: calc(var(--header-height) + var(--space-3)); max-height: calc(100vh - var(--header-height) - 40px); overflow-y: auto; }
+.listados-indice-grupo { margin: var(--space-3) var(--space-2) 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.listados-indice > div:first-child .listados-indice-grupo { margin-top: 0; }
+.listados-indice-item {
+  display: block; width: 100%; text-align: left; border: none; background: none; cursor: pointer;
+  padding: 6px var(--space-2); border-radius: var(--radius-md); font: inherit; font-size: var(--text-sm); color: var(--text-secondary);
+}
+.listados-indice-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.listados-indice-item.active { background: var(--accent-glow); color: var(--accent-400); font-weight: 600; }
+.listados-derecha { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.listados-filtros-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)); gap: var(--space-3); }
+.listados-filtro-ancho { grid-column: span 2; }
+.listados-casillas { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-top: var(--space-3); }
+.listado-filtros .caja-busqueda { margin: var(--space-3) 0 0; }
+.listado-vacio { text-align: center; color: var(--text-muted); padding: var(--space-6) !important; }
+.impresos-barra { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.impresos-total { font-size: var(--text-sm); color: var(--text-secondary); }
+.impresos-fuera td { opacity: .45; }
+@media (max-width: 1023px) {
+  .listados-cuerpo { grid-template-columns: 1fr; }
+  .listados-indice { position: static; max-height: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 0 var(--space-3); }
+}
+@media (max-width: 640px) {
+  .listados-filtro-ancho { grid-column: 1 / -1; }
+}

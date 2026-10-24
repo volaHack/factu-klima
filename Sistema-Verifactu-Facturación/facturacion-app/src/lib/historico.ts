@@ -560,3 +560,36 @@ export async function contarHistorico(tipo: FilaListadoHistorico['tipo']): Promi
   if (error || !count || !data?.[0]) return null;
   return { origen: data[0].origen, total: count };
 }
+
+/**
+ * Los documentos del historial entre dos fechas, para el listado de
+ * Histórico. Llegan por tandas de mil (lo más que da la base de datos de una
+ * vez) hasta `maximo`: un listado de diecisiete mil filas no lo imprime nadie.
+ */
+export async function historicoParaListado(
+  filtro: { desde?: string; hasta?: string; clientId?: string },
+  maximo = 5000,
+): Promise<{ filas: FilaListadoHistorico[]; total: number }> {
+  const db = createClient();
+  const cuenta = await cuentaDeLaSesion();
+  const filas: FilaListadoHistorico[] = [];
+  let total = 0;
+  for (let desde = 0; desde < maximo; desde += 1000) {
+    let q = db.from('historico_listado').select('*', { count: 'exact' });
+    if (cuenta) q = q.eq('user_id', cuenta);
+    if (filtro.desde) q = q.gte('fecha', filtro.desde);
+    if (filtro.hasta) q = q.lte('fecha', filtro.hasta);
+    if (filtro.clientId) q = q.eq('client_id', filtro.clientId);
+    const { data, error, count } = await q
+      .order('fecha', { ascending: true, nullsFirst: true }).order('numero').order('id')
+      .range(desde, Math.min(desde + 999, maximo - 1));
+    if (error) {
+      if (faltaLaTabla(error)) return { filas: [], total: 0 };
+      throw new Error(error.message);
+    }
+    total = count ?? total;
+    filas.push(...(data ?? []).map(filaListadoDe));
+    if (!data || data.length < 1000) break;
+  }
+  return { filas, total };
+}

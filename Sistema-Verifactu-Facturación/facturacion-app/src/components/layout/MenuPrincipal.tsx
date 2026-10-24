@@ -134,7 +134,9 @@ export const MENU: Rama[] = [
   },
   {
     id: 'listados', label: 'Listados', icon: Printer, hojas: [
-      { label: 'Listados', lista: '/listados' },
+      { label: 'Listados', lista: '/listados?tab=listados' },
+      { label: 'Impresos', lista: '/listados?tab=impresos' },
+      { label: 'Relaciones', lista: '/listados?tab=relaciones' },
       { label: 'Listados fiscales', lista: '/listados-fiscales' },
     ],
   },

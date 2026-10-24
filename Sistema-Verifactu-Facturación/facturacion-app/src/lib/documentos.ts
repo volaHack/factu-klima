@@ -130,6 +130,69 @@ export function condicionesDeVenta(
   return { unitPrice: deTarifa, descuentos: [ficha[0] || 0, ficha[1] || 0, ficha[2] || 0], origen: 'tarifa' };
 }
 
+/** El coste de un artículo: el precio medio y, sin él, la última compra o el precio de compra. */
+export function costeDe(p: Pick<Product, 'costePmp' | 'costeUltimaCompra' | 'purchasePrice'>): number {
+  return [p.costePmp, p.costeUltimaCompra, p.purchasePrice].find(v => (v ?? 0) > 0) ?? 0;
+}
+
+/** El precio de una línea después de sus tres descuentos en cascada. */
+export function precioNetoDe(l: Pick<InvoiceLineItem, 'unitPrice' | 'discountPercent' | 'discountPercent2' | 'discountPercent3'>): number {
+  return l.unitPrice * (1 - (l.discountPercent || 0) / 100) * (1 - (l.discountPercent2 || 0) / 100) * (1 - (l.discountPercent3 || 0) / 100);
+}
+
+export interface AvisoLinea {
+  tipo: 'info' | 'aviso';
+  texto: string;
+}
+
+/**
+ * Lo que conviene saber de una línea mientras se escribe:
+ *
+ *   · el stock (en una venta): cuánto hay y cuánto quedará con TODAS las
+ *     líneas del documento de ese artículo. Se puede vender sin stock (queda
+ *     en negativo, como pendiente), pero se avisa;
+ *   · si se vende por debajo del coste;
+ *   · si se ha quedado sin precio;
+ *   · si el mismo artículo ya está en otra línea.
+ */
+export function avisosDeLinea(
+  linea: InvoiceLineItem,
+  indice: number,
+  todas: readonly InvoiceLineItem[],
+  producto: Product | undefined,
+  sentido: SentidoDocumento,
+): AvisoLinea[] {
+  if (!linea.productId || !producto) return [];
+  const avisos: AvisoLinea[] = [];
+  const fmt = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
+  const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+
+  const otra = todas.findIndex((l, i) => i !== indice && l.productId === linea.productId);
+  if (otra >= 0 && otra < indice) {
+    avisos.push({ tipo: 'aviso', texto: `Este artículo ya está en la línea ${otra + 1}.` });
+  }
+
+  if (linea.unitPrice === 0) {
+    avisos.push({ tipo: 'aviso', texto: 'Sin precio: la línea sale a 0 €.' });
+  }
+
+  if (sentido === 'venta') {
+    const stock = producto.stockQuantity ?? 0;
+    const pedidas = todas.filter(l => l.productId === linea.productId).reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+    const quedara = stock - pedidas;
+    avisos.push(quedara < 0
+      ? { tipo: 'aviso', texto: `Stock ${fmt(stock)} ${producto.unit}: quedará en ${fmt(quedara)} (se puede vender igual; queda pendiente de entrar).` }
+      : { tipo: 'info', texto: `Stock ${fmt(stock)} ${producto.unit} · quedarán ${fmt(quedara)}` });
+
+    const coste = costeDe(producto);
+    const neto = precioNetoDe(linea);
+    if (coste > 0 && linea.unitPrice > 0 && neto < coste) {
+      avisos.push({ tipo: 'aviso', texto: `Por debajo del coste: ${eur(neto)} la unidad y cuesta ${eur(coste)}.` });
+    }
+  }
+  return avisos;
+}
+
 /**
  * El precio y el impuesto que propone una línea de COMPRA: el precio de
  * compra de la ficha o, si no se ha puesto, lo que costó la última entrada

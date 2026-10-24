@@ -43,5 +43,6 @@ describe('menú lateral en árbol', () => {
     expect(esHojaActiva(hoja('Facturas de venta'), '/facturas/abc', p(''))).toBe(true);
     expect(esHojaActiva(hoja('Todos los documentos'), '/documentos', p(''))).toBe(true);
     expect(esHojaActiva(hoja('Listados'), '/listados-fiscales', p(''))).toBe(false);
+    expect(esHojaActiva(hoja('Impresos'), '/listados', p('tab=impresos'))).toBe(true);
   });
 });

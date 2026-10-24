@@ -547,3 +547,24 @@ describe('isFactura · discriminación estricta de documentos en el listado de f
   });
 });
 
+
+describe('avisosDeLinea', () => {
+  const prod = { id: 'p1', name: 'Aceite', unit: 'ud', stockQuantity: 10, costePmp: 4, unitPrice: 6 } as any;
+  const linea = (q: number, precio = 6, extra = {}) => ({ id: String(Math.random()), productId: 'p1', quantity: q, unitPrice: precio, discountPercent: 0, ...extra }) as any;
+
+  it('stock: cuánto queda con todas las líneas, y avisa si queda en negativo', async () => {
+    const { avisosDeLinea } = await import('./documentos');
+    expect(avisosDeLinea(linea(4), 0, [linea(4)], prod, 'venta')).toEqual([{ tipo: 'info', texto: 'Stock 10 ud · quedarán 6' }]);
+    const dos = [linea(8), linea(5)];
+    const avisos = avisosDeLinea(dos[1], 1, dos, prod, 'venta').map(a => a.texto);
+    expect(avisos[0]).toBe('Este artículo ya está en la línea 1.');
+    expect(avisos[1]).toMatch(/quedará en -3/);
+  });
+
+  it('por debajo del coste, a cero, y nada de stock en una compra', async () => {
+    const { avisosDeLinea } = await import('./documentos');
+    expect(avisosDeLinea(linea(1, 5, { discountPercent: 30 }), 0, [], prod, 'venta').some(a => /debajo del coste/.test(a.texto))).toBe(true);
+    expect(avisosDeLinea(linea(1, 0), 0, [], prod, 'venta').some(a => /Sin precio/.test(a.texto))).toBe(true);
+    expect(avisosDeLinea(linea(1, 4), 0, [linea(1, 4)], prod, 'compra')).toEqual([]);
+  });
+});

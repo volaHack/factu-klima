@@ -645,9 +645,14 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
   },
   {
     ruta: '/listados',
-    titulo: 'Listados',
-    paraQue: 'Los libros de registro y los listados que pide una inspección o tu asesor.',
-    pasos: ['Elige el listado y el periodo.', 'Repásalo en pantalla.', 'Expórtalo si hace falta.'],
+    titulo: 'Listados, impresos y relaciones',
+    paraQue: 'Sacar por impresora o a Excel todo lo que hay: listados (fichas, ventas y compras, rentabilidad, estadísticas, caja, libros de facturas, impuestos, inventario, historial), impresos (muchos documentos de una vez con tu diseño) y relaciones (la lista de documentos de un tipo con sus totales).',
+    pasos: [
+      'Arriba, elige la pestaña: Listados, Impresos o Relaciones.',
+      'En Listados, elige el listado a la izquierda y acota por fechas, cliente o proveedor, familia o artículo.',
+      'En Impresos, elige qué imprimir, acota y desmarca lo que no quieras; «Con mi diseño» lo saca todo en un PDF.',
+      'Imprime o baja a Excel con los botones de arriba a la derecha.',
+    ],
     relacionadas: [{ ruta: '/listados-fiscales', texto: 'Modelos de la AEAT' }],
   },
   {

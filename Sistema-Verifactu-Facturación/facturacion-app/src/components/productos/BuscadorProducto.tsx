@@ -18,8 +18,10 @@ import BuscadorEnLista from '@/components/ui/BuscadorEnLista';
 export const etiquetaProducto = (p: Pick<Product, 'ref' | 'name'>) => (p.ref ? `[${p.ref}] ${p.name}` : p.name);
 
 export default function BuscadorProducto({
-  products, value, onSelect, placeholder = 'Buscar artículo: referencia, nombre o código', ariaLabel, className, autoFocus, disabled,
+  products, value, onSelect, placeholder = 'Buscar artículo: referencia, nombre o código', ariaLabel, className, autoFocus, disabled, sentido = 'venta',
 }: {
+  /** En una compra la lista enseña el precio de compra, no el de venta. */
+  sentido?: 'venta' | 'compra';
   products: Product[];
   /** El id del producto elegido; vacío si ninguno. */
   value: string;
@@ -43,7 +45,9 @@ export default function BuscadorProducto({
       opcion={p => ({
         nombre: <>{p.ref && <span className="mono">{p.ref}</span>} {p.name}</>,
         datos: <>
-          {formatCurrency(p.unitPrice)}
+          {sentido === 'compra'
+            ? <>Compra {formatCurrency([p.purchasePrice, p.costeUltimaCompra, p.costePmp].find(v => (v ?? 0) > 0) ?? 0)}</>
+            : formatCurrency(p.unitPrice)}
           {p.stockQuantity != null && <> · {p.stockQuantity} {p.unit}</>}
           {p.supplierRef && <> · Prov. {p.supplierRef}</>}
           {p.active === false && <> · de baja</>}
