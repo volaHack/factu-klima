@@ -39,6 +39,7 @@ import {
   clienteManualComoDatosExtras, customColsDeLineas, type ClienteManual
 } from '@/lib/plantillas/datos';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
+import ResumenFichaElegida from '@/components/clientes/ResumenFichaElegida';
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -129,11 +130,12 @@ export default function NuevaFacturaPage() {
   }, []);
 
   // When client changes, update payment terms
-  const handleClientChange = (cId: string) => {
+  // `nueva`: la ficha recién creada desde el buscador, que aún no está en `clients`.
+  const handleClientChange = (cId: string, nueva?: Client) => {
     setClientId(cId);
     setAbonoSelection(null);
     if (cId) setClienteOcasional(false);
-    const client = clients.find(c => c.id === cId);
+    const client = nueva ?? clients.find(c => c.id === cId);
     if (client) {
       setPaymentMethod(client.defaultPaymentMethod);
       setDueDate(addDays(issueDate, client.paymentDays));
@@ -350,13 +352,17 @@ export default function NuevaFacturaPage() {
                   Se usa el cliente ocasional definido abajo.
                 </div>
               ) : (
+                <>
                 <BuscadorFicha
                   fichas={clients}
                   value={clientId}
                   onSelect={id => handleClientChange(id)}
                   placeholder="Buscar cliente: nombre, NIF, teléfono o ciudad"
                   ariaLabel="Cliente"
+                  alCrear={c => { setClients(prev => [...prev, c]); handleClientChange(c.id, c); }}
                 />
+                <ResumenFichaElegida ficha={clients.find(c => c.id === clientId)} />
+                </>
               )}
             </div>
             <div className="form-group">

@@ -19,6 +19,7 @@ import { getCompanyCategories, getProducts, saveClient, type CategoryOption } fr
 import { getPrecioProductoParaCliente } from '@/lib/documentos';
 import { formatCurrency } from '@/lib/utils';
 import type { Client, CompanySettings, DescuentoFamilia, PrecioEspecial, Product } from '@/lib/types';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 interface Props {
   client: Client;
@@ -38,7 +39,7 @@ export default function CondicionesEspeciales({ client, settings, onGuardado }: 
   const [categorias, setCategorias] = useState<CategoryOption[]>([]);
   const [guardando, setGuardando] = useState(false);
 
-  const [articulo, setArticulo] = useState('');
+  const [articuloId, setArticuloId] = useState('');
   const [precio, setPrecio] = useState('');
   const [descuento, setDescuento] = useState('');
   const [familia, setFamilia] = useState('');
@@ -54,7 +55,6 @@ export default function CondicionesEspeciales({ client, settings, onGuardado }: 
   const precios = client.preciosEspeciales ?? [];
   const familias = client.descuentosFamilia ?? [];
   const porId = useMemo(() => new Map(productos.map(p => [p.id, p])), [productos]);
-  const porEtiqueta = useMemo(() => new Map(productos.map(p => [etiquetaProducto(p), p])), [productos]);
   const nombreFamilia = (id: string) => categorias.find(c => c.value === id)?.label ?? id;
   const apagados = precios.filter(p => !p.activo).length + familias.filter(f => !f.activo).length;
 
@@ -75,8 +75,8 @@ export default function CondicionesEspeciales({ client, settings, onGuardado }: 
   };
 
   const anadirPrecio = async () => {
-    const p = porEtiqueta.get(articulo.trim());
-    if (!p) { avisarError('Elige el artículo de la lista'); return; }
+    const p = productos.find(x => x.id === articuloId);
+    if (!p) { avisarError('Busca y elige el artículo'); return; }
     const pr = numero(precio);
     const de = numero(descuento);
     if (pr !== null && pr <= 0) { avisarError('El precio tiene que ser mayor que cero'); return; }
@@ -87,7 +87,7 @@ export default function CondicionesEspeciales({ client, settings, onGuardado }: 
       { preciosEspeciales: [...precios.filter(x => x.productId !== p.id), entrada] },
       precios.some(x => x.productId === p.id) ? 'Precio especial cambiado' : 'Precio especial añadido',
     );
-    if (ok) { setArticulo(''); setPrecio(''); setDescuento(''); }
+    if (ok) { setArticuloId(''); setPrecio(''); setDescuento(''); }
   };
 
   const anadirFamilia = async () => {
@@ -182,19 +182,10 @@ export default function CondicionesEspeciales({ client, settings, onGuardado }: 
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'flex-end', padding: 'var(--space-3) 0' }}>
-        <label className="form-group" style={{ flex: '3 1 260px', margin: 0 }}>
+        <div className="form-group" style={{ flex: '3 1 260px', margin: 0 }}>
           <span className="form-label">Artículo</span>
-          <input
-            className="form-input"
-            list={`articulos-${client.id}`}
-            value={articulo}
-            onChange={e => setArticulo(e.target.value)}
-            placeholder="Escribe la referencia o el nombre"
-          />
-          <datalist id={`articulos-${client.id}`}>
-            {productos.map(p => <option key={p.id} value={etiquetaProducto(p)}>{etiquetaProducto(p)}</option>)}
-          </datalist>
-        </label>
+          <BuscadorProducto products={productos} value={articuloId} onSelect={setArticuloId} placeholder="Busca la referencia, el nombre o el código" />
+        </div>
         <label className="form-group" style={{ flex: '1 1 110px', margin: 0 }}>
           <span className="form-label">Precio (sin impuesto)</span>
           <input className="form-input" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="—" />

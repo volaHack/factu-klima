@@ -308,6 +308,45 @@ export function preciosAnteriores(
   return { cliente: cliente?.p ?? null, ultimo: ultimo?.p ?? null };
 }
 
+/**
+ * Lo que suele llevarse un cliente (o venderte un proveedor), de más a menos
+ * veces: lo que se sugiere al pinchar en una línea vacía, antes de escribir.
+ */
+export function habitualesDe(
+  docs: readonly Invoice[],
+  clienteId: string | null | undefined,
+  sentido: SentidoDocumento,
+  max = 8,
+): string[] {
+  if (!clienteId) return [];
+  const veces = new Map<string, { n: number; ultima: string }>();
+  for (const d of docs) {
+    if (d.clientId !== clienteId || (d.sentido ?? 'venta') !== sentido || d.status === InvoiceStatus.ANULADA) continue;
+    for (const l of d.lineItems) {
+      if (!l.productId) continue;
+      const v = veces.get(l.productId) ?? { n: 0, ultima: '' };
+      v.n += 1;
+      if ((d.issueDate ?? '') > v.ultima) v.ultima = d.issueDate ?? '';
+      veces.set(l.productId, v);
+    }
+  }
+  return [...veces.entries()]
+    .sort((a, b) => b[1].n - a[1].n || b[1].ultima.localeCompare(a[1].ultima))
+    .slice(0, max)
+    .map(([id]) => id);
+}
+
+/** Las fichas con más documentos en los últimos 90 días: las que se sugieren al pinchar en «Cliente». */
+export function fichasFrecuentes(docs: readonly Invoice[], max = 8, hoy = new Date()): string[] {
+  const desde = new Date(hoy.getTime() - 90 * 86_400_000).toISOString().slice(0, 10);
+  const veces = new Map<string, number>();
+  for (const d of docs) {
+    if (!d.clientId || (d.issueDate ?? '') < desde || d.status === InvoiceStatus.ANULADA) continue;
+    veces.set(d.clientId, (veces.get(d.clientId) ?? 0) + 1);
+  }
+  return [...veces.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([id]) => id);
+}
+
 /** Número y serie para un documento nuevo de un tipo/sentido. */
 export function numeroDeDocumento(
   settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento,

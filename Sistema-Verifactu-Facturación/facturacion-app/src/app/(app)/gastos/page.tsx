@@ -601,6 +601,8 @@ export default function GastosPage() {
                         setGastoForm({ ...gastoForm, proveedorId: prov?.id, proveedorNombre: prov?.businessName });
                       }}
                       placeholder={!gastoForm.proveedorId && gastoForm.proveedorNombre ? `${gastoForm.proveedorNombre} (sin ficha) · buscar proveedor` : 'Sin proveedor · buscar por nombre o NIF'}
+                      esProveedor
+                      alCrear={c => { setProveedores(prev => [...prev, c]); setGastoForm({ ...gastoForm, proveedorId: c.id, proveedorNombre: c.businessName }); }}
                     />
                   </div>
                   {modoVehiculos && (

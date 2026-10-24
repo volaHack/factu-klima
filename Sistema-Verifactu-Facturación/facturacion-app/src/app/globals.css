@@ -16116,3 +16116,88 @@ body {
 @media (max-width: 640px) {
   .listados-filtro-ancho { grid-column: 1 / -1; }
 }
+
+/* --- La lupa del buscador y su ventana (components/ui/VentanaBusqueda) --- */
+.buscador-producto.con-ventana .buscador-producto-caja { padding-right: 72px !important; }
+.buscador-producto.con-ventana .buscador-producto-quitar { right: 38px; }
+.buscador-producto-ventana {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: inline-grid; place-items: center; width: 32px; height: 32px;
+  border: 0; border-left: 1px solid var(--border-color); border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: none; color: var(--accent-500); cursor: pointer;
+}
+.buscador-producto-ventana:hover { background: var(--accent-glow); }
+.buscador-producto-crear {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 10px; border: 0; border-top: 1px solid var(--border-color); background: none; cursor: pointer;
+  font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--accent-500); text-align: left;
+}
+.buscador-producto-crear:hover { background: var(--accent-glow); }
+
+.ventana-busqueda-fondo {
+  position: fixed; inset: 0; z-index: 450;
+  background: var(--bg-overlay); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: var(--space-4);
+}
+.ventana-busqueda {
+  width: min(980px, 100%); max-height: min(720px, calc(100dvh - 32px));
+  display: flex; flex-direction: column;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); overflow: hidden;
+}
+.ventana-busqueda-cabeza { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5) var(--space-2); }
+.ventana-busqueda-cabeza h3 { margin: 0; font-size: var(--text-lg); }
+.ventana-busqueda-cerrar { border: 0; background: none; cursor: pointer; color: var(--text-muted); padding: 6px; border-radius: var(--radius-md); }
+.ventana-busqueda-cerrar:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.ventana-busqueda-filtros { padding: 0 var(--space-5) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.ventana-busqueda-caja { position: relative; }
+.ventana-busqueda-caja svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+.ventana-busqueda-caja input { padding-left: 38px; width: 100%; }
+.ventana-busqueda-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ventana-busqueda-chip {
+  border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary);
+  border-radius: var(--radius-full); padding: 4px 12px; font: inherit; font-size: var(--text-xs); cursor: pointer;
+}
+.ventana-busqueda-chip.activo { background: var(--accent-glow); border-color: var(--accent-400); color: var(--accent-400); font-weight: 600; }
+.ventana-busqueda-tabla { flex: 1; min-height: 160px; overflow: auto; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+.ventana-busqueda-tabla table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.ventana-busqueda-tabla th { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 1; text-align: left; padding: 0; }
+.ventana-busqueda-tabla th button {
+  display: inline-flex; align-items: center; gap: 4px; width: 100%; padding: 8px 12px;
+  border: 0; background: none; cursor: pointer; font: inherit; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); text-align: inherit;
+}
+.ventana-busqueda-tabla th.num button { justify-content: flex-end; }
+.ventana-busqueda-tabla td { padding: 7px 12px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); white-space: nowrap; }
+.ventana-busqueda-tabla td.num, .ventana-busqueda-tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ventana-busqueda-tabla tr { cursor: pointer; }
+.ventana-busqueda-tabla tbody tr.activa td { background: var(--accent-glow); color: var(--text-primary); }
+.ventana-busqueda-tabla tbody tr.elegida td:first-child { box-shadow: inset 3px 0 0 var(--accent-500); }
+.ventana-busqueda-tabla tbody tr.baja td { opacity: .55; }
+.ventana-busqueda-vacio { text-align: center; color: var(--text-muted); padding: var(--space-6) !important; }
+.ventana-busqueda-pie {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2);
+  padding: var(--space-3) var(--space-5); font-size: var(--text-xs); color: var(--text-muted);
+}
+.ventana-busqueda-acciones { display: flex; gap: var(--space-2); margin-left: auto; }
+@media (max-width: 640px) {
+  .ventana-busqueda-fondo { padding: 0; align-items: stretch; }
+  .ventana-busqueda { max-height: 100dvh; border-radius: 0; }
+  .ventana-busqueda-ayuda { display: none; }
+  .ventana-busqueda-tabla td { padding: 11px 12px; }
+}
+
+/* --- Resumen del cliente elegido en un documento --- */
+.resumen-ficha {
+  margin-top: var(--space-2); padding: 8px 12px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-tertiary);
+  font-size: var(--text-xs); color: var(--text-secondary);
+}
+.resumen-ficha.con-vencidas { border-color: var(--color-danger); }
+.resumen-ficha-datos { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+.resumen-ficha-datos strong { color: var(--text-primary); }
+.resumen-ficha-alerta { color: var(--color-danger); display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.resumen-ficha-alerta strong { color: var(--color-danger); }
+.resumen-ficha-enlace { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-500); text-decoration: none; }
+.resumen-ficha-notas { margin: 6px 0 0; display: flex; gap: 6px; align-items: flex-start; color: var(--text-primary); white-space: pre-wrap; }
+.atajos-fechas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
