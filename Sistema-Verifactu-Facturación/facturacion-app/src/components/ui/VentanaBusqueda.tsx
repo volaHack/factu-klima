@@ -98,7 +98,10 @@ export default function VentanaBusqueda<T>({
   const ordenarPor = (col: number) => setOrden(o => (o?.col === col ? { col, asc: !o.asc } : { col, asc: true }));
 
   return createPortal(
-    <div className="ventana-busqueda-fondo" onMouseDown={onCerrar}>
+    // Los clics no salen de aquí: la ventana está en <body> pero, para React,
+    // dentro del formulario que la abrió, y un clic que llegara hasta él
+    // podría cerrar la ventana (o el diálogo) desde la que se abrió.
+    <div className="ventana-busqueda-fondo" onMouseDown={onCerrar} onClick={e => e.stopPropagation()}>
       <div
         className="ventana-busqueda"
         role="dialog"
@@ -170,11 +173,14 @@ export default function VentanaBusqueda<T>({
                   data-fila={i}
                   className={`${i === indice ? 'activa' : ''}${idDe(item) === elegidoId ? ' elegida' : ''}${baja?.(item) ? ' baja' : ''}`}
                   onMouseEnter={() => setActivo(i)}
-                  onClick={() => setActivo(i)}
-                  onDoubleClick={() => onElegir(item)}
+                  // Un clic (o un toque en el móvil) elige: el doble clic no
+                  // existe en una pantalla táctil.
+                  onClick={() => onElegir(item)}
                 >
-                  {columnas.map(c => (
-                    <td key={c.titulo} className={c.num ? 'num' : ''}>{c.pintar ? c.pintar(item) : c.valor(item)}</td>
+                  {columnas.map((c, j) => (
+                    <td key={c.titulo} className={`${c.num ? 'num' : ''}${j < 2 ? ' principal' : ''}`} data-label={c.titulo}>
+                      {c.pintar ? c.pintar(item) : c.valor(item)}
+                    </td>
                   ))}
                 </tr>
               ))}
@@ -186,7 +192,7 @@ export default function VentanaBusqueda<T>({
           <span>
             {filas.length.toLocaleString('es-ES')} {filas.length === 1 ? 'resultado' : 'resultados'}
             {filas.length > MAXIMO && ` · se ven ${MAXIMO}, escribe para afinar`}
-            <span className="ventana-busqueda-ayuda"> · ↑↓ moverse · Intro o doble clic elige · Esc cierra</span>
+            <span className="ventana-busqueda-ayuda"> · ↑↓ moverse · clic o Intro elige · Esc cierra</span>
           </span>
           <div className="ventana-busqueda-acciones">
             {crear && (

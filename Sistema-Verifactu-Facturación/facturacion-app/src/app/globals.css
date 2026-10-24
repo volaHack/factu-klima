@@ -16180,11 +16180,44 @@ body {
   padding: var(--space-3) var(--space-5); font-size: var(--text-xs); color: var(--text-muted);
 }
 .ventana-busqueda-acciones { display: flex; gap: var(--space-2); margin-left: auto; }
-@media (max-width: 640px) {
+/* Móvil y tableta estrecha: a pantalla completa y cada resultado como una
+   tarjeta (nombre arriba, el resto de datos debajo), sin tabla ancha que
+   obligue a desplazarse de lado. */
+@media (max-width: 760px) {
   .ventana-busqueda-fondo { padding: 0; align-items: stretch; }
-  .ventana-busqueda { max-height: 100dvh; border-radius: 0; }
+  .ventana-busqueda { max-height: 100dvh; height: 100dvh; width: 100%; border-radius: 0; border: 0; }
+  .ventana-busqueda-cabeza { padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) var(--space-2); }
+  .ventana-busqueda-filtros { padding: 0 var(--space-4) var(--space-3); }
+  .ventana-busqueda-caja input { font-size: 16px; min-height: 44px; }
+  .ventana-busqueda-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .ventana-busqueda-chip { flex-shrink: 0; padding: 8px 14px; font-size: var(--text-sm); }
   .ventana-busqueda-ayuda { display: none; }
-  .ventana-busqueda-tabla td { padding: 11px 12px; }
+  .ventana-busqueda-tabla { overflow-x: hidden; }
+  .ventana-busqueda-tabla table, .ventana-busqueda-tabla tbody { display: block; }
+  .ventana-busqueda-tabla thead { display: none; }
+  .ventana-busqueda-tabla tr {
+    display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline;
+    padding: 12px var(--space-4); border-bottom: 1px solid var(--border-color);
+  }
+  .ventana-busqueda-tabla td { display: inline; padding: 0; border: 0; white-space: normal; font-size: var(--text-xs); color: var(--text-muted); }
+  .ventana-busqueda-tabla td:empty { display: none; }
+  .ventana-busqueda-tabla td.num { text-align: left; }
+  .ventana-busqueda-tabla td.principal { font-size: var(--text-sm); color: var(--text-primary); }
+  .ventana-busqueda-tabla td.principal + td.principal { flex-basis: 100%; order: -1; font-size: var(--text-base); }
+  .ventana-busqueda-tabla td:not(.principal)::before { content: attr(data-label) ' '; font-weight: 600; color: var(--text-tertiary); }
+  .ventana-busqueda-tabla tbody tr.activa { background: var(--accent-glow); }
+  .ventana-busqueda-tabla tbody tr.activa td { background: none; }
+  .ventana-busqueda-tabla tbody tr.elegida { box-shadow: inset 3px 0 0 var(--accent-500); }
+  .ventana-busqueda-tabla tbody tr.elegida td:first-child { box-shadow: none; }
+  .ventana-busqueda-pie { padding: var(--space-3) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom)); }
+  .ventana-busqueda-acciones { width: 100%; }
+  .ventana-busqueda-acciones .btn { flex: 1; justify-content: center; min-height: 44px; }
+}
+/* La lupa y la X del campo, con tamaño de dedo en pantallas táctiles. */
+@media (pointer: coarse) {
+  .buscador-producto-ventana, .buscador-producto-quitar { width: 40px; height: 40px; }
+  .buscador-producto.con-ventana .buscador-producto-caja { padding-right: 86px !important; }
+  .buscador-producto.con-ventana .buscador-producto-quitar { right: 44px; }
 }
 
 /* --- Resumen del cliente elegido en un documento --- */
