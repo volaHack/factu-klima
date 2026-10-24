@@ -113,6 +113,15 @@ const consultaClientes = async () => {
 const consultaProductos = () => todasLasFilas((desde, hasta) => supabase().from('products').select('*')
   .order('name', { ascending: true }).order('id').range(desde, hasta));
 
+/**
+ * El stock lo mueve la base de datos al guardar las líneas de un documento
+ * (migración 074). Después de guardar, se vuelve a leer para que la copia
+ * de este dispositivo enseñe el stock nuevo.
+ */
+function refrescarStock(): void {
+  void backgroundRefresh('products', consultaProductos);
+}
+
 export type DatosRevisables = 'invoices' | 'clients' | 'products';
 
 /**
@@ -685,6 +694,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
   }
 
   notifyDataUpdate('invoices');
+  refrescarStock();
   return current;
 }
 
@@ -796,6 +806,7 @@ export async function cancelInvoice(id: string, reason: string): Promise<void> {
   void import('./facturaElectronica/almacen').then(m => m.comunicarAnulacion(id, reason.trim())).catch(() => {});
   await refreshInvoicesFromSupabase();
   notifyDataUpdate('invoices');
+  refrescarStock();
 }
 
 /**
@@ -822,6 +833,7 @@ export async function deleteInvoice(id: string): Promise<void> {
   }
 
   notifyDataUpdate('invoices');
+  refrescarStock();
 }
 
 // ============================================================
@@ -1200,13 +1212,9 @@ export async function expedirAlbaranCompra(id: string): Promise<Invoice> {
   if (!doc) throw new Error('Documento no encontrado.');
   if (doc.sentido !== 'compra' || doc.tipo !== 'albaran') throw new Error('No es un albarán de compra.');
   if (doc.status === InvoiceStatus.EXPEDIDO || isSealed(doc)) throw new Error(`El albarán ${doc.number} ya está expedido.`);
-  const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
-  for (const li of doc.lineItems) {
-    if (!li.productId || li.quantity <= 0) continue;
-    const precioNetoLinea = li.unitPrice * (1 - (li.discountPercent || 0) / 100) * (1 - (li.discountPercent2 || 0) / 100) * (1 - (li.discountPercent3 || 0) / 100);
-    await actualizarPmpYStockCompra(li.productId, Math.abs(li.quantity), precioNetoLinea, doc.almacenId);
-  }
-  return updated;
+  // La entrada en stock, el precio medio y el de la última entrada los
+  // apunta la base de datos al pasar a expedido (migración 074).
+  return saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
 }
 
 export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
@@ -1214,10 +1222,11 @@ export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
   if (!doc) throw new Error('Documento no encontrado.');
   if (doc.tipo !== 'albaran') throw new Error('No es un albarán.');
   if (doc.status === InvoiceStatus.EXPEDIDO || isSealed(doc)) throw new Error(`El albarán ${doc.number} ya está expedido.`);
+  // La salida de stock la apunta la base de datos al pasar a expedido
+  // (migración 074); aquí, lo que la base de datos no sabe: lotes y series.
   const updated = await saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
   for (const li of doc.lineItems) {
     if (!li.productId || li.quantity <= 0) continue;
-    await adjustStock(li.productId, -Math.abs(li.quantity), doc.almacenId);
 
     // El lote se descuenta en el MISMO momento que el stock del producto: es
     // cuando la mercancía sale de verdad por la puerta. Descontarlo antes
@@ -1635,10 +1644,15 @@ export async function getProductById(id: string): Promise<Product | undefined> {
   return data ? mapProductFromDb(data) : undefined;
 }
 
-export async function saveProduct(product: Product): Promise<void> {
+/**
+ * Guarda la ficha. Con `conservarStock` no toca el stock (total ni por
+ * almacén): lo mueven los documentos en la base de datos, y una ficha
+ * leída hace un rato lo devolvería al número de entonces.
+ */
+export async function saveProduct(product: Product, opts: { conservarStock?: boolean } = {}): Promise<void> {
   const userId = await requireUserId();
 
-  const row = {
+  const completa = {
     id: product.id,
     user_id: userId,
     ref: product.ref,
@@ -1659,11 +1673,22 @@ export async function saveProduct(product: Product): Promise<void> {
     coste_pmp: product.costePmp ?? 0,
     coste_ultima_compra: product.costeUltimaCompra ?? 0,
     stocks_by_almacen: product.stocksByAlmacen || {},
+    units_per_package: product.unitsPerPackage ?? null,
+    purchase_price: product.purchasePrice ?? 0,
+    purchase_tax_rate: product.purchaseTaxRate ?? null,
+    notes: product.notes?.trim() || null,
   };
+  const { stock_quantity: _stock, stocks_by_almacen: _porAlmacen, ...sinStock } = completa;
+  void _stock; void _porAlmacen;
+  const row = opts.conservarStock ? sinStock : completa;
 
   const offlineAvail = await isOfflineDbAvailable();
   if (offlineAvail) {
-    await put('products', row);
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const guardada = opts.conservarStock ? await getById<any>('products', product.id) : null;
+    await put('products', guardada
+      ? { ...completa, stock_quantity: guardada.stock_quantity, stocks_by_almacen: guardada.stocks_by_almacen }
+      : completa);
   }
 
   if (navigator.onLine) {
@@ -1717,9 +1742,11 @@ export async function findProductByBarcode(barcode: string): Promise<Product | u
  */
 export async function adjustStock(productId: string, delta: number, almacenId?: string): Promise<number> {
   if (navigator.onLine) {
-    const { data, error } = await supabase().rpc('fn_pos_adjust_stock', {
+    // fn_ajustar_stock (074) también lleva el desglose por almacén.
+    const { data, error } = await supabase().rpc('fn_ajustar_stock', {
       p_product_id: productId,
       p_delta: delta,
+      p_almacen_id: almacenId ?? null,
     });
     if (error) throw new Error(translateDbError(error));
     const newStock = Number(data);
@@ -1754,42 +1781,6 @@ export async function adjustStock(productId: string, delta: number, almacenId?: 
   });
 
   return newStock;
-}
-
-/**
- * Actualiza el stock y recalcula el PMP (Precio Medio Ponderado) al registrar una compra.
- * Fórmula: PMP = ((Stock * PMP_ant) + (Cant * Precio)) / (Stock + Cant)
- */
-export async function actualizarPmpYStockCompra(
-  productId: string,
-  cantidadComprada: number,
-  precioCompraNeto: number,
-  almacenId?: string,
-): Promise<void> {
-  const product = await getProductById(productId);
-  if (!product) return;
-
-  const stockActual = Math.max(product.stockQuantity ?? 0, 0);
-  const pmpActual = product.costePmp && product.costePmp > 0 ? product.costePmp : (product.unitPrice || 0);
-
-  const nuevoPmp = stockActual + cantidadComprada > 0
-    ? ((stockActual * pmpActual) + (cantidadComprada * precioCompraNeto)) / (stockActual + cantidadComprada)
-    : precioCompraNeto;
-
-  const currentStocks = { ...(product.stocksByAlmacen || {}) };
-  if (almacenId) {
-    currentStocks[almacenId] = (currentStocks[almacenId] ?? 0) + cantidadComprada;
-  }
-
-  const nuevoStockTotal = (product.stockQuantity ?? 0) + cantidadComprada;
-
-  await saveProduct({
-    ...product,
-    stockQuantity: nuevoStockTotal,
-    costePmp: Math.round(nuevoPmp * 10000) / 10000,
-    costeUltimaCompra: Math.round(precioCompraNeto * 10000) / 10000,
-    stocksByAlmacen: currentStocks,
-  });
 }
 
 /**
@@ -2187,6 +2178,7 @@ export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
     }
   }
 
+  refrescarStock();
   return current;
 }
 
@@ -2228,18 +2220,8 @@ export async function expedirAlbaran(id: string): Promise<Albaran> {
     status: 'expedido',
     updatedAt: new Date().toISOString(),
   };
+  // El stock lo descuenta la base de datos al pasar a expedido (074).
   await saveAlbaran(updated);
-
-  // Descuento de stock (mejor esfuerzo: si una línea no tiene producto
-  // asociado — venta sin ficha — simplemente se omite).
-  for (const li of albaran.lineItems) {
-    if (!li.productId || li.quantity <= 0) continue;
-    try {
-      await adjustStock(li.productId, -li.quantity);
-    } catch (err) {
-      console.warn(`Stock no actualizado para ${li.productName}:`, err);
-    }
-  }
 
   return updated;
 }
@@ -3405,7 +3387,8 @@ export function mapProductFromDb(p: any): Product {
     description: p.description || '',
     category: p.category || 'otros',
     unitPrice: Number(p.unit_price),
-    defaultTaxRate: p.default_tax_rate || 21,
+    // ?? y no ||: un producto al 0 % (exento) no es uno al 21 %.
+    defaultTaxRate: p.default_tax_rate != null ? Number(p.default_tax_rate) : 21,
     unit: p.unit || 'ud',
     active: p.active ?? true,
     createdAt: p.created_at,
@@ -3421,6 +3404,9 @@ export function mapProductFromDb(p: any): Product {
     costeUltimaCompra: Number(p.coste_ultima_compra ?? 0),
     stocksByAlmacen: (p.stocks_by_almacen && typeof p.stocks_by_almacen === 'object') ? p.stocks_by_almacen : {},
     unitsPerPackage: p.units_per_package != null ? Number(p.units_per_package) : undefined,
+    purchasePrice: Number(p.purchase_price ?? 0),
+    purchaseTaxRate: p.purchase_tax_rate != null ? Number(p.purchase_tax_rate) : undefined,
+    notes: p.notes || undefined,
   };
 }
 
@@ -4698,7 +4684,7 @@ export async function regularizarCostes(
     const margen = ingresos - coste;
 
     if (opciones.guardarPmp && resultado.pmpFinal > 0 && resultado.pmpFinal !== producto.costePmp) {
-      await saveProduct({ ...producto, costePmp: resultado.pmpFinal });
+      await saveProduct({ ...producto, costePmp: resultado.pmpFinal }, { conservarStock: true });
     }
 
     salida.push({
@@ -5700,7 +5686,8 @@ export async function fabricar(escandalloId: string, cantidad: number, almacenId
   const nuevoPmp = nuevoPmpTrasFabricar(final.stockQuantity ?? 0, pmpActual, cantidad, coste);
 
   await adjustStock(final.id, cantidad, almacenId);
-  await saveProduct({ ...final, costePmp: Math.round(nuevoPmp * 10000) / 10000 });
+  // Sin conservarStock esto devolvía el stock al de antes de fabricar.
+  await saveProduct({ ...final, costePmp: Math.round(nuevoPmp * 10000) / 10000 }, { conservarStock: true });
 }
 
 // ============================================================

@@ -425,6 +425,7 @@ export default function NuevaFacturaPage() {
             defaultDiscounts={clienteOcasional ? undefined : selectedClient?.defaultDiscounts}
             cliente={clienteOcasional ? null : selectedClient}
             columnasCustom={columnasCustom}
+            clienteId={clienteOcasional ? null : selectedClient?.id}
           />
         )}
 

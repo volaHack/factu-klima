@@ -21,6 +21,7 @@ import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { vocabularioDe } from '@/lib/vocabulario';
 import type { BusinessSector } from '@/lib/types';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 type Tab = 'almacenes' | 'existencias' | 'traspasos' | 'regularizaciones';
 
@@ -196,7 +197,7 @@ export default function AlmacenesPage() {
       destinoAlmacenId: dest,
       fecha: getToday(),
       notas: '',
-      lineItems: [{ productId: products[0]?.id || '', quantity: 1 }],
+      lineItems: [{ productId: '', quantity: 1 }],
     });
     setShowTraspasoModal(true);
   };
@@ -204,7 +205,7 @@ export default function AlmacenesPage() {
   const handleAddTraspasoLine = () => {
     setTraspasoForm(prev => ({
       ...prev,
-      lineItems: [...prev.lineItems, { productId: products[0]?.id || '', quantity: 1 }],
+      lineItems: [...prev.lineItems, { productId: '', quantity: 1 }],
     }));
   };
 
@@ -882,23 +883,16 @@ export default function AlmacenesPage() {
                 return (
                   <div key={idx} className="form-row" style={{ alignItems: 'flex-end', marginBottom: 'var(--space-2)' }}>
                     <div className="form-group" style={{ flex: 3, margin: 0 }}>
-                      <select
-                        className="form-select"
+                      <BuscadorProducto
+                        products={products}
                         value={line.productId}
-                        onChange={e => {
-                          const val = e.target.value;
+                        onSelect={val => {
                           const next = [...traspasoForm.lineItems];
                           next[idx].productId = val;
                           setTraspasoForm({ ...traspasoForm, lineItems: next });
                         }}
-                        required
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.ref})
-                          </option>
-                        ))}
-                      </select>
+                        ariaLabel={`Producto de la línea ${idx + 1}`}
+                      />
                     </div>
 
                     <div className="form-group" style={{ flex: 1, margin: 0 }}>
@@ -984,16 +978,12 @@ export default function AlmacenesPage() {
 
               <div className="form-group">
                 <label className="form-label">Producto *</label>
-                <select
-                  className="form-select"
+                <BuscadorProducto
+                  products={products}
                   value={regForm.productId}
-                  onChange={e => setRegForm({ ...regForm, productId: e.target.value })}
-                  required
-                >
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.ref})</option>
-                  ))}
-                </select>
+                  onSelect={id => setRegForm({ ...regForm, productId: id })}
+                  ariaLabel="Producto"
+                />
               </div>
 
               <div className="form-row" style={{ background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>

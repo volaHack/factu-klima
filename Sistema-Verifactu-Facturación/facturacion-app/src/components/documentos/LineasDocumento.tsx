@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag } from 'lucide-react';
-import { InvoiceLineItem, CompanySettings, Product, Lote, Client } from '@/lib/types';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History } from 'lucide-react';
+import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
-import { formatCurrency } from '@/lib/utils';
-import { recalcularLinea, lineaVacia, condicionesDeVenta } from '@/lib/documentos';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { getInvoices } from '@/lib/storage';
+import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, type PrecioAnterior } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateSlider from '@/components/ui/TaxRateSlider';
+import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 export interface ColumnaPersonalizada {
   clave: string;
@@ -38,6 +40,15 @@ interface LineasDocumentoProps {
    * no tiene el módulo encendido.
    */
   lotes?: Lote[];
+  /** En una compra la línea toma el precio y el impuesto de compra de la ficha. */
+  sentido?: 'venta' | 'compra';
+  /**
+   * La ficha del cliente o proveedor del documento: con ella cada línea
+   * sugiere el precio que se le puso la última vez.
+   */
+  clienteId?: string | null;
+  /** El documento que se edita, para no sugerir su propio precio. */
+  documentoId?: string;
 }
 
 export default function LineasDocumento({
@@ -51,6 +62,9 @@ export default function LineasDocumento({
   columnasCustom = [],
   titulo,
   lotes = [],
+  sentido = 'venta',
+  clienteId,
+  documentoId,
 }: LineasDocumentoProps) {
   const [showExtraDiscounts, setShowExtraDiscounts] = useState(false);
   // Las palabras de este oficio. Un distribuidor cuenta bultos y unidades;
@@ -84,6 +98,38 @@ export default function LineasDocumento({
     if (hayLineasDeAntes) onChange(lineItems.map(l => (vaPorUnidades(l) ? l : recalcularLinea(aLineaPorUnidades(l)))));
   }, [hayLineasDeAntes, lineItems, onChange]);
 
+  // Los documentos anteriores, para sugerir el último precio (vienen de la
+  // copia de este dispositivo: no cuesta nada pedirlos).
+  const [anteriores, setAnteriores] = useState<Invoice[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    getInvoices().then(d => { if (vivo) setAnteriores(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  /** Lo que se sugiere en la línea: lo último a esta ficha o, si no, lo último a cualquiera. */
+  const sugerencia = (line: InvoiceLineItem): { p: PrecioAnterior; deEste: boolean } | null => {
+    if (!line.productId) return null;
+    const { cliente: deEste, ultimo } = preciosAnteriores(anteriores, line.productId, { clienteId, sentido, excluirId: documentoId });
+    const p = deEste ?? ultimo;
+    if (!p) return null;
+    const igual = Math.abs(p.unitPrice - line.unitPrice) < 0.00005
+      && p.descuentos[0] === (line.discountPercent || 0)
+      && p.descuentos[1] === (line.discountPercent2 || 0)
+      && p.descuentos[2] === (line.discountPercent3 || 0);
+    return igual ? null : { p, deEste: !!deEste };
+  };
+
+  const aplicarPrecio = (index: number, p: PrecioAnterior) => cambiarLinea(index, l => ({
+    ...l,
+    unitPrice: p.unitPrice,
+    discountPercent: p.descuentos[0],
+    discountPercent2: p.descuentos[1],
+    discountPercent3: p.descuentos[2],
+  }));
+
+  const NOMBRE_TIPO: Record<string, string> = { factura: 'factura', albaran: 'albarán', pedido: 'pedido', presupuesto: 'presupuesto' };
+
   const cambiarLinea = (index: number, cambio: (l: InvoiceLineItem) => InvoiceLineItem) => {
     const updated = [...lineItems];
     updated[index] = recalcularLinea(cambio(updated[index]));
@@ -97,7 +143,12 @@ export default function LineasDocumento({
       // Precio y descuentos con las condiciones del cliente: su precio
       // especial, el descuento del artículo o el de la familia, y si no hay
       // nada de eso, su tarifa y los descuentos de su ficha (documentos.ts).
-      const cond = condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
+      // En una compra: el precio de compra de la ficha, sin las tarifas ni
+      // los descuentos, que son los de nuestros clientes.
+      const compra = sentido === 'compra' ? condicionesDeCompra(product) : null;
+      const cond = compra
+        ? { unitPrice: compra.unitPrice, descuentos: [0, 0, 0] }
+        : condicionesDeVenta(product, { tarifaId, tarifas: settings.tarifas, defaultDiscounts, cliente });
       const [d1, d2, d3] = cond.descuentos;
 
       updated[index] = recalcularLinea({
@@ -107,7 +158,7 @@ export default function LineasDocumento({
         productRef: product.ref,
         unitPrice: cond.unitPrice,
         unit: product.unit,
-        taxRate: product.defaultTaxRate,
+        taxRate: compra ? compra.taxRate : product.defaultTaxRate,
         // Las unidades por bulto vienen de la ficha del producto: se ponen
         // una vez y no hay que teclearlas en cada factura.
         unitsPerPackage: product.unitsPerPackage,
@@ -219,19 +270,14 @@ export default function LineasDocumento({
           return (
             <div className="lineas-doc-ficha" key={line.id}>
               <div className="lineas-doc-cabeza">
-                <select
+                <BuscadorProducto
                   className="lineas-doc-producto"
+                  products={products}
                   value={line.productId}
-                  onChange={e => handleProductSelect(index, e.target.value)}
-                  aria-label={`${voz.linea} de la línea ${index + 1}`}
-                >
-                  <option value="">Seleccionar {voz.linea}</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      [{p.ref}] {p.name} {p.supplierRef ? `(Ref Prov: ${p.supplierRef})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  onSelect={id => handleProductSelect(index, id)}
+                  ariaLabel={`${voz.linea} de la línea ${index + 1}`}
+                  placeholder={`Buscar ${voz.linea}: referencia, nombre o código`}
+                />
                 <div className="lineas-doc-importe">{formatCurrency(line.subtotal)}</div>
                 <button
                   type="button"
@@ -375,6 +421,31 @@ export default function LineasDocumento({
               {line.productId && cliente && condicionEspecial(line.productId) && (
                 <p className="lineas-doc-pie"><Tag size={12} aria-hidden /> {condicionEspecial(line.productId)}</p>
               )}
+
+              {/* El precio de la última vez, a un toque: a este cliente (o
+                  proveedor) si ya se le puso; si no, la última venta o
+                  compra a cualquiera. Solo si es distinto del de la línea. */}
+              {(() => {
+                const s = sugerencia(line);
+                if (!s) return null;
+                const dtos = s.p.descuentos.filter(d => d > 0).map(d => `−${String(d).replace('.', ',')} %`).join(' ');
+                const quien = s.deEste
+                  ? (sentido === 'compra' ? 'Última compra a este proveedor' : 'Último precio a este cliente')
+                  : (sentido === 'compra' ? 'Última compra' : 'Última venta');
+                return (
+                  <p className="lineas-doc-pie lineas-doc-sugerencia">
+                    <History size={12} aria-hidden />
+                    <span>
+                      {quien}: <strong>{formatCurrency(s.p.unitPrice)}</strong>{dtos && ` ${dtos}`}
+                      {' · '}{NOMBRE_TIPO[s.p.tipo] ?? s.p.tipo} {s.p.numero} del {formatDate(s.p.fecha)}
+                      {!s.deEste && s.p.tercero ? ` (${s.p.tercero})` : ''}
+                    </span>
+                    <button type="button" className="btn btn-ghost btn-xs" onClick={() => aplicarPrecio(index, s.p)}>
+                      Usar este precio
+                    </button>
+                  </p>
+                );
+              })()}
 
               {/* Lo que de verdad se descarga del camión, dicho aquí para no
                   tener que multiplicarlo de cabeza. */}
