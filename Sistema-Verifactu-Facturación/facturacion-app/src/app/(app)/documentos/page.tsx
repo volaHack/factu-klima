@@ -337,7 +337,7 @@ function DocumentosContent() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
-          <table className="table table--sortable">
+          <table className="table table--sortable tabla-tarjetas">
             <thead>
               <tr>
                 <th
@@ -454,33 +454,33 @@ function DocumentosContent() {
                     const verlo = `/documentos/historico/${d.id}`;
                     return (
                       <tr key={`h-${d.id}`}>
-                        <td style={{ fontWeight: 600 }}>
+                        <td style={{ fontWeight: 600 }} data-m="titulo">
                           <Link href={verlo} style={{ color: 'var(--color-primary)' }}>
                             {d.numero}
                           </Link>
                           <span className="historico-sub" title="Del programa anterior. Solo consulta">{nombreOrigen}</span>
                         </td>
-                        <td>
+                        <td data-m="dato">
                           <span className="badge badge-outline">{etiquetaTipo(d.tipo)}</span>
                         </td>
-                        <td>
+                        <td data-m="dato">
                           <span className={`badge ${d.sentido === 'compra' ? 'badge-warning' : 'badge-neutral'}`}>
                             {d.sentido === 'compra' ? 'Compra' : 'Venta'}
                           </span>
                         </td>
-                        <td>{d.fecha ? formatDate(d.fecha) : '—'}</td>
-                        <td>
+                        <td data-m="dato">{d.fecha ? formatDate(d.fecha) : '—'}</td>
+                        <td data-m="sub">
                           <div>{d.cliente || (d.codigoTercero ? `Cód. ${d.codigoTercero}` : 'Sin cliente')}</div>
                           {d.clienteNif && <small style={{ color: 'var(--text-muted)' }}>{d.clienteNif}</small>}
                         </td>
-                        <td>—</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                        <td data-m="oculto">—</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }} data-m="importe">
                           {formatCurrency(d.total)}
                         </td>
-                        <td>
+                        <td data-m="estado">
                           <span className={`badge badge-${d.estado}`}>{estadoDeHistorico(d)}</span>
                         </td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={{ textAlign: 'right' }} data-m="acciones">
                           <Link href={verlo} className="btn btn-ghost btn-xs" title="Ver detalle">
                             <Eye size={14} />
                           </Link>
@@ -495,42 +495,42 @@ function DocumentosContent() {
 
                   return (
                     <tr key={doc.id}>
-                      <td style={{ fontWeight: 600 }}>
+                      <td style={{ fontWeight: 600 }} data-m="titulo">
                         <Link href={`/documentos/${doc.id}`} style={{ color: 'var(--color-primary)' }}>
                           {doc.number}
                         </Link>
                       </td>
-                      <td>
+                      <td data-m="dato">
                         <span className="badge badge-outline">
                           {etiquetaTipo(tipo)}
                         </span>
                       </td>
-                      <td>
+                      <td data-m="dato">
                         <span className={`badge ${sentido === 'compra' ? 'badge-warning' : 'badge-neutral'}`}>
                           {sentido === 'compra' ? 'Compra' : 'Venta'}
                         </span>
                       </td>
-                      <td>{formatDate(doc.issueDate)}</td>
-                      <td>
+                      <td data-m="dato">{formatDate(doc.issueDate)}</td>
+                      <td data-m="sub">
                         <div>{doc.clientName || 'Sin cliente'}</div>
                         {doc.clientNif && <small style={{ color: 'var(--text-muted)' }}>{doc.clientNif}</small>}
                       </td>
-                      <td>
+                      <td data-m={doc.documentoOrigenNumber ? 'dato' : 'oculto'}>
                         {doc.documentoOrigenNumber ? (
                           <small style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <ArrowRight size={12} /> {doc.documentoOrigenNumber}
                           </small>
                         ) : '—'}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }} data-m="importe">
                         {formatCurrency(doc.total)}
                       </td>
-                      <td>
+                      <td data-m="estado">
                         <span className={`badge badge-${doc.status}`}>
                           {statusInfo.label}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right' }} data-m="acciones">
                         <div style={{ display: 'inline-flex', gap: 'var(--space-1)' }}>
                           <Link
                             href={`/documentos/${doc.id}`}

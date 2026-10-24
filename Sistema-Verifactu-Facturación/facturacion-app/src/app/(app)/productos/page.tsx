@@ -649,7 +649,7 @@ export default function ProductosPage() {
 
           {/* Table */}
           <div className="table-container">
-            <table className="table table--sortable">
+            <table className="table table--sortable tabla-tarjetas">
               <thead>
                 <tr>
                   <th className={sortField === 'ref' ? 'sorted' : ''} onClick={() => handleSort('ref')} style={{ cursor: 'pointer' }}>
@@ -693,8 +693,8 @@ export default function ProductosPage() {
 
                   return (
                     <tr key={p.id}>
-                      <td className="mono">{p.ref}</td>
-                      <td>
+                      <td className="mono" data-m="dato" data-label="Ref.">{p.ref}</td>
+                      <td data-m={p.supplierRef ? 'dato' : 'oculto'} data-label="Ref. prov.">
                         {p.supplierRef ? (
                           <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                             {p.supplierRef}
@@ -703,7 +703,7 @@ export default function ProductosPage() {
                           <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>-</span>
                         )}
                       </td>
-                      <td>
+                      <td data-m="titulo">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                           {p.imageUrl ? (
                             <img
@@ -722,24 +722,24 @@ export default function ProductosPage() {
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td data-m="dato">
                         <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <CategoryIcon name={cat.icon} size={13} />
                           {cat.label}
                         </span>
                       </td>
-                      <td className="mono font-bold" style={{ textAlign: 'right' }}>
+                      <td className="mono font-bold" style={{ textAlign: 'right' }} data-m="importe">
                         {formatCurrency(p.unitPrice)}
                       </td>
-                      <td className="mono" style={{ textAlign: 'right', color: p.costePmp ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                      <td className="mono" style={{ textAlign: 'right', color: p.costePmp ? 'var(--text-secondary)' : 'var(--text-muted)' }} data-m={p.costePmp ? 'dato' : 'oculto'} data-label="Coste">
                         {p.costePmp ? formatCurrency(p.costePmp) : '—'}
                       </td>
-                      <td>
+                      <td data-m="estado">
                         <span className={`badge ${isOutOfStock ? 'badge-danger' : isLowStock ? 'badge-warning' : 'badge-success'}`}>
                           {p.stockQuantity ?? 0} {p.unit}
                         </span>
                       </td>
-                      <td>
+                      <td data-m={pendienteRecibir > 0 ? 'dato' : 'oculto'} data-label="Por recibir">
                         {pendienteRecibir > 0 ? (
                           <span className="badge badge-warning" title="Unidades solicitadas en pedidos de compra pendientes">
                             +{pendienteRecibir} {p.unit}
@@ -748,7 +748,7 @@ export default function ProductosPage() {
                           <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>0</span>
                         )}
                       </td>
-                      <td>
+                      <td data-m={pendienteEntregar > 0 ? 'dato' : 'oculto'} data-label="Por entregar">
                         {pendienteEntregar > 0 ? (
                           <span className="badge badge-info" title="Unidades comprometidas en pedidos de venta pendientes">
                             -{pendienteEntregar} {p.unit}
@@ -757,13 +757,13 @@ export default function ProductosPage() {
                           <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>0</span>
                         )}
                       </td>
-                      <td>{p.defaultTaxRate}%</td>
-                      <td>
+                      <td data-m="oculto">{p.defaultTaxRate}%</td>
+                      <td data-m={p.active ? 'oculto' : 'estado'}>
                         <span className={`badge ${p.active ? 'badge-success' : 'badge-neutral'}`}>
                           {p.active ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
-                      <td>
+                      <td data-m="acciones">
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                           <button className="btn btn-ghost btn-xs" onClick={() => openEditProduct(p)} title="Editar">
                             <Edit size={14} />

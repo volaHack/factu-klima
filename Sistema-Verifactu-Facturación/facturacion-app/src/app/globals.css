@@ -865,6 +865,9 @@ a:hover { color: var(--accent-300); }
   padding: var(--space-1) calc(var(--space-2) + var(--safe-right)) var(--safe-bottom) calc(var(--space-2) + var(--safe-left));
 }
 .mobile-nav-items { position: relative; display: flex; justify-content: space-around; align-items: center; height: 100%; }
+/* En una tableta la barra mide 800 px: los cinco botones, juntos en el
+   centro, no repartidos de borde a borde. */
+@media (min-width: 641px) { .mobile-nav-items { max-width: 560px; margin: 0 auto; } }
 
 .mobile-nav-item {
   display: flex; flex-direction: column; align-items: center;
@@ -917,6 +920,39 @@ a:hover { color: var(--accent-300); }
 .search-bar input:focus { outline: none; border-color: var(--accent-500); box-shadow: 0 0 0 2px var(--accent-glow); }
 
 .search-bar-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+
+/* El buscador de Clientes, Almacenes y Tesorería («.search-box»), con la
+   lupa dentro de la caja. No tenía estilos: en el teléfono la lupa salía
+   en una línea suelta encima de la caja. */
+.filter-bar { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+/* Una caja de formulario más baja, para filtros dentro de una tarjeta. */
+.form-input-sm { padding-top: 6px; padding-bottom: 6px; font-size: var(--text-sm); }
+
+/* Las dos gráficas de Clientes, lado a lado cuando caben. */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: var(--space-5); align-items: start; }
+.empty-state-card {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 160px; height: 100%;
+  border: 1px dashed var(--border-color); border-radius: var(--radius-md);
+  color: var(--text-muted); font-size: var(--text-sm);
+}
+.search-box { position: relative; flex: 1 1 260px; max-width: 420px; min-width: 0; }
+.search-box > svg:first-child {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.search-box > .form-input { width: 100%; padding-left: 36px; padding-right: 40px; }
+.search-clear {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px;
+  border: 0; background: none; border-radius: var(--radius-md);
+  color: var(--text-muted); cursor: pointer;
+}
+.search-clear:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+@media (max-width: 768px) {
+  .search-box { flex-basis: 100%; max-width: none !important; }
+}
 .search-bar-shortcut {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
   font-size: 10px; color: var(--text-muted);
@@ -962,6 +998,11 @@ a:hover { color: var(--accent-300); }
   border-color: rgba(239, 68, 68, 0.15);
 }
 .btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); }
+/* «Eliminar seleccionadas» en Facturas: rojo pero sin relleno, para que
+   no pese lo mismo que la acción principal. Se usaba sin estar definido
+   y salía como un botón gris sin borde. */
+.btn-danger-outline { background: transparent; color: var(--color-danger); border-color: rgba(239, 68, 68, 0.35); }
+.btn-danger-outline:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.5); }
 
 .btn-ghost { background: transparent; color: var(--text-secondary); border: none; padding: var(--space-2); }
 .btn-ghost:hover:not(:disabled) { background: var(--bg-card-hover); color: var(--text-primary); }
@@ -1571,7 +1612,7 @@ a:hover { color: var(--accent-300); }
   font-size: var(--text-sm); color: var(--text-tertiary);
   margin-top: 6px; line-height: 1.45; max-width: 62ch;
 }
-.page-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+.page-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 
 /* Tira de cifras del encabezado: dato duro en vez de "N registros"
    diluido dentro de una frase. Separadas por un filete vertical para
@@ -1632,6 +1673,9 @@ a:hover { color: var(--accent-300); }
 /* --- Pagination --- */
 .pagination { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-color); font-size: var(--text-sm); color: var(--text-muted); }
 .pagination-controls { display: flex; align-items: center; gap: var(--space-1); }
+@media (max-width: 640px) {
+  .pagination { flex-direction: column; gap: var(--space-2); }
+}
 .pagination-btn {
   padding: 3px 9px; background: transparent;
   border: 1px solid var(--border-color); border-radius: var(--radius-sm);
@@ -1738,6 +1782,10 @@ a:hover { color: var(--accent-300); }
 .chart-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .chart-legend-name { color: var(--text-secondary); }
 .chart-legend-value { color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart-legend--lista { flex-direction: column; flex-wrap: nowrap; gap: var(--space-2); max-width: 440px; margin-left: auto; margin-right: auto; }
+.chart-legend--lista li { font-size: var(--text-xs); }
+.chart-legend--lista .chart-legend-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-legend--lista .chart-legend-value { white-space: nowrap; }
 
 /* --- Panel de análisis (dashboard) --- */
 .analisis { margin-top: var(--space-6); }
@@ -2857,12 +2905,14 @@ a:hover { color: var(--accent-300); }
   .account-trigger-name { display: none; }
 }
 
-@media (max-width: 768px) {
-  /* Prevent font scaling & tap zoom on iOS */
-  .form-input, .form-select, .form-textarea, input[type="text"], input[type="number"], select {
-    font-size: 16px !important;
-  }
-
+/* --- Navegación de pantalla táctil: teléfono y tableta ---
+   Hasta 1023 px (una tableta en vertical: 768, 810, 820, 834 px) el menú
+   lateral fijo se comía 256 px y la cabecera no cabía: la campana y la
+   cuenta se salían por la derecha en todas las pantallas. Aquí el menú
+   pasa a cajón con su botón ☰, abajo va la barra del móvil y el contenido
+   usa todo el ancho. Desde 1024 px (tableta en horizontal, portátil)
+   vuelve el menú fijo. */
+@media (max-width: 1023px) {
   /* Improved Touch Targets */
   .btn, .filter-chip, .sidebar-link, .mobile-nav-item {
     min-height: 44px;
@@ -2902,6 +2952,8 @@ a:hover { color: var(--accent-300); }
     min-height: 44px;
   }
   .mobile-nav { display: block; }
+  /* Lo último de cada página, por encima de la barra de abajo. */
+  .app-content { padding-bottom: calc(var(--mobile-nav-height) + var(--space-6)); }
 
   /* La barra flotante, fuera del teléfono.
      ------------------------------------------------------------------
@@ -2912,6 +2964,13 @@ a:hover { color: var(--accent-300); }
      factura; en escritorio sigue la flotante, que ahí no estorba a
      nada. */
   .management-bar-container { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  /* Prevent font scaling & tap zoom on iOS */
+  .form-input, .form-select, .form-textarea, input[type="text"], input[type="number"], select {
+    font-size: 16px !important;
+  }
 
   /* El nombre completo junto al avatar es lo que empujaba el menú de
      cuenta (y con él la campana) fuera del viewport en móvil — el
@@ -2963,6 +3022,9 @@ a:hover { color: var(--accent-300); }
   .page-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
   .page-header-actions { width: 100%; flex-wrap: wrap; gap: var(--space-2); }
   .page-header-actions .btn { flex: 1; justify-content: center; }
+  /* Un botón de solo icono (refrescar) se queda a su medida: estirado era
+     una pastilla ancha y vacía entre dos botones con texto. */
+  .page-header-actions .btn-icon { flex: 0 0 auto; min-width: 44px; }
   
   .filters-bar { flex-direction: column; align-items: stretch; gap: var(--space-3); }
   .filters-bar .search-bar { max-width: 100% !important; }
@@ -8446,6 +8508,15 @@ body.nav-abierta { overflow: hidden; }
   .site-nav-brand span { display: none; }
   .site-nav-cta { padding: 9px var(--space-4); font-size: var(--text-xs); }
 }
+/* El «Crear cuenta» grande del menú abierto no es el de la barra: las
+   reglas de arriba lo dejaban con la letra pequeña y el texto pegado a
+   la izquierda de un botón que ocupa todo el ancho. */
+.site-nav-panel .site-nav-panel-cta {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 56px;
+  padding: 16px var(--space-5);
+  font-size: var(--text-md);
+}
 
 /* ------------------------------------------------------------------
    Pie público
@@ -8871,6 +8942,14 @@ body.nav-abierta { overflow: hidden; }
   .home-hero-actions > * { width: 100%; }
   .cinta { max-width: none; }
 }
+/* En una tableta en vertical (700–900 px) el rollo en una columna se
+   quedaba pegado a la izquierda con media pantalla vacía a su lado. Ahí
+   vuelve a ir junto al texto, como en el escritorio, con sus tres
+   registros quietos. */
+@media (min-width: 700px) and (max-width: 900px) {
+  .home-hero-inner { grid-template-columns: minmax(0, 1fr) 272px; gap: var(--space-8); align-items: end; }
+  .cinta { max-width: none; }
+}
 
 /* ------------------------------------------------------------------
    HOME · Lo que pide la norma
@@ -8944,7 +9023,14 @@ body.nav-abierta { overflow: hidden; }
   to   { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
+/* Tres normas: o las tres en fila o una debajo de otra. Con «auto-fit»
+   una tableta las ponía de dos en dos y la tercera se quedaba sola en
+   media fila, con un borde a la izquierda que no separaba de nada. */
+@media (min-width: 781px) {
+  .home-norma-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 780px) {
+  .home-norma-list { grid-template-columns: minmax(0, 1fr); }
   .home-norma-list li + li { border-left: none; padding-left: 0; }
 }
 
@@ -13276,7 +13362,7 @@ body.nav-abierta { overflow: hidden; }
 /* Por debajo de 768 px está la barra de navegación inferior: la pantalla
    de la asistencia tiene que acabar encima de ella, o la caja de escribir
    queda tapada. */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .asis { height: calc(100dvh - var(--header-height) - var(--mobile-nav-height) - 40px); min-height: 420px; }
 }
 @media (max-width: 640px) {
@@ -13368,7 +13454,7 @@ body:has(.app-content > .asis) {
 }
 /* En el móvil la burbuja de soporte caía encima del botón de enviar.
    Aquí ya se está en un chat; en las demás pantallas sigue en su sitio. */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   body:has(.app-content > .asis) .soporte-boton,
   body:has(.app-content > .asis) .soporte-panel { display: none; }
 }
@@ -14318,7 +14404,7 @@ body:has(.app-content > .asis) {
 /* La barra flotante de escritorio (Veri*Factu · Factura · …) mide ~56 px y
    va a 24 px del borde: sin este hueco tapaba lo último de cada página
    —la paginación de una tabla, el botón de guardar de un formulario—. */
-@media (min-width: 769px) {
+@media (min-width: 1024px) {
   .app-content { padding-bottom: calc(var(--space-6) + 88px); }
 }
 
@@ -15155,7 +15241,7 @@ body {
 .soporte-enviar:disabled { opacity: .45; cursor: default; }
 .soporte-fallo { margin: 0; padding: 0 12px 10px; font-size: var(--text-xs); color: var(--color-danger); }
 /* En el móvil, por encima de la barra de navegación de abajo. */
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .soporte-boton { bottom: calc(var(--mobile-nav-height, 64px) + 14px + var(--safe-bottom, 0px)); right: 14px; width: 42px; height: 42px; }
   .soporte-panel { right: 12px; left: 12px; width: auto; bottom: calc(var(--mobile-nav-height, 64px) + 66px + var(--safe-bottom, 0px)); height: min(460px, calc(100vh - 220px)); }
 }
@@ -15519,6 +15605,9 @@ body {
 .seguridad-fila { align-items: flex-start; }
 .seguridad-fila .status-panel-title { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .seguridad-accion { margin-top: var(--space-3); gap: 6px; }
+/* «Cerrar la sesión en todos los dispositivos» no cabe en una línea de
+   un teléfono de 360 px: el texto baja de renglón en vez de salirse. */
+.status-panel-body .btn { max-width: 100%; white-space: normal; height: auto; text-align: left; }
 .seguridad-confirmar {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
   margin-top: var(--space-3); padding: var(--space-3);
@@ -15682,4 +15771,70 @@ body {
   .historico-docs .table-empty { grid-column: 1 / -1; }
   .aviso-historial { flex-wrap: wrap; }
   .aviso-historial-ir { margin-left: 0; }
+}
+
+/* ============================================================
+   TABLAS QUE EN EL TELÉFONO SON TARJETAS (.tabla-tarjetas)
+   ------------------------------------------------------------
+   Nueve columnas no caben en 360 px: la tabla se deslizaba de lado y
+   solo se veían el NIF y el nombre. En el teléfono cada fila pasa a ser
+   una tarjeta: el título y el importe arriba, debajo lo que la acompaña
+   (cliente, fechas, NIF…) seguido en una o dos líneas, el estado y las
+   acciones. Cada celda dice qué papel tiene con `data-m`:
+     titulo · importe · sub · dato (con `data-label`) · estado ·
+     acciones · menu · check · oculto
+   En pantalla ancha no cambia nada: sigue siendo la tabla de siempre.
+   ============================================================ */
+@media screen and (max-width: 640px) {
+  .tabla-tarjetas,
+  .tabla-tarjetas tbody { display: block; width: 100%; min-width: 0 !important; }
+  .tabla-tarjetas thead { display: none; }
+  .tabla-tarjetas tbody tr {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px 12px;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .tabla-tarjetas tbody tr:last-child { border-bottom: 0; }
+  /* El resaltado al pasar por encima va en la tarjeta entera: celda a
+     celda salían recuadros grises sueltos. */
+  .tabla-tarjetas tbody tr:hover td { background: transparent !important; box-shadow: none !important; }
+  .tabla-tarjetas tbody tr:hover { background: var(--bg-card-hover); }
+  /* Primera línea: título e importe, y nada más. Este hueco a todo lo
+     ancho, colocado justo detrás del importe, obliga a que lo demás
+     empiece debajo: sin él, el NIF y la ciudad se metían en la misma
+     línea y el nombre se quedaba en una columna de una letra. */
+  .tabla-tarjetas tbody tr::after { content: ''; order: 2; flex: 0 0 100%; height: 0; }
+  .tabla-tarjetas tbody td {
+    display: block;
+    padding: 0 !important;
+    border: 0 !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    white-space: normal;
+  }
+  /* El vacío de «no hay nada» ocupa la tarjeta entera. */
+  .tabla-tarjetas tbody td[colspan] { flex: 1 1 100%; padding: var(--space-6) 0 !important; }
+
+  .tabla-tarjetas td[data-m="check"] { order: 0; flex: 0 0 auto; width: auto !important; }
+  .tabla-tarjetas td[data-m="titulo"] { order: 1; flex: 1 1 0; font-weight: 600; overflow-wrap: anywhere; }
+  .tabla-tarjetas td[data-m="importe"] { order: 2; margin-left: auto; text-align: right !important; font-weight: 700; white-space: nowrap; }
+  .tabla-tarjetas td[data-m="sub"] { order: 3; flex: 1 1 100%; color: var(--text-secondary); font-size: var(--text-sm); overflow-wrap: anywhere; }
+  .tabla-tarjetas td[data-m="dato"] { order: 4; font-size: var(--text-xs); color: var(--text-secondary); }
+  .tabla-tarjetas td[data-m="dato"][data-label]::before {
+    content: attr(data-label) " ";
+    color: var(--text-muted);
+  }
+  .tabla-tarjetas td[data-m="dato"]:empty { display: none; }
+  .tabla-tarjetas td[data-m="estado"] { order: 5; }
+  .tabla-tarjetas td[data-m="acciones"] { order: 6; margin-left: auto; }
+  /* Un solo botón de menú («…») va arriba, junto al importe: solo en su
+     línea gastaba una fila entera de cada tarjeta. */
+  .tabla-tarjetas td[data-m="menu"] { order: 2; margin-right: -8px; }
+  .tabla-tarjetas td[data-m="acciones"] > div { justify-content: flex-end; }
+  .tabla-tarjetas td[data-m="oculto"] { display: none; }
+  /* Los botones de las acciones, a la medida del dedo. */
+  .tabla-tarjetas td[data-m="acciones"] .btn-xs,
+  .tabla-tarjetas td[data-m="acciones"] .btn-icon,
+  .tabla-tarjetas td[data-m="menu"] .btn-icon { min-width: 40px; min-height: 40px; justify-content: center; }
 }

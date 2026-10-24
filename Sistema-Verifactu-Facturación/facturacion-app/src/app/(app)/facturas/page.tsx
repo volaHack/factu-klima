@@ -621,7 +621,7 @@ export default function FacturasPage() {
 
       {/* Table */}
       <div className="table-container">
-        <table className="table table--sortable">
+        <table className="table table--sortable tabla-tarjetas">
           <thead>
             <tr>
               <th className="table-checkbox">
@@ -705,7 +705,7 @@ export default function FacturasPage() {
           <tbody>
             {paginated.map(inv => (
               <tr key={inv.id}>
-                <td className="table-checkbox">
+                <td className="table-checkbox" data-m="check">
                   <input
                     aria-label="Seleccionar esta fila"
                     type="checkbox"
@@ -713,7 +713,7 @@ export default function FacturasPage() {
                     onChange={() => toggleSelect(inv.id)}
                   />
                 </td>
-                <td className="mono primary">
+                <td className="mono primary" data-m="titulo">
                   <Link href={`/facturas/${inv.id}`} className="cell-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {inv.number}
                     {inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId ? (
@@ -723,10 +723,10 @@ export default function FacturasPage() {
                     )}
                   </Link>
                 </td>
-                <td className="primary">{inv.clientName}</td>
-                <td>{formatDate(inv.issueDate)}</td>
-                <td>{formatDate(inv.dueDate)}</td>
-                <td>
+                <td className="primary" data-m="sub">{inv.clientName}</td>
+                <td data-m="dato" data-label="Emitida">{formatDate(inv.issueDate)}</td>
+                <td data-m="dato" data-label="Vence">{formatDate(inv.dueDate)}</td>
+                <td data-m="estado">
                   <span className={`badge badge-${inv.status}`}>
                     <span className="badge-dot" />
                     {getStatusInfo(inv.status).label}
@@ -742,8 +742,8 @@ export default function FacturasPage() {
                     </span>
                   )}
                 </td>
-                <td className="amount">{formatCurrency(inv.total)}</td>
-                <td>
+                <td className="amount" data-m="importe">{formatCurrency(inv.total)}</td>
+                <td data-m="menu">
                   <button
                     className="btn btn-ghost btn-icon btn-sm"
                     aria-label={`Acciones para ${inv.number}`}
