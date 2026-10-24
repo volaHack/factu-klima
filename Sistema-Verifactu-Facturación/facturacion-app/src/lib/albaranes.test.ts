@@ -214,7 +214,10 @@ describe('Albaranes', () => {
     vi.unstubAllGlobals();
   });
 
-  it('expide el albarán, lo persiste y descuenta stock por línea', async () => {
+  // El stock lo descuenta la base de datos al pasar el albarán a expedido
+  // (disparadores de la migración 074): el navegador ya no lo toca, o se
+  // descontaría dos veces.
+  it('expide el albarán y lo persiste sin descontar el stock desde el navegador', async () => {
     const rpcCalls: Array<{ fn: string; args: Row }> = [];
     const store: Store = {
       albaranes: [albaranRow('a1', 'c1', 'borrador')],
@@ -226,9 +229,7 @@ describe('Albaranes', () => {
 
     expect(result.status).toBe('expedido');
     expect(store.albaranes[0].status).toBe('expedido');
-    expect(rpcCalls).toHaveLength(1);
-    expect(rpcCalls[0].fn).toBe('fn_pos_adjust_stock');
-    expect(rpcCalls[0].args).toMatchObject({ p_product_id: 'p-1', p_delta: -2 });
+    expect(rpcCalls.filter(c => /stock/.test(c.fn))).toHaveLength(0);
   });
 
   it('re-numera automáticamente un borrador cuyo número ya existe en BD', async () => {
