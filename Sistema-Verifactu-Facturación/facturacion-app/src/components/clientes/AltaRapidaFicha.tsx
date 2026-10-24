@@ -79,7 +79,7 @@ export default function AltaRapidaFicha({ textoInicial, esProveedor, existentes,
   };
 
   return createPortal(
-    <div className="ventana-busqueda-fondo" onMouseDown={onCerrar}>
+    <div className="ventana-busqueda-fondo" onMouseDown={onCerrar} onClick={e => e.stopPropagation()}>
       <div
         className="modal"
         role="dialog"

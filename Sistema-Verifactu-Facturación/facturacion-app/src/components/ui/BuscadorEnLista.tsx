@@ -64,10 +64,18 @@ export default function BuscadorEnLista<T>({
   const input = useRef<HTMLInputElement>(null);
   const idLista = useId();
 
+  // Al entrar en la caja se sigue viendo lo elegido (seleccionado, para
+  // escribir encima): mientras no se cambie, la lista enseña las
+  // sugerencias, no una búsqueda de la etiqueta entera.
+  const etiquetaElegido = elegido ? etiqueta(elegido) : '';
+  // Si se ha escrito algo: solo entonces vaciar la caja es «quitar lo elegido».
+  const editado = useRef(false);
+  const movido = useRef(false);
   const abierto = texto !== null;
+  const consulta = texto !== null && texto !== etiquetaElegido ? texto : '';
   const resultados = useMemo(
-    () => (texto?.trim() ? buscar(items, texto, MAXIMO + 1) : [...(sugeridos ?? [])].slice(0, 8)),
-    [items, texto, buscar, sugeridos],
+    () => (consulta.trim() ? buscar(items, consulta, MAXIMO + 1) : [...(sugeridos ?? [])].slice(0, 8)),
+    [items, consulta, buscar, sugeridos],
   );
   const visibles = resultados.slice(0, MAXIMO);
 
@@ -97,19 +105,23 @@ export default function BuscadorEnLista<T>({
   }, [activo, abierto, caja, idLista]);
 
   const elegir = (item: T | null) => {
+    editado.current = false;
     onSelect(item ? idDe(item) : '');
     setTexto(null);
     setCaja(null);
   };
 
   const cerrar = () => {
-    // Borrado del todo = sin elegir; lo demás vuelve a lo que había.
-    if (texto !== null && texto.trim() === '' && elegido) onSelect('');
+    // Borrado del todo a propósito = sin elegir; lo demás (entrar y salir
+    // sin escribir, abrir la lupa) vuelve a lo que había.
+    if (editado.current && texto !== null && texto.trim() === '' && elegido && !ventanaAbierta) onSelect('');
+    editado.current = false;
     setTexto(null);
     setCaja(null);
   };
 
   const alTeclear = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') movido.current = true;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (!abierto) { setTexto(''); return; }
@@ -120,7 +132,10 @@ export default function BuscadorEnLista<T>({
     } else if (e.key === 'Enter') {
       if (!abierto) return;
       e.preventDefault();
-      const directo = activo === 0 && unico ? unico(items, texto ?? '') : null;
+      // Entrar en la caja y pulsar Intro sin escribir ni moverse no cambia
+      // lo elegido por la primera sugerencia: deja lo que había.
+      if (!consulta.trim() && elegido && !movido.current) { setTexto(null); setCaja(null); return; }
+      const directo = activo === 0 && unico && consulta.trim() ? unico(items, consulta) : null;
       const item = directo ?? visibles[activo];
       if (item) elegir(item);
     } else if (e.key === 'Escape') {
@@ -133,7 +148,8 @@ export default function BuscadorEnLista<T>({
   };
 
   const abrirVentana = () => {
-    setVentanaAbierta({ texto: texto ?? '' });
+    editado.current = false;
+    setVentanaAbierta({ texto: consulta });
     setTexto(null);
     setCaja(null);
   };
@@ -168,8 +184,8 @@ export default function BuscadorEnLista<T>({
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="search"
-        onFocus={e => { setTexto(''); setActivo(0); e.currentTarget.select(); }}
-        onChange={e => { setTexto(e.target.value); setActivo(0); }}
+        onFocus={e => { movido.current = false; setTexto(etiquetaElegido); setActivo(0); e.currentTarget.select(); }}
+        onChange={e => { editado.current = true; setTexto(e.target.value); setActivo(0); }}
         onKeyDown={alTeclear}
         onBlur={cerrar}
       />
@@ -207,14 +223,14 @@ export default function BuscadorEnLista<T>({
           filtros={ventana.filtros}
           textoInicial={ventanaAbierta.texto}
           elegidoId={value}
-          onElegir={item => { setVentanaAbierta(null); onSelect(idDe(item)); input.current?.focus(); }}
+          onElegir={item => { setVentanaAbierta(null); editado.current = false; setTexto(null); setCaja(null); onSelect(idDe(item)); }}
           onCerrar={() => setVentanaAbierta(null)}
           crear={crear ? { etiqueta: crear.etiqueta, accion: crearCon } : undefined}
           baja={item => !!opcion(item).baja}
         />
       )}
 
-      {abierto && caja && createPortal(
+      {abierto && caja && (consulta.trim() || visibles.length > 0) && createPortal(
         <div
           id={idLista}
           role="listbox"
@@ -223,20 +239,20 @@ export default function BuscadorEnLista<T>({
           // Sin esto, pulsar en la lista quita el foco de la caja y se cierra antes de elegir.
           onMouseDown={e => e.preventDefault()}
         >
-          {!texto?.trim() && visibles.length === 0 ? (
+          {!consulta.trim() && visibles.length === 0 ? (
             <p className="buscador-producto-pista">{pista}</p>
           ) : visibles.length === 0 ? (
             <>
-              <p className="buscador-producto-pista">Nada con «{texto?.trim()}».</p>
+              <p className="buscador-producto-pista">Nada con «{consulta.trim()}».</p>
               {crear && (
-                <button type="button" className="buscador-producto-crear" onClick={() => crearCon(texto?.trim() ?? '')}>
-                  <Plus size={14} /> {crear.etiqueta} «{texto?.trim()}»
+                <button type="button" className="buscador-producto-crear" onClick={() => crearCon(consulta.trim())}>
+                  <Plus size={14} /> {crear.etiqueta} «{consulta.trim()}»
                 </button>
               )}
             </>
           ) : (
             <>
-              {!texto?.trim() && <p className="buscador-producto-pista">{tituloSugeridos} · o escribe para buscar</p>}
+              {!consulta.trim() && <p className="buscador-producto-pista">{tituloSugeridos} · o escribe para buscar</p>}
               {visibles.map((item, i) => {
                 const o = opcion(item);
                 return (
