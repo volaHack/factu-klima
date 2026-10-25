@@ -7,7 +7,7 @@ import Rentabilidad from '@/components/informes/Rentabilidad';
 import ChartCard from '@/components/charts/ChartCard';
 import { RankedBars, ChartLegend, AreaTrendChart, ComparisonBarChart } from '@/components/charts/Charts';
 import { SERIES, useColoresGrafica } from '@/components/charts/theme';
-import { getInvoices } from '@/lib/storage';
+import { getCompanySettings, getInvoices } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, getShortMonthName } from '@/lib/utils';
 
@@ -15,14 +15,19 @@ export default function InformesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [mounted, setMounted] = useState(false);
   const [period, setPeriod] = useState<'year' | 'quarter' | 'month'>('year');
+  // En Canarias el impuesto es el IGIC y se declara en el modelo 420, no
+  // el IVA en el 303: los rótulos siguen al régimen de la empresa.
+  const [igic, setIgic] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const allInvoices = await getInvoices();
+      const [allInvoices, ajustes] = await Promise.all([getInvoices(), getCompanySettings()]);
       setInvoices(allInvoices.filter(i => i.status !== InvoiceStatus.ANULADA));
+      setIgic(!!ajustes?.igicEnabled);
       setMounted(true);
     })();
   }, []);
+  const impuesto = igic ? 'IGIC' : 'IVA';
 
   // Monthly revenue trend
   const monthlyRevenue = useMemo(() => {
@@ -103,7 +108,7 @@ export default function InformesPage() {
         <div className="page-header-left">
           <h1 className="page-title">Informes</h1>
           <p className="page-subtitle">
-            Cómo evoluciona la facturación y qué IVA has repercutido. Se excluyen las facturas anuladas.
+            Cómo evoluciona la facturación y qué {impuesto} has repercutido. Se excluyen las facturas anuladas.
           </p>
         </div>
         <div className="page-header-actions">
@@ -127,7 +132,7 @@ export default function InformesPage() {
         </div>
         <div className="kpi-card" style={{ '--kpi-color': 'var(--color-warning)' } as React.CSSProperties}>
           <div className="kpi-card-value">{formatCurrency(totalTax)}</div>
-          <div className="kpi-card-label">IVA repercutido total</div>
+          <div className="kpi-card-label">{impuesto} repercutido total</div>
         </div>
       </div>
 
@@ -143,7 +148,7 @@ export default function InformesPage() {
           tableColumns={[
             { key: 'name', label: 'Mes' },
             { key: 'base', label: 'Base', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
-            { key: 'tax', label: 'IVA', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+            { key: 'tax', label: impuesto, align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
             { key: 'total', label: 'Total', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
           ]}
           tableRows={monthlyRevenue}
@@ -192,35 +197,35 @@ export default function InformesPage() {
         </ChartCard>
 
         <ChartCard
-          title="Resumen Fiscal por Tipo de IVA"
-          subtitle="Base imponible y cuota tributaria acumulada para el Modelo 303"
+          title={`Resumen fiscal por tipo de ${impuesto}`}
+          subtitle={`Base imponible y cuota tributaria acumulada para el modelo ${igic ? 420 : 303}`}
           height={320}
           isEmpty={taxSummary.length === 0}
-          emptyLabel="Todavía no has repercutido IVA"
+          emptyLabel={`Todavía no has repercutido ${impuesto}`}
           emptyHint={<>Se calcula solo con cada factura emitida.</>}
           tableColumns={[
-            { key: 'rate', label: 'Tipo IVA', format: (v: unknown) => `IVA ${v}%` },
+            { key: 'rate', label: `Tipo ${impuesto}`, format: (v: unknown) => `${impuesto} ${v}%` },
             { key: 'base', label: 'Base imponible', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
-            { key: 'tax', label: 'Cuota IVA', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+            { key: 'tax', label: `Cuota ${impuesto}`, align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
           ]}
           tableRows={taxSummary}
           legend={
             <ChartLegend
               items={[
                 { name: 'Base imponible total', value: formatCurrency(totalBase), color: accent },
-                { name: 'Cuota IVA total', value: formatCurrency(totalTax), color: SERIES[0] },
+                { name: `Cuota ${impuesto} total`, value: formatCurrency(totalTax), color: SERIES[0] },
               ]}
             />
           }
         >
           <ComparisonBarChart
             data={taxSummary.map(t => ({
-              name: `IVA ${t.rate}%`,
+              name: `${impuesto} ${t.rate}%`,
               series1: t.base,
               series2: t.tax
             }))}
             name1="Base imponible"
-            name2="Cuota IVA"
+            name2={`Cuota ${impuesto}`}
           />
         </ChartCard>
       </div>
