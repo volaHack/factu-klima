@@ -102,8 +102,10 @@ printf '%s\n' "$APP_DIR"/releases/*/ | sort -r | tail -n +6 | while read -r d; d
   [ "$(readlink -f "$d")" = "$ACTIVA" ] || rm -rf "$d"
 done
 
-# Tareas diarias (lo que en Vercel hace vercel.json). Se gestionan entre
-# dos marcas para no tocar el resto del crontab.
+# Tareas programadas (lo que en Vercel hace vercel.json). Se gestionan entre
+# dos marcas para no tocar el resto del crontab. Veri*Factu va cada 5
+# minutos: la remisión tiene que ser inmediata, no diaria; el propio envío
+# respeta el tiempo de espera que pide la AEAT entre lotes.
 if ! command -v crontab >/dev/null; then
   echo "· cron no está instalado en el VPS: no se programan las tareas diarias (apt install cron)"
   exit 0
@@ -118,9 +120,10 @@ if [ "$CRON" = "on" ]; then
     printf '%s\n' "$INICIO" \
       "CRON_TZ=UTC" \
       "40 6 * * * $T banco" \
-      "0 7 * * * $T verifactu" \
+      "*/5 * * * * $T verifactu" \
       "30 8 * * * $T recordatorios" \
       "5 7 * * * $T correos" \
+      "15 3 * * * $APP_DIR/current/deploy/copia-diaria.sh >> $HOME/logs/copia.log 2>&1" \
       "$FIN"
   } | crontab -
   echo "✓ Tareas diarias programadas en el crontab"
