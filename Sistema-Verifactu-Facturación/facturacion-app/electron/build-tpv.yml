@@ -4,6 +4,7 @@ directories:
   output: dist/tpv
 files:
   - main.js
+  - navegacion.js
   - preload.js
   - icon.ico
   - package.json
@@ -15,8 +16,17 @@ protocols:
   name: Klima Auth
   schemes:
     - klima
+# Un instalador sin firmar no sale: Windows lo marca como peligroso
+# (SmartScreen) y nadie puede comprobar que es nuestro. El certificado de
+# firma de código se pasa por variables (CSC_LINK + CSC_KEY_PASSWORD, o
+# firma en la nube) y NUNCA se guarda en el repositorio. Para un build de
+# prueba local: --config.forceCodeSigning=false
+forceCodeSigning: true
 win:
   icon: icon.ico
+  signtoolOptions:
+    signingHashAlgorithms: [sha256]
+  verifyUpdateCodeSignature: true
   target:
     - target: nsis
       arch:

@@ -12,7 +12,10 @@
     "build:app": "electron-builder --config build-app.yml"
   },
   "devDependencies": {
-    "electron": "^37.2.0",
+    "electron": "^45.0.0",
     "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }
