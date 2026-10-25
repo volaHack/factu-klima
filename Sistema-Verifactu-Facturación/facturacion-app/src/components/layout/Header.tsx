@@ -7,8 +7,7 @@ import { useState, useEffect } from 'react';
 import TipModal from '@/components/ui/TipModal';
 import AyudaContextual from '@/components/ayuda/AyudaContextual';
 import { getInvoices, getCompanySettings, getProducts } from '@/lib/storage';
-import { InvoiceStatus } from '@/lib/types';
-import { getDaysUntilDue } from '@/lib/utils';
+import { avisosDeLaCampana } from '@/lib/notificaciones';
 import { getPlan } from '@/lib/plans';
 import { tituloDePagina } from '@/lib/titulos';
 import AccountMenu from './AccountMenu';
@@ -47,18 +46,8 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
       setPlanName(pObj ? `Plan ${pObj.name}` : 'Plan Pro');
       setIsSubActive((settings?.subscriptionStatus || 'active') === 'active');
 
-      const overdue = invoices.filter(inv => {
-        if (inv.status === InvoiceStatus.ANULADA || inv.status === InvoiceStatus.PAGADA) return false;
-        if (inv.status === InvoiceStatus.PENDIENTE || inv.status === InvoiceStatus.EMITIDA) {
-          return getDaysUntilDue(inv.dueDate) <= 7;
-        }
-        if (inv.status === InvoiceStatus.VENCIDA) return true;
-        return false;
-      });
-
-      const lowStock = products.filter(p => p.active && (p.stockQuantity ?? 0) <= (p.lowStockThreshold ?? 5));
-
-      setTotalAlerts(overdue.length + lowStock.length);
+      // El mismo cálculo que la lista del panel: el número cuadra con ella.
+      setTotalAlerts(avisosDeLaCampana(invoices, products).avisos.length);
       setVerifactuActive(settings?.verifactuEnabled ?? true);
     })();
   }, [pathname]);
@@ -134,6 +123,8 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
             style={{ position: 'relative' }}
             title={totalAlerts > 0 ? `${totalAlerts} avisos de stock o vencimiento` : 'Sin avisos pendientes'}
             onClick={() => setShowNotifications(prev => !prev)}
+            aria-haspopup="dialog"
+            aria-expanded={showNotifications}
             aria-label={totalAlerts > 0 ? `Notificaciones: ${totalAlerts} avisos` : 'Notificaciones'}
           >
             <Bell size={20} />

@@ -1,268 +1,222 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
-import Link from 'next/link';
-import {
-  Bell, PackageX, AlertTriangle, Clock, CheckCircle2, X, ChevronRight, AlertCircle, ShieldAlert
-} from 'lucide-react';
-import { getInvoices, getProducts } from '@/lib/storage';
-import { Invoice, InvoiceStatus, Product } from '@/lib/types';
-import { formatCurrency, getDaysUntilDue } from '@/lib/utils';
+/**
+ * EL PANEL DE LA CAMPANA
+ *
+ * Se abre sobre un velo que desenfoca la app: lo de detrás se aparta y la
+ * atención va a los avisos. Va en un portal al <body> porque la cabecera
+ * lleva `backdrop-filter`, y eso convierte a la cabecera en el marco de
+ * cualquier `position: fixed` de dentro: el velo se quedaba del tamaño de
+ * la cabecera.
+ *
+ * Qué avisos salen y en qué orden: lib/notificaciones.ts (el mismo cálculo
+ * que el número de la campana).
+ */
 
-export interface NotificationItem {
-  id: string;
-  type: 'stock' | 'overdue' | 'due_soon';
-  severity: 'danger' | 'warning' | 'info';
-  title: string;
-  subtitle: string;
-  timeLabel: string;
-  href: string;
-}
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import Link from 'next/link';
+import { AlertCircle, ArrowRight, CheckCircle2, Clock, PackageX, TrendingDown, X } from 'lucide-react';
+import { getInvoices, getProducts } from '@/lib/storage';
+import { avisosDeLaCampana, type Aviso, type ResumenAvisos, type TipoAviso } from '@/lib/notificaciones';
+import { formatCurrency } from '@/lib/utils';
 
 interface NotificationsPopoverProps {
   onClose: () => void;
 }
 
+type Pestana = 'todos' | 'cobros' | 'stock';
+
+const ICONO: Record<TipoAviso, typeof AlertCircle> = {
+  vencida: AlertCircle,
+  vence: Clock,
+  agotado: PackageX,
+  stock_bajo: TrendingDown,
+};
+
+const ETIQUETA_GRUPO = { cobros: 'Por cobrar', stock: 'Stock' } as const;
+
+/** Lo que dura la salida (igual que en el CSS: .notif-velo.saliendo). */
+const SALIDA_MS = 140;
+
+function cifraDe(a: Aviso) {
+  if (a.grupo === 'cobros') return formatCurrency(a.cifra);
+  return a.cifra <= 0 ? 'Agotado' : `${a.cifra.toLocaleString('es-ES')} uds`;
+}
+
+/** «1.240 € vencidos · 2 vencen esta semana · 6 de stock», cada trozo sin partirse. */
+function partesDelResumen(r: ResumenAvisos): string[] {
+  const partes: string[] = [];
+  if (r.vencidas) partes.push(`${formatCurrency(r.importeVencido)} vencidos`);
+  if (r.vencen) partes.push(`${r.vencen} vence${r.vencen === 1 ? '' : 'n'} esta semana`);
+  if (r.stock) partes.push(`${r.stock} de stock`);
+  return partes.length ? partes : ['Nada pendiente'];
+}
+
 export default function NotificationsPopover({ onClose }: NotificationsPopoverProps) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'invoices'>('all');
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const [resumen, setResumen] = useState<ResumenAvisos | null>(null);
+  const [pestana, setPestana] = useState<Pestana>('todos');
+  const [saliendo, setSaliendo] = useState(false);
+  const ancla = useRef<HTMLSpanElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [invs, prods] = await Promise.all([getInvoices(), getProducts()]);
-        setInvoices(invs);
-        setProducts(prods);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    let vivo = true;
+    Promise.all([getInvoices(), getProducts()])
+      .then(([facturas, articulos]) => { if (vivo) setResumen(avisosDeLaCampana(facturas, articulos)); })
+      .catch(() => { if (vivo) setResumen(avisosDeLaCampana([], [])); });
+    return () => { vivo = false; };
   }, []);
 
-  // Close when clicking outside
+  // Debajo de la campana, alineado a su borde derecho. Se escribe en el
+  // estilo directamente: es medir y colocar, no estado de React.
+  useLayoutEffect(() => {
+    const colocar = () => {
+      const caja = ancla.current?.parentElement?.getBoundingClientRect();
+      const el = panel.current;
+      if (!caja || !el) return;
+      el.style.top = `${caja.bottom + 10}px`;
+      el.style.right = `${Math.max(12, window.innerWidth - caja.right)}px`;
+      el.dataset.colocado = 'si';
+    };
+    colocar();
+    window.addEventListener('resize', colocar);
+    return () => window.removeEventListener('resize', colocar);
+  }, []);
+
+  const cerrar = () => {
+    if (saliendo) return;
+    setSaliendo(true);
+    window.setTimeout(onClose, SALIDA_MS);
+  };
+  const cerrarRef = useRef(cerrar);
+  useEffect(() => { cerrarRef.current = cerrar; });
+
+  // Escape cierra; el foco entra en el panel y, al cerrar, vuelve a la campana.
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    const antes = document.activeElement as HTMLElement | null;
+    panel.current?.focus({ preventScroll: true });
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrarRef.current(); };
+    document.addEventListener('keydown', tecla);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', tecla);
+      antes?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
-  const notifications = useMemo<NotificationItem[]>(() => {
-    const list: NotificationItem[] = [];
+  const visibles = useMemo(() => {
+    const lista = resumen?.avisos ?? [];
+    return pestana === 'todos' ? lista : lista.filter(a => a.grupo === pestana);
+  }, [resumen, pestana]);
 
-    // 1. Stock notifications
-    for (const p of products) {
-      if (!p.active) continue;
-      const stock = p.stockQuantity ?? 0;
-      const threshold = p.lowStockThreshold ?? 5;
-      if (stock === 0) {
-        list.push({
-          id: `stock-out-${p.id}`,
-          type: 'stock',
-          severity: 'danger',
-          title: `Producto Agotado: ${p.name}`,
-          subtitle: `Quedan 0 ${p.unit} · Umbral mínimo: ${threshold}`,
-          timeLabel: 'Stock cero',
-          href: '/productos',
-        });
-      } else if (stock <= threshold) {
-        list.push({
-          id: `stock-low-${p.id}`,
-          type: 'stock',
-          severity: 'warning',
-          title: `Bajo Stock: ${p.name}`,
-          subtitle: `Quedan ${stock} ${p.unit} (Umbral: ${threshold})`,
-          timeLabel: 'Reponer pronto',
-          href: '/productos',
-        });
-      }
-    }
-
-    // 2. Overdue & Due Soon Invoices
-    for (const inv of invoices) {
-      if (inv.status === InvoiceStatus.ANULADA || inv.status === InvoiceStatus.PAGADA) continue;
-
-      const daysLeft = getDaysUntilDue(inv.dueDate);
-
-      if (inv.status === InvoiceStatus.VENCIDA || daysLeft < 0) {
-        const daysPast = Math.abs(daysLeft);
-        list.push({
-          id: `inv-overdue-${inv.id}`,
-          type: 'overdue',
-          severity: 'danger',
-          title: `Factura Impaga / Vencida: ${inv.number}`,
-          subtitle: `${inv.clientName} · ${formatCurrency(inv.total)} (${daysPast} día${daysPast === 1 ? '' : 's'} de retraso)`,
-          timeLabel: 'Vencida',
-          href: `/facturas/${inv.id}`,
-        });
-      } else if (daysLeft <= 7) {
-        list.push({
-          id: `inv-duesoon-${inv.id}`,
-          type: 'due_soon',
-          severity: 'warning',
-          title: `Factura Próxima a Vencer: ${inv.number}`,
-          subtitle: `${inv.clientName} · ${formatCurrency(inv.total)} (Vence en ${daysLeft} día${daysLeft === 1 ? '' : 's'})`,
-          timeLabel: daysLeft === 0 ? 'Vence hoy' : `En ${daysLeft}d`,
-          href: `/facturas/${inv.id}`,
-        });
-      }
-    }
-
-    return list;
-  }, [invoices, products]);
-
-  const filteredNotifications = useMemo(() => {
-    if (activeTab === 'stock') return notifications.filter(n => n.type === 'stock');
-    if (activeTab === 'invoices') return notifications.filter(n => n.type === 'overdue' || n.type === 'due_soon');
-    return notifications;
-  }, [notifications, activeTab]);
-
-  const stockCount = useMemo(() => notifications.filter(n => n.type === 'stock').length, [notifications]);
-  const invoiceCount = useMemo(() => notifications.filter(n => n.type === 'overdue' || n.type === 'due_soon').length, [notifications]);
-
-  const getIcon = (n: NotificationItem) => {
-    if (n.type === 'stock') {
-      return <PackageX size={18} style={{ color: n.severity === 'danger' ? 'var(--color-danger)' : 'var(--color-warning)' }} />;
-    }
-    if (n.type === 'overdue') {
-      return <AlertCircle size={18} style={{ color: 'var(--color-danger)' }} />;
-    }
-    return <Clock size={18} style={{ color: 'var(--color-warning)' }} />;
+  const cuenta = {
+    todos: resumen?.avisos.length ?? 0,
+    cobros: (resumen?.vencidas ?? 0) + (resumen?.vencen ?? 0),
+    stock: resumen?.stock ?? 0,
   };
 
-  return (
-    <div
-      ref={popoverRef}
-      className="notifications-popover animate-fade-in"
-    >
-      {/* Header */}
-      <div style={{
-        padding: 'var(--space-4) var(--space-5)',
-        background: 'linear-gradient(135deg, var(--wine-500) 0%, #2a0e17 100%)',
-        color: '#ffffff',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Bell size={18} />
-          <h4 style={{ margin: 0, fontSize: 'var(--text-md)', fontWeight: 700, color: '#ffffff' }}>
-            Centro de Notificaciones
-          </h4>
-        </div>
-        <button
-          onClick={onClose}
-          style={{ background: 'none', border: 'none', color: '#ffffff', opacity: 0.8, cursor: 'pointer', padding: 2 }}
-          aria-label="Cerrar notificaciones"
-        >
-          <X size={18} />
-        </button>
-      </div>
+  const fila = (a: Aviso) => {
+    const Icono = ICONO[a.tipo];
+    return (
+      <Link key={a.id} href={a.href} onClick={onClose} className={`notif-fila is-${a.gravedad}`}>
+        <span className="notif-fila-icono" aria-hidden="true"><Icono size={16} /></span>
+        <span className="notif-fila-texto">
+          <span className="notif-fila-titulo">{a.titulo}</span>
+          <span className="notif-fila-detalle">{a.detalle}</span>
+        </span>
+        <span className="notif-fila-cifra">{cifraDe(a)}</span>
+      </Link>
+    );
+  };
 
-      {/* Filter Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: 'var(--space-2)',
-        padding: 'var(--space-3) var(--space-4)',
-        background: 'var(--bg-tertiary)',
-        borderBottom: '1px solid var(--border-color)',
-      }}>
-        <button
-          className={`btn btn-xs ${activeTab === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setActiveTab('all')}
-          style={{ borderRadius: 'var(--radius-full)', fontWeight: 600 }}
-        >
-          Todas ({notifications.length})
-        </button>
-        <button
-          className={`btn btn-xs ${activeTab === 'stock' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setActiveTab('stock')}
-          style={{ borderRadius: 'var(--radius-full)', fontWeight: 600 }}
-        >
-          Stock ({stockCount})
-        </button>
-        <button
-          className={`btn btn-xs ${activeTab === 'invoices' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setActiveTab('invoices')}
-          style={{ borderRadius: 'var(--radius-full)', fontWeight: 600 }}
-        >
-          Impagos ({invoiceCount})
-        </button>
-      </div>
+  // Con «Todos», separado en Por cobrar / Stock.
+  const grupos = pestana === 'todos'
+    ? (['cobros', 'stock'] as const).map(g => ({ g, avisos: visibles.filter(a => a.grupo === g) })).filter(x => x.avisos.length)
+    : [{ g: pestana, avisos: visibles }];
 
-      {/* List */}
-      <div style={{ maxHeight: 360, overflowY: 'auto', padding: 'var(--space-2)' }}>
-        {loading ? (
-          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 'var(--text-xs)' }}>
-            Comprobando estado del sistema...
+  const contenido = (
+    <div className={`notif-capa${saliendo ? ' saliendo' : ''}`}>
+      <div className="notif-velo" onMouseDown={cerrar} aria-hidden="true" />
+      <div
+        ref={panel}
+        className="notifications-popover notif-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notif-titulo"
+        tabIndex={-1}
+      >
+        <header className="notif-cabecera">
+          <div className="notif-cabecera-texto">
+            <h2 id="notif-titulo" className="notif-titulo">Avisos</h2>
+            <p className="notif-resumen">
+              {resumen ? partesDelResumen(resumen).map(t => <span key={t}>{t}</span>) : 'Comprobando…'}
+            </p>
           </div>
-        ) : filteredNotifications.length === 0 ? (
-          <div style={{ padding: 'var(--space-8) var(--space-4)', textAlign: 'center' }}>
-            <CheckCircle2 size={32} style={{ color: 'var(--color-success)', margin: '0 auto var(--space-2)' }} />
-            <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
-              Todo al día
-            </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-              Sin alertas de impagos ni bajo stock pendientes.
-            </div>
-          </div>
-        ) : (
-          filteredNotifications.map(n => (
-            <Link
-              key={n.id}
-              href={n.href}
-              onClick={onClose}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 'var(--space-3)',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-md)',
-                textDecoration: 'none',
-                color: 'inherit',
-                transition: 'background 0.15s ease',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-              className="choice-card"
+          <button type="button" className="notif-cerrar" onClick={cerrar} aria-label="Cerrar avisos">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="notif-pestanas" role="tablist" aria-label="Qué avisos ver">
+          {(['todos', 'cobros', 'stock'] as const).map(p => (
+            <button
+              key={p}
+              type="button"
+              role="tab"
+              aria-selected={pestana === p}
+              className="notif-pestana"
+              onClick={() => setPestana(p)}
             >
-              <div style={{ marginTop: 2 }}>{getIcon(n)}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 2,
-                }}>
-                  <span style={{ fontWeight: 700, fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
-                    {n.title}
-                  </span>
-                  <span className={`badge ${n.severity === 'danger' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '9px', padding: '1px 5px' }}>
-                    {n.timeLabel}
-                  </span>
-                </div>
-                <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  {n.subtitle}
-                </div>
-              </div>
-              <ChevronRight size={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0, marginTop: 4 }} />
+              {p === 'todos' ? 'Todos' : ETIQUETA_GRUPO[p]}
+              <span className="notif-pestana-num">{cuenta[p]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="notif-lista" role="tabpanel">
+          {!resumen ? (
+            <div className="notif-cargando" aria-busy="true">
+              {[0, 1, 2].map(i => <span key={i} className="skeleton notif-cargando-fila" />)}
+            </div>
+          ) : visibles.length === 0 ? (
+            <div className="notif-vacio">
+              <span className="notif-vacio-icono"><CheckCircle2 size={22} /></span>
+              <strong>Todo al día</strong>
+              <span>
+                {pestana === 'stock' ? 'Ningún artículo agotado ni por debajo del mínimo.'
+                  : pestana === 'cobros' ? 'Ninguna factura vencida ni a punto de vencer.'
+                  : 'Sin cobros atrasados ni stock bajo.'}
+              </span>
+            </div>
+          ) : (
+            grupos.map(({ g, avisos }) => (
+              <section key={g} className="notif-grupo" aria-label={ETIQUETA_GRUPO[g]}>
+                {pestana === 'todos' && (
+                  <h3 className="notif-grupo-titulo">
+                    {ETIQUETA_GRUPO[g]} <span>{avisos.length}</span>
+                  </h3>
+                )}
+                {avisos.map(fila)}
+              </section>
+            ))
+          )}
+        </div>
+
+        {resumen && cuenta.cobros > 0 && pestana !== 'stock' && (
+          <footer className="notif-pie">
+            <Link href="/facturas" onClick={onClose} className="notif-pie-enlace">
+              Ver facturas <ArrowRight size={14} />
             </Link>
-          ))
+          </footer>
         )}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <span ref={ancla} hidden />
+      {typeof document !== 'undefined' && createPortal(contenido, document.body)}
+    </>
   );
 }
