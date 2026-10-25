@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Users, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import EnlacePortal from '@/components/portal/EnlacePortal';
@@ -325,7 +325,6 @@ function ClientesPageContenido() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Users /> Cartera</p>
           <h1 className="page-title">Clientes</h1>
           {clients.length > 0 && (
             <div className="page-meta">
@@ -363,24 +362,27 @@ function ClientesPageContenido() {
         </div>
       </div>
 
-      <div className="tab-group fila-desplazable" style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}>
+      <div className="segmentos fila-desplazable" role="group" aria-label="Qué fichas ver" style={{ marginBottom: 'var(--space-4)' }}>
         <button
-          className={`btn btn-sm ${tipoContactoFilter === 'todos' ? 'btn-primary' : 'btn-ghost'}`}
+          className="btn btn-sm"
+          aria-pressed={tipoContactoFilter === 'todos'}
           onClick={() => setTipoContactoFilter('todos')}
         >
-          Todos ({clients.length})
+          Todos <span className="segmentos-num">{clients.length}</span>
         </button>
         <button
-          className={`btn btn-sm ${tipoContactoFilter === 'clientes' ? 'btn-primary' : 'btn-ghost'}`}
+          className="btn btn-sm"
+          aria-pressed={tipoContactoFilter === 'clientes'}
           onClick={() => setTipoContactoFilter('clientes')}
         >
-          Clientes ({clients.filter(c => !c.esProveedor).length})
+          Clientes <span className="segmentos-num">{clients.filter(c => !c.esProveedor).length}</span>
         </button>
         <button
-          className={`btn btn-sm ${tipoContactoFilter === 'proveedores' ? 'btn-primary' : 'btn-ghost'}`}
+          className="btn btn-sm"
+          aria-pressed={tipoContactoFilter === 'proveedores'}
           onClick={() => setTipoContactoFilter('proveedores')}
         >
-          Proveedores ({clients.filter(c => c.esProveedor).length})
+          Proveedores <span className="segmentos-num">{clients.filter(c => c.esProveedor).length}</span>
         </button>
       </div>
 

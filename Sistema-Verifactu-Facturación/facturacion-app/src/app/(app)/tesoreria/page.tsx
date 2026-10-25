@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import {
-  WalletCards, ArrowDownLeft, ArrowUpRight, Calendar, Users,
+  ArrowDownLeft, ArrowUpRight, Calendar, Users,
   CheckCircle2, Clock, AlertCircle, Plus, Search, Filter,
   FileText, CreditCard, Euro, Download, Printer, RefreshCw,
   Trash2, ChevronRight, AlertTriangle
@@ -308,15 +308,13 @@ function TesoreriaPageContenido() {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-        <div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <WalletCards size={28} color="var(--color-primary)" /> Gestión de Tesorería, Cobros y Pagos
-          </h1>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-title">Gestión de Tesorería, Cobros y Pagos</h1>
           <p className="page-subtitle">Liquidación de vencimientos, control de pagos a proveedores y extractos de cuenta</p>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div className="page-header-actions">
           <button className="btn btn-primary" onClick={() => handleOpenCreatePaymentModal('cobro')}>
             <ArrowDownLeft size={16} /> Registrar Cobro (Cliente)
           </button>

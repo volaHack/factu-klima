@@ -408,7 +408,6 @@ export default function FacturasPage() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><FileText /> Emisión</p>
           <h1 className="page-title">Facturas</h1>
           {invoices.length > 0 && (
             <div className="page-meta">
@@ -518,24 +517,27 @@ export default function FacturasPage() {
       )}
 
       {/* Document Type Tabs */}
-      <div className="fila-desplazable" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+      <div className="segmentos fila-desplazable" role="group" aria-label="Tipo de documento" style={{ marginBottom: 'var(--space-4)' }}>
         <button
-          className={`btn ${docTypeFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-sm"
+          aria-pressed={docTypeFilter === 'all'}
           onClick={() => { setDocTypeFilter('all'); setPage(1); }}
         >
-          Todos ({invoices.length})
+          Todos <span className="segmentos-num">{invoices.length}</span>
         </button>
         <button
-          className={`btn ${docTypeFilter === 'facturas' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-sm"
+          aria-pressed={docTypeFilter === 'facturas'}
           onClick={() => { setDocTypeFilter('facturas'); setPage(1); }}
         >
-          <FileText size={16} /> Facturas Ordinarias ({invoices.filter(i => !(i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId)).length})
+          <FileText size={16} /> Facturas Ordinarias <span className="segmentos-num">{invoices.filter(i => !(i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId)).length}</span>
         </button>
         <button
-          className={`btn ${docTypeFilter === 'tickets' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-sm"
+          aria-pressed={docTypeFilter === 'tickets'}
           onClick={() => { setDocTypeFilter('tickets'); setPage(1); }}
         >
-          <Store size={16} /> Tickets TPV / Simplificados ({invoices.filter(i => i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId).length})
+          <Store size={16} /> Tickets TPV / Simplificados <span className="segmentos-num">{invoices.filter(i => i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId).length}</span>
         </button>
       </div>
 

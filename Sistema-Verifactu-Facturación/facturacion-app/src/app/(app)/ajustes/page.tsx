@@ -382,7 +382,6 @@ export default function AjustesPage() {
     <div className="animate-fade-in" style={{ maxWidth: 880 }}>
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Building2 /> Configuración</p>
           <h1 className="page-title">Ajustes</h1>
           <p className="page-subtitle">
             Quién eres en las facturas, cómo se numeran y por dónde cobras.

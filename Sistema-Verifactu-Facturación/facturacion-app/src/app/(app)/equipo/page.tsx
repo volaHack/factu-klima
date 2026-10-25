@@ -21,7 +21,6 @@ export default function EquipoPage() {
     <div className="page equipo-pagina">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><UsersRound /> Tu negocio</p>
           <h1 className="page-title">Equipo</h1>
           <p className="page-subtitle">
             Quién trabaja contigo y quién está usando el programa ahora. Cada persona entra con su perfil y su PIN;

@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  BookOpenCheck, CheckCircle2, AlertTriangle, XCircle, Download, Search, ArrowUpRight, Scale, Receipt,
+  CheckCircle2, AlertTriangle, XCircle, Download, Search, ArrowUpRight, Scale, Receipt,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Apuntes from './Apuntes';
@@ -138,7 +138,6 @@ export default function VistaContabilidad({
       <div className="page-header">
         <div className="page-header-left">
           {antes}
-          <p className="page-eyebrow"><BookOpenCheck /> Contabilidad automática</p>
           <h1 className="page-title">{titulo}</h1>
           <p className="page-subtitle">
             {subtitulo ?? <>Cada factura, compra, gasto, cobro y venta del TPV ya tiene su asiento en el Plan General Contable.

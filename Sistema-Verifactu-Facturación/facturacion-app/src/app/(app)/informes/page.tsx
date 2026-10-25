@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { BarChart3 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Rentabilidad from '@/components/informes/Rentabilidad';
 import ChartCard from '@/components/charts/ChartCard';
@@ -102,7 +101,6 @@ export default function InformesPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><BarChart3 /> Análisis</p>
           <h1 className="page-title">Informes</h1>
           <p className="page-subtitle">
             Cómo evoluciona la facturación y qué IVA has repercutido. Se excluyen las facturas anuladas.
