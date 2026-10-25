@@ -16,41 +16,37 @@ export interface CabeceraPanelProps {
 }
 
 /**
- * La banda de arriba del panel: de quién es, qué día es y el botón que
- * más se pulsa. Antes eran dos tarjetas (identidad y plan) que se comían
- * la primera pantalla del móvil sin decir nada que se pudiera hacer.
+ * La cabecera del panel: qué día es, de quién es y el botón que más se
+ * pulsa. Va sobre el fondo de la página, como el resto de pantallas, y no
+ * en una banda oscura: aquella ocupaba media pantalla del móvil para decir
+ * el nombre de la empresa, que quien entra ya sabe.
  */
 export default function CabeceraPanel({ nombre, sector, fecha, siguiente, plan, sellado }: CabeceraPanelProps) {
   return (
-    <header className="cabecera-panel">
-      <div className="cabecera-panel-texto">
-        <p className="cabecera-panel-ceja">
-          <CategoryIcon name={sector.icon} size={14} />
-          <span>{sector.label}</span>
-          <span className="cabecera-panel-sep" aria-hidden="true" />
-          <span className="cabecera-panel-fecha">{fecha}</span>
-        </p>
-        <h1 className="cabecera-panel-nombre">{nombre}</h1>
-        <ul className="cabecera-panel-datos">
+    <header className="panel-cabeza">
+      <div className="panel-cabeza-texto">
+        <p className="panel-cabeza-fecha">{fecha}</p>
+        <h1 className="panel-cabeza-nombre">{nombre}</h1>
+        <ul className="panel-cabeza-datos">
           <li>
-            <span className="cabecera-panel-dato-etiqueta">Siguiente</span>
-            <span className="cabecera-panel-dato-valor mono">{siguiente}</span>
+            <CategoryIcon name={sector.icon} size={13} />
+            {sector.label}
           </li>
           <li>
-            <Link href="/precios" className="cabecera-panel-dato-enlace">
-              <span className="cabecera-panel-dato-etiqueta">Plan</span>
-              <span className="cabecera-panel-dato-valor">{plan}</span>
-            </Link>
+            Próxima factura <span className="panel-cabeza-numero">{siguiente}</span>
           </li>
           {sellado && (
-            <li className="cabecera-panel-sello" title="Cada factura lleva su huella SHA-256 encadenada a la anterior">
-              <ShieldCheck size={14} aria-hidden="true" />
-              <span className="cabecera-panel-dato-valor">Facturas selladas</span>
+            <li className="panel-cabeza-sello" title="Cada factura lleva su huella SHA-256 encadenada a la anterior">
+              <ShieldCheck size={13} aria-hidden="true" />
+              Facturas selladas
             </li>
           )}
+          <li>
+            <Link href="/precios" className="panel-cabeza-enlace">Plan {plan}</Link>
+          </li>
         </ul>
       </div>
-      <Link href="/facturas/nueva" className="btn btn-primary btn-lg cabecera-panel-cta">
+      <Link href="/facturas/nueva" className="btn btn-primary panel-cabeza-cta">
         <Plus size={16} />
         Nueva factura
       </Link>

@@ -1,14 +1,11 @@
 'use client';
 
-import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { apartarParaHacienda, presentacionPendiente } from '@/lib/fiscal/apartarHacienda';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import {
-  TrendingUp, TrendingDown, Euro, Clock, Users, AlertTriangle,
-  ArrowRight, Eye, Plus, Package, FileText, Wallet, Percent, FilePen, Receipt,
-} from 'lucide-react';
+import { ArrowRight, Eye, Plus, FileText } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
@@ -34,6 +31,9 @@ import {
 } from '@/lib/panelDatos';
 import FichaLista from '@/components/dashboard/FichaLista';
 import CabeceraPanel from '@/components/dashboard/CabeceraPanel';
+import EstadoCuentas, { type CifraPanel } from '@/components/dashboard/EstadoCuentas';
+import AccesosPanel from '@/components/dashboard/AccesosPanel';
+import { modulosDe } from '@/lib/modulos';
 import ParaHoy from '@/components/dashboard/ParaHoy';
 import AvisoPlan from '@/components/dashboard/AvisoPlan';
 import ResumenPorCorreo from '@/components/dashboard/ResumenPorCorreo';
@@ -320,65 +320,76 @@ export default function DashboardPage() {
     return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
   }
 
-  /** Cifra suelta de la fila de arriba. */
-  const cifra = (icono: ReactNode, valor: string, etiqueta: string, peligro = false, extra?: ReactNode) => (
-    <div className="kpi-card" style={peligro ? { '--kpi-icon': 'var(--color-danger)' } as React.CSSProperties : undefined}>
-      <div className="kpi-card-header">
-        <div className="kpi-card-icon">{icono}</div>
-        {extra}
-      </div>
-      <div className="kpi-card-value">{valor}</div>
-      <div className="kpi-card-label">{etiqueta}</div>
-    </div>
-  );
+  /** Cada cifra suelta de arriba, como dato: la pinta `EstadoCuentas`. */
+  const datoCifra = (id: FichaId): CifraPanel | null => {
+    const facturas = (n: number) => plural(n, 'factura', 'facturas');
+    switch (id) {
+      case 'facturado_mes': {
+        const nombreMes = new Date(`${hoy}T12:00:00`).toLocaleDateString('es-ES', { month: 'long' });
+        return {
+          id, etiqueta: `Facturado en ${nombreMes}`, valor: formatCurrency(mes.total),
+          detalle: facturas(mes.facturas),
+          cambio: mes.variacion != null && mes.variacion !== 0 ? {
+            porcentaje: mes.variacion,
+            texto: `frente al 1–${mes.hastaDia} del mes pasado`,
+            titulo: `Del 1 al ${mes.hastaDia} del mes pasado se facturaron ${formatCurrency(mes.anterior)}`,
+          } : undefined,
+        };
+      }
+      case 'pendiente_cobro':
+        return { id, etiqueta: 'Por cobrar', valor: formatCurrency(kpis.pendingTotal), detalle: facturas(kpis.pendingCount), href: '/tesoreria?tab=vencimientos' };
+      case 'vencido':
+        return {
+          id, etiqueta: 'Vencido sin cobrar', valor: formatCurrency(kpis.overdueTotal),
+          detalle: kpis.overdueCount ? facturas(kpis.overdueCount) : 'Nada fuera de plazo',
+          tono: kpis.overdueCount > 0 ? 'peligro' : undefined, href: '/recordatorios',
+        };
+      case 'cobrado_mes':
+        return { id, etiqueta: 'Cobrado este mes', valor: formatCurrency(cobradoMes(invoices, hoy)), detalle: 'Lo que ha entrado de verdad' };
+      case 'margen_mes': {
+        const m = margenMes(invoices, products, hoy);
+        if (m.porcentaje == null && m.lineasSinCoste) {
+          return { id, etiqueta: 'Margen del mes', valor: '—', detalle: 'Faltan los costes de compra de los artículos' };
+        }
+        return {
+          id, etiqueta: 'Margen del mes', valor: formatCurrency(m.margen),
+          detalle: [m.porcentaje != null ? `${String(m.porcentaje).replace('.', ',')} % sobre ventas` : '', m.lineasSinCoste ? `${m.lineasSinCoste} líneas sin coste` : ''].filter(Boolean).join(' · ') || undefined,
+          tono: m.margen < 0 ? 'peligro' : undefined,
+        };
+      }
+      case 'borradores': {
+        const b = borradores(extras.documentos, hoy);
+        return {
+          id, etiqueta: 'Borradores sin emitir', valor: String(b.lista.length),
+          detalle: b.lista.length ? `${formatCurrency(b.total)} sin facturar` : 'Ninguno a medias', href: '/facturas',
+        };
+      }
+      case 'gastos_mes': {
+        const g = gastosMes(extras.gastos, hoy);
+        return { id, etiqueta: 'Gastos del mes', valor: formatCurrency(g.total), detalle: `${g.numero} ${g.numero === 1 ? 'gasto' : 'gastos'}`, href: '/gastos' };
+      }
+      default:
+        return null;
+    }
+  };
 
   /** Cada ficha del catálogo, pintada. */
   const tarjeta = (id: FichaId): ReactNode => {
     switch (id) {
-      // --- Cifras ---
+      // --- Cifras: van juntas en el estado de cuentas (`datoCifra`) ---
       case 'facturado_mes':
-        return cifra(<Euro size={20} />, formatCurrency(mes.total), `Vendido este mes · ${plural(mes.facturas, 'factura', 'facturas')}`, false,
-          mes.variacion != null && mes.variacion !== 0 && (
-            <div
-              className={`kpi-card-change ${mes.variacion >= 0 ? 'positive' : 'negative'}`}
-              title={`Frente a lo vendido del 1 al ${mes.hastaDia} del mes pasado (${formatCurrency(mes.anterior)})`}
-            >
-              {mes.variacion >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {Math.abs(mes.variacion).toFixed(1).replace('.', ',')} %
-              <span className="solo-lectores"> frente al mismo día del mes pasado</span>
-            </div>
-          ));
       case 'pendiente_cobro':
-        return cifra(<Clock size={20} />, formatCurrency(kpis.pendingTotal), `Por cobrar · ${plural(kpis.pendingCount, 'factura', 'facturas')}`);
       case 'vencido':
-        return cifra(<AlertTriangle size={20} />, formatCurrency(kpis.overdueTotal), `Vencido · ${plural(kpis.overdueCount, 'factura', 'facturas')}`, kpis.overdueCount > 0);
       case 'cobrado_mes':
-        return cifra(<Wallet size={20} />, formatCurrency(cobradoMes(invoices, hoy)), 'Cobrado este mes');
-      case 'margen_mes': {
-        const m = margenMes(invoices, products, hoy);
-        if (m.porcentaje == null && m.lineasSinCoste) {
-          return cifra(<Percent size={20} />, '—', 'Margen del mes · faltan los costes de compra de los artículos');
-        }
-        return cifra(<Percent size={20} />, formatCurrency(m.margen),
-          `Margen del mes${m.porcentaje != null ? ` · ${String(m.porcentaje).replace('.', ',')} %` : ''}${m.lineasSinCoste ? ` · ${m.lineasSinCoste} líneas sin coste` : ''}`,
-          m.margen < 0);
-      }
-      case 'borradores': {
-        const b = borradores(extras.documentos, hoy);
-        return (
-          <Link href="/facturas" className="panel-cifra-enlace">
-            {cifra(<FilePen size={20} />, String(b.lista.length), b.lista.length ? `Borradores sin emitir · ${formatCurrency(b.total)}` : 'Borradores sin emitir')}
-          </Link>
-        );
-      }
-      case 'gastos_mes': {
-        const g = gastosMes(extras.gastos, hoy);
-        return cifra(<Receipt size={20} />, formatCurrency(g.total), `Gastos del mes · ${g.numero} ${g.numero === 1 ? 'gasto' : 'gastos'}`);
-      }
+      case 'margen_mes':
+      case 'borradores':
+      case 'gastos_mes':
+        return null;
 
       // --- Grandes ---
       case 'estado_verifactu':
-        return <VerifactuStatus />;
+        // Va en la columna de la derecha, junto a los atajos (ver abajo).
+        return null;
       case 'analisis_negocio':
         return <PanelAnalisis invoices={invoices} products={products} />;
 
@@ -681,8 +692,13 @@ export default function DashboardPage() {
     }
   };
 
+  // La conexión con la AEAT va en la columna de los atajos, no a todo el
+  // ancho: es un estado que se consulta, no lo primero que hay que leer.
+  const conAeat = visibles.some(f => f.id === 'estado_verifactu');
+  const bloquesCentro = bloques.filter(b => !(b.tipo === 'grande' && b.id === 'estado_verifactu'));
+
   return (
-    <div className="animate-fade-in">
+    <div className="panel animate-fade-in">
       <CabeceraPanel
         nombre={settings?.tradeName || settings?.businessName || 'Tu negocio'}
         sector={sectorInfo}
@@ -699,52 +715,47 @@ export default function DashboardPage() {
         limite={planCheck.limit}
       />
 
-      <ParaHoy tareas={tareas} />
+      {/* Dos columnas: el trabajo a la izquierda y, a la derecha, los atajos,
+          que se quedan a mano mientras se baja por el panel. En pantallas
+          estrechas los atajos van justo después de «Para hoy». */}
+      <div className="panel-cuerpo">
+        {/* 1. ¿Cómo va mi negocio? Las cifras elegidas, en su orden. */}
+        <EstadoCuentas cifras={cifras.map(datoCifra).filter((c): c is CifraPanel => c !== null)} />
 
-      {/* Las cifras de arriba, en el orden elegido. Clientes y catálogo no
-          son fichas: son el recuento de la cartera y van siempre al final. */}
-      <div className="kpi-grid kpi-grid--panel">
-        {cifras.map(id => <Fragment key={id}>{tarjeta(id)}</Fragment>)}
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-card-icon"><Users size={20} /></div>
+        {/* 2. ¿Qué requiere mi atención? */}
+        <ParaHoy tareas={tareas} sinDocumentos={extras.documentos.length === 0} />
+
+        {/* 3. ¿Qué puedo hacer ahora? */}
+        <AccesosPanel
+          modulos={modulosDe(settings)}
+          clientesActivos={kpis.activeClients}
+          productos={kpis.totalProducts}
+          productosActivos={kpis.activeProducts}
+          estadoAeat={conAeat ? <VerifactuStatus /> : undefined}
+        />
+
+        {/* El resto, en el orden elegido: las grandes a todo el ancho de la
+            columna y las medianas en dos por turnos (ver `colocar`). */}
+        {bloquesCentro.map((b, i) => (b.tipo === 'grande' ? (
+          <div key={b.id} className="panel-bloque">{tarjeta(b.id)}</div>
+        ) : b.derecha.length === 0 ? (
+          // Una mediana sola entre dos grandes: a todo el ancho, sin media fila vacía.
+          <div key={`p${i}`} className="panel-bloque">{tarjeta(b.izquierda[0])}</div>
+        ) : (
+          // En el móvil las dos columnas se deshacen (`display: contents`) y
+          // `order` devuelve cada tarjeta a su puesto: 1, 2, 3… y no 1, 3, 5, 2, 4.
+          <div key={`p${i}`} className="charts-grid charts-grid--even panel-bloque panel-pareja">
+            <div className="stack">{b.izquierda.map((id, k) => <div key={id} style={{ order: 2 * k }}>{tarjeta(id)}</div>)}</div>
+            <div className="stack">{b.derecha.map((id, k) => <div key={id} style={{ order: 2 * k + 1 }}>{tarjeta(id)}</div>)}</div>
           </div>
-          <div className="kpi-card-value">{kpis.activeClients}</div>
-          <div className="kpi-card-label">Clientes activos</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <div className="kpi-card-icon"><Package size={20} /></div>
-          </div>
-          <div className="kpi-card-value">{kpis.totalProducts}</div>
-          <div className="kpi-card-label">Productos en catálogo · {kpis.activeProducts} activos</div>
-        </div>
+        )))}
+
+        {/* Avisos y tendencias: calculados aquí con facturas y stock */}
+        <AvisosTendencias products={products} invoices={invoices} />
+
+        {/* El resumen del mes por correo: ahora o cada día 1 */}
+        <ResumenPorCorreo />
       </div>
-
-      {/* El resto, en el orden elegido: las grandes a todo el ancho y las
-          medianas en dos columnas por turnos (ver `colocar`). */}
-      {bloques.map((b, i) => (b.tipo === 'grande' ? (
-        <div key={b.id} className="panel-bloque">{tarjeta(b.id)}</div>
-      ) : b.derecha.length === 0 ? (
-        // Una mediana sola entre dos grandes: a todo el ancho, sin media fila vacía.
-        <div key={`p${i}`} className="panel-bloque">{tarjeta(b.izquierda[0])}</div>
-      ) : (
-        // En el móvil las dos columnas se deshacen (`display: contents`) y
-        // `order` devuelve cada tarjeta a su puesto: 1, 2, 3… y no 1, 3, 5, 2, 4.
-        <div key={`p${i}`} className="charts-grid charts-grid--even panel-bloque panel-pareja">
-          <div className="stack">{b.izquierda.map((id, k) => <div key={id} style={{ order: 2 * k }}>{tarjeta(id)}</div>)}</div>
-          <div className="stack">{b.derecha.map((id, k) => <div key={id} style={{ order: 2 * k + 1 }}>{tarjeta(id)}</div>)}</div>
-        </div>
-      )))}
-
-      {/* Análisis: ritmo, cuándo se vende, cobros, clientes y productos */}
-      <PanelAnalisis invoices={invoices} products={products} />
-
-      {/* El resumen del mes por correo: ahora o cada día 1 */}
-      <ResumenPorCorreo invoices={invoices} />
-
-      {/* Avisos y tendencias IA */}
-      <AvisosTendencias products={products} invoices={invoices} />
 
       {onboardingChecked && showOnboarding && (
         <FirstStepsModal

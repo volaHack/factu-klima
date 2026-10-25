@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
 
 export interface FilaFicha {
   key: string;
@@ -19,6 +19,10 @@ const MAX = 5;
  * enlace a la pantalla donde se atienden. Vacía, lo dice con una frase en
  * vez de desaparecer: una ficha que se va y viene según los datos parece
  * que se ha roto.
+ *
+ * Las filas van regladas, como un libro: un filete entre una y otra y el
+ * valor alineado a la derecha. Antes cada fila era una cajita rellena y la
+ * ficha parecía un montón de botones.
  */
 export default function FichaLista({ titulo, subtitulo, href, enlace = 'Ver todo', vacio, filas }: {
   titulo: string;
@@ -29,7 +33,7 @@ export default function FichaLista({ titulo, subtitulo, href, enlace = 'Ver todo
   filas: FilaFicha[];
 }) {
   return (
-    <div className="chart-card">
+    <section className="chart-card ficha-lista">
       <div className="chart-header">
         <div className="chart-heading">
           <h3 className="chart-title">{titulo}</h3>
@@ -42,26 +46,29 @@ export default function FichaLista({ titulo, subtitulo, href, enlace = 'Ver todo
       {filas.length === 0 ? (
         <p className="ficha-vacia">{vacio}</p>
       ) : (
-        <div className="stats-list">
+        <ul className="lista-reglada">
           {filas.slice(0, MAX).map(f => {
             const cuerpo = (
               <>
-                <div className="stats-item-left">
-                  <div>
-                    <div className="stats-item-name">{f.principal}</div>
-                    {f.detalle && <div className="stats-item-detail">{f.detalle}</div>}
-                  </div>
-                </div>
-                {f.valor && <div className={`ficha-valor mono ${f.tono ? `is-${f.tono}` : ''}`}>{f.valor}</div>}
+                <span className="lista-reglada-texto">
+                  <span className="lista-reglada-principal">{f.principal}</span>
+                  {f.detalle && <span className="lista-reglada-detalle">{f.detalle}</span>}
+                </span>
+                {f.valor && <span className={`lista-reglada-valor${f.tono ? ` is-${f.tono}` : ''}`}>{f.valor}</span>}
+                {f.href && <ChevronRight size={14} aria-hidden="true" className="lista-reglada-flecha" />}
               </>
             );
-            return f.href
-              ? <Link key={f.key} href={f.href} className="stats-item">{cuerpo}</Link>
-              : <div key={f.key} className="stats-item">{cuerpo}</div>;
+            return (
+              <li key={f.key}>
+                {f.href
+                  ? <Link href={f.href} className="lista-reglada-fila es-enlace">{cuerpo}</Link>
+                  : <div className="lista-reglada-fila">{cuerpo}</div>}
+              </li>
+            );
           })}
-          {filas.length > MAX && <p className="ficha-mas">y {filas.length - MAX} más</p>}
-        </div>
+        </ul>
       )}
-    </div>
+      {filas.length > MAX && <p className="ficha-mas">y {filas.length - MAX} más</p>}
+    </section>
   );
 }

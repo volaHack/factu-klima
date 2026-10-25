@@ -1,20 +1,18 @@
 'use client';
 
 import { useVerifactuConnection } from '@/hooks/useVerifactuConnection';
-import { AlertCircle, CheckCircle2, ChevronRight, Clock, Plug, WifiOff } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, Clock, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 
 /**
- * Tarjeta de estado de la conexión con la AEAT (cabecera del dashboard).
+ * El estado de la conexión con la AEAT, en la columna de la derecha del
+ * panel.
  *
- * Estaba escrita íntegramente con utilidades de Tailwind
- * (`p-4 rounded-lg border border-amber-200 dark:bg-amber-950`, `flex
- * items-start gap-3`, `w-5 h-5`…), pero este proyecto no tiene Tailwind
- * instalado: ni la dependencia, ni configuración, ni directivas en
- * globals.css. Ninguna de esas clases existía, así que el componente se
- * renderizaba como divs sin estilo — sin caja, sin color, sin separación
- * — justo encima de los KPIs. Reescrito sobre `.status-panel`, que es la
- * pieza equivalente del sistema de diseño real.
+ * Antes era una banda a todo el ancho, en ámbar, con un párrafo de tres
+ * líneas: lo primero que se leía al entrar era una advertencia aunque no
+ * hubiera nada roto. Ahora es una ficha corta con el estado en una línea,
+ * el detalle debajo y adónde ir para resolverlo. El tono se sigue diciendo
+ * con palabras (y con el icono), no sólo con el color.
  */
 export function VerifactuStatus() {
   const status = useVerifactuConnection();
@@ -22,84 +20,52 @@ export function VerifactuStatus() {
   // Los días que faltan los calcula el hook, no esta función: `Date.now()`
   // durante el render devuelve algo distinto en cada repintado.
   const daysUntilExpiry = status.diasParaCaducar;
-
-  // Sin certificado: no es un error, es una tarea pendiente. El tono lo
-  // dice ("todavía", "cuando lo cargues") y el aviso va en ámbar, no en
-  // rojo, para no alarmar por algo que aún no ha fallado.
-  if (!status.hasCertificate) {
-    return (
-      <Link href="/verifactu" className="status-panel status-panel--warning">
-        <span className="status-panel-icon"><WifiOff size={18} /></span>
-        <span className="status-panel-body">
-          <span className="status-panel-title">Todavía no has conectado con la AEAT</span>
-          <span className="status-panel-text">
-            Sigues facturando con normalidad y cada factura se sella y se encadena igual. Para
-            que salgan hacia la Agencia Tributaria hace falta tu certificado digital.
-          </span>
-          <span className="status-panel-facts">
-            <span className="status-panel-fact">Cargar certificado</span>
-          </span>
-        </span>
-        <ChevronRight size={18} className="status-panel-chevron" />
-      </Link>
-    );
-  }
-
   const expiringSoon = daysUntilExpiry !== null && daysUntilExpiry < 30;
-  const tone = status.isChecking
-    ? 'info'
-    : status.isConnected
-      ? (expiringSoon ? 'warning' : 'ok')
-      : 'danger';
+
+  // Sin certificado no es un error, es una tarea pendiente: ámbar y en
+  // tono de «todavía», porque cada factura se sigue sellando igual.
+  const estado = !status.hasCertificate
+    ? {
+      tono: 'aviso', Icono: WifiOff,
+      titulo: 'AEAT sin conectar',
+      texto: 'Tus facturas se sellan igual. Para enviarlas hace falta tu certificado digital.',
+      accion: 'Cargar certificado',
+    }
+    : status.isChecking
+      ? { tono: 'info', Icono: Clock, titulo: 'Comprobando la AEAT…', texto: 'Validando el certificado instalado.', accion: 'Ver envíos' }
+      : status.isConnected
+        ? {
+          tono: expiringSoon ? 'aviso' : 'bien', Icono: CheckCircle2,
+          titulo: 'Conectado con la AEAT',
+          texto: daysUntilExpiry !== null
+            ? (daysUntilExpiry > 0
+              ? `Certificado activo · caduca en ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'día' : 'días'}`
+              : 'El certificado ha caducado')
+            : 'Certificado activo. Tus facturas se pueden enviar.',
+          accion: expiringSoon ? 'Renovar certificado' : 'Ver envíos',
+        }
+        : {
+          tono: 'peligro', Icono: AlertCircle,
+          titulo: 'Sin conexión con la AEAT',
+          texto: status.error || 'No se ha podido contactar con el servicio. Vuelve a intentarlo en unos minutos.',
+          accion: 'Revisar',
+        };
 
   return (
-    <Link href="/verifactu" className={`status-panel status-panel--${tone}`}>
-      <span className="status-panel-icon">
-        {status.isChecking
-          ? <Clock size={18} className="spin" />
-          : status.isConnected
-            ? <CheckCircle2 size={18} />
-            : <AlertCircle size={18} />}
+    <Link href="/verifactu" className={`aeat is-${estado.tono}`}>
+      <span className="aeat-cabeza">
+        <estado.Icono size={15} aria-hidden="true" className={status.isChecking ? 'spin' : undefined} />
+        <span className="aeat-titulo">{estado.titulo}</span>
       </span>
-
-      <span className="status-panel-body">
-        <span className="status-panel-title">
-          {status.isChecking
-            ? 'Comprobando la conexión…'
-            : status.isConnected
-              ? 'Conectado con la AEAT'
-              : 'Sin conexión con la AEAT'}
-        </span>
-
-        <span className="status-panel-text">
-          {status.isChecking
-            ? 'Validando el certificado instalado.'
-            : status.isConnected
-              ? 'El certificado está activo y la AEAT lo acepta. Tus facturas se pueden enviar.'
-              : status.error || 'No se ha podido contactar con el servicio. Vuelve a intentarlo en unos minutos.'}
-        </span>
-
-        <span className="status-panel-facts">
-          {status.isConnected && !status.isChecking && (
-            <span className="status-panel-fact is-success"><Plug />Certificado activo</span>
-          )}
-          {daysUntilExpiry !== null && (
-            <span className={`status-panel-fact ${expiringSoon ? 'is-warning' : ''}`}>
-              {daysUntilExpiry > 0
-                ? `Caduca en ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'día' : 'días'}`
-                : 'Certificado caducado'}
-            </span>
-          )}
-          {status.lastCheck && (
-            <span className="status-panel-fact">
-              Comprobado a las{' '}
-              {new Date(status.lastCheck).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-        </span>
+      <span className="aeat-texto">{estado.texto}</span>
+      <span className="aeat-pie">
+        {status.lastCheck && status.hasCertificate && !status.isChecking && (
+          <span className="aeat-hora">
+            Comprobado a las {new Date(status.lastCheck).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+        <span className="aeat-accion">{estado.accion} <ChevronRight size={14} aria-hidden="true" /></span>
       </span>
-
-      <ChevronRight size={18} className="status-panel-chevron" />
     </Link>
   );
 }

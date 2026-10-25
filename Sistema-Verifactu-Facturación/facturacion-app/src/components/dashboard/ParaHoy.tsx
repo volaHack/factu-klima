@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import {
-  AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, FileCheck2, FilePen, Landmark, type LucideIcon,
+  AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, FileCheck2, FilePen, FilePlus2, Landmark, Plus, type LucideIcon,
 } from 'lucide-react';
 import type { TareaHoy } from '@/lib/panelHoy';
 import { formatCurrency } from '@/lib/utils';
 
 export interface ParaHoyProps {
   readonly tareas: readonly TareaHoy[];
+  /** Aún no hay ni un documento: en vez de «todo al día», el primer paso. */
+  readonly sinDocumentos?: boolean;
 }
 
 const ICONO: Record<string, LucideIcon> = {
@@ -21,7 +23,7 @@ const ICONO: Record<string, LucideIcon> = {
 };
 
 /** Lo que toca hacer, de lo más urgente a lo menos. Cada fila lleva a donde se resuelve. */
-export default function ParaHoy({ tareas }: ParaHoyProps) {
+export default function ParaHoy({ tareas, sinDocumentos = false }: ParaHoyProps) {
   return (
     <section className="para-hoy" aria-labelledby="para-hoy-titulo">
       <div className="para-hoy-cabecera">
@@ -29,7 +31,16 @@ export default function ParaHoy({ tareas }: ParaHoyProps) {
         {tareas.length > 0 && <span className="para-hoy-cuenta">{tareas.length}</span>}
       </div>
 
-      {tareas.length === 0 ? (
+      {tareas.length === 0 && sinDocumentos ? (
+        <div className="para-hoy-vacio es-inicio">
+          <FilePlus2 size={20} aria-hidden="true" />
+          <div>
+            <p className="para-hoy-vacio-titulo">Empieza por tu primera factura</p>
+            <p className="para-hoy-vacio-texto">En cuanto emitas, aquí irá saliendo lo que haya que cobrar, presentar o revisar cada día.</p>
+          </div>
+          <Link href="/facturas/nueva" className="btn btn-primary btn-sm"><Plus size={14} /> Crear factura</Link>
+        </div>
+      ) : tareas.length === 0 ? (
         <div className="para-hoy-vacio">
           <CheckCircle2 size={20} aria-hidden="true" />
           <div>

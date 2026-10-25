@@ -9,32 +9,26 @@
  * dejarlo encendido para que llegue solo el día 1. El interruptor es el
  * mismo que el de Ajustes → Notificaciones por correo.
  *
- * A la derecha, una miniatura del correo con las barras de verdad de la
- * empresa, para que se vea qué va a llegar antes de pedirlo.
+ * Es una hoja de acción, no un anuncio: qué llega, los dos botones y el
+ * interruptor. La miniatura del correo que había a la derecha repetía las
+ * cifras que el panel ya enseña justo encima.
  */
 
 import { useMemo, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarClock, Check, Loader2, Mail, Send } from 'lucide-react';
-import type { Invoice } from '@/lib/types';
-import { facturadoYCobrado } from '@/lib/analitica';
-import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import { pedirCorreo, usePreferenciasCorreo } from '@/hooks/usePreferenciasCorreo';
 
 type Periodo = 'actual' | 'anterior';
 
-export default function ResumenPorCorreo({ invoices }: { readonly invoices: Invoice[] }) {
+export default function ResumenPorCorreo() {
   const { success, error: avisarError } = useToast();
   const { usuario, prefs, cargado, guardando, cambiar } = usePreferenciasCorreo();
   const [enviando, setEnviando] = useState<Periodo | null>(null);
   const [enviado, setEnviado] = useState<Periodo | null>(null);
 
   const hoy = useMemo(() => new Date(), []);
-  const meses = useMemo(() => facturadoYCobrado(invoices, hoy, 6), [invoices, hoy]);
-  const max = Math.max(1, ...meses.flatMap(m => [m.series1, m.series2]));
-  const este = meses[meses.length - 1];
   const nombreMes = (d: Date) => d.toLocaleDateString('es-ES', { month: 'long' });
   const mesPasado = nombreMes(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1));
 
@@ -69,57 +63,33 @@ export default function ResumenPorCorreo({ invoices }: { readonly invoices: Invo
   return (
     <section className="resumen-correo animate-fade-in" aria-labelledby="resumen-correo-titulo">
       <div className="resumen-correo-cuerpo">
-        <p className="resumen-correo-ceja"><Mail size={14} aria-hidden="true" /> Analíticas en tu correo</p>
-        <h2 id="resumen-correo-titulo" className="resumen-correo-titulo">Tu resumen, en la bandeja de entrada</h2>
+        <h2 id="resumen-correo-titulo" className="resumen-correo-titulo">
+          <Mail size={16} aria-hidden="true" /> Tu resumen por correo
+        </h2>
         <p className="resumen-correo-texto">
-          Facturado y su comparación, cobrado, gastos, resultado, mejores clientes, vencidas y la gráfica de los últimos seis meses.
+          Facturado y su comparación, cobrado, gastos, resultado, mejores clientes, vencidas y los últimos seis meses.
           {usuario?.correo ? <> Llega a <strong>{usuario.correo}</strong>.</> : null}
         </p>
-        <div className="resumen-correo-botones">
-          {boton('actual', `Mándame ${nombreMes(hoy)} hasta hoy`, 'btn-primary')}
-          {boton('anterior', `El de ${mesPasado}`, 'btn-secondary')}
-        </div>
-        <label className="resumen-correo-mensual">
-          <span className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={prefs.resumen_mensual}
-              disabled={!cargado || guardando !== null}
-              onChange={e => void alternar(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </span>
-          <span>
-            <CalendarClock size={14} aria-hidden="true" /> <strong>Recibirlo cada mes</strong>, el día 1 por la mañana
-            <Link href="/ajustes#notificaciones" className="resumen-correo-ajustes">Más avisos</Link>
-          </span>
-        </label>
       </div>
-
-      {/* La miniatura del correo, con las barras de verdad. */}
-      <div className="resumen-correo-vista" aria-hidden="true">
-        <div className="resumen-correo-sobre">
-          <div className="resumen-correo-sobre-cabeza">
-            <Image src="/klima-mark.svg" alt="" width={22} height={22} unoptimized />
-            <span>Klima<b>Facturas</b></span>
-          </div>
-          <div className="resumen-correo-sobre-titulo">
-            <small>Tu mes hasta hoy</small>
-            <strong>{formatCurrency(este?.series1 ?? 0)}</strong>
-          </div>
-          <div className="resumen-correo-barras">
-            {meses.map((m, i) => (
-              <div key={m.name} className={`resumen-correo-mes${i === meses.length - 1 ? ' es-actual' : ''}`}>
-                <div className="resumen-correo-par">
-                  <span style={{ height: `${Math.max(4, (m.series1 / max) * 100)}%` }} />
-                  <span style={{ height: `${Math.max(4, (m.series2 / max) * 100)}%` }} />
-                </div>
-                <em>{m.name}</em>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="resumen-correo-botones">
+        {boton('actual', `Mándame ${nombreMes(hoy)} hasta hoy`, 'btn-secondary')}
+        {boton('anterior', `El de ${mesPasado}`, 'btn-ghost')}
       </div>
+      <label className="resumen-correo-mensual">
+        <span className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={prefs.resumen_mensual}
+            disabled={!cargado || guardando !== null}
+            onChange={e => void alternar(e.target.checked)}
+          />
+          <span className="toggle-slider" />
+        </span>
+        <span>
+          <CalendarClock size={14} aria-hidden="true" /> <strong>Recibirlo cada mes</strong>, el día 1 por la mañana
+          <Link href="/ajustes#notificaciones" className="resumen-correo-ajustes">Más avisos</Link>
+        </span>
+      </label>
     </section>
   );
 }
