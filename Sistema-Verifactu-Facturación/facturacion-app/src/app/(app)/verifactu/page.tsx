@@ -33,7 +33,7 @@ import {
 import {
   uploadVerifactuCertificate, getActiveCertificate, revokeVerifactuCertificate,
   checkVerifactuConnection, getCompanySettings, getConfigVerifactu,
-  saveConfigVerifactu, getRegistrosVerifactu, enviarPendientesAeat,
+  saveConfigVerifactu, getRegistrosVerifactu, enviarPendientesAeat, pedirSubsanacion,
   type VerifactuCertificate, type ConfigVerifactu, type RegistroVerifactu,
   type ResultadoEnvioAeat,
 } from '@/lib/storage';
@@ -68,11 +68,19 @@ const ESTADOS: Record<RegistroVerifactu['estado'], { texto: string; clase: strin
   },
   rechazado: {
     texto: 'Rechazado', clase: 'badge-danger',
-    explica: 'La AEAT no lo ha aceptado. Hay que corregir el motivo y volver a enviarlo.',
+    explica: 'La AEAT no lo ha aceptado y NO se reenvía solo. Corrige el motivo y pulsa «Reenviar como subsanación».',
   },
   error_envio: {
     texto: 'Error de envío', clase: 'badge-danger',
     explica: 'No se pudo completar el envío. Se reintentará.',
+  },
+  subsanar: {
+    texto: 'Por subsanar', clase: 'badge-warning',
+    explica: 'Corregido y pendiente de reenviar como subsanación. Sale en el próximo envío.',
+  },
+  consta_en_aeat: {
+    texto: 'Ya constaba en la AEAT', clase: 'badge-warning',
+    explica: 'La AEAT dijo que ya tenía este registro (duplicado): un envío anterior entró y se perdió la respuesta. No se reenvía. Compruébalo en la sede de la AEAT.',
   },
 };
 
@@ -695,6 +703,26 @@ export default function VerifactuPage() {
                       <b>La AEAT dice:</b> {detalle.descripcionError}
                       {detalle.codigoError && <span className="mono"> (código {detalle.codigoError})</span>}
                     </p>
+                  )}
+                  {detalle.estado === 'rechazado' && detalle.tipoRegistro === 'alta' && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginTop: 'var(--space-2)' }}
+                      onClick={async () => {
+                        if (!confirm('¿Ya has corregido lo que la AEAT dice que falla? El registro se reenviará como subsanación en el próximo envío.')) return;
+                        try {
+                          await pedirSubsanacion(detalle.id);
+                          success('Marcado para subsanar', 'Sale en el próximo envío a la AEAT.');
+                          setDetalle(null);
+                          setRegistros(await getRegistrosVerifactu());
+                        } catch (e) {
+                          showError('No se ha podido marcar', e instanceof Error ? e.message : '');
+                        }
+                      }}
+                    >
+                      Reenviar como subsanación
+                    </button>
                   )}
                 </div>
               </div>

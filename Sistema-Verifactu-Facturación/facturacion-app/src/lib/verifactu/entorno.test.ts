@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { hayAceptadosEnProduccion, pendienteEn, soloEnviadosAPruebas } from './entorno';
 
 describe('pendienteEn', () => {
-  it('en Pruebas sólo lo pendiente, lo fallido y lo rechazado', () => {
+  it('en Pruebas sólo lo pendiente, lo fallido y lo que se pide subsanar', () => {
     expect(pendienteEn('pruebas', { estado: 'pendiente', entorno: null })).toBe(true);
-    expect(pendienteEn('pruebas', { estado: 'rechazado', entorno: 'pruebas' })).toBe(true);
+    expect(pendienteEn('pruebas', { estado: 'subsanar', entorno: 'pruebas' })).toBe(true);
+    // Un rechazo no se reenvía igual en bucle: hay que corregirlo y pedir la subsanación.
+    expect(pendienteEn('pruebas', { estado: 'rechazado', entorno: 'pruebas' })).toBe(false);
+    // Lo que la AEAT dijo que ya tenía (duplicado) no se reenvía.
+    expect(pendienteEn('pruebas', { estado: 'consta_en_aeat', entorno: 'pruebas' })).toBe(false);
     // Lo aceptado en Pruebas no se vuelve a mandar mientras se sigue probando.
     expect(pendienteEn('pruebas', { estado: 'aceptado', entorno: 'pruebas' })).toBe(false);
   });

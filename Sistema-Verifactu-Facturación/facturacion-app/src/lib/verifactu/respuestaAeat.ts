@@ -41,6 +41,13 @@ export interface LineaRespuesta {
   estado: EstadoRegistro;
   codigoError: string | null;
   descripcionError: string | null;
+  /**
+   * Si la AEAT lo rechaza por DUPLICADO, devuelve lo que ella ya tiene
+   * registrado con esa identificación (RespuestaSuministro.xsd,
+   * RegistroDuplicadoType): su petición y su estado (Correcta,
+   * AceptadaConErrores o Anulada).
+   */
+  duplicado: { idPeticion: string | null; estado: string | null } | null;
 }
 
 export interface RespuestaAeat {
@@ -65,6 +72,12 @@ function extraer(xml: string, nombre: string): string | null {
   const re = new RegExp(`<(?:[\\w.-]+:)?${nombre}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w.-]+:)?${nombre}>`);
   const m = re.exec(xml);
   return m ? desescapar(m[1].trim()) : null;
+}
+
+/** Como `extraer`, pero sin mirar dentro de un bloque (el duplicado trae sus propios códigos). */
+function extraerFuera(xml: string, bloque: string, nombre: string): string | null {
+  const sin = xml.replace(new RegExp(`<(?:[\\w.-]+:)?${bloque}(?:\\s[^>]*)?>[\\s\\S]*?</(?:[\\w.-]+:)?${bloque}>`, 'g'), '');
+  return extraer(sin, nombre);
 }
 
 function extraerTodos(xml: string, nombre: string): string[] {
@@ -121,8 +134,15 @@ export function parsearRespuestaAeat(xml: string): RespuestaAeat {
       estado: ESTADOS_REGISTRO.includes(estadoLinea as EstadoRegistro)
         ? (estadoLinea as EstadoRegistro)
         : 'Incorrecto',
-      codigoError: extraer(bloque, 'CodigoErrorRegistro'),
-      descripcionError: extraer(bloque, 'DescripcionErrorRegistro'),
+      codigoError: extraerFuera(bloque, 'RegistroDuplicado', 'CodigoErrorRegistro'),
+      descripcionError: extraerFuera(bloque, 'RegistroDuplicado', 'DescripcionErrorRegistro'),
+      duplicado: (() => {
+        const dup = extraerTodos(bloque, 'RegistroDuplicado')[0];
+        return dup === undefined ? null : {
+          idPeticion: extraer(dup, 'IdPeticionRegistroDuplicado'),
+          estado: extraer(dup, 'EstadoRegistroDuplicado'),
+        };
+      })(),
     };
   });
 
@@ -143,7 +163,25 @@ export function parsearRespuestaAeat(xml: string): RespuestaAeat {
 
 /** El estado con el que se guarda un registro tras conocer la respuesta. */
 export type EstadoLocal =
-  | 'aceptado' | 'aceptado_con_errores' | 'rechazado' | 'error_envio';
+  | 'aceptado' | 'aceptado_con_errores' | 'rechazado' | 'error_envio' | 'consta_en_aeat';
+
+/** Código de la AEAT para «registro de facturación duplicado». */
+export const CODIGO_DUPLICADO = '3000';
+
+/**
+ * El estado que se guarda para UNA línea de la respuesta.
+ *
+ * Un rechazo por duplicado (3000, o con el bloque RegistroDuplicado) quiere
+ * decir que la AEAT YA tiene un registro con esa identificación: lo normal
+ * es que un envío anterior entrara y se perdiera la respuesta. NO se da por
+ * «aceptado» —no consta que lo que tiene sea idéntico a lo nuestro—, pero
+ * tampoco se reenvía en bucle: queda como «consta_en_aeat», con el estado y
+ * la petición que la AEAT dice tener, para revisarlo.
+ */
+export function estadoLocalDeLinea(l: Pick<LineaRespuesta, 'estado' | 'codigoError' | 'duplicado'>): EstadoLocal {
+  if (l.estado === 'Incorrecto' && (l.duplicado || l.codigoError === CODIGO_DUPLICADO)) return 'consta_en_aeat';
+  return estadoLocalDe(l.estado);
+}
 
 /**
  * Traduce el estado de la AEAT al estado que guardamos.

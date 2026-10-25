@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { enviarPendientes } from '@/lib/verifactu/enviarPendientes';
+import { supabaseServicio } from '@/lib/supabase/servicio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -30,6 +31,10 @@ export async function POST() {
     );
   }
 
-  const r = await enviarPendientes(supabase, user.id);
+  // El resultado del envío lo anota el servidor con su propia credencial:
+  // desde la migración 078 una sesión de usuario no puede marcar un registro
+  // como aceptado (sólo pedir la subsanación de uno rechazado).
+  // `enviarPendientes` filtra todo por `user.id`.
+  const r = await enviarPendientes(supabaseServicio(), user.id);
   return NextResponse.json(r.cuerpo, { status: r.estado });
 }
