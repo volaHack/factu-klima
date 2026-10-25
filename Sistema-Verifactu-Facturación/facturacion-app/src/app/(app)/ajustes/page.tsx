@@ -868,7 +868,7 @@ export default function AjustesPage() {
         />
       </div>
 
-      <div className="card settings-section">
+      <div className="card settings-section" id="panel-inicio">
         <div className="settings-section-header">
           <LayoutDashboard size={18} />
           <h2 className="settings-section-title">Tu panel de inicio</h2>
