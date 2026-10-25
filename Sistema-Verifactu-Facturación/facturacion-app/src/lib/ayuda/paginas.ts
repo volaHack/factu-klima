@@ -377,6 +377,21 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     relacionadas: [{ ruta: '/clientes', texto: 'Clientes' }],
   },
   {
+    ruta: '/sincronizacion',
+    titulo: 'Cambios rechazados',
+    paraQue: 'Ver lo que el servidor no ha aceptado de lo hecho en este equipo, sin perder nada.',
+    pasos: [
+      'Lee el motivo: número repetido, una regla antifraude, la suscripción…',
+      'Corrige lo que haga falta y pulsa «Reintentar»: vuelve a la cola y sube.',
+      'Si no lo necesitas, descárgalo antes y luego «Descartar».',
+    ],
+    saber: [
+      'Nada se borra solo: lo rechazado se guarda entero en este equipo hasta que alguien decide.',
+      'Un borrador, albarán o pedido con un número que ya usó otro equipo se renumera solo; una factura emitida nunca.',
+    ],
+    relacionadas: [{ ruta: '/facturas', texto: 'Facturas' }],
+  },
+  {
     ruta: '/rutas-reparto',
     titulo: 'Rutas de reparto',
     paraQue: 'Agrupar clientes por zona o por día y sacar la hoja de reparto de la jornada.',

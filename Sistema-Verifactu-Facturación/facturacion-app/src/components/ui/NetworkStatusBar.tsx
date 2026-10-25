@@ -3,11 +3,12 @@
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { seEstaSaliendo } from '@/lib/seguridad/sesionCliente';
 import { useEffect } from 'react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { Wifi, WifiOff, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function NetworkStatusBar() {
   const {
-    isOnline, isSyncing, pendingChanges, triggerSync,
+    isOnline, isSyncing, pendingChanges, triggerSync, errores,
   } = useOnlineStatus();
 
   // Cerrar la pestaña con cambios sin subir no los borra (siguen en este
@@ -26,8 +27,26 @@ export default function NetworkStatusBar() {
 
   // Sin avisos cuando todo está al día. Los fallos pasajeros de sync se
   // reintentan solos en segundo plano: aquí nunca se enseña un error.
-  if (isOnline && !isSyncing && pendingChanges === 0) {
+  if (isOnline && !isSyncing && pendingChanges === 0 && errores === 0) {
     return null;
+  }
+
+  // Lo rechazado no desaparece: se queda en la bandeja hasta que alguien lo
+  // mire. Mientras haya algo, se avisa.
+  if (isOnline && !isSyncing && pendingChanges === 0) {
+    return (
+      <div className="network-bar network-bar--offline">
+        <div className="network-bar-content">
+          <span className="network-bar-icon"><AlertTriangle size={14} /></span>
+          <span className="network-bar-label">
+            {errores === 1 ? '1 cambio rechazado' : `${errores} cambios rechazados`}
+          </span>
+          <span className="network-bar-separator">·</span>
+          <span className="network-bar-detail">guardado en este equipo, sin subir</span>
+        </div>
+        <Link className="network-bar-action" href="/sincronizacion">Revisar</Link>
+      </div>
+    );
   }
 
   const getStatusConfig = () => {

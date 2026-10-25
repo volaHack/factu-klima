@@ -6,6 +6,8 @@ vi.mock('@/lib/offlineDb', () => ({
   removeSyncItem: vi.fn(async () => {}),
   updateSyncItem: vi.fn(async () => {}),
   getSyncQueueCount: vi.fn(async () => 0),
+  getSyncErrores: vi.fn(async () => []),
+  moverAErrores: vi.fn(async () => {}),
   setMeta: vi.fn(async () => {}),
 }));
 
@@ -19,6 +21,7 @@ import {
   removeSyncItem,
   updateSyncItem,
   getSyncQueueCount,
+  moverAErrores,
   setMeta,
 } from './offlineDb';
 import { processSyncQueue, getSyncState, clearSyncRejections } from './syncEngine';
@@ -140,6 +143,7 @@ describe('syncEngine — facturas por grupo (padre→líneas→sellado)', () => 
     vi.mocked(removeSyncItem).mockReset();
     vi.mocked(updateSyncItem).mockReset();
     vi.mocked(setMeta).mockReset();
+    vi.mocked(moverAErrores).mockReset();
     clearSyncRejections();
   });
 
@@ -185,7 +189,7 @@ describe('syncEngine — facturas por grupo (padre→líneas→sellado)', () => 
     expect(getSyncState().lastError).toBeNull();
   });
 
-  it('saca de la cola la factura y sus hijos cuando el sellado falla (rechazo permanente visible)', async () => {
+  it('cuando el sellado falla, la factura pasa a la bandeja de errores (no se tira) y avisa de que quedó en borrador', async () => {
     const invoiceId = 'inv-1';
     const queue = [
       queueItem('invoices', invoiceItem(invoiceId, 'borrador')),
@@ -200,9 +204,67 @@ describe('syncEngine — facturas por grupo (padre→líneas→sellado)', () => 
 
     await processSyncQueue();
 
+    // El borrador y su detalle subieron y salen de la cola; la emisión
+    // rechazada NO se borra: se mueve entera a la bandeja.
     const removed = (removeSyncItem as Mock).mock.calls.map(c => c[0]);
-    expect(removed).toHaveLength(queue.length);
+    expect(removed).toHaveLength(3);
+    expect(removed).not.toContain(queue[3].id);
+    expect(moverAErrores).toHaveBeenCalledTimes(1);
+    const entrada = vi.mocked(moverAErrores).mock.calls[0][0];
+    expect(entrada.item.id).toBe(queue[3].id);
+    expect(entrada.item.data.status).toBe('emitida');
+    expect(entrada.motivo).toMatch(/BORRADOR/);
     expect(getSyncState().rejections.length).toBeGreaterThan(0);
+  });
+
+  it('un rechazo antes de subir nada guarda en la bandeja la factura CON sus líneas', async () => {
+    const invoiceId = 'inv-dup';
+    const queue = [
+      queueItem('invoice_line_items', lineItem(invoiceId)),
+      queueItem('invoice_tax_breakdown', taxRow(invoiceId)),
+      queueItem('invoices', invoiceItem(invoiceId, 'emitida')),
+    ];
+    vi.mocked(getSyncQueue).mockResolvedValue(queue as never);
+    // El servidor rechaza hasta el borrador (p. ej. número repetido, 23505).
+    const supabase = makeSupabase({}, (table) => table === 'invoices');
+    (createClient as Mock).mockReturnValue(supabase);
+
+    await processSyncQueue();
+
+    expect(moverAErrores).toHaveBeenCalledTimes(1);
+    const entrada = vi.mocked(moverAErrores).mock.calls[0][0];
+    expect(entrada.item.data.id).toBe(invoiceId);
+    expect(entrada.hijos.map(h => h.table).sort()).toEqual(['invoice_line_items', 'invoice_tax_breakdown']);
+    expect(removeSyncItem).not.toHaveBeenCalled();
+  });
+
+  it('un corte a mitad de subir las líneas no hace que se pierdan: siguen en la cola', async () => {
+    const invoiceId = 'inv-corte';
+    const queue = [
+      queueItem('invoice_line_items', { ...lineItem(invoiceId), id: 'li-1' }),
+      queueItem('invoice_line_items', { ...lineItem(invoiceId), id: 'li-2' }),
+      queueItem('invoices', invoiceItem(invoiceId, 'borrador')),
+    ];
+    vi.mocked(getSyncQueue).mockResolvedValue(queue as never);
+    const base = makeSupabase();
+    // Fallo de red (sin código) al escribir la segunda línea.
+    let n = 0;
+    const supabase = {
+      ...base,
+      from: (t: string) => {
+        const c = base.from(t);
+        if (t !== 'invoice_line_items') return c;
+        return { ...c, upsert: async (row: Row) => (++n === 2 ? { data: null, error: { code: '', message: 'Failed to fetch' } } : c.upsert(row)) };
+      },
+    };
+    (createClient as Mock).mockReturnValue(supabase);
+
+    await processSyncQueue();
+
+    const removed = (removeSyncItem as Mock).mock.calls.map(c => c[0]);
+    expect(removed).toEqual([]);
+    expect(moverAErrores).not.toHaveBeenCalled();
+    expect(updateSyncItem).toHaveBeenCalled();
   });
 
   it('descarta items obsoletos cuando la factura ya está sellada en el servidor', async () => {

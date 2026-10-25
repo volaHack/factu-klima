@@ -641,9 +641,22 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     tax_amount: tb.amount,
   }));
 
-  // 1. Save to IndexedDB
+  // ¿Este guardado EMITE (pasa de borrador a sellada)? Eso sólo vale con
+  // el servidor delante: él pone la huella, la posición en la cadena y el
+  // registro Veri*Factu, y es el que puede decir que no (suscripción,
+  // antifraude, número repetido). Antes, sin conexión, la emisión se
+  // quedaba en la cola y la factura salía como emitida en este equipo
+  // aunque el servidor acabara guardándola como borrador. Y con conexión,
+  // la copia local se marcaba emitida ANTES de que el servidor contestara.
   const offlineAvail = await isOfflineDbAvailable();
-  if (offlineAvail) {
+  const previa = offlineAvail ? await getById<{ status?: InvoiceStatus; tipo?: TipoDocumento; sentido?: SentidoDocumento }>('invoices', current.id) : undefined;
+  const seEmiteAhora = sealed && !(previa && isSealed({ status: previa.status as InvoiceStatus, tipo: previa.tipo, sentido: previa.sentido }));
+  if (seEmiteAhora && !navigator.onLine) {
+    throw new Error(EMISION_SIN_CONEXION);
+  }
+
+  // 1. Save to IndexedDB (lo que se emite, sólo cuando el servidor lo confirma: abajo)
+  if (offlineAvail && !seEmiteAhora) {
     await put('invoices', {
       ...buildInvRow(current),
       _lineItems: lineRows,
@@ -680,6 +693,11 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
         if (error) throw new Error(translateDbError(error));
       }
     }
+
+    // Emitida y confirmada por el servidor: ahora sí, también en este equipo.
+    if (offlineAvail && seEmiteAhora) {
+      await put('invoices', { ...buildInvRow(current), _lineItems: lineRows, _taxBreakdown: taxRows });
+    }
   } else {
     // 3. Queue for later sync
     await enqueueSyncAction('upsert', 'invoices', buildInvRow(current));
@@ -697,6 +715,10 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
   refrescarStock();
   return current;
 }
+
+/** Por qué no se emite sin conexión, dicho igual en todas partes. */
+export const EMISION_SIN_CONEXION =
+  'Sin conexión no se puede emitir: la huella y el registro Veri*Factu los genera el servidor en el momento de emitir.';
 
 /**
  * Emite una factura: es el punto de no retorno.
@@ -729,6 +751,24 @@ async function emitirFactura(invoice: Invoice): Promise<Invoice> {
   }
   if (invoice.lineItems.length === 0) {
     throw new Error('No se puede emitir una factura sin líneas.');
+  }
+
+  // SIN CONEXIÓN NO SE EMITE
+  //
+  // Emitir es lo que genera la huella y el registro Veri*Factu, y eso lo
+  // hace el servidor en el momento en que recibe la factura. Sin conexión,
+  // el registro se generaba al sincronizar —horas o días después de
+  // entregar la factura— y con un número que otro equipo podía haber usado.
+  // No se puede garantizar una emisión válida así, de modo que no se hace:
+  // la factura se guarda como BORRADOR en este equipo (sube sola y se
+  // emite cuando vuelva la conexión). Un ticket del TPV no se guarda: la
+  // venta se puede aparcar y cobrar al volver la red.
+  if (!navigator.onLine) {
+    if (!invoice.posSessionId) {
+      await saveInvoice({ ...invoice, status: InvoiceStatus.BORRADOR });
+      throw new Error(`${EMISION_SIN_CONEXION} Se ha guardado como borrador en este equipo: emítela cuando vuelva la conexión.`);
+    }
+    throw new Error(`${EMISION_SIN_CONEXION} Aparca la venta y cóbrala cuando vuelva la conexión.`);
   }
 
   // Lo que decide si la factura ya está emitida es el estado PERSISTIDO, no
@@ -4103,7 +4143,17 @@ export async function checkVerifactuConnection(): Promise<{
 
 export type EstadoRegistroVerifactu =
   | 'pendiente' | 'enviando' | 'aceptado'
-  | 'aceptado_con_errores' | 'rechazado' | 'error_envio';
+  | 'aceptado_con_errores' | 'rechazado' | 'error_envio'
+  | 'subsanar' | 'consta_en_aeat';
+
+/** Pide reenviar como subsanación un alta rechazada (ver /api/verifactu/subsanar). */
+export async function pedirSubsanacion(registroId: string): Promise<void> {
+  const r = await fetch('/api/verifactu/subsanar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: registroId }),
+  });
+  const cuerpo = await r.json().catch(() => ({})) as { ok?: boolean; error?: string };
+  if (!r.ok || !cuerpo.ok) throw new Error(cuerpo.error ?? 'No se ha podido pedir la subsanación.');
+}
 
 export interface RegistroVerifactu {
   id: string;

@@ -5,7 +5,7 @@
 // ============================================================
 
 const DB_NAME = 'facturacion-offline';
-const DB_VERSION = 16;
+const DB_VERSION = 17;
 
 export type SyncAction = 'upsert' | 'delete';
 export type SyncTable = 'invoices' | 'clients' | 'products' | 'company_settings' |
@@ -26,6 +26,34 @@ export interface SyncQueueItem {
   retries: number;
   /** Último intento fallido: se usa para espaciar los reintentos (backoff). */
   lastAttemptAt?: number;
+  /**
+   * La cuenta que hizo el cambio. La cola sobrevive a cerrar sesión (ver
+   * `vaciarTodo`), así que cada cambio dice de quién es: sólo se sube con
+   * la sesión de esa cuenta. Los de antes de esto no lo llevan y se tratan
+   * como de quien esté dentro, que es como se trataban.
+   */
+  owner?: string;
+}
+
+/**
+ * LA BANDEJA DE ERRORES
+ *
+ * Lo que el servidor rechaza de forma definitiva (un número repetido, una
+ * regla antifraude, una suscripción vencida) ya no se tira: pasa aquí con
+ * todo lo que llevaba —la fila y sus líneas— para poder revisarlo,
+ * descargarlo o volver a intentarlo. Sólo sale de aquí si alguien lo
+ * descarta a mano.
+ */
+export interface SyncErrorEntry {
+  id: string;
+  /** El cambio que falló, entero. */
+  item: SyncQueueItem;
+  /** Lo que iba con él (las líneas y el desglose de una factura). */
+  hijos: SyncQueueItem[];
+  motivo: string;
+  codigo: string | null;
+  at: number;
+  owner?: string;
 }
 
 // ============================================================
@@ -174,6 +202,11 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('escandallos')) {
         db.createObjectStore('escandallos', { keyPath: 'id' });
       }
+
+      // Store nueva (v17) — bandeja de errores de sincronización
+      if (!db.objectStoreNames.contains(STORE_ERRORES)) {
+        db.createObjectStore(STORE_ERRORES, { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = (event) => {
@@ -224,12 +257,22 @@ async function usuarioDeLaSesion(): Promise<string | null> {
   }
 }
 
+/**
+ * Lo que NUNCA se vacía: la cola de lo que aún no ha subido y la bandeja
+ * de errores. Ahí puede haber facturas, tickets o cobros que sólo existen en
+ * este equipo; borrarlos al cerrar sesión, al caducar o revocar la sesión o
+ * al entrar otra cuenta era perderlos. Cada cambio lleva su dueño (`owner`)
+ * y sólo se sube, se ve o se cuenta con la sesión de esa cuenta.
+ */
+export const STORE_ERRORES = 'syncErrores';
+const NUNCA_SE_VACIAN = new Set(['syncQueue', STORE_ERRORES]);
+
 function vaciarTodo(db: IDBDatabase): Promise<void> {
   // TODAS las tablas que haya en la base, no una lista escrita a mano: la
   // lista se quedó en 16 mientras la base crecía, y lo que no estaba en
   // ella —vendedores, almacenes, gastos, obras, lotes…— sobrevivía a la
-  // limpieza y pasaba a la siguiente cuenta.
-  const nombres = Array.from(db.objectStoreNames);
+  // limpieza y pasaba a la siguiente cuenta. Salvo la cola y la bandeja.
+  const nombres = Array.from(db.objectStoreNames).filter(n => !NUNCA_SE_VACIAN.has(n));
   if (nombres.length === 0) return Promise.resolve();
   const tx = db.transaction(nombres, 'readwrite');
   for (const nombre of nombres) tx.objectStore(nombre).clear();
@@ -293,6 +336,12 @@ async function comprobarDuenio(db: IDBDatabase): Promise<void> {
 /** Para las pruebas: olvida qué cuenta se comprobó. */
 export function _olvidarDuenioComprobado(): void {
   duenioComprobado = null;
+}
+
+/** Para las pruebas: suelta la conexión para abrir una base nueva. */
+export function _cerrarParaPruebas(): void {
+  dbInstance?.close();
+  dbInstance = null;
 }
 
 async function getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
@@ -376,6 +425,7 @@ export async function enqueueSyncAction(
   table: SyncTable,
   data: Record<string, unknown>,
 ): Promise<void> {
+  const owner = duenioComprobado ?? await usuarioDeLaSesion();
   const item: SyncQueueItem = {
     id: `${table}_${data.id || 'settings'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     action,
@@ -383,6 +433,7 @@ export async function enqueueSyncAction(
     data,
     timestamp: Date.now(),
     retries: 0,
+    ...(owner ? { owner } : {}),
   };
   await put('syncQueue', item);
   // Aviso al motor de sincronización (syncEngine lo escucha). Va por un
@@ -393,12 +444,20 @@ export async function enqueueSyncAction(
 /** Se dispara cada vez que entra algo en la cola de sincronización. */
 export const EVENTO_COLA = 'klima:cola-sincronizacion';
 
+/** ¿Es de esta cuenta? Lo de antes de apuntar dueño, de quien esté dentro. */
+export function esDe(owner: string | undefined, usuario: string | null): boolean {
+  return !owner || !usuario || owner === usuario;
+}
+
+/** La cola de la cuenta que hay ahora (sin sesión: toda). */
 export async function getSyncQueue(): Promise<SyncQueueItem[]> {
   const db = await openDB();
+  const usuario = duenioComprobado ?? await usuarioDeLaSesion();
   const tx = db.transaction('syncQueue', 'readonly');
   const store = tx.objectStore('syncQueue');
   const index = store.index('timestamp');
-  return promisifyRequest<SyncQueueItem[]>(index.getAll());
+  const todos = await promisifyRequest<SyncQueueItem[]>(index.getAll());
+  return todos.filter(i => esDe(i.owner, usuario));
 }
 
 export async function removeSyncItem(id: string): Promise<void> {
@@ -410,8 +469,68 @@ export async function updateSyncItem(item: SyncQueueItem): Promise<void> {
 }
 
 export async function getSyncQueueCount(): Promise<number> {
-  const store = await getStore('syncQueue');
-  return promisifyRequest<number>(store.count());
+  return (await getSyncQueue()).length;
+}
+
+// ============================================================
+// BANDEJA DE ERRORES
+// ============================================================
+
+/**
+ * Pasa a la bandeja un cambio rechazado y lo que iba con él, y los saca de
+ * la cola en la MISMA transacción: o queda en un sitio o en el otro, nunca
+ * en ninguno (un corte de luz a mitad no lo pierde).
+ */
+export async function moverAErrores(entrada: SyncErrorEntry): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(['syncQueue', STORE_ERRORES], 'readwrite');
+  tx.objectStore(STORE_ERRORES).put(entrada);
+  const cola = tx.objectStore('syncQueue');
+  cola.delete(entrada.item.id);
+  for (const h of entrada.hijos) cola.delete(h.id);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+/** La bandeja de la cuenta que hay ahora, lo más reciente primero. */
+export async function getSyncErrores(): Promise<SyncErrorEntry[]> {
+  const db = await openDB();
+  const usuario = duenioComprobado ?? await usuarioDeLaSesion();
+  const todos = await promisifyRequest<SyncErrorEntry[]>(
+    db.transaction(STORE_ERRORES, 'readonly').objectStore(STORE_ERRORES).getAll(),
+  );
+  return todos.filter(e => esDe(e.owner, usuario)).sort((a, b) => b.at - a.at);
+}
+
+/** Vuelve a meter en la cola un error de la bandeja (para reintentarlo). */
+export async function reintentarError(id: string): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(['syncQueue', STORE_ERRORES], 'readwrite');
+  const bandeja = tx.objectStore(STORE_ERRORES);
+  const req = bandeja.get(id);
+  req.onsuccess = () => {
+    const e = req.result as SyncErrorEntry | undefined;
+    if (!e) return;
+    const cola = tx.objectStore('syncQueue');
+    // Los hijos primero en el tiempo: el motor sube la factura con ellos.
+    for (const h of e.hijos) cola.put({ ...h, retries: 0, lastAttemptAt: undefined });
+    cola.put({ ...e.item, retries: 0, lastAttemptAt: undefined, timestamp: Date.now() });
+    bandeja.delete(id);
+  };
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+/** Lo único que borra de la bandeja: que alguien lo descarte a mano. */
+export async function descartarError(id: string): Promise<void> {
+  const db = await openDB();
+  await promisifyRequest(db.transaction(STORE_ERRORES, 'readwrite').objectStore(STORE_ERRORES).delete(id));
 }
 
 // ============================================================
