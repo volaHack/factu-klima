@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Send, AlertTriangle, CheckCircle2, XCircle, Clock, RefreshCw, Info,
-  Search, Filter, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Search, Filter, X, ChevronUp, ChevronDown,
   FileText, ShieldCheck, ChevronDown as Expand,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,6 +14,8 @@ import type { Invoice, CompanySettings } from '@/lib/types';
 import { calcularResumenSii, facturasSinEstadoSii } from '@/lib/sii';
 import { resolverTipoFacturaFiscal, resolverClaveRegimenIva } from '@/lib/constants';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 // ============================================================
 // TIPOS LOCALES
@@ -78,8 +80,6 @@ export default function SiiPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Paginación
-  const [page, setPage] = useState(1);
-  const pageSize = 15;
 
   // Fila expandida
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -151,11 +151,11 @@ export default function SiiPage() {
   }, [filtered, sortField, sortDir]);
 
   // Paginación
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paginated = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const showingFrom = sorted.length > 0 ? (safePage - 1) * pageSize + 1 : 0;
-  const showingTo = Math.min(safePage * pageSize, sorted.length);
+  const paginado = usePaginacion(sorted, {
+    clave: 'sii',
+    reinicio: [tab, search, statusFilter.join(','), sortField, sortDir].join('|'),
+  });
+  const paginated = paginado.visibles;
 
   // Compliance bar data
   const totalFacts = emitidas.length + recibidas.length;
@@ -177,20 +177,17 @@ export default function SiiPage() {
       setSortField(field);
       setSortDir('desc');
     }
-    setPage(1);
   }, [sortField]);
 
   const toggleStatusFilter = useCallback((status: SiiFilterStatus) => {
     setStatusFilter(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
-    setPage(1);
   }, []);
 
   const clearFilters = useCallback(() => {
     setSearch('');
     setStatusFilter([]);
-    setPage(1);
   }, []);
 
   const hasFilters = search.trim() !== '' || statusFilter.length > 0;
@@ -364,10 +361,10 @@ export default function SiiPage() {
 
       {/* Tabs emitidas / recibidas */}
       <div className="tabs" style={{ marginBottom: 'var(--space-4)' }}>
-        <button className={`tab ${tab === 'emitidas' ? 'active' : ''}`} onClick={() => { setTab('emitidas'); setPage(1); setExpandedId(null); }}>
+        <button className={`tab ${tab === 'emitidas' ? 'active' : ''}`} onClick={() => { setTab('emitidas'); setExpandedId(null); }}>
           Libro de facturas emitidas ({emitidas.length})
         </button>
-        <button className={`tab ${tab === 'recibidas' ? 'active' : ''}`} onClick={() => { setTab('recibidas'); setPage(1); setExpandedId(null); }}>
+        <button className={`tab ${tab === 'recibidas' ? 'active' : ''}`} onClick={() => { setTab('recibidas'); setExpandedId(null); }}>
           Libro de facturas recibidas ({recibidas.length})
         </button>
       </div>
@@ -381,7 +378,7 @@ export default function SiiPage() {
             placeholder="Nº factura, cliente o NIF…"
             aria-label="Buscar en el libro SII"
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="cluster-sm">
@@ -467,53 +464,7 @@ export default function SiiPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        {sorted.length > pageSize && (
-          <div className="pagination">
-            <span>
-              Mostrando {showingFrom}–{showingTo} de {sorted.length}
-            </span>
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                disabled={safePage <= 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                aria-label="Página anterior"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 7) {
-                  pageNum = i + 1;
-                } else if (safePage <= 4) {
-                  pageNum = i + 1;
-                } else if (safePage >= totalPages - 3) {
-                  pageNum = totalPages - 6 + i;
-                } else {
-                  pageNum = safePage - 3 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    className={`pagination-btn ${safePage === pageNum ? 'active' : ''}`}
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              <button
-                className="pagination-btn"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                aria-label="Página siguiente"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+        <Paginacion paginado={paginado} etiqueta="facturas" />
       </div>
     </div>
   );

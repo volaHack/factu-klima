@@ -1672,20 +1672,56 @@ a:hover { color: var(--accent-300); }
 }
 .filter-chip:hover, .filter-chip.active { border-color: var(--accent-500); color: var(--accent-400); background: var(--accent-glow); }
 
-/* --- Pagination --- */
-.pagination { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-color); font-size: var(--text-sm); color: var(--text-muted); }
-.pagination-controls { display: flex; align-items: center; gap: var(--space-1); }
-@media (max-width: 640px) {
-  .pagination { flex-direction: column; gap: var(--space-2); }
+/* --- Paginación (components/ui/Paginacion) ---
+   Al pie de la lista, separada por un filete. A la izquierda qué filas se
+   ven y cuántas por página; a la derecha, moverse. La página actual va
+   rellena y además marcada con aria-current. En el teléfono los números
+   se cambian por «3 / 10»: diez botones de 32px no caben. */
+.paginacion {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-color);
+  font-size: var(--text-sm); color: var(--text-tertiary);
 }
-.pagination-btn {
-  padding: 3px 9px; background: transparent;
+.paginacion-info { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.paginacion-rango { font-variant-numeric: tabular-nums; }
+.paginacion-rango strong { font-weight: 600; color: var(--text-primary); }
+.paginacion-tamano { display: inline-flex; align-items: center; gap: 6px; }
+.paginacion-tamano select {
+  height: 30px; padding: 0 24px 0 8px;
+  font: inherit; font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--text-primary);
+  background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b5a60' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center;
   border: 1px solid var(--border-color); border-radius: var(--radius-sm);
-  color: var(--text-tertiary); cursor: pointer;
-  font-size: var(--text-xs); font-weight: 600;
+  appearance: none; cursor: pointer;
 }
-.pagination-btn:hover:not(:disabled) { border-color: var(--accent-500); color: var(--accent-400); }
-.pagination-btn.active { background: var(--accent-500); border-color: var(--accent-500); color: white; }
+.paginacion-tamano select:hover { border-color: var(--border-color-hover); }
+.paginacion-tamano select:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+.paginacion-botones { display: flex; align-items: center; gap: 4px; }
+.paginacion-num, .paginacion-paso {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 32px; height: 32px; padding: 0 8px;
+  font: inherit; font-size: var(--text-sm); font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.paginacion-paso { padding: 0 10px; border-color: var(--border-color); background: var(--bg-card); }
+.paginacion-num:hover, .paginacion-paso:hover:not(:disabled) { background: var(--bg-card-hover); color: var(--text-primary); }
+.paginacion-paso:disabled { opacity: 0.45; cursor: not-allowed; }
+.paginacion-num.es-actual { background: var(--accent-500); color: #fff; cursor: default; }
+.paginacion-num:focus-visible, .paginacion-paso:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+.paginacion-hueco { min-width: 20px; text-align: center; color: var(--text-muted); }
+.paginacion-movil { display: none; min-width: 64px; text-align: center; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .paginacion { flex-direction: column; align-items: stretch; }
+  .paginacion-info { justify-content: space-between; }
+  .paginacion-botones { justify-content: space-between; }
+  .paginacion-num, .paginacion-hueco { display: none; }
+  .paginacion-movil { display: inline; }
+  .paginacion-paso { height: 40px; flex: 1; max-width: 140px; }
+}
 
 /* ============================================================
    CHARTS — contenedor, estado vacío, leyenda y vista en tabla
@@ -4105,7 +4141,6 @@ a:focus-visible {
 
 .btn:focus-visible,
 .filter-chip:focus-visible,
-.pagination-btn:focus-visible,
 .tab:focus-visible,
 .chart-toggle:focus-visible,
 .sidebar-link:focus-visible,
@@ -4123,7 +4158,6 @@ a:focus-visible {
    tarjetas informativas (.card, .kpi-card) que no reaccionan a un
    clic, para no sugerir una interactividad que no existe. */
 .filter-chip:active,
-.pagination-btn:active:not(:disabled),
 .tab:active,
 .chart-toggle:active,
 .onboarding-sector-card:active,

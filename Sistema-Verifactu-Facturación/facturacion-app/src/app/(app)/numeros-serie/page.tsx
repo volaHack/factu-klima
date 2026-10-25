@@ -11,6 +11,8 @@ import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'unidades' | 'buscar';
 
@@ -142,6 +144,9 @@ export default function NumerosSeriePage() {
     }
   };
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagNumeros = usePaginacion(numeros, { clave: 'numeros-serie', reinicio: '' });
+
   if (!mounted) return <PageSkeleton />;
 
   return (
@@ -200,7 +205,7 @@ export default function NumerosSeriePage() {
                       hint="Da de alta cada unidad al recibirla, con su número de serie."
                     />
                   ) : (
-                    numeros.map(n => {
+                    pagNumeros.visibles.map(n => {
                       const fin = finGarantia(n);
                       return (
                         <tr key={n.id}>
@@ -234,6 +239,7 @@ export default function NumerosSeriePage() {
                   )}
                 </tbody>
               </table>
+              <Paginacion paginado={pagNumeros} etiqueta="unidades" />
             </div>
           </div>
         </>

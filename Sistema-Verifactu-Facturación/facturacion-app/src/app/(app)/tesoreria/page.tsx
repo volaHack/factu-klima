@@ -24,6 +24,8 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'vencimientos' | 'cobros' | 'pagos' | 'extractos';
 
@@ -303,6 +305,13 @@ function TesoreriaPageContenido() {
     if (valor === 'cobro' || valor === 'pago') handleOpenCreatePaymentModal(valor);
   });
 
+  const cobrosLista = useMemo(() => cobrosPagos.filter(c => c.tipo === 'cobro'), [cobrosPagos]);
+  const pagosLista = useMemo(() => cobrosPagos.filter(c => c.tipo === 'pago'), [cobrosPagos]);
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagVencimientos = usePaginacion(vencimientos, { clave: 'tesoreria-vencimientos', reinicio: [filtroSentido, searchTerm].join('|') });
+  const pagCobros = usePaginacion(cobrosLista, { clave: 'tesoreria-cobros', reinicio: '' });
+  const pagPagos = usePaginacion(pagosLista, { clave: 'tesoreria-pagos', reinicio: '' });
+
   if (!mounted || loading) return <PageSkeleton />;
 
   return (
@@ -492,7 +501,7 @@ function TesoreriaPageContenido() {
                 {vencimientos.length === 0 ? (
                   <TableEmpty colSpan={9} icon={CheckCircle2} title="No hay facturas pendientes de cobro o pago" hint="Todas las facturas están al día o totalmente liquidadas." />
                 ) : (
-                  vencimientos.map(v => (
+                  pagVencimientos.visibles.map(v => (
                     <tr key={v.invoice.id}>
                       <td>
                         <strong>{v.invoice.number}</strong>
@@ -539,6 +548,7 @@ function TesoreriaPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={pagVencimientos} etiqueta="vencimientos" />
           </div>
         </div>
       )}
@@ -563,7 +573,7 @@ function TesoreriaPageContenido() {
                 {cobrosPagos.filter(c => c.tipo === 'cobro').length === 0 ? (
                   <TableEmpty colSpan={7} icon={ArrowDownLeft} title="No hay cobros registrados" hint="Registra los cobros recibidos de tus clientes para liquidar sus facturas." />
                 ) : (
-                  cobrosPagos.filter(c => c.tipo === 'cobro').map(c => (
+                  pagCobros.visibles.map(c => (
                     <tr key={c.id}>
                       <td><strong>{c.number}</strong></td>
                       <td>{formatDate(c.fecha)}</td>
@@ -598,6 +608,7 @@ function TesoreriaPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={pagCobros} etiqueta="cobros" />
           </div>
         </div>
       )}
@@ -622,7 +633,7 @@ function TesoreriaPageContenido() {
                 {cobrosPagos.filter(c => c.tipo === 'pago').length === 0 ? (
                   <TableEmpty colSpan={7} icon={ArrowUpRight} title="No hay pagos a proveedores registrados" hint="Registra los pagos emitidos a tus proveedores para liquidar compras." />
                 ) : (
-                  cobrosPagos.filter(c => c.tipo === 'pago').map(c => (
+                  pagPagos.visibles.map(c => (
                     <tr key={c.id}>
                       <td><strong>{c.number}</strong></td>
                       <td>{formatDate(c.fecha)}</td>
@@ -657,6 +668,7 @@ function TesoreriaPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={pagPagos} etiqueta="pagos" />
           </div>
         </div>
       )}

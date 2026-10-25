@@ -20,6 +20,8 @@ import { ALBARAN_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import AvisoHistorial from '@/components/documentos/AvisoHistorial';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'total' | 'status';
 
@@ -33,8 +35,6 @@ export default function AlbaranesPage() {
   const [sortField, setSortField] = useState<SortField>('issueDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [converting, setConverting] = useState(false);
@@ -82,8 +82,12 @@ export default function AlbaranesPage() {
     return result;
   }, [albaranes, search, statusFilter, sortField, sortDir]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Por páginas; se vuelve a la primera al cambiar búsqueda, filtros u orden.
+  const paginado = usePaginacion(filtered, {
+    clave: 'albaranes',
+    reinicio: [search, statusFilter.join(','), sortField, sortDir].join('|'),
+  });
+  const paginated = paginado.visibles;
 
   const counts = useMemo(() => ({
     preparacion: albaranes.filter(a => a.status === 'borrador').length,
@@ -92,7 +96,7 @@ export default function AlbaranesPage() {
   }), [albaranes]);
 
   const hasFilters = search.length > 0 || statusFilter.length > 0;
-  const clearFilters = () => { setSearch(''); setStatusFilter([]); setPage(1); };
+  const clearFilters = () => { setSearch(''); setStatusFilter([]); };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -105,7 +109,6 @@ export default function AlbaranesPage() {
 
   const toggleStatus = (status: AlbaranStatus) => {
     setStatusFilter(prev => (prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]));
-    setPage(1);
   };
 
   const toggleSelect = (id: string) => {
@@ -280,7 +283,7 @@ export default function AlbaranesPage() {
             placeholder="Nº de albarán, cliente o NIF"
             aria-label="Buscar albaranes"
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="cluster-sm">
@@ -467,35 +470,8 @@ export default function AlbaranesPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <div className="pagination-info">
-              Viendo {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} de {filtered.length}
-            </div>
-            <div className="pagination-controls">
-              <button className="pagination-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                let pageNum = i + 1;
-                if (totalPages > 5) {
-                  if (page <= 3) pageNum = i + 1;
-                  else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = page - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    className={`pagination-btn ${page === pageNum ? 'active' : ''}`}
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              <button className="pagination-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
-            </div>
-          </div>
-        )}
+        {/* Por páginas */}
+        <Paginacion paginado={paginado} etiqueta="albaranes" />
       </div>
 
       {counts.porFacturar > 0 && (

@@ -19,6 +19,9 @@ import {
 } from '@/lib/historico';
 import { useToast } from '@/hooks/useToast';
 import { casaTexto } from '@/lib/casaTexto';
+import { guardarTamano, tamanoGuardado, type Paginado } from '@/hooks/usePaginacion';
+import { paginaValida, rango, totalPaginas, type TamanoPagina } from '@/lib/paginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type DocumentoSortField = CampoDocumentos;
 
@@ -100,8 +103,10 @@ function DocumentosContent() {
   const [buscado, setBuscado] = useState('');
   // La página del historial va con los filtros y el orden con que se pidió.
   const [hist, setHist] = useState<{ clave: string; filas: FilaListadoHistorico[]; total: number; error: string } | null>(null);
-  const [pagina, setPagina] = useState({ clave: '', limite: POR_PAGINA });
-  const [cargandoMas, setCargandoMas] = useState(false);
+  // La página que se mira va con los filtros y el orden con que se pidió:
+  // al cambiarlos se vuelve a la primera.
+  const [pagina, setPagina] = useState({ clave: '', numero: 1 });
+  const [porPagina, setPorPagina] = useState<TamanoPagina>(() => tamanoGuardado('documentos'));
 
   const { success, error: toastError } = useToast();
 
@@ -133,9 +138,17 @@ function DocumentosContent() {
     }
   };
 
+  // La primera carga: `loading` ya empieza en verdadero, así que no se
+  // toca hasta que llegan los documentos.
   useEffect(() => {
-    cargar();
+    let vivo = true;
+    getInvoices()
+      .then(all => { if (vivo) setDocumentos(all); })
+      .catch(() => toastError('Error al cargar los documentos'))
+      .finally(() => { if (vivo) setLoading(false); });
     origenDelHistorico().then(setOrigenHistorico);
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al entrar
   }, []);
 
   // El historial se busca en la base de datos: al dejar de escribir, no con cada letra.
@@ -143,11 +156,6 @@ function DocumentosContent() {
     const t = setTimeout(() => setBuscado(search), 300);
     return () => clearTimeout(t);
   }, [search]);
-
-  useEffect(() => {
-    if (tipoParam) setTipoFiltro(tipoParam);
-    if (sentidoParam) setSentidoFiltro(sentidoParam);
-  }, [tipoParam, sentidoParam]);
 
   const filtrados = useMemo(() => {
     if (origenFiltro === 'historico') return [];
@@ -189,39 +197,46 @@ function DocumentosContent() {
   const histActual = pideHistorial && hist?.clave === clave ? hist : null;
   const histMostrado = pideHistorial ? hist : null;
   const histCargando = origenHistorico === undefined || (pideHistorial && histActual === null);
-  const limite = pagina.clave === clave ? pagina.limite : POR_PAGINA;
   const nombreOrigen = origenHistorico ? (NOMBRE_ORIGEN[origenHistorico] ?? 'el programa anterior') : '';
 
-  const { visibles, totalFilas } = useMemo(() => {
+  // Lo de Klima y lo del historial, mezclado en un solo orden. Del historial
+  // sólo se tiene lo pedido hasta ahora, así que lo que iría detrás de su
+  // última fila podría ir detrás de las que faltan: eso no se cuenta como
+  // seguro hasta que lleguen.
+  const { seguras, totalFilas } = useMemo(() => {
     const deKlima: Fila[] = filtrados.map(doc => ({ de: 'klima', doc }));
-    if (!histMostrado) return { visibles: deKlima, totalFilas: deKlima.length };
+    if (!histMostrado) return { seguras: deKlima, totalFilas: deKlima.length };
     const delHistorial: Fila[] = histMostrado.filas.map(doc => ({ de: 'historico', doc }));
     const juntas = mezclarOrdenadas(deKlima, delHistorial, (a, b) => compararFilas(a, b, sortField, sortDir));
-    // Lo que va detrás del último del historial que ha llegado podría ir
-    // detrás de los que aún faltan: no se enseña hasta que lleguen.
-    let seguras = juntas;
-    if (histMostrado.filas.length < histMostrado.total) {
-      let ultimo = -1;
-      for (let i = juntas.length - 1; i >= 0; i--) if (juntas[i].de === 'historico') { ultimo = i; break; }
-      seguras = juntas.slice(0, ultimo + 1);
-    }
-    return { visibles: seguras.slice(0, limite), totalFilas: deKlima.length + histMostrado.total };
-  }, [filtrados, histMostrado, sortField, sortDir, limite]);
+    if (histMostrado.filas.length >= histMostrado.total) return { seguras: juntas, totalFilas: deKlima.length + histMostrado.total };
+    let ultimo = -1;
+    for (let i = juntas.length - 1; i >= 0; i--) if (juntas[i].de === 'historico') { ultimo = i; break; }
+    return { seguras: juntas.slice(0, ultimo + 1), totalFilas: deKlima.length + histMostrado.total };
+  }, [filtrados, histMostrado, sortField, sortDir]);
 
-  const verMas = async () => {
-    const nuevo = limite + POR_PAGINA;
-    setPagina({ clave, limite: nuevo });
-    if (!histActual || histActual.filas.length >= Math.min(nuevo, histActual.total)) return;
+  const claveLista = JSON.stringify([clave, origenFiltro, search]);
+  const numPagina = paginaValida(pagina.clave === claveLista ? pagina.numero : 1, totalFilas, porPagina);
+  const visibles = seguras.slice((numPagina - 1) * porPagina, numPagina * porPagina);
+  // Para enseñar la página N hacen falta, como mucho, N × tamaño filas del
+  // historial: se piden las que falten al llegar a ella, no antes.
+  const necesarias = numPagina * porPagina;
+  const faltanDelHistorial = !!histActual && histActual.filas.length < Math.min(necesarias, histActual.total) && seguras.length < Math.min(necesarias, totalFilas);
+  useEffect(() => {
+    if (!faltanDelHistorial || !histActual) return;
     const pedida = histActual;
-    setCargandoMas(true);
-    try {
-      const r = await listarHistorico(filtroHist, { campo: sortField, asc: sortDir === 'asc' }, pedida.filas.length, nuevo - pedida.filas.length);
-      setHist(h => (h === pedida ? { ...h, filas: [...h.filas, ...r.filas], total: r.total } : h));
-    } catch (e) {
-      setHist(h => (h === pedida ? { ...h, error: e instanceof Error ? e.message : String(e) } : h));
-    } finally {
-      setCargandoMas(false);
-    }
+    let vivo = true;
+    listarHistorico(filtroHist, { campo: sortField, asc: sortDir === 'asc' }, pedida.filas.length, Math.min(necesarias, pedida.total) - pedida.filas.length)
+      .then(r => { if (vivo) setHist(h => (h === pedida ? { ...h, filas: [...h.filas, ...r.filas], total: r.total } : h)); })
+      .catch(e => { if (vivo) setHist(h => (h === pedida ? { ...h, error: e instanceof Error ? e.message : String(e) } : h)); });
+    return () => { vivo = false; };
+  }, [faltanDelHistorial, histActual, necesarias, filtroHist, sortField, sortDir]);
+
+  const paginado: Paginado<Fila> = {
+    visibles, pagina: numPagina, porPagina, total: totalFilas,
+    totalPaginas: totalPaginas(totalFilas, porPagina),
+    ...rango(numPagina, totalFilas, porPagina),
+    irA: n => setPagina({ clave: claveLista, numero: n }),
+    cambiarPorPagina: n => { setPorPagina(n); guardarTamano('documentos', n); setPagina({ clave: claveLista, numero: 1 }); },
   };
 
   const handleDelete = async (id: string, number: string) => {
@@ -438,7 +453,7 @@ function DocumentosContent() {
               </tr>
             </thead>
             <tbody className={histMostrado && !histActual ? 'tabla-atenuada' : undefined} aria-busy={histCargando || undefined}>
-              {visibles.length === 0 && histCargando ? (
+              {visibles.length === 0 && (histCargando || faltanDelHistorial) ? (
                 <tr><td colSpan={9} className="tabla-cargando">Cargando los documentos…</td></tr>
               ) : visibles.length === 0 ? (
                 <TableEmpty
@@ -573,26 +588,13 @@ function DocumentosContent() {
             </tbody>
           </table>
         </div>
+        <Paginacion paginado={paginado} etiqueta="documentos" />
       </div>
 
-      {histMostrado && (
-        <div className="historico-pie">
-          {(histActual?.error || hist?.error) && (
-            <p className="callout callout-danger" role="alert" style={{ width: '100%', margin: 0 }}>
-              No se pudieron leer los documentos de {nombreOrigen}: {histActual?.error || hist?.error}
-            </p>
-          )}
-          <span className="card-subtitle" style={{ marginTop: 0 }} aria-live="polite">
-            {histCargando || cargandoMas
-              ? 'Cargando…'
-              : `${visibles.length.toLocaleString('es-ES')} de ${totalFilas.toLocaleString('es-ES')}`}
-          </span>
-          {!histCargando && !cargandoMas && visibles.length < totalFilas && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void verMas()}>
-              Ver {Math.min(POR_PAGINA, totalFilas - visibles.length).toLocaleString('es-ES')} más
-            </button>
-          )}
-        </div>
+      {(histActual?.error || hist?.error) && (
+        <p className="callout callout-danger" role="alert" style={{ marginTop: 'var(--space-3)' }}>
+          No se pudieron leer los documentos de {nombreOrigen}: {histActual?.error || hist?.error}
+        </p>
       )}
     </div>
   );

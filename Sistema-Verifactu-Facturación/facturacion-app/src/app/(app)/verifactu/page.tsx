@@ -41,6 +41,8 @@ import { CompanySettings } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import PageSkeleton from '@/components/ui/PageSkeleton';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 function formatEsDate(value: string | number | Date): string {
   return new Date(value).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -269,6 +271,9 @@ export default function VerifactuPage() {
       setCheckingConnection(false);
     }
   };
+
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagRegistros = usePaginacion(registros, { clave: 'verifactu-registros', reinicio: '' });
 
   if (!mounted || !companySettings || !config) {
     return <PageSkeleton variant="list" label="Cargando el envío a la AEAT" />;
@@ -627,7 +632,7 @@ export default function VerifactuPage() {
                   </td>
                 </tr>
               ) : (
-                registros.map(r => {
+                pagRegistros.visibles.map(r => {
                   const estado = ESTADOS[r.estado];
                   return (
                     <tr
@@ -660,6 +665,7 @@ export default function VerifactuPage() {
               )}
             </tbody>
           </table>
+          <Paginacion paginado={pagRegistros} etiqueta="registros" />
         </div>
       </section>
 

@@ -22,6 +22,8 @@ import { comprobarNifYNombre, esClienteEspanol } from '@/lib/validation/identida
 import { useToast } from '@/hooks/useToast';
 import { NOMBRE_TIPO_FISCAL, tipoFiscalDe } from '@/lib/facturaElectronica/ambito';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
@@ -156,6 +158,12 @@ function ClientesPageContenido() {
 
     return list;
   }, [clients, search, tipoContactoFilter, clientStats, sortField, sortDir]);
+
+  // Por páginas: con cientos de fichas la tabla entera se hacía eterna.
+  const paginado = usePaginacion(filtered, {
+    clave: 'clientes',
+    reinicio: [search, tipoContactoFilter, sortField, sortDir].join('|'),
+  });
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -525,7 +533,7 @@ function ClientesPageContenido() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(client => {
+            {paginado.visibles.map(client => {
               const stats = getClientStats(client.id);
               const matchedTarifa = settings?.tarifas?.find(t => t.id === client.tarifaId);
               const hasDiscounts = client.defaultDiscounts && (client.defaultDiscounts[0] > 0 || client.defaultDiscounts[1] > 0 || client.defaultDiscounts[2] > 0);
@@ -598,6 +606,7 @@ function ClientesPageContenido() {
             )}
           </tbody>
         </table>
+        <Paginacion paginado={paginado} etiqueta={tipoContactoFilter === 'proveedores' ? 'proveedores' : tipoContactoFilter === 'clientes' ? 'clientes' : 'fichas'} />
       </div>
 
       {showModal && (

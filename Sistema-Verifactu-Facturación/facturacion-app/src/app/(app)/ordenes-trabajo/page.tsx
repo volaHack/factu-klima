@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import CajaBusqueda from '@/components/ui/CajaBusqueda';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 const ETIQUETA_ESTADO: Record<EstadoOrdenTrabajo, string> = {
   abierta: 'Abierta', en_curso: 'En curso', cerrada: 'Cerrada',
@@ -128,6 +130,9 @@ export default function OrdenesTrabajoPage() {
     }
   };
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagOrdenes = usePaginacion(visibles, { clave: 'ordenes-trabajo', reinicio: [filtroEstado, busca].join('|') });
+
   if (!mounted) return <PageSkeleton />;
 
   return (
@@ -174,7 +179,7 @@ export default function OrdenesTrabajoPage() {
                   hint="Registra el aviso en cuanto llegue: fecha, cliente y qué hay que hacer."
                 />
               ) : (
-                visibles.map(o => {
+                pagOrdenes.visibles.map(o => {
                   const dias = diasAbierta(o);
                   const atrasada = o.estado !== 'cerrada' && dias > 7;
                   const siguiente = siguienteEstado(o.estado);
@@ -229,6 +234,7 @@ export default function OrdenesTrabajoPage() {
               )}
             </tbody>
           </table>
+          <Paginacion paginado={pagOrdenes} etiqueta="órdenes" />
         </div>
       </div>
 

@@ -14,6 +14,8 @@ import { generateId, formatDate, getToday } from '@/lib/utils';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'lotes' | 'trazabilidad';
 
@@ -167,6 +169,9 @@ export default function LotesPage() {
     }
   };
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagLotes = usePaginacion(lotes, { clave: 'lotes', reinicio: '' });
+
   if (!mounted) return <PageSkeleton />;
 
   return (
@@ -226,7 +231,7 @@ export default function LotesPage() {
                       hint="Da de alta un lote al recibir mercancía de un producto que se controle por lotes."
                     />
                   ) : (
-                    lotes.map(l => {
+                    pagLotes.visibles.map(l => {
                       const dias = diasHastaCaducidad(l);
                       return (
                         <tr key={l.id} className={sePuedeVender(l) ? '' : 'lote-fila-bloqueada'}>
@@ -298,6 +303,7 @@ export default function LotesPage() {
                   )}
                 </tbody>
               </table>
+              <Paginacion paginado={pagLotes} etiqueta="lotes" />
             </div>
           </div>
         </>

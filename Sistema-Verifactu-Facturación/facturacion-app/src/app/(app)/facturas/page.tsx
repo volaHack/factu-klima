@@ -25,6 +25,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 import AvisoHistorial from '@/components/documentos/AvisoHistorial';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
@@ -42,8 +44,6 @@ export default function FacturasPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -206,8 +206,12 @@ export default function FacturasPage() {
     return result;
   }, [invoices, search, docTypeFilter, statusFilter, sortField, sortDir]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Por páginas; se vuelve a la primera al cambiar búsqueda, filtros u orden.
+  const paginado = usePaginacion(filtered, {
+    clave: 'facturas',
+    reinicio: [search, docTypeFilter, statusFilter.join(','), sortField, sortDir].join('|'),
+  });
+  const paginated = paginado.visibles;
 
   // Cifras de la tira del encabezado. Un listado de facturas sin el
   // dinero pendiente a la vista obliga a sumar de cabeza.
@@ -223,7 +227,7 @@ export default function FacturasPage() {
   }, [invoices]);
 
   const hasFilters = search.length > 0 || statusFilter.length > 0 || docTypeFilter !== 'all';
-  const clearFilters = () => { setSearch(''); setStatusFilter([]); setDocTypeFilter('all'); setPage(1); };
+  const clearFilters = () => { setSearch(''); setStatusFilter([]); setDocTypeFilter('all'); };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -239,7 +243,6 @@ export default function FacturasPage() {
     setStatusFilter(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
-    setPage(1);
   };
 
   const toggleSelect = (id: string) => {
@@ -521,21 +524,21 @@ export default function FacturasPage() {
         <button
           className="btn btn-sm"
           aria-pressed={docTypeFilter === 'all'}
-          onClick={() => { setDocTypeFilter('all'); setPage(1); }}
+          onClick={() => setDocTypeFilter('all')}
         >
           Todos <span className="segmentos-num">{invoices.length}</span>
         </button>
         <button
           className="btn btn-sm"
           aria-pressed={docTypeFilter === 'facturas'}
-          onClick={() => { setDocTypeFilter('facturas'); setPage(1); }}
+          onClick={() => setDocTypeFilter('facturas')}
         >
           <FileText size={16} /> Facturas Ordinarias <span className="segmentos-num">{invoices.filter(i => !(i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId)).length}</span>
         </button>
         <button
           className="btn btn-sm"
           aria-pressed={docTypeFilter === 'tickets'}
-          onClick={() => { setDocTypeFilter('tickets'); setPage(1); }}
+          onClick={() => setDocTypeFilter('tickets')}
         >
           <Store size={16} /> Tickets TPV / Simplificados <span className="segmentos-num">{invoices.filter(i => i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId).length}</span>
         </button>
@@ -550,7 +553,7 @@ export default function FacturasPage() {
             placeholder="Nº de factura, cliente o NIF"
             aria-label="Buscar facturas"
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="cluster-sm">
@@ -829,35 +832,7 @@ export default function FacturasPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <div className="pagination-info">
-              Viendo {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} de {filtered.length}
-            </div>
-            <div className="pagination-controls">
-              <button className="pagination-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                let pageNum = i + 1;
-                if (totalPages > 5) {
-                  if (page <= 3) pageNum = i + 1;
-                  else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = page - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    className={`pagination-btn ${page === pageNum ? 'active' : ''}`}
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              <button className="pagination-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
-            </div>
-          </div>
-        )}
+        <Paginacion paginado={paginado} etiqueta="facturas" />
       </div>
 
       {deleteTargetInvoice && (

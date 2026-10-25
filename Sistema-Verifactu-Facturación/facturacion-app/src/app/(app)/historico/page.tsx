@@ -10,7 +10,7 @@
  * se sabe de quién era el documento o se quiere ver el año completo.
  *
  * Solo consulta (ver lib/historico). Las sumas las hace la base de datos y
- * la lista llega a trozos de cincuenta: son miles de documentos y en el
+ * la lista llega por páginas, pedidas de una en una: son miles de documentos y en el
  * móvil no pueden bajar todos de golpe.
  */
 
@@ -19,6 +19,9 @@ import Link from 'next/link';
 import { History, Search } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
+import Paginacion from '@/components/ui/Paginacion';
+import { guardarTamano, tamanoGuardado, type Paginado } from '@/hooks/usePaginacion';
+import { paginaValida, rango, totalPaginas, type TamanoPagina } from '@/lib/paginacion';
 import { getClients } from '@/lib/storage';
 import type { Client } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -28,7 +31,6 @@ import {
   type DocumentoHistorico, type FiltroHistorico, type FilaResumenHistorico, type TipoHistorico,
 } from '@/lib/historico';
 
-const POR_PAGINA = 50;
 
 const TIPOS: { value: TipoHistorico | ''; label: string }[] = [
   { value: '', label: 'Todo' },
@@ -55,10 +57,12 @@ export default function HistoricoPage() {
 
   // La lista va con el filtro con el que se pidió: mientras no llegue la
   // del filtro de ahora, se está cargando.
+  // Cada página se pide al servidor por separado (son miles de documentos).
   const [lista, setLista] = useState<{
-    filtro: FiltroHistorico; docs: DocumentoHistorico[]; total: number; error: string;
+    filtro: FiltroHistorico; numero: number; porPagina: number; docs: DocumentoHistorico[]; total: number; error: string;
   } | null>(null);
-  const [cargandoMas, setCargandoMas] = useState(false);
+  const [pagina, setPagina] = useState<{ filtro: FiltroHistorico | null; numero: number }>({ filtro: null, numero: 1 });
+  const [porPagina, setPorPagina] = useState<TamanoPagina>(() => tamanoGuardado('historico'));
   const caja = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,32 +87,31 @@ export default function HistoricoPage() {
     texto: buscado, clientIds: fichasQueCasan(fichas, buscado), tipo, anio, soloPendientes,
   }), [buscado, fichas, tipo, anio, soloPendientes]);
 
+  // Al cambiar el filtro se vuelve a la primera página.
+  const pedida = pagina.filtro === filtro ? pagina.numero : 1;
+
   useEffect(() => {
     if (filas === null || filas.length === 0) return;
     let vivo = true;
-    buscarHistorico(filtro, 0, POR_PAGINA)
-      .then(r => { if (vivo) setLista({ filtro, docs: r.docs, total: r.total, error: '' }); })
-      .catch(e => { if (vivo) setLista({ filtro, docs: [], total: 0, error: e instanceof Error ? e.message : String(e) }); });
+    buscarHistorico(filtro, (pedida - 1) * porPagina, porPagina)
+      .then(r => { if (vivo) setLista({ filtro, numero: pedida, porPagina, docs: r.docs, total: r.total, error: '' }); })
+      .catch(e => { if (vivo) setLista({ filtro, numero: pedida, porPagina, docs: [], total: 0, error: e instanceof Error ? e.message : String(e) }); });
     return () => { vivo = false; };
-  }, [filtro, filas]);
+  }, [filtro, filas, pedida, porPagina]);
 
-  const actual = lista && lista.filtro === filtro ? lista : null;
+  const actual = lista && lista.filtro === filtro && lista.numero === pedida && lista.porPagina === porPagina ? lista : null;
   const cargando = actual === null;
-  const docs = actual?.docs ?? [];
-  const total = actual?.total ?? 0;
-
-  const verMas = async () => {
-    if (!actual) return;
-    const pedida = actual;
-    setCargandoMas(true);
-    try {
-      const r = await buscarHistorico(pedida.filtro, pedida.docs.length, POR_PAGINA);
-      setLista(l => (l === pedida ? { ...l, docs: [...l.docs, ...r.docs], total: r.total } : l));
-    } catch (e) {
-      setLista(l => (l === pedida ? { ...l, error: e instanceof Error ? e.message : String(e) } : l));
-    } finally {
-      setCargandoMas(false);
-    }
+  // Mientras llega la página nueva se queda la anterior, atenuada, para que
+  // la tabla no salte; el total, el último que se supo.
+  const docs = actual?.docs ?? (lista?.filtro === filtro ? lista.docs : []);
+  const total = actual?.total ?? (lista?.filtro === filtro ? lista.total : 0);
+  const numPagina = paginaValida(pedida, total, porPagina);
+  const paginado: Paginado<DocumentoHistorico> = {
+    visibles: docs, pagina: numPagina, porPagina, total,
+    totalPaginas: totalPaginas(total, porPagina),
+    ...rango(numPagina, total, porPagina),
+    irA: n => setPagina({ filtro, numero: n }),
+    cambiarPorPagina: n => { setPorPagina(n); guardarTamano('historico', n); setPagina({ filtro, numero: 1 }); },
   };
 
   const resumen = useMemo(() => resumenGeneral(filas ?? []), [filas]);
@@ -290,7 +293,7 @@ export default function HistoricoPage() {
                 <th style={{ textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className={cargando && docs.length > 0 ? 'tabla-atenuada' : undefined} aria-busy={cargando || undefined}>
               {docs.map(d => {
                 const ficha = d.clientId ? porId.get(d.clientId) : undefined;
                 return (
@@ -335,16 +338,7 @@ export default function HistoricoPage() {
           </table>
         </div>
 
-        <div className="historico-pie">
-          <span className="card-subtitle" style={{ marginTop: 0 }} aria-live="polite">
-            {cargando || cargandoMas ? 'Cargando…' : `${docs.length.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')}`}
-          </span>
-          {!cargando && !cargandoMas && docs.length < total && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void verMas()}>
-              Ver {Math.min(POR_PAGINA, total - docs.length)} más
-            </button>
-          )}
-        </div>
+        <Paginacion paginado={paginado} etiqueta="documentos" />
       </div>
     </div>
   );

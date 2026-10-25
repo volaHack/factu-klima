@@ -15,6 +15,8 @@ import DevolucionFormModal from '@/components/devoluciones/DevolucionFormModal';
 import AbonoFormModal from '@/components/devoluciones/AbonoFormModal';
 import AplicarAbonoModal from '@/components/devoluciones/AplicarAbonoModal';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'devoluciones' | 'abonos';
 
@@ -84,6 +86,10 @@ export default function DevolucionesAbonosPage() {
       toastError('No se pudo anular', err instanceof Error ? err.message : 'Error desconocido');
     }
   };
+
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagDevoluciones = usePaginacion(devFiltradas, { clave: 'devoluciones', reinicio: search });
+  const pagAbonos = usePaginacion(abonosFiltrados, { clave: 'abonos', reinicio: search });
 
   if (!mounted || !settings) {
     return <PageSkeleton variant="list" label="Cargando abonos y devoluciones" />;
@@ -174,7 +180,7 @@ export default function DevolucionesAbonosPage() {
               </tr>
             </thead>
             <tbody>
-              {devFiltradas.map(d => (
+              {pagDevoluciones.visibles.map(d => (
                 <tr key={d.id}>
                   <td className="mono primary">{d.number}</td>
                   <td className="primary">{d.clientName}</td>
@@ -213,6 +219,7 @@ export default function DevolucionesAbonosPage() {
               )}
             </tbody>
           </table>
+          <Paginacion paginado={pagDevoluciones} etiqueta="devoluciones" />
         </div>
       ) : (
         <div className="table-container">
@@ -230,7 +237,7 @@ export default function DevolucionesAbonosPage() {
               </tr>
             </thead>
             <tbody>
-              {abonosFiltrados.map(a => {
+              {pagAbonos.visibles.map(a => {
                 const disponible = Number((a.total - a.usedAmount).toFixed(2));
                 return (
                   <tr key={a.id}>
@@ -292,6 +299,7 @@ export default function DevolucionesAbonosPage() {
               )}
             </tbody>
           </table>
+          <Paginacion paginado={pagAbonos} etiqueta="abonos" />
         </div>
       )}
 

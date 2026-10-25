@@ -25,6 +25,8 @@ import {
   DIAS_PLAZO, NOMBRE_COMUNICACION, diasHabilesHasta, plazoComunicacion, tareasPendientes, type TipoComunicacion,
 } from '@/lib/facturaElectronica/estados';
 import { EstadoFeBadge, descargarFicheroFe, fechaCorta, nombreCanal } from '@/components/facturaElectronica/comun';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Pestaña = 'recibidas' | 'emitidas' | 'faltan';
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -86,6 +88,11 @@ export default function FacturaElectronicaPage() {
   })), hoy()), [recibidas]);
   const sinSalir = comunicaciones.filter(c => c.estado !== 'enviada');
   const porFe = useMemo(() => new Map(facturas.map(f => [f.id, f])), [facturas]);
+
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagRecibidas = usePaginacion(recibidas, { clave: 'fe-recibidas', reinicio: '' });
+  const pagEmitidas = usePaginacion(emitidas, { clave: 'fe-emitidas', reinicio: '' });
+  const pagSinFe = usePaginacion(sinFe, { clave: 'fe-sin-enviar', reinicio: '' });
 
   if (!cargado) return <PageSkeleton />;
 
@@ -217,7 +224,7 @@ export default function FacturaElectronicaPage() {
           <table className="table fe-tabla">
             <thead><tr><th>Fecha</th><th>Proveedor</th><th>Número</th><th className="num">Total</th><th>Vence</th><th>Estado</th><th aria-label="Acciones" /></tr></thead>
             <tbody>
-              {recibidas.map(f => (
+              {pagRecibidas.visibles.map(f => (
                 <tr key={f.id}>
                   <td>{fechaCorta(f.fecha)}</td>
                   <td>{f.nombreEmisor || f.nifEmisor}<small className="fe-sub">{f.nifEmisor}</small></td>
@@ -239,6 +246,7 @@ export default function FacturaElectronicaPage() {
               ))}
             </tbody>
           </table>
+          <Paginacion paginado={pagRecibidas} etiqueta="facturas recibidas" />
         </div>
       ))}
 
@@ -251,7 +259,7 @@ export default function FacturaElectronicaPage() {
           <table className="table fe-tabla">
             <thead><tr><th>Fecha</th><th>Cliente</th><th>Número</th><th className="num">Total</th><th>Estado</th><th>Canal</th><th aria-label="Acciones" /></tr></thead>
             <tbody>
-              {emitidas.map(f => (
+              {pagEmitidas.visibles.map(f => (
                 <tr key={f.id}>
                   <td>{fechaCorta(f.fecha)}</td>
                   <td>{f.nombreReceptor || f.nifReceptor}<small className="fe-sub">{f.nifReceptor}</small></td>
@@ -272,6 +280,7 @@ export default function FacturaElectronicaPage() {
               ))}
             </tbody>
           </table>
+          <Paginacion paginado={pagEmitidas} etiqueta="facturas emitidas" />
         </div>
       ))}
 
@@ -292,7 +301,7 @@ export default function FacturaElectronicaPage() {
             <table className="table fe-tabla">
               <thead><tr><th>Fecha</th><th>Cliente</th><th>Número</th><th className="num">Total</th><th aria-label="Acciones" /></tr></thead>
               <tbody>
-                {sinFe.map(f => (
+                {pagSinFe.visibles.map(f => (
                   <tr key={f.id}>
                     <td>{fechaCorta(f.issueDate)}</td>
                     <td>{f.clientName}<small className="fe-sub">{f.clientNif}</small></td>
@@ -312,6 +321,7 @@ export default function FacturaElectronicaPage() {
                 ))}
               </tbody>
             </table>
+            <Paginacion paginado={pagSinFe} etiqueta="facturas" />
           </div>
         </>
       ))}

@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import CajaBusqueda from '@/components/ui/CajaBusqueda';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 const obraVacia = (numero: string): Omit<Obra, 'id' | 'createdAt' | 'updatedAt'> => ({
   numero, nombre: '', estado: 'abierta', fechaApertura: getToday(),
@@ -123,6 +125,9 @@ export default function ObrasPage() {
     }
   };
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagObras = usePaginacion(visibles, { clave: 'obras', reinicio: [filtroEstado, busca].join('|') });
+
   if (!mounted) return <PageSkeleton />;
 
   return (
@@ -175,7 +180,7 @@ export default function ObrasPage() {
                   hint="Crea una obra y asígnale facturas y gastos para ver su rentabilidad."
                 />
               ) : (
-                visibles.map(o => {
+                pagObras.visibles.map(o => {
                   const r = porId.get(o.id);
                   return (
                     <tr key={o.id}>
@@ -210,6 +215,7 @@ export default function ObrasPage() {
               )}
             </tbody>
           </table>
+          <Paginacion paginado={pagObras} etiqueta="obras" />
         </div>
       </div>
 
