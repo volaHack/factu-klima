@@ -238,6 +238,19 @@ describe('prepararExportacion', () => {
     expect(nombres.some(n => n.includes('clientes.csv'))).toBe(true);
   });
 
+  it('una empresa canaria rotula los libros con IGIC y no con IVA', () => {
+    const igic = prepararExportacion(datos({ ajustes: { businessName: 'Rogar', igicEnabled: true } as CompanySettings }), ahora);
+    const cabecera = (parte: string) => igic.find(f => f.nombre.includes(parte))!.contenido.split('\n')[0];
+    expect(cabecera('libro-facturas')).toContain('IGIC');
+    expect(cabecera('libro-facturas')).not.toContain('IVA');
+    expect(cabecera('libro-lineas')).toContain('IGIC %');
+    expect(cabecera('libro-gastos')).toContain('IGIC');
+    expect(cabecera('catalogo')).toContain('IGIC %');
+    // Y la península sigue con IVA.
+    const iva = prepararExportacion(datos(), ahora);
+    expect(iva.find(f => f.nombre.includes('libro-facturas'))!.contenido.split('\n')[0]).toContain('IVA');
+  });
+
   it('el nombre lleva la empresa y la fecha, sin acentos ni espacios', () => {
     const [json] = prepararExportacion(datos(), ahora);
     expect(json.nombre).toBe('distribuciones-alimentarias-del-sur-s-l-2026-09-10-copia-completa.json');

@@ -505,7 +505,7 @@ export default function InvoiceDetailPage() {
                   )}
                   {invoice.taxBreakdown.map(tb => (
                     <tr key={tb.rate}>
-                      <td style={{ color: '#64748b' }}>IVA {tb.rate}%</td>
+                      <td style={{ color: '#64748b' }}>{companySettings?.igicEnabled ? 'IGIC' : 'IVA'} {tb.rate}%</td>
                       <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(tb.amount)}</td>
                     </tr>
                   ))}
@@ -668,7 +668,7 @@ export default function InvoiceDetailPage() {
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Cuota IVA total</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>Cuota {companySettings?.igicEnabled ? 'IGIC' : 'IVA'} total</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(invoice.totalTax)}</span>
               </div>
               <div style={{

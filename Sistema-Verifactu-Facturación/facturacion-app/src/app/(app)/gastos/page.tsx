@@ -650,7 +650,7 @@ export default function GastosPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">IVA %</label>
+                    <label className="form-label">{igic ? 'IGIC' : 'IVA'} %</label>
                     <input
                       type="number" min={0} max={100} step={0.5} className="form-input"
                       value={gastoForm.taxRate}

@@ -206,7 +206,7 @@ export function FirstStepsModal({ onClose, onComplete, isDismissible = true }: F
 
               <div className="form-group">
                 <TaxRateSlider
-                  label="IVA que aplicas normalmente (%)"
+                  label="IVA o IGIC que aplicas normalmente (%)"
                   value={Number(ivaTaxRate)}
                   onChange={v => setIvaTaxRate(String(v))}
                 />

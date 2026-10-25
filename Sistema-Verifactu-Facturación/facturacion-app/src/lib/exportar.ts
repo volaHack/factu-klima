@@ -77,9 +77,12 @@ export function importeCsv(valor: number | undefined | null): string {
 // LOS LIBROS
 // ============================================================
 
-const CABECERAS_FACTURAS = [
+/** IVA en la península y Baleares; IGIC en Canarias. Los libros lo rotulan igual que la empresa. */
+export type NombreImpuesto = 'IVA' | 'IGIC';
+
+const cabecerasFacturas = (impuesto: NombreImpuesto) => [
   'Número', 'Fecha', 'Vencimiento', 'Cliente', 'NIF', 'Base imponible',
-  'IVA', 'Total', 'Estado', 'Forma de pago', 'Serie', 'Tipo', 'Huella Veri*Factu',
+  impuesto, 'Total', 'Estado', 'Forma de pago', 'Serie', 'Tipo', 'Huella Veri*Factu',
 ];
 
 /**
@@ -89,7 +92,7 @@ const CABECERAS_FACTURAS = [
  * huecos en la numeración es exactamente lo que hace saltar una inspección.
  * Los borradores no, porque todavía no son nada.
  */
-export function libroDeFacturas(facturas: Invoice[]): string {
+export function libroDeFacturas(facturas: Invoice[], impuesto: NombreImpuesto = 'IVA'): string {
   const emitidas = facturas
     .filter(f => (f.sentido ?? 'venta') === 'venta')
     .filter(f => f.status !== 'borrador')
@@ -97,7 +100,7 @@ export function libroDeFacturas(facturas: Invoice[]): string {
     .slice()
     .sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.number.localeCompare(b.number));
 
-  return construirCsv(CABECERAS_FACTURAS, emitidas.map(f => [
+  return construirCsv(cabecerasFacturas(impuesto), emitidas.map(f => [
     f.number,
     f.issueDate,
     f.dueDate ?? '',
@@ -114,8 +117,8 @@ export function libroDeFacturas(facturas: Invoice[]): string {
   ]));
 }
 
-/** El detalle línea a línea, que es lo que pide el asesor para cuadrar el IVA. */
-export function libroDeLineas(facturas: Invoice[]): string {
+/** El detalle línea a línea, que es lo que pide el asesor para cuadrar el IVA (o el IGIC). */
+export function libroDeLineas(facturas: Invoice[], impuesto: NombreImpuesto = 'IVA'): string {
   const filas: unknown[][] = [];
   for (const f of facturas) {
     if (f.status === 'borrador') continue;
@@ -132,14 +135,14 @@ export function libroDeLineas(facturas: Invoice[]): string {
   }
   return construirCsv([
     'Factura', 'Fecha', 'Cliente', 'Referencia', 'Concepto', 'Cantidad',
-    'Precio', 'Dto. %', 'Dto. oferta %', 'IVA %', 'Base', 'Total', 'Lote', 'Nº serie',
+    'Precio', 'Dto. %', 'Dto. oferta %', `${impuesto} %`, 'Base', 'Total', 'Lote', 'Nº serie',
   ], filas);
 }
 
-/** El libro de gastos: lo que alimenta el IVA soportado del 303. */
-export function libroDeGastos(gastos: Gasto[]): string {
+/** El libro de gastos: lo que alimenta el impuesto soportado del 303 (o del 420). */
+export function libroDeGastos(gastos: Gasto[], impuesto: NombreImpuesto = 'IVA'): string {
   return construirCsv(
-    ['Fecha', 'Proveedor', 'Concepto', 'Categoría', 'Base', 'IVA', 'Total'],
+    ['Fecha', 'Proveedor', 'Concepto', 'Categoría', 'Base', impuesto, 'Total'],
     gastos
       .slice()
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
@@ -156,9 +159,9 @@ export function libroDeGastos(gastos: Gasto[]): string {
 }
 
 /** El catálogo, para no tener que volver a teclearlo en ningún sitio. */
-export function libroDeProductos(productos: Product[]): string {
+export function libroDeProductos(productos: Product[], impuesto: NombreImpuesto = 'IVA'): string {
   return construirCsv(
-    ['Referencia', 'Nombre', 'Categoría', 'Precio', 'Coste medio', 'Último coste', 'IVA %', 'Unidad', 'Stock', 'Código de barras', 'Activo'],
+    ['Referencia', 'Nombre', 'Categoría', 'Precio', 'Coste medio', 'Último coste', `${impuesto} %`, 'Unidad', 'Stock', 'Código de barras', 'Activo'],
     productos.map(p => [
       p.ref ?? '', p.name, p.category ?? '',
       importeCsv(p.unitPrice), importeCsv(p.costePmp), importeCsv(p.costeUltimaCompra),
@@ -211,6 +214,7 @@ export interface FicheroExportado {
  */
 export function prepararExportacion(datos: DatosEmpresa, ahora = new Date()): FicheroExportado[] {
   const fecha = ahora.toISOString().slice(0, 10);
+  const impuesto: NombreImpuesto = datos.ajustes.igicEnabled ? 'IGIC' : 'IVA';
   const empresa = (datos.ajustes.businessName || 'empresa')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -231,22 +235,22 @@ export function prepararExportacion(datos: DatosEmpresa, ahora = new Date()): Fi
     },
     {
       nombre: `${empresa}-${fecha}-libro-facturas.csv`,
-      contenido: libroDeFacturas(datos.facturas),
+      contenido: libroDeFacturas(datos.facturas, impuesto),
       tipo: 'text/csv',
     },
     {
       nombre: `${empresa}-${fecha}-libro-lineas.csv`,
-      contenido: libroDeLineas(datos.facturas),
+      contenido: libroDeLineas(datos.facturas, impuesto),
       tipo: 'text/csv',
     },
     {
       nombre: `${empresa}-${fecha}-libro-gastos.csv`,
-      contenido: libroDeGastos(datos.gastos),
+      contenido: libroDeGastos(datos.gastos, impuesto),
       tipo: 'text/csv',
     },
     {
       nombre: `${empresa}-${fecha}-catalogo.csv`,
-      contenido: libroDeProductos(datos.productos),
+      contenido: libroDeProductos(datos.productos, impuesto),
       tipo: 'text/csv',
     },
     {
