@@ -16,6 +16,9 @@ import {
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf, { BotonVistaPreviaPdf, AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
+import VistaDocumento from '@/components/plantillas/VistaDocumento';
+import { impuestoDeFactura } from '@/lib/impuesto';
+import type { TipoDocumentoPlantilla } from '@/lib/plantillas/tiposDocumento';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 import BotonRepetir from '@/components/facturas/BotonRepetir';
 import {
@@ -252,6 +255,11 @@ export default function InvoiceDetailPage() {
   const chainedHash = invoice.verifactu?.chainedHash ?? null;
   const descuentos = desgloseDescuentos(invoice);
   const sealed = isSealed(invoice);
+  // Una rectificativa se imprime como tal (con su propio diseño si lo hay, y
+  // si no con el de factura): antes salía titulada «Factura».
+  const tipoImpreso: TipoDocumentoPlantilla = invoice.tipo === 'rectificativa' ? 'rectificativa' : 'factura';
+  // IVA o IGIC: el que guarda la factura; en las anteriores, el de la empresa.
+  const impuesto = impuestoDeFactura(invoice, companySettings);
 
   // Las palabras de este oficio (ver src/lib/vocabulario.ts). La columna de
   // unidades sólo sale si el oficio agrupa en bultos Y esta factura los
@@ -343,8 +351,8 @@ export default function InvoiceDetailPage() {
           {sealed && invoice.status !== InvoiceStatus.ANULADA && ['factura', 'rectificativa', undefined].includes(invoice.tipo) && (
             <BotonFacturae facturaId={invoice.id} numero={invoice.number} clientId={invoice.clientId} />
           )}
-          <BotonVistaPreviaPdf tipo="factura" documento={invoice} />
-          <BotonDescargarPdf tipo="factura" documento={invoice} />
+          <BotonVistaPreviaPdf tipo={tipoImpreso} documento={invoice} />
+          <BotonDescargarPdf tipo={tipoImpreso} documento={invoice} />
           <button
             className="btn btn-ghost detalle-accion-imprimir"
             onClick={() => window.print()}
@@ -381,188 +389,191 @@ export default function InvoiceDetailPage() {
       <div className="detail-layout detalle-factura">
         {/* Main Content - Print Ready Preview */}
         <div className="detail-main">
-          <div className="invoice-preview">
-            {/* Header */}
-            <div className="invoice-preview-header">
-              <div>
-                <div className="company-name">{companySettings?.tradeName || companySettings?.businessName}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', lineHeight: 1.6 }}>
-                  {companySettings?.businessName}<br />
-                  NIF: {companySettings?.nif}<br />
-                  {companySettings?.address}<br />
-                  {companySettings?.postalCode} {companySettings?.city} ({companySettings?.province})<br />
-                  {companySettings?.email} · {companySettings?.phone}
+          {/* Con diseño propio se ve el PDF de verdad; sin él, esta vista. */}
+          <VistaDocumento tipo={tipoImpreso} documento={invoice}>
+            <div className="invoice-preview">
+              {/* Header */}
+              <div className="invoice-preview-header">
+                <div>
+                  <div className="company-name">{companySettings?.tradeName || companySettings?.businessName}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', lineHeight: 1.6 }}>
+                    {companySettings?.businessName}<br />
+                    NIF: {companySettings?.nif}<br />
+                    {companySettings?.address}<br />
+                    {companySettings?.postalCode} {companySettings?.city} ({companySettings?.province})<br />
+                    {companySettings?.email} · {companySettings?.phone}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="invoice-number-label">{invoice.number}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '8px', lineHeight: 1.6 }}>
+                    Fecha emisión: {formatDate(invoice.issueDate)}<br />
+                    Vencimiento: {formatDate(invoice.dueDate)}<br />
+                    {invoice.paidDate && <>Pagada el: {formatDate(invoice.paidDate)}<br /></>}
+                  </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="invoice-number-label">{invoice.number}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '8px', lineHeight: 1.6 }}>
-                  Fecha emisión: {formatDate(invoice.issueDate)}<br />
-                  Vencimiento: {formatDate(invoice.dueDate)}<br />
-                  {invoice.paidDate && <>Pagada el: {formatDate(invoice.paidDate)}<br /></>}
-                </div>
+
+              {/* Client Info */}
+              <div style={{
+                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px',
+                marginBottom: '24px', fontSize: '13px', lineHeight: 1.6
+              }}>
+                <strong style={{ color: '#0f172a' }}>Facturar a:</strong><br />
+                <strong>{invoice.clientName}</strong><br />
+                NIF/CIF: {invoice.clientNif}<br />
+                {invoice.clientAddress}
               </div>
-            </div>
 
-            {/* Client Info */}
-            <div style={{
-              background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px',
-              marginBottom: '24px', fontSize: '13px', lineHeight: 1.6
-            }}>
-              <strong style={{ color: '#0f172a' }}>Facturar a:</strong><br />
-              <strong>{invoice.clientName}</strong><br />
-              NIF/CIF: {invoice.clientNif}<br />
-              {invoice.clientAddress}
-            </div>
-
-            {/* Line Items Table */}
-            <table className="invoice-preview-table">
-              <thead>
-                <tr>
-                  <th>Ref.</th>
-                  <th>Descripción</th>
-                  {muestraUnidades ? (
-                  <>
-                    <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
-                    <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
-                    <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
-                  </>
-                ) : <th style={{ textAlign: 'right' }}>Cant.</th>}
-                  <th style={{ textAlign: 'right' }}>Precio</th>
-                  <th style={{ textAlign: 'right' }}>{companySettings?.igicEnabled ? 'IGIC' : 'IVA'}</th>
-                  <th style={{ textAlign: 'right' }}>Dto.</th>
-                  <th style={{ textAlign: 'right' }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* En el teléfono esta tabla no cabe: siete u ocho columnas
-                    en 300 px. Cada celda lleva clase y etiqueta para que ahí
-                    cada línea se lea como una fila de lista —nombre e importe
-                    arriba, cantidad, precio e IVA debajo— sin tocar el papel
-                    impreso, que sigue siendo tabla. Ver `.linea-*` en
-                    globals.css. */}
-                {invoice.lineItems.map(line => {
-                  const dto = descuentoEfectivo(line);
-                  return (
-                    <tr key={line.id}>
-                      <td className={`linea-ref${line.productRef ? '' : ' es-vacio'}`} style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
-                      <td className="linea-desc" style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
-                      {celdasDeCantidad(line, muestraUnidades)}
-                      <td className="linea-dato" data-label="Precio">{formatCurrency(line.unitPrice)}</td>
-                      <td className="linea-dato" data-label={companySettings?.igicEnabled ? 'IGIC' : 'IVA'}>{line.taxRate}%</td>
-                      <td className={`linea-dato${dto > 0 ? '' : ' es-vacio'}`} data-label="Dto." title={
-                        (line.discountPercent2 || line.discountPercent3)
-                          ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
-                          : undefined
-                      }>
-                        {dto > 0 ? `${dto}%` : '-'}
-                      </td>
-                      <td className="linea-subtotal" style={{ fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Lo que se factura por bultos y lo que suman por dentro. Se
-                metía en el formulario pero no salía en el documento. */}
-            {muestraUnidades && (
-              <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
-                {conPlural(cajasTotales(invoice.lineItems), ['caja', 'cajas'])}
-                {' · '}
-                <strong>{unidadesTotales(invoice.lineItems)}</strong> {voz.contenido[1]} en total
-              </p>
-            )}
-
-            {/* Totals */}
-            <div className="invoice-preview-totals">
-              <table>
-                <tbody>
+              {/* Line Items Table */}
+              <table className="invoice-preview-table">
+                <thead>
                   <tr>
-                    <td style={{ color: '#64748b' }}>Base imponible</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(invoice.subtotal)}</td>
+                    <th>Ref.</th>
+                    <th>Descripción</th>
+                    {muestraUnidades ? (
+                    <>
+                      <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
+                      <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
+                      <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
+                    </>
+                  ) : <th style={{ textAlign: 'right' }}>Cant.</th>}
+                    <th style={{ textAlign: 'right' }}>Precio</th>
+                    <th style={{ textAlign: 'right' }}>{impuesto}</th>
+                    <th style={{ textAlign: 'right' }}>Dto.</th>
+                    <th style={{ textAlign: 'right' }}>Subtotal</th>
                   </tr>
-                  {/* El descuento de pie va en su propio renglón: es una
-                      rebaja sobre el total, no parte del precio de una
-                      línea, y quien recibe la factura tiene que poder
-                      distinguirlos para cuadrar las líneas con el total. */}
-                  {descuentos.enLineas > 0.005 && (
-                    <tr>
-                      <td style={{ color: '#64748b' }}>
-                        {descuentos.alPie > 0 ? 'Descuentos en líneas' : 'Descuentos'}
-                      </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.enLineas)}</td>
-                    </tr>
-                  )}
-                  {descuentos.alPie > 0 && (
-                    <tr>
-                      <td style={{ color: '#64748b' }}>
-                        Descuento a pie de factura
-                        {descuentos.porcentajesPie.length > 0 && ` (${descuentos.porcentajesPie.join(' % + ')} %)`}
-                      </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.alPie)}</td>
-                    </tr>
-                  )}
-                  {invoice.taxBreakdown.map(tb => (
-                    <tr key={tb.rate}>
-                      <td style={{ color: '#64748b' }}>{companySettings?.igicEnabled ? 'IGIC' : 'IVA'} {tb.rate}%</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(tb.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="total-row">
-                    <td style={{ paddingTop: '12px' }}>TOTAL FACTURA</td>
-                    <td style={{ textAlign: 'right', paddingTop: '12px' }}>{formatCurrency(invoice.total)}</td>
-                  </tr>
+                </thead>
+                <tbody>
+                  {/* En el teléfono esta tabla no cabe: siete u ocho columnas
+                      en 300 px. Cada celda lleva clase y etiqueta para que ahí
+                      cada línea se lea como una fila de lista —nombre e importe
+                      arriba, cantidad, precio e IVA debajo— sin tocar el papel
+                      impreso, que sigue siendo tabla. Ver `.linea-*` en
+                      globals.css. */}
+                  {invoice.lineItems.map(line => {
+                    const dto = descuentoEfectivo(line);
+                    return (
+                      <tr key={line.id}>
+                        <td className={`linea-ref${line.productRef ? '' : ' es-vacio'}`} style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
+                        <td className="linea-desc" style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
+                        {celdasDeCantidad(line, muestraUnidades)}
+                        <td className="linea-dato" data-label="Precio">{formatCurrency(line.unitPrice)}</td>
+                        <td className="linea-dato" data-label={impuesto}>{line.taxRate}%</td>
+                        <td className={`linea-dato${dto > 0 ? '' : ' es-vacio'}`} data-label="Dto." title={
+                          (line.discountPercent2 || line.discountPercent3)
+                            ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
+                            : undefined
+                        }>
+                          {dto > 0 ? `${dto}%` : '-'}
+                        </td>
+                        <td className="linea-subtotal" style={{ fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
 
-            {/* Footer + Verifactu Verification Block */}
-            <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '2px dashed #cbd5e1' }}>
-              {invoice.notes && (
-                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '16px' }}>
-                  <strong>Observaciones:</strong> {invoice.notes}
-                </div>
+              {/* Lo que se factura por bultos y lo que suman por dentro. Se
+                  metía en el formulario pero no salía en el documento. */}
+              {muestraUnidades && (
+                <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
+                  {conPlural(cajasTotales(invoice.lineItems), ['caja', 'cajas'])}
+                  {' · '}
+                  <strong>{unidadesTotales(invoice.lineItems)}</strong> {voz.contenido[1]} en total
+                </p>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.6 }}>
-                  Forma de pago: <strong>{pmLabel}</strong><br />
-                  {companySettings?.iban && <>IBAN: <strong>{companySettings?.iban}</strong> ({companySettings?.bankName})<br /></>}
-                  {companySettings?.invoiceFooterText}
-                </div>
+              {/* Totals */}
+              <div className="invoice-preview-totals">
+                <table>
+                  <tbody>
+                    <tr>
+                      <td style={{ color: '#64748b' }}>Base imponible</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(invoice.subtotal)}</td>
+                    </tr>
+                    {/* El descuento de pie va en su propio renglón: es una
+                        rebaja sobre el total, no parte del precio de una
+                        línea, y quien recibe la factura tiene que poder
+                        distinguirlos para cuadrar las líneas con el total. */}
+                    {descuentos.enLineas > 0.005 && (
+                      <tr>
+                        <td style={{ color: '#64748b' }}>
+                          {descuentos.alPie > 0 ? 'Descuentos en líneas' : 'Descuentos'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.enLineas)}</td>
+                      </tr>
+                    )}
+                    {descuentos.alPie > 0 && (
+                      <tr>
+                        <td style={{ color: '#64748b' }}>
+                          Descuento a pie de factura
+                          {descuentos.porcentajesPie.length > 0 && ` (${descuentos.porcentajesPie.join(' % + ')} %)`}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(descuentos.alPie)}</td>
+                      </tr>
+                    )}
+                    {invoice.taxBreakdown.map(tb => (
+                      <tr key={tb.rate}>
+                        <td style={{ color: '#64748b' }}>{impuesto} {tb.rate}%</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(tb.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="total-row">
+                      <td style={{ paddingTop: '12px' }}>TOTAL FACTURA</td>
+                      <td style={{ textAlign: 'right', paddingTop: '12px' }}>{formatCurrency(invoice.total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                {/* Huella real calculada por el servidor. Sólo existe si
-                    la factura está emitida: un borrador no tiene sello. */}
-                {companySettings?.verifactuEnabled && chainedHash && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
-                    background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
-                    maxWidth: 360,
-                  }}>
-                    <div style={{
-                      width: 54, height: 54, background: '#0f172a', color: 'white', borderRadius: 4,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: 9, textAlign: 'center', lineHeight: 1.2,
-                      flexShrink: 0,
-                    }}>
-                      SELLO<br />SHA-256
-                    </div>
-                    <div style={{ fontSize: '10px', color: '#475569', lineHeight: 1.45, minWidth: 0 }}>
-                      <strong style={{ color: '#0f172a', display: 'block', fontSize: '11px' }}>
-                        Registro encadenado
-                      </strong>
-                      <span style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
-                        {chainedHash.slice(0, 32)}…
-                      </span>
-                      <br />
-                      Sellada el {invoice.verifactu?.timestamp ? formatDate(invoice.verifactu.timestamp) : '—'}
-                    </div>
+              {/* Footer + Verifactu Verification Block */}
+              <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '2px dashed #cbd5e1' }}>
+                {invoice.notes && (
+                  <div style={{ fontSize: '13px', color: '#475569', marginBottom: '16px' }}>
+                    <strong>Observaciones:</strong> {invoice.notes}
                   </div>
                 )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.6 }}>
+                    Forma de pago: <strong>{pmLabel}</strong><br />
+                    {companySettings?.iban && <>IBAN: <strong>{companySettings?.iban}</strong> ({companySettings?.bankName})<br /></>}
+                    {companySettings?.invoiceFooterText}
+                  </div>
+
+                  {/* Huella real calculada por el servidor. Sólo existe si
+                      la factura está emitida: un borrador no tiene sello. */}
+                  {companySettings?.verifactuEnabled && chainedHash && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                      background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
+                      maxWidth: 360,
+                    }}>
+                      <div style={{
+                        width: 54, height: 54, background: '#0f172a', color: 'white', borderRadius: 4,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: 9, textAlign: 'center', lineHeight: 1.2,
+                        flexShrink: 0,
+                      }}>
+                        SELLO<br />SHA-256
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#475569', lineHeight: 1.45, minWidth: 0 }}>
+                        <strong style={{ color: '#0f172a', display: 'block', fontSize: '11px' }}>
+                          Registro encadenado
+                        </strong>
+                        <span style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+                          {chainedHash.slice(0, 32)}…
+                        </span>
+                        <br />
+                        Sellada el {invoice.verifactu?.timestamp ? formatDate(invoice.verifactu.timestamp) : '—'}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          </VistaDocumento>
         </div>
 
         {/* Sidebar */}
@@ -668,7 +679,7 @@ export default function InvoiceDetailPage() {
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(invoice.subtotal)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Cuota {companySettings?.igicEnabled ? 'IGIC' : 'IVA'} total</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>Cuota {impuesto} total</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(invoice.totalTax)}</span>
               </div>
               <div style={{
@@ -789,7 +800,7 @@ export default function InvoiceDetailPage() {
             <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Acciones</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <BotonDescargarPdf
-                tipo="factura"
+                tipo={tipoImpreso}
                 documento={invoice}
                 className="btn btn-secondary btn-sm"
                 etiqueta="Descargar con mi diseño"

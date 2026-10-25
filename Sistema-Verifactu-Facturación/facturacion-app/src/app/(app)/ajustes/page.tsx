@@ -28,6 +28,7 @@ import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
 import { aplicarAcento } from '@/lib/acento';
+import { avisoRegimen } from '@/lib/regimenFiscal';
 
 /* Editor de porcentajes de IVA/IGIC: la empresa elige sus propios tipos
    sin que el informático tenga que tocar el código. Se guarda en
@@ -616,7 +617,7 @@ export default function AjustesPage() {
         </div>
 
         {/* IGIC / Canarias Switch */}
-        <div className="status-panel" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
+        <div className="status-panel" id="regimen-fiscal" style={{ marginTop: 'var(--space-4)', alignItems: 'center', scrollMarginTop: 'calc(var(--header-height) + 16px)' }}>
           <span className="status-panel-icon">
             <Building2 size={19} />
           </span>
@@ -633,6 +634,19 @@ export default function AjustesPage() {
             <span className="toggle-slider" />
           </label>
         </div>
+        {(() => {
+          // Si el régimen no cuadra con la dirección, se dice aquí mismo.
+          const aviso = avisoRegimen(settings);
+          return aviso && (
+            <div className="callout callout-warning" role="status" style={{ marginTop: 'var(--space-3)' }}>
+              <AlertTriangle size={16} />
+              <div>
+                <strong>{aviso.titulo}</strong>
+                <p>{aviso.texto}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Porcentajes de IVA / IGIC configurables */}
         <div style={{ marginTop: 'var(--space-5)' }}>
@@ -701,7 +715,7 @@ export default function AjustesPage() {
           </span>
           <div className="status-panel-body">
             <div className="status-panel-title">Módulo TPV y Control de Caja</div>
-            <p className="status-panel-text">Al activarlo, aparecerá la pestaña "TPV (Caja)" en el menú lateral con pantalla táctil, tickets simplificados, cobro en efectivo/tarjeta y arqueos de caja.</p>
+            <p className="status-panel-text">Al activarlo, aparecerá la pestaña «TPV (Caja)» en el menú lateral con pantalla táctil, tickets simplificados, cobro en efectivo/tarjeta y arqueos de caja.</p>
           </div>
           <label className="toggle-switch">
             <input

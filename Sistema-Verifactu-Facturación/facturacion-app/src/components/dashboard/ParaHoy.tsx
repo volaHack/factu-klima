@@ -20,6 +20,7 @@ const ICONO: Record<string, LucideIcon> = {
   'fe-decidir': FileCheck2,
   vencen: CalendarClock,
   borradores: FilePen,
+  regimen: Landmark,
 };
 
 /** Lo que toca hacer, de lo más urgente a lo menos. Cada fila lleva a donde se resuelve. */

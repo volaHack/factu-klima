@@ -378,72 +378,54 @@ export default function GastosPage() {
                   <tr>
                     <th
                       className={sortField === 'fecha' ? 'sorted' : ''}
-                      onClick={() => handleSort('fecha')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('fecha'); } }}
                       aria-sort={sortField === 'fecha' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      title="Ordenar por fecha"
                     >
-                      Fecha {sortIcon('fecha')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('fecha')} title="Ordenar por fecha">
+                        Fecha {sortIcon('fecha')}
+                      </button>
                     </th>
                     <th
                       className={sortField === 'concepto' ? 'sorted' : ''}
-                      onClick={() => handleSort('concepto')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('concepto'); } }}
                       aria-sort={sortField === 'concepto' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      title="Ordenar por concepto"
                     >
-                      Concepto {sortIcon('concepto')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('concepto')} title="Ordenar por concepto">
+                        Concepto {sortIcon('concepto')}
+                      </button>
                     </th>
                     <th
                       className={sortField === 'categoria' ? 'sorted' : ''}
-                      onClick={() => handleSort('categoria')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('categoria'); } }}
                       aria-sort={sortField === 'categoria' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      title="Ordenar por categoría"
                     >
-                      Categoría {sortIcon('categoria')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('categoria')} title="Ordenar por categoría">
+                        Categoría {sortIcon('categoria')}
+                      </button>
                     </th>
                     <th
                       className={sortField === 'proveedorNombre' ? 'sorted' : ''}
-                      onClick={() => handleSort('proveedorNombre')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('proveedorNombre'); } }}
                       aria-sort={sortField === 'proveedorNombre' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      title="Ordenar por proveedor"
                     >
-                      Proveedor {sortIcon('proveedorNombre')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('proveedorNombre')} title="Ordenar por proveedor">
+                        Proveedor {sortIcon('proveedorNombre')}
+                      </button>
                     </th>
                     {modoVehiculos && <th>Vehículo</th>}
                     <th
                       className={sortField === 'baseImponible' ? 'sorted' : ''}
-                      onClick={() => handleSort('baseImponible')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('baseImponible'); } }}
                       aria-sort={sortField === 'baseImponible' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       style={{ textAlign: 'right' }}
-                      title="Ordenar por base imponible"
                     >
-                      Base {sortIcon('baseImponible')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('baseImponible')} title="Ordenar por base imponible">
+                        Base {sortIcon('baseImponible')}
+                      </button>
                     </th>
                     <th
                       className={sortField === 'total' ? 'sorted' : ''}
-                      onClick={() => handleSort('total')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
                       aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       style={{ textAlign: 'right' }}
-                      title="Ordenar por importe total"
                     >
-                      Total {sortIcon('total')}
+                      <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por importe total">
+                        Total {sortIcon('total')}
+                      </button>
                     </th>
                     <th style={{ textAlign: 'right' }}><span className="solo-lectores">Acciones</span></th>
                   </tr>

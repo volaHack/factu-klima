@@ -37,7 +37,8 @@ import { modulosDe } from '@/lib/modulos';
 import ParaHoy from '@/components/dashboard/ParaHoy';
 import AvisoPlan from '@/components/dashboard/AvisoPlan';
 import ResumenPorCorreo from '@/components/dashboard/ResumenPorCorreo';
-import { comparativaMes, plural, tareasDeHoy, type EntradaHoy } from '@/lib/panelHoy';
+import { comparativaMes, plural, tareasDeHoy, type EntradaHoy, type TareaHoy } from '@/lib/panelHoy';
+import { avisoRegimen } from '@/lib/regimenFiscal';
 import { getFacturasElectronicas } from '@/lib/facturaElectronica/almacen';
 import type { FeResumen } from '@/lib/facturaElectronica/estados';
 
@@ -302,7 +303,7 @@ export default function DashboardPage() {
   const { cifras, bloques } = colocar(visibles);
   const hoy = hoyIso();
   const mes = comparativaMes(invoices, hoy);
-  const tareas = tareasDeHoy({
+  const tareasDelDia = tareasDeHoy({
     documentos: extras.documentos,
     fe: extras.fe,
     presentacion: presentacionPendiente(
@@ -313,6 +314,14 @@ export default function DashboardPage() {
     banco: extras.banco,
     hoy,
   });
+  // Un régimen (IVA/IGIC) que no cuadra con la dirección de la empresa sale
+  // en cada factura: va detrás de lo urgente y delante de lo demás.
+  const regimen = avisoRegimen(settings);
+  const tareas: TareaHoy[] = regimen ? (() => {
+    const tarea: TareaHoy = { id: 'regimen', tono: 'aviso', titulo: regimen.titulo, detalle: regimen.texto, href: '/ajustes#regimen-fiscal', accion: 'Revisar' };
+    const i = tareasDelDia.findIndex(t => t.tono !== 'peligro');
+    return i < 0 ? [...tareasDelDia, tarea] : [...tareasDelDia.slice(0, i), tarea, ...tareasDelDia.slice(i)];
+  })() : tareasDelDia;
 
   const planCheck = evaluatePlanLimit(settings, invoices);
 

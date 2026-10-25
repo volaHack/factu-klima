@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf, { BotonVistaPreviaPdf } from '@/components/plantillas/BotonDescargarPdf';
+import VistaDocumento from '@/components/plantillas/VistaDocumento';
 import {
   getAlbaranById, getCompanySettings, expedirAlbaran, anularAlbaran, deleteAlbaran,
   convertirAlbaranesAFactura
@@ -215,119 +216,122 @@ export default function AlbaranDetailPage() {
       <div className="detail-layout">
         {/* Print-ready preview */}
         <div className="detail-main">
-          <div className="invoice-preview">
-            <div className="invoice-preview-header">
-              <div>
-                <div className="company-name">{companySettings?.tradeName || companySettings?.businessName}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', lineHeight: 1.6 }}>
-                  {companySettings?.businessName}<br />
-                  NIF: {companySettings?.nif}<br />
-                  {companySettings?.address}<br />
-                  {companySettings?.postalCode} {companySettings?.city} ({companySettings?.province})<br />
-                  {companySettings?.email} · {companySettings?.phone}
+          {/* Con diseño propio se ve el PDF de verdad; sin él, esta vista. */}
+          <VistaDocumento tipo="albaran" documento={albaran}>
+            <div className="invoice-preview">
+              <div className="invoice-preview-header">
+                <div>
+                  <div className="company-name">{companySettings?.tradeName || companySettings?.businessName}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', lineHeight: 1.6 }}>
+                    {companySettings?.businessName}<br />
+                    NIF: {companySettings?.nif}<br />
+                    {companySettings?.address}<br />
+                    {companySettings?.postalCode} {companySettings?.city} ({companySettings?.province})<br />
+                    {companySettings?.email} · {companySettings?.phone}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="invoice-number-label">{albaran.number}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '8px', lineHeight: 1.6 }}>
+                    Fecha: {formatDate(albaran.issueDate)}
+                  </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="invoice-number-label">{albaran.number}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '8px', lineHeight: 1.6 }}>
-                  Fecha: {formatDate(albaran.issueDate)}
-                </div>
+
+              <div style={{
+                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px',
+                marginBottom: '24px', fontSize: '13px', lineHeight: 1.6
+              }}>
+                <strong style={{ color: '#0f172a' }}>Entregar a:</strong><br />
+                <strong>{albaran.clientName}</strong><br />
+                NIF/CIF: {albaran.clientNif}<br />
+                {albaran.clientAddress}
               </div>
-            </div>
 
-            <div style={{
-              background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px',
-              marginBottom: '24px', fontSize: '13px', lineHeight: 1.6
-            }}>
-              <strong style={{ color: '#0f172a' }}>Entregar a:</strong><br />
-              <strong>{albaran.clientName}</strong><br />
-              NIF/CIF: {albaran.clientNif}<br />
-              {albaran.clientAddress}
-            </div>
-
-            <table className="invoice-preview-table">
-              <thead>
-                <tr>
-                  <th>Ref.</th>
-                  <th>Descripción</th>
-                  {muestraUnidades ? (
-                  <>
-                    <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
-                    <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
-                    <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
-                  </>
-                ) : <th style={{ textAlign: 'right' }}>Cant.</th>}
-                  <th style={{ textAlign: 'right' }}>Precio</th>
-                  <th style={{ textAlign: 'right' }}>{getTaxLabel(companySettings)}</th>
-                  <th style={{ textAlign: 'right' }}>Dto.</th>
-                  <th style={{ textAlign: 'right' }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {albaran.lineItems.map(line => (
-                  <tr key={line.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
-                    <td style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
-                    {celdasDeCantidad(line, muestraUnidades)}
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
-                    <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
-                    <td style={{ textAlign: 'right' }}>{line.discountPercent > 0 ? `${line.discountPercent}%` : '-'}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Lo que de verdad se descarga del camión. Es el número contra
-                el que se cuenta la entrega al firmar el albarán, y hasta
-                ahora se metía en el formulario pero no salía por ninguna
-                parte en el documento. */}
-            {muestraUnidades && (
-              <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
-                Total entregado: <strong>{conPlural(totalBultos, ['caja', 'cajas'])}</strong>
-                {' · '}
-                <strong>{totalUnidades}</strong> {voz.contenido[1]}
-              </p>
-            )}
-
-            <div className="invoice-preview-totals">
-              <table>
-                <tbody>
+              <table className="invoice-preview-table">
+                <thead>
                   <tr>
-                    <td style={{ color: '#64748b' }}>Base imponible</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(albaran.subtotal)}</td>
+                    <th>Ref.</th>
+                    <th>Descripción</th>
+                    {muestraUnidades ? (
+                    <>
+                      <th style={{ textAlign: 'right' }} title="Cajas completas">CAJ.</th>
+                      <th style={{ textAlign: 'right' }} title="Unidades por caja">U/C</th>
+                      <th style={{ textAlign: 'right' }} title="Unidades en total">UDES.</th>
+                    </>
+                  ) : <th style={{ textAlign: 'right' }}>Cant.</th>}
+                    <th style={{ textAlign: 'right' }}>Precio</th>
+                    <th style={{ textAlign: 'right' }}>{getTaxLabel(companySettings)}</th>
+                    <th style={{ textAlign: 'right' }}>Dto.</th>
+                    <th style={{ textAlign: 'right' }}>Subtotal</th>
                   </tr>
-                  {albaran.totalDiscount > 0 && (
-                    <tr>
-                      <td style={{ color: '#64748b' }}>Descuentos</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(albaran.totalDiscount)}</td>
-                    </tr>
-                  )}
-                  {albaran.taxBreakdown.map(tb => (
-                    <tr key={tb.rate}>
-                      <td style={{ color: '#64748b' }}>{getTaxLabel(companySettings)} {tb.rate}%</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(tb.amount)}</td>
+                </thead>
+                <tbody>
+                  {albaran.lineItems.map(line => (
+                    <tr key={line.id}>
+                      <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{line.productRef}</td>
+                      <td style={{ color: '#0f172a', fontWeight: 600 }}>{line.productName}</td>
+                      {celdasDeCantidad(line, muestraUnidades)}
+                      <td style={{ textAlign: 'right' }}>{formatCurrency(line.unitPrice)}</td>
+                      <td style={{ textAlign: 'right' }}>{line.taxRate}%</td>
+                      <td style={{ textAlign: 'right' }}>{line.discountPercent > 0 ? `${line.discountPercent}%` : '-'}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
                     </tr>
                   ))}
-                  <tr className="total-row">
-                    <td style={{ paddingTop: '12px' }}>TOTAL ALBARÁN</td>
-                    <td style={{ textAlign: 'right', paddingTop: '12px' }}>{formatCurrency(albaran.total)}</td>
-                  </tr>
                 </tbody>
               </table>
-            </div>
 
-            {albaran.notes && (
-              <div style={{ marginTop: '24px', fontSize: '13px', color: '#475569' }}>
-                <strong>Observaciones:</strong> {albaran.notes}
+              {/* Lo que de verdad se descarga del camión. Es el número contra
+                  el que se cuenta la entrega al firmar el albarán, y hasta
+                  ahora se metía en el formulario pero no salía por ninguna
+                  parte en el documento. */}
+              {muestraUnidades && (
+                <p style={{ marginTop: '10px', fontSize: '12px', color: '#475569', textAlign: 'right' }}>
+                  Total entregado: <strong>{conPlural(totalBultos, ['caja', 'cajas'])}</strong>
+                  {' · '}
+                  <strong>{totalUnidades}</strong> {voz.contenido[1]}
+                </p>
+              )}
+
+              <div className="invoice-preview-totals">
+                <table>
+                  <tbody>
+                    <tr>
+                      <td style={{ color: '#64748b' }}>Base imponible</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(albaran.subtotal)}</td>
+                    </tr>
+                    {albaran.totalDiscount > 0 && (
+                      <tr>
+                        <td style={{ color: '#64748b' }}>Descuentos</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>-{formatCurrency(albaran.totalDiscount)}</td>
+                      </tr>
+                    )}
+                    {albaran.taxBreakdown.map(tb => (
+                      <tr key={tb.rate}>
+                        <td style={{ color: '#64748b' }}>{getTaxLabel(companySettings)} {tb.rate}%</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(tb.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="total-row">
+                      <td style={{ paddingTop: '12px' }}>TOTAL ALBARÁN</td>
+                      <td style={{ textAlign: 'right', paddingTop: '12px' }}>{formatCurrency(albaran.total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            )}
 
-            <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '2px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-              <span>Documento de entrega sin valor fiscal. La facturación se emite al convertir este albarán.</span>
-              <span>Firma y sello del cliente: ______________</span>
+              {albaran.notes && (
+                <div style={{ marginTop: '24px', fontSize: '13px', color: '#475569' }}>
+                  <strong>Observaciones:</strong> {albaran.notes}
+                </div>
+              )}
+
+              <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '2px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                <span>Documento de entrega sin valor fiscal. La facturación se emite al convertir este albarán.</span>
+                <span>Firma y sello del cliente: ______________</span>
+              </div>
             </div>
-          </div>
+          </VistaDocumento>
         </div>
 
         {/* Sidebar */}

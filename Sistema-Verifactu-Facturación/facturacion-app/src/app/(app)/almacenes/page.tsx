@@ -84,22 +84,31 @@ function AlmacenesPageContenido() {
   // Los motivos que se le ofrecen a ESTE oficio al tocar el stock a mano.
   const motivosStock = vocabularioDe(sector).motivosStock;
 
+  // La lectura va aparte del setState (como en Gastos): el montaje la
+  // encadena con un centinela y los manejadores la reutilizan. Al recargar
+  // no se vuelve a enseñar el esqueleto: `loading` sólo vale en la primera.
+  const leerDatos = async () => {
+    await ensureDefaultAlmacen();
+    return Promise.all([
+      getAlmacenes(),
+      getProducts(),
+      getTraspasos(),
+      getRegularizaciones(),
+      getCompanySettings(),
+    ]);
+  };
+
+  const aplicarDatos = ([allAlms, allProds, allTraspasos, allRegs, ajustes]: Awaited<ReturnType<typeof leerDatos>>) => {
+    setSector(ajustes?.sector);
+    setAlmacenes(allAlms);
+    setProducts(allProds);
+    setTraspasos(allTraspasos);
+    setRegularizaciones(allRegs);
+  };
+
   const loadData = async () => {
-    setLoading(true);
     try {
-      await ensureDefaultAlmacen();
-      const [allAlms, allProds, allTraspasos, allRegs, ajustes] = await Promise.all([
-        getAlmacenes(),
-        getProducts(),
-        getTraspasos(),
-        getRegularizaciones(),
-        getCompanySettings(),
-      ]);
-      setSector(ajustes?.sector);
-      setAlmacenes(allAlms);
-      setProducts(allProds);
-      setTraspasos(allTraspasos);
-      setRegularizaciones(allRegs);
+      aplicarDatos(await leerDatos());
     } catch {
       toastError('Error al cargar datos de almacenes');
     } finally {
@@ -109,7 +118,13 @@ function AlmacenesPageContenido() {
   };
 
   useEffect(() => {
-    loadData();
+    let vivo = true;
+    leerDatos()
+      .then(d => { if (vivo) aplicarDatos(d); })
+      .catch(() => toastError('Error al cargar datos de almacenes'))
+      .finally(() => { if (vivo) { setLoading(false); setMounted(true); } });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al entrar
   }, []);
 
   // --- HANDLERS ALMACÉN ---

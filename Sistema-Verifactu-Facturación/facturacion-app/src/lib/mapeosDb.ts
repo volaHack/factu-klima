@@ -10,6 +10,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PaymentMethod, type Gasto, type Invoice, type InvoiceLineItem, type SentidoDocumento, type TipoDocumento } from './types';
 import { lineasConCustomCols } from './plantillas/datos';
+import { esNombreImpuesto } from './impuesto';
 
 export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]): Invoice {
   return {
@@ -66,6 +67,7 @@ export function mapInvoiceFromDb(inv: any, lineItems: any[], taxBreakdown: any[]
     siiStatus: inv.sii_status || undefined,
     tipoFacturaFiscal: inv.tipo_factura_fiscal || undefined,
     claveRegimenIva: inv.clave_regimen_iva || undefined,
+    impuesto: esNombreImpuesto(inv.impuesto) ? inv.impuesto : undefined,
     esIntracomunitaria: !!inv.es_intracomunitaria,
     tipoOperacion349: inv.tipo_operacion_349 || undefined,
     clientVatNumber: inv.client_vat_number || undefined,
