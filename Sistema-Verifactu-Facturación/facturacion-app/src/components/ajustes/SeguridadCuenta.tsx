@@ -3,6 +3,8 @@
 /**
  * AJUSTES → SEGURIDAD DE LA CUENTA
  *
+ *   · Cambiar la contraseña (CambiarContrasena), pidiendo la actual.
+ *
  *   · Verificación en dos pasos: además de la contraseña, un código de 6
  *     cifras de una app de autenticación (Google Authenticator, Microsoft
  *     Authenticator, 1Password…). Con ella activada, la base de datos no da
@@ -17,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyRound, Loader2, LogOut, ShieldCheck, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/useToast';
+import CambiarContrasena from './CambiarContrasena';
 
 interface Factor { id: string; status: string; created_at?: string; friendly_name?: string }
 type Alta = { factorId: string; qr: string; secreto: string };
@@ -124,6 +127,8 @@ export default function SeguridadCuenta() {
 
   return (
     <div className="seguridad-cuenta">
+      <CambiarContrasena />
+
       {/* Verificación en dos pasos */}
       <div className="status-panel seguridad-fila">
         <span className="status-panel-icon">{factor ? <ShieldCheck size={19} /> : <KeyRound size={19} />}</span>
