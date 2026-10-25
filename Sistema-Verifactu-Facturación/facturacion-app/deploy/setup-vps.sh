@@ -49,7 +49,7 @@ pm2 startup systemd -u $DEPLOY_USER --hp /home/$DEPLOY_USER
 
 # ─── 5. Instalar Nginx ──────────────────────────────────
 echo "→ Instalando Nginx..."
-apt install -y nginx rsync cron curl
+apt install -y nginx rsync cron curl age postgresql-client
 systemctl enable nginx
 
 # ─── 6. Instalar Certbot (SSL gratuito) ─────────────────
@@ -92,6 +92,15 @@ SUPABASE_SERVICE_ROLE_KEY=
 # --- Stripe ---
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+
+# --- Copia diaria de la base de datos (deploy/copia-diaria.sh, docs/COPIAS.md) ---
+# Conexión directa a Postgres (Supabase → Project Settings → Database). Secreta.
+SUPABASE_DB_URL=
+# Clave PÚBLICA age (age1…). La privada NO se guarda en este servidor.
+BACKUP_AGE_RECIPIENT=
+BACKUP_RETENTION_DAYS=30
+# Remoto de rclone fuera del VPS (p. ej. b2:klima-copias). Sin él la copia no protege de perder el VPS.
+BACKUP_RCLONE_REMOTE=
 
 # --- Verifactu ---
 CERTIFICATE_ENCRYPTION_KEY=

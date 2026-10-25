@@ -23,6 +23,8 @@ export interface OnlineStatus {
   lastError: string | null;
   /** Cambios que el servidor rechazó definitivamente (reglas antifraude). */
   rejections: SyncRejection[];
+  /** Cambios en la bandeja de errores (rechazados, guardados en este equipo). */
+  errores: number;
   dismissRejections: () => void;
   triggerSync: () => void;
 }
@@ -76,6 +78,7 @@ export function useOnlineStatus(): OnlineStatus {
     lastSyncTime: syncState.lastSyncTime,
     lastError: syncState.lastError,
     rejections: syncState.rejections ?? [],
+    errores: syncState.errores ?? 0,
     dismissRejections,
     triggerSync,
   };

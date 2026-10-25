@@ -115,7 +115,23 @@ export interface RegistroAlta {
   fechaExpedicionAnterior?: string | null;
   fechaHoraHusoGenRegistro: string;
   huella: string;
+  /**
+   * Reenvío de un alta que la AEAT RECHAZÓ, ya corregida: va como
+   * subsanación (Subsanacion=S) declarando el rechazo previo. Sin esto, el
+   * mismo registro se mandaba igual una y otra vez y la AEAT lo volvía a
+   * rechazar.
+   */
+  subsanacion?: boolean;
 }
+
+/**
+ * RechazoPrevio en una subsanación tras rechazo. SuministroInformacion.xsd
+ * (RechazoPrevioType): «S = Ha habido rechazo previo por la AEAT»;
+ * «X = el registro no existe en la AEAT (… que no se remitió)». Un alta
+ * rechazada se remitió y fue rechazada: «S». PENDIENTE de validar contra el
+ * entorno de pruebas de la AEAT antes de usarlo en producción.
+ */
+export const RECHAZO_PREVIO_TRAS_RECHAZO = 'S';
 
 export interface RegistroAnulacion {
   idEmisorFacturaAnulada: string;
@@ -266,6 +282,9 @@ export function registroAltaXml(r: RegistroAlta, sistema: SistemaInformatico): s
     + el('FechaExpedicionFactura', fechaAeat(r.fechaExpedicionFactura))
     + '</sf:IDFactura>'
     + el('NombreRazonEmisor', r.nombreRazonEmisor)
+    // Orden del esquema: Subsanacion y RechazoPrevio van entre
+    // NombreRazonEmisor y TipoFactura (RegistroFacturacionAltaType).
+    + (r.subsanacion ? el('Subsanacion', 'S') + el('RechazoPrevio', RECHAZO_PREVIO_TRAS_RECHAZO) : '')
     + el('TipoFactura', r.tipoFactura)
     + (r.tipoRectificativa ? el('TipoRectificativa', r.tipoRectificativa) : '')
     + rectificadas

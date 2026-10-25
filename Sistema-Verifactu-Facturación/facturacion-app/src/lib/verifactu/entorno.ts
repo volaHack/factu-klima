@@ -19,8 +19,15 @@ export interface EstadoRegistroEnvio {
   entorno?: string | null;
 }
 
-/** Los estados que siempre hay que (re)enviar. */
-export const ESTADOS_PENDIENTES = ['pendiente', 'error_envio', 'rechazado'] as const;
+/**
+ * Los estados que se (re)envían solos.
+ *
+ * «rechazado» ya NO: la AEAT lo rechazó por su contenido y mandarlo igual
+ * sólo produce otro rechazo, una y otra vez. Se corrige lo que falle y se
+ * pide reenviarlo como subsanación («subsanar»). «consta_en_aeat» (la AEAT
+ * dijo que ya lo tenía, error 3000) tampoco se reenvía.
+ */
+export const ESTADOS_PENDIENTES = ['pendiente', 'error_envio', 'subsanar'] as const;
 
 const aceptado = (estado: string) => estado === 'aceptado' || estado === 'aceptado_con_errores';
 

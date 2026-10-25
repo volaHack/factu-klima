@@ -33,6 +33,14 @@ const eslintConfig = defineConfig([
       }],
     },
   },
+  // El envoltorio de escritorio corre en Node/Electron como CommonJS:
+  // `require` es la forma de importar ahí, no un descuido.
+  {
+    files: ['electron/**/*.js'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

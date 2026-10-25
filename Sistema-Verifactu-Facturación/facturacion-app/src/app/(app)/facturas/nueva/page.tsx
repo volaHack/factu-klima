@@ -9,7 +9,7 @@ import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import Link from 'next/link';
 import {
-  getClients, getProducts, getCompanySettings, saveInvoice,
+  getClients, getProducts, getCompanySettings, saveInvoice, EMISION_SIN_CONEXION,
   saveCompanySettings, issueInvoice, getOnboardingStatus, getInvoices,
   applyAbonoToInvoice
 } from '@/lib/storage';
@@ -293,7 +293,15 @@ export default function NuevaFacturaPage() {
 
       router.push('/facturas');
     } catch (err) {
-      error('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
+      const mensaje = err instanceof Error ? err.message : 'Error desconocido';
+      // Sin conexión no se emite: ya está guardada como borrador en este
+      // equipo. Se sale a la lista para no crear otro borrador al reintentar.
+      if (mensaje.startsWith(EMISION_SIN_CONEXION)) {
+        error('No emitida: no hay conexión', mensaje);
+        router.push('/facturas');
+        return;
+      }
+      error('No se pudo guardar', mensaje);
     } finally {
       setSaving(false);
     }

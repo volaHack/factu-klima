@@ -18,10 +18,10 @@ const conTope = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<
 /**
  * LO QUE AÚN NO HA SUBIDO NO SE TIRA SIN AVISAR
  *
- * Salir vacía la caché del dispositivo, y en ella está la cola de lo hecho
- * sin conexión. Un ticket cobrado sin internet que no ha llegado al
- * servidor se perdía entero: ni en la base de datos ni en Hacienda. Primero
- * se intenta subir; si no se puede, se pregunta. Devuelve si se puede seguir.
+ * Salir vacía la caché del dispositivo. La cola de lo hecho sin conexión ya
+ * no se vacía (ver `vaciarTodo` en offlineDb), pero mientras no suba sólo
+ * existe en este equipo. Primero se intenta subir; si no se puede, se avisa.
+ * Devuelve si se puede seguir.
  */
 export async function subirPendientesOPreguntar(queSeHace: string): Promise<boolean> {
   try {
@@ -31,10 +31,14 @@ export async function subirPendientesOPreguntar(queSeHace: string): Promise<bool
       pendientes = await getSyncQueueCount();
     }
     if (pendientes > 0) {
+      // Ya no se pierden (la cola sobrevive a salir y es de esta cuenta),
+      // pero sólo están en ESTE equipo hasta que suban: si se rompe o se
+      // pierde antes, se van con él.
       return confirm(
         `Hay ${pendientes} ${pendientes === 1 ? 'cambio hecho' : 'cambios hechos'} sin conexión que todavía no ` +
         `${pendientes === 1 ? 'se ha' : 'se han'} subido (ventas, albaranes o fichas).\n\n` +
-        `Si ${queSeHace} ahora se perderán. Lo seguro es esperar a tener conexión.\n\n¿Seguir igualmente?`,
+        `Si ${queSeHace} ahora, se quedan guardados sólo en este equipo y subirán cuando vuelvas a entrar ` +
+        `con esta cuenta y haya conexión. Lo seguro es esperar a tener conexión.\n\n¿Seguir igualmente?`,
       );
     }
   } catch {

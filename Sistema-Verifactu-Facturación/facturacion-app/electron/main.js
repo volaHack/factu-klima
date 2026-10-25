@@ -1,8 +1,29 @@
 'use strict';
 
 const { app, BrowserWindow, Menu, shell } = require('electron');
+
+/**
+ * ACTUALIZACIONES DEL PROGRAMA DE ESCRITORIO
+ *
+ * La app (pantallas, cálculo, Veri*Factu) se actualiza sola porque se carga
+ * de la web. Lo que NO se actualiza solo es este envoltorio: el Chromium de
+ * Electron que la ejecuta, con sus parches de seguridad. Si el instalador se
+ * publica con `updatesUrl` en config.json, se busca una versión nueva al
+ * arrancar (firmada: electron-updater comprueba la firma en Windows).
+ */
+function buscarActualizaciones(config) {
+  if (!app.isPackaged || !config.updatesUrl) return;
+  try {
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.setFeedURL({ provider: 'generic', url: config.updatesUrl });
+    autoUpdater.checkForUpdatesAndNotify().catch(() => { /* sin red: otro día */ });
+  } catch {
+    // electron-updater no incluido en este build: sin actualizaciones automáticas.
+  }
+}
 const path = require('path');
 const fs = require('fs');
+const { decidirNavegacion } = require('./navegacion');
 
 function loadConfig() {
   const candidates = [
@@ -90,22 +111,15 @@ function createWindow() {
   // En modo TPV además se corta la navegación antes de que se pinte
   // cualquier pantalla no permitida (p. ej. el redireccionado del servidor
   // /login → /dashboard) y se salta directo a /tpv.
+  // Sólo https (o http a localhost, para probar): antes una URL sin host
+  // —file:, data:, javascript:— pasaba el filtro y se abría dentro de la
+  // ventana de la app. La regla vive en navegacion.js (con sus pruebas).
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    try {
-      const target = new URL(url);
-      const allowedHost = new URL(APP_URL).host;
-      if (target.host && allowedHost && target.host !== allowedHost) {
-        event.preventDefault();
-        shell.openExternal(url);
-        return;
-      }
-      if (mode === 'tpv' && target.host === allowedHost && !isTpvAllowedPath(target.pathname)) {
-        event.preventDefault();
-        mainWindow.loadURL(APP_URL + '/tpv');
-      }
-    } catch {
-      event.preventDefault();
-    }
+    const decision = decidirNavegacion(url, APP_URL, mode);
+    if (decision === 'permitir') return;
+    event.preventDefault();
+    if (decision === 'externo') shell.openExternal(url);
+    else if (decision === 'tpv') mainWindow.loadURL(APP_URL + '/tpv');
   });
 
   // El TPV entra directo a /tpv tras iniciar sesión. Las navegaciones
@@ -172,6 +186,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  buscarActualizaciones(config);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

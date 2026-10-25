@@ -7,11 +7,16 @@ import { createClient } from '@/lib/supabase/client';
 import { faltaSegundoFactor } from '@/lib/seguridad/sesionCliente';
 import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
 import { porTrozos, todasLasFilas } from './porTandas';
+import { generateInvoiceNumber } from './utils';
 import {
   getSyncQueue,
   removeSyncItem,
   updateSyncItem,
   getSyncQueueCount,
+  getSyncErrores,
+  moverAErrores,
+  getById,
+  put,
   getMeta,
   setMeta,
   EVENTO_COLA,
@@ -45,6 +50,8 @@ export interface SyncState {
   lastError: string | null;
   /** Cambios que el servidor rechazó de forma definitiva (reglas antifraude). */
   rejections: SyncRejection[];
+  /** Lo que hay en la bandeja de errores (rechazado, guardado, sin subir). */
+  errores: number;
 }
 
 let currentState: SyncState = {
@@ -53,6 +60,7 @@ let currentState: SyncState = {
   lastSyncTime: null,
   lastError: null,
   rejections: [],
+  errores: 0,
 };
 
 /**
@@ -77,8 +85,82 @@ function isPermanentRejection(err: any): boolean {
 function readableReason(err: any): string {
   const message: string = err?.message ?? 'Rechazado por el servidor';
   if (message.includes('ANTIFRAUDE:')) return message.split('ANTIFRAUDE:')[1].trim();
+  if (message.includes('SUSCRIPCION:')) return `Suscripción: ${message.split('SUSCRIPCION:')[1].trim()}`;
   if (err?.code === '23505') return 'Registro duplicado: ya existe otro con la misma numeración.';
   return message;
+}
+
+/**
+ * El error de un grupo de factura lleva consigo lo que iba con ella (sus
+ * líneas y su desglose), aunque ya hubieran salido de la cola, y si en el
+ * servidor llegó a quedar como borrador: la bandeja lo guarda todo.
+ */
+interface ErrorDeGrupo extends Error {
+  hijos?: SyncQueueItem[];
+  enServidor?: 'nada' | 'borrador';
+}
+
+// ============================================================
+// NÚMEROS REPETIDOS EN LO QUE AÚN NO ES FISCAL
+// ============================================================
+//
+// Un borrador, un albarán o un pedido hecho sin conexión coge el siguiente
+// número que ve ESTE equipo; si otro equipo ya lo usó, el servidor lo
+// rechaza (23505). Nada de eso está emitido ni sellado, así que se le da el
+// siguiente número libre de su serie y sube. Una factura ya emitida NUNCA
+// se renumera (su número está impreso y en el registro): esa va a la bandeja.
+
+const esDuplicado = (e: unknown) => (e as { code?: string })?.code === '23505';
+
+/** ¿Se puede cambiar el número de esta fila sin tocar nada fiscal? */
+export function renumerable(table: string, row: Record<string, unknown>): boolean {
+  if (table === 'albaranes') return true;
+  if (table !== 'invoices') return false;
+  const sellable = ['factura', 'rectificativa'].includes(String(row.tipo ?? 'factura')) && (row.sentido ?? 'venta') === 'venta';
+  return !sellable || row.status === 'borrador';
+}
+
+/** El siguiente número de la serie que no usa ningún otro documento en el servidor. */
+export function siguienteLibre(numero: string, serie: string, usados: Set<string>): string {
+  let candidato = numero;
+  for (let i = 0; i < 5000 && usados.has(candidato); i++) {
+    const m = /^(.*)-(\d{4})-(\d+)$/.exec(candidato);
+    candidato = m ? generateInvoiceNumber(serie, Number(m[3]) + 1, Number(m[2])) : generateInvoiceNumber(serie, 1);
+  }
+  if (usados.has(candidato)) throw new Error('No se ha encontrado un número libre en la serie.');
+  return candidato;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+async function renumerar(supabase: any, table: string, row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const serie = String(row.series ?? '');
+  let q = supabase.from(table).select('id, number').eq('series', serie);
+  if (row.user_id) q = q.eq('user_id', row.user_id);
+  const { data, error } = await q;
+  if (error) throw error;
+  const usados = new Set<string>((data ?? []).filter((r: { id: string }) => r.id !== row.id).map((r: { number: string }) => r.number));
+  const nuevo = siguienteLibre(String(row.number ?? ''), serie, usados);
+  const renumerada = { ...row, number: nuevo };
+  // La copia de este equipo también, para que lo que se ve sea lo que hay.
+  const local = await getById<Record<string, unknown>>(table, String(row.id)).catch(() => undefined);
+  if (local) await put(table, { ...local, number: nuevo });
+  renumerados.push({ table, id: String(row.id), de: String(row.number), a: nuevo });
+  return renumerada;
+}
+
+/** Lo renumerado en la última pasada (para avisar de que cambió el número). */
+let renumerados: Array<{ table: string; id: string; de: string; a: string }> = [];
+export function ultimosRenumerados() { return renumerados; }
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+async function upsertConNumeroLibre(supabase: any, table: string, row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { error } = await supabase.from(table).upsert(row);
+  if (!error) return row;
+  if (!esDuplicado(error) || !renumerable(table, row)) throw error;
+  const otra = await renumerar(supabase, table, row);
+  const { error: e2 } = await supabase.from(table).upsert(otra);
+  if (e2) throw e2;
+  return otra;
 }
 
 /** Retardo de reintento según los intentos fallidos acumulados. */
@@ -199,7 +281,7 @@ async function collectInvoiceChildren(
  */
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 async function syncInvoiceGroup(supabase: any, item: SyncQueueItem, queue: SyncQueueItem[], processedIds: Set<string>): Promise<void> {
-  const row = item.data as Record<string, unknown>;
+  let row = item.data as Record<string, unknown>;
   const invoiceId = row.id as string;
   const children = await collectInvoiceChildren(queue, invoiceId, processedIds);
 
@@ -226,29 +308,53 @@ async function syncInvoiceGroup(supabase: any, item: SyncQueueItem, queue: SyncQ
     return;
   }
 
-  // 1. Garantizar que la fila padre exista antes de tocar las líneas.
-  if (!existing) {
-    const { error } = await supabase.from('invoices').upsert({ ...row, status: 'borrador' });
-    if (error) throw error;
-  }
-
-  // 2. Reescribir el detalle completo (mismo patrón que el path online de
-  //    saveInvoice: delete + insert) → idempotente entre pasadas.
-  if (children.length > 0) {
-    for (const table of CHILD_TABLES.invoices) {
-      const { error } = await supabase.from(table).delete().eq('invoice_id', invoiceId);
-      if (error) throw error;
+  let enServidor: 'nada' | 'borrador' = existing ? 'borrador' : 'nada';
+  try {
+    // 1. Garantizar que la fila padre exista antes de tocar las líneas.
+    if (!existing) {
+      const { error } = await supabase.from('invoices').upsert({ ...row, status: 'borrador' });
+      if (error) {
+        // Número ya usado por otro equipo: si la fila aún no es fiscal (un
+        // borrador, un albarán, un pedido) se le da el siguiente libre.
+        if (!esDuplicado(error) || !renumerable('invoices', row)) throw error;
+        row = await renumerar(supabase, 'invoices', row);
+        const { error: e2 } = await supabase.from('invoices').upsert({ ...row, status: 'borrador' });
+        if (e2) throw e2;
+      }
+      enServidor = 'borrador';
     }
-    for (const child of children) {
-      await processItem(supabase, child);
-      await removeSyncItem(child.id);
-      processedIds.add(child.id);
-    }
-  }
 
-  // 3. Estado real → el trigger de sellado ya encuentra las líneas.
-  const { error } = await supabase.from('invoices').upsert(row);
-  if (error) throw error;
+    // 2. Reescribir el detalle completo (mismo patrón que el path online de
+    //    saveInvoice: delete + insert) → idempotente entre pasadas.
+    if (children.length > 0) {
+      for (const table of CHILD_TABLES.invoices) {
+        const { error } = await supabase.from(table).delete().eq('invoice_id', invoiceId);
+        if (error) throw error;
+      }
+      // Las líneas NO salen de la cola hasta que el grupo entero ha subido:
+      // si algo falla a mitad, la siguiente pasada borra el detalle en el
+      // servidor y lo vuelve a escribir COMPLETO. Antes cada línea salía de
+      // la cola al subir, y un corte a mitad dejaba la factura con sólo las
+      // que quedaban en la cola (y el sellado calculaba el total con ellas).
+      for (const child of children) {
+        await processItem(supabase, child);
+      }
+    }
+
+    // 3. Estado real → el trigger de sellado ya encuentra las líneas.
+    row = await upsertConNumeroLibre(supabase, 'invoices', row);
+  } catch (err) {
+    // Lo que iba con la factura viaja con el error, aunque ya haya salido de
+    // la cola: si el rechazo es definitivo, la bandeja lo guarda entero.
+    const e = (err instanceof Error ? err : Object.assign(new Error(String((err as { message?: string })?.message ?? err)), err)) as ErrorDeGrupo;
+    e.hijos = children;
+    e.enServidor = enServidor;
+    throw e;
+  }
+  for (const child of children) {
+    await removeSyncItem(child.id);
+    processedIds.add(child.id);
+  }
   await removeSyncItem(item.id);
   processedIds.add(item.id);
 }
@@ -281,9 +387,19 @@ export async function processSyncQueue(): Promise<void> {
 
   const rejections: SyncRejection[] = [];
   const processedIds = new Set<string>();
+  renumerados = [];
+
+  // Facturas que esperan en la cola: sus líneas y su desglose viajan CON
+  // ellas (syncInvoiceGroup), nunca sueltas antes. Subidas sueltas salían
+  // de la cola aunque la factura luego fallara, y se perdían.
+  const facturasEnCola = new Set(
+    queue.filter(q => q.table === 'invoices' && q.action === 'upsert').map(q => q.data.id as string),
+  );
 
   for (const item of queue) {
     if (processedIds.has(item.id)) continue;
+    if (CHILD_TABLES.invoices.includes(item.table)
+      && facturasEnCola.has((item.data as { invoice_id?: string }).invoice_id ?? '')) continue;
 
     // Backoff: un item que acaba de fallar no se reintenta hasta que pase
     // su retardo (hasta 64 s). Se queda en la cola, así que no se pierde
@@ -305,22 +421,33 @@ export async function processSyncQueue(): Promise<void> {
       console.error(`[SyncEngine] Failed to sync item ${item.id}:`, err);
 
       if (isPermanentRejection(err)) {
-        // El servidor no lo va a aceptar nunca. Se saca de la cola y se
-        // deja constancia para poder marcar el documento afectado.
+        // El servidor no lo va a aceptar nunca tal cual. NO se tira: pasa a
+        // la bandeja de errores con todo lo que llevaba (la factura y sus
+        // líneas), de donde sólo sale si alguien lo reintenta o lo descarta.
+        const grupo = err as ErrorDeGrupo;
+        const hijos = item.table === 'invoices'
+          ? (grupo.hijos ?? await collectInvoiceChildren(queue, item.data.id as string, processedIds))
+          : [];
+        for (const h of hijos) processedIds.add(h.id);
+        const motivo = readableReason(err)
+          + (grupo.enServidor === 'borrador' && item.table === 'invoices' && item.data.status !== 'borrador'
+            ? ' En el servidor ha quedado como BORRADOR, sin emitir: revísala y emítela de nuevo.'
+            : '');
+        await moverAErrores({
+          id: `error_${item.id}`,
+          item,
+          hijos,
+          motivo,
+          codigo: (err as { code?: string })?.code ?? null,
+          at: Date.now(),
+          ...(item.owner ? { owner: item.owner } : {}),
+        });
         rejections.push({
           table: item.table,
           id: (item.data.id as string) ?? null,
-          reason: readableReason(err),
+          reason: motivo,
           at: Date.now(),
         });
-        await removeSyncItem(item.id);
-        // Si la factura se rechaza, sus hijos huérfanos también se descartan.
-        if (item.table === 'invoices') {
-          for (const c of await collectInvoiceChildren(queue, item.data.id as string, processedIds)) {
-            await removeSyncItem(c.id);
-            processedIds.add(c.id);
-          }
-        }
         continue;
       }
 
@@ -332,6 +459,7 @@ export async function processSyncQueue(): Promise<void> {
   }
 
   const remaining = await getSyncQueueCount();
+  const errores = (await getSyncErrores()).length;
   const now = Date.now();
   const allRejections = [...currentState.rejections, ...rejections].slice(-20);
 
@@ -347,6 +475,7 @@ export async function processSyncQueue(): Promise<void> {
     lastSyncTime: now,
     lastError: null,
     rejections: allRejections,
+    errores,
   });
 }
 
@@ -389,8 +518,7 @@ async function processItem(supabase: any, item: SyncQueueItem): Promise<void> {
       );
       if (error) throw error;
     } else {
-      const { error } = await supabase.from(table).upsert(item.data);
-      if (error) throw error;
+      await upsertConNumeroLibre(supabase, table, item.data);
     }
   } else if (item.action === 'delete') {
     const id = item.data.id as string;
@@ -437,6 +565,25 @@ export async function fullDownloadToOffline(): Promise<void> {
       mio(supabase.from('company_settings').select('*')).order('updated_at', { ascending: false }).limit(1),
     ]);
 
+    // LO QUE AÚN NO HA SUBIDO NO SE PISA
+    //
+    // Antes se vaciaba cada tabla y se volvía a llenar con lo del servidor.
+    // Si en este equipo había una factura hecha sin conexión que aún no
+    // había subido (o que el servidor rechazó y está en la bandeja), esa
+    // limpieza la borraba de aquí. Ahora, si hay algo pendiente, no se
+    // vacía nada: se escribe lo del servidor por encima, saltándose las
+    // fichas que tienen cambios locales sin subir.
+    const pendientes = await idsConCambiosLocales();
+    const conservar = pendientes.total > 0;
+    const reemplazar = async (store: string, filas: Record<string, unknown>[], ids: Set<string>) => {
+      if (!conservar) {
+        await clearStore(store);
+        await putMany(store, filas);
+        return;
+      }
+      await putMany(store, filas.filter(f => !ids.has(String(f.id))));
+    };
+
     if (invoices?.length) {
       // Also fetch line items and tax breakdowns
       const invoiceIds = invoices.map((i: { id: string }) => i.id);
@@ -454,21 +601,18 @@ export async function fullDownloadToOffline(): Promise<void> {
         _taxBreakdown: (taxBreakdown || []).filter((tb: { invoice_id: string }) => tb.invoice_id === inv.id),
       }));
 
-      await clearStore('invoices');
-      await putMany('invoices', enrichedInvoices);
+      await reemplazar('invoices', enrichedInvoices, pendientes.invoices);
     }
 
     if (clients?.length) {
-      await clearStore('clients');
-      await putMany('clients', clients);
+      await reemplazar('clients', clients, pendientes.clients);
     }
 
     if (products?.length) {
-      await clearStore('products');
-      await putMany('products', products);
+      await reemplazar('products', products, pendientes.products);
     }
 
-    if (settings?.length) {
+    if (settings?.length && !pendientes.ajustes) {
       await clearStore('settings');
       // Store with a stable key
       await putMany('settings', settings.map((s: Record<string, unknown>) => ({ ...s, key: 'company' })));
@@ -479,6 +623,29 @@ export async function fullDownloadToOffline(): Promise<void> {
   } catch (err) {
     console.error('[SyncEngine] Full download failed:', err);
   }
+}
+
+/**
+ * Las fichas con cambios de este equipo que el servidor aún no tiene: en
+ * la cola o en la bandeja de errores. Una línea o un desglose cuentan
+ * como cambio de su factura.
+ */
+export async function idsConCambiosLocales(): Promise<{
+  invoices: Set<string>; clients: Set<string>; products: Set<string>; ajustes: boolean; total: number;
+}> {
+  const cola = await getSyncQueue();
+  const bandeja = await getSyncErrores();
+  const items = [...cola, ...bandeja.flatMap(e => [e.item, ...e.hijos])];
+  const r = { invoices: new Set<string>(), clients: new Set<string>(), products: new Set<string>(), ajustes: false, total: items.length };
+  for (const it of items) {
+    const d = it.data as { id?: string; invoice_id?: string };
+    if (it.table === 'invoices' && d.id) r.invoices.add(d.id);
+    else if ((it.table === 'invoice_line_items' || it.table === 'invoice_tax_breakdown') && d.invoice_id) r.invoices.add(d.invoice_id);
+    else if (it.table === 'clients' && d.id) r.clients.add(d.id);
+    else if (it.table === 'products' && d.id) r.products.add(d.id);
+    else if (it.table === 'company_settings') r.ajustes = true;
+  }
+  return r;
 }
 
 // ============================================================
@@ -537,6 +704,7 @@ export function initAutoSync(): void {
   getSyncQueueCount().then(count => {
     updateState({ pendingCount: count });
   });
+  getSyncErrores().then(e => updateState({ errores: e.length })).catch(() => {});
 
   // Initial sync if online
   intentar();

@@ -9,10 +9,8 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   getCompanySettings, saveCompanySettings, resetAllData, getVendedores, saveVendedor,
   deleteVendedor, getAlmacenes, contarFacturasSelladas, ErrorGuardado,
-  getInvoices, getClients, getProducts, getAlbaranes, getDevoluciones, getAbonos,
-  getGastos, getLotes, getOfertas,
 } from '@/lib/storage';
-import { descargar, prepararExportacion, resumirExportacion, type DatosEmpresa } from '@/lib/exportar';
+import { descargarCopiaDelServidor } from '@/lib/copia/descargar';
 import AccesoGestoria from '@/components/ajustes/AccesoGestoria';
 import CobroOnline from '@/components/ajustes/CobroOnline';
 import FacturaElectronicaAjustes from '@/components/ajustes/FacturaElectronicaAjustes';
@@ -129,37 +127,23 @@ export default function AjustesPage() {
     if (exportando) return;
     setExportando(true);
     try {
-      const [
-        ajustes, facturas, clientes, productos, albaranes, devoluciones, abonos, gastos, lotes, ofertasEmpresa,
-      ] = await Promise.all([
-        getCompanySettings(), getInvoices(), getClients(), getProducts(),
-        getAlbaranes(), getDevoluciones(), getAbonos(), getGastos(), getLotes(), getOfertas(),
-      ]);
-
-      const datos: DatosEmpresa = {
-        ajustes, facturas, clientes, productos, albaranes, devoluciones, abonos, gastos, lotes,
-        ofertas: ofertasEmpresa,
-      };
-
-      const ficheros = prepararExportacion(datos);
-      for (const fichero of ficheros) {
-        descargar(fichero);
-        await new Promise(listo => setTimeout(listo, 350));
+      // La copia es la del SERVIDOR, entera y con manifiesto (ver lib/copia).
+      const r = await descargarCopiaDelServidor();
+      if (r.verificada) {
+        success(
+          `Se han descargado ${r.ficheros} ficheros`,
+          `Copia del servidor verificada: ${r.facturas} facturas y ${r.registrosVerifactu} registros Veri*Factu con su cadena. Guárdala donde guardes lo importante.`,
+        );
+      } else {
+        toastError('Copia descargada CON AVISOS', r.problemas.slice(0, 3).join(' ') || 'No se ha podido verificar la copia.');
       }
-
-      const resumen = resumirExportacion(datos)
-        .map(r => `${r.cuantos} ${r.que.toLowerCase()}`)
-        .join(', ');
-      success(
-        `Se han descargado ${ficheros.length} ficheros`,
-        resumen ? `Llevan ${resumen}. Guárdalos donde guardes lo importante.` : 'Guárdalos donde guardes lo importante.',
-      );
     } catch (err) {
       toastError('No se ha podido exportar', err instanceof Error ? err.message : 'Vuelve a intentarlo.');
     } finally {
       setExportando(false);
     }
   };
+
   const [stripeKeys, setStripeKeys] = useState<{
     hasSecretKey: boolean;
     hasWebhookSecret: boolean;
@@ -1235,7 +1219,7 @@ export default function AjustesPage() {
           cuatro años, y esto es lo que te permite hacerlo sin depender de nosotros.
         </p>
         <ul className="exportar-lista">
-          <li><b>Copia completa (JSON)</b> — todo, para volver a montarlo en otro sitio.</li>
+          <li><b>Copia completa (JSON)</b> — todo lo que hay en el servidor, con los registros Veri*Factu y sus huellas, cobros y eventos, y un manifiesto para comprobar que está entera. Se restaura con <code>scripts/restaurar-copia.mjs</code>.</li>
           <li><b>Libro de facturas (CSV)</b> — el registro de emitidas, con su huella Veri*Factu.</li>
           <li><b>Detalle de líneas (CSV)</b> — lo que pide el asesor para cuadrar el IVA.</li>
           <li><b>Gastos, catálogo y clientes (CSV)</b> — para abrirlos en una hoja de cálculo.</li>
