@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw } from 'lucide-react';
-import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice } from '@/lib/types';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw, Repeat, Check } from 'lucide-react';
+import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice, Albaran } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getInvoices } from '@/lib/storage';
+import { getAlbaranes, getInvoices } from '@/lib/storage';
+import { lineasDeOtraVez, lineasEnBlanco, ultimoDocumentoDe } from '@/lib/repetirPedido';
 import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, avisosDeLinea, habitualesDe, type PrecioAnterior } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
@@ -106,6 +107,23 @@ export default function LineasDocumento({
     getInvoices().then(d => { if (vivo) setAnteriores(d); }).catch(() => {});
     return () => { vivo = false; };
   }, []);
+
+  // Los albaranes de la pantalla antigua (tabla `albaranes`): también son
+  // «la última vez» de un cliente. Sólo de venta.
+  const [albaranesAnteriores, setAlbaranesAnteriores] = useState<Albaran[]>([]);
+  useEffect(() => {
+    if (sentido !== 'venta') return;
+    let vivo = true;
+    getAlbaranes().then(d => { if (vivo) setAlbaranesAnteriores(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [sentido]);
+
+  // «Lo mismo que la última vez»: el último documento de esta ficha.
+  const ultimo = React.useMemo(
+    () => ultimoDocumentoDe(anteriores, albaranesAnteriores, clienteId, sentido, documentoId),
+    [anteriores, albaranesAnteriores, clienteId, sentido, documentoId],
+  );
+  const [repetido, setRepetido] = useState<{ id: string; texto: string } | null>(null);
 
   // Lo que suele pedir este cliente (o vender este proveedor): se ofrece al
   // pinchar en una línea vacía, antes de escribir nada.
@@ -265,6 +283,22 @@ export default function LineasDocumento({
     onChange([...lineItems, recalcularLinea(nueva)]);
   };
 
+  const repetirUltimo = () => {
+    if (!ultimo) return;
+    const { lineas, sinFicha } = lineasDeOtraVez(ultimo, products, condicionesDe, () => lineaVacia(settings));
+    if (!lineas.length) {
+      setRepetido({ id: ultimo.id, texto: 'Ninguno de esos artículos sigue de alta: no hay nada que copiar.' });
+      return;
+    }
+    // En blanco, se sustituye la línea vacía; con algo puesto, se añade detrás.
+    onChange(lineasEnBlanco(lineItems) ? lineas : [...lineItems, ...lineas]);
+    const copiadas = lineas.length === 1 ? '1 línea copiada' : `${lineas.length} líneas copiadas`;
+    const fuera = sinFicha.length
+      ? ` No se ${sinFicha.length === 1 ? 'ha' : 'han'} copiado ${sinFicha.join(', ')}: ya no ${sinFicha.length === 1 ? 'está' : 'están'} de alta.`
+      : '';
+    setRepetido({ id: ultimo.id, texto: `${copiadas} con los precios de hoy. Cambia lo que haga falta.${fuera}` });
+  };
+
   /**
    * Las líneas cuyo precio no es el que tocaría ahora: pasa al cambiar de
    * cliente (o de tarifa) con las líneas ya puestas.
@@ -341,6 +375,33 @@ export default function LineasDocumento({
           {showExtraDiscounts || hasAnyExtraDiscount ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       </div>
+
+      {/* Al editar un documento ya hecho no se ofrece, salvo que esté en blanco. */}
+      {ultimo && (!documentoId || lineasEnBlanco(lineItems)) && (
+        repetido?.id === ultimo.id ? (
+          <div className="repetir-pedido is-hecho" role="status">
+            <Check size={16} className="repetir-pedido-icono" />
+            <span className="repetir-pedido-texto">{repetido.texto}</span>
+          </div>
+        ) : (
+          <div className="repetir-pedido">
+            <History size={16} className="repetir-pedido-icono" />
+            <span className="repetir-pedido-texto">
+              La última vez: <strong>{NOMBRE_TIPO[ultimo.tipo] ?? ultimo.tipo} {ultimo.numero}</strong>
+              {ultimo.fecha && <> del {formatDate(ultimo.fecha)}</>}
+              {' · '}{ultimo.lineas.length === 1 ? '1 línea' : `${ultimo.lineas.length} líneas`}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm repetir-pedido-boton"
+              onClick={repetirUltimo}
+              title="Copia los artículos y las cantidades de ese documento, con los precios y descuentos de hoy"
+            >
+              <Repeat size={14} /> {lineasEnBlanco(lineItems) ? 'Lo mismo que la última vez' : 'Añadir lo de la última vez'}
+            </button>
+          </div>
+        )
+      )}
 
       {/* Una ficha por línea, no una rejilla de nueve columnas.
           
