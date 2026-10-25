@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Briefcase, Check, Loader2, Building2, ArrowRight, MailOpen } from 'lucide-react';
+import { Check, Loader2, Building2, ArrowRight, MailOpen } from 'lucide-react';
 
 import {
   aceptarInvitacion, empresasQueLlevo, invitacionesPendientes,
@@ -74,7 +74,6 @@ export default function PanelGestoria() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Briefcase /> Gestoría</p>
           <div className="page-title-row">
             <h1 className="page-title">Empresas que llevas</h1>
           </div>

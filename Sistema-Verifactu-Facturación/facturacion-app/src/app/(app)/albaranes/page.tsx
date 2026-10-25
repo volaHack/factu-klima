@@ -228,7 +228,6 @@ export default function AlbaranesPage() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><ClipboardList /> Logística</p>
           <h1 className="page-title">Albaranes</h1>
           {albaranes.length > 0 && (
             <div className="page-meta">

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  BellRing, Mail, MessageCircle, Copy, ChevronDown, ChevronUp, CheckCircle2, Clock, Send, Settings2,
+  Mail, MessageCircle, Copy, ChevronDown, ChevronUp, CheckCircle2, Clock, Send, Settings2,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useToast } from '@/hooks/useToast';
@@ -150,7 +150,6 @@ export default function RecordatoriosPage() {
     <div className="page recor">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><BellRing /> Tesorería</p>
           <h1 className="page-title">Recordatorios de cobro</h1>
           <p className="page-subtitle">
             Quién te debe facturas ya vencidas, con el recordatorio escrito: uno por cliente, con todas sus facturas,

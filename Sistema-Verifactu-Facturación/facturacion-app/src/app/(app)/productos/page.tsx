@@ -506,7 +506,6 @@ function ProductosPageContenido() {
       {/* Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Package /> Catálogo e Inventario</p>
           <h1 className="page-title">Productos y categorías</h1>
           {products.length > 0 && (
             <div className="page-meta">
@@ -548,18 +547,20 @@ function ProductosPageContenido() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="tab-bar">
+      <div className="segmentos" role="group" aria-label="Qué ver" style={{ marginBottom: 'var(--space-5)' }}>
         <button
-          className={`btn ${activeTab === 'products' ? 'btn-primary' : 'btn-ghost'}`}
+          className="btn btn-sm"
+          aria-pressed={activeTab === 'products'}
           onClick={() => setActiveTab('products')}
         >
-          <Package size={16} /> Catálogo de Productos ({products.length})
+          <Package size={16} /> Catálogo de Productos <span className="segmentos-num">{products.length}</span>
         </button>
         <button
-          className={`btn ${activeTab === 'categories' ? 'btn-primary' : 'btn-ghost'}`}
+          className="btn btn-sm"
+          aria-pressed={activeTab === 'categories'}
           onClick={() => setActiveTab('categories')}
         >
-          <Layers size={16} /> Gestión de Categorías ({categories.length})
+          <Layers size={16} /> Gestión de Categorías <span className="segmentos-num">{categories.length}</span>
         </button>
       </div>
 
@@ -734,7 +735,7 @@ function ProductosPageContenido() {
                           <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>-</span>
                         )}
                       </td>
-                      <td data-m="titulo">
+                      <td data-m="titulo" style={{ minWidth: 220 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                           {p.imageUrl ? (
                             <img
@@ -759,10 +760,10 @@ function ProductosPageContenido() {
                           {cat.label}
                         </span>
                       </td>
-                      <td className="mono font-bold" style={{ textAlign: 'right' }} data-m="importe">
+                      <td className="amount" data-m="importe">
                         {formatCurrency(p.unitPrice)}
                       </td>
-                      <td className="mono" style={{ textAlign: 'right', color: p.costePmp ? 'var(--text-secondary)' : 'var(--text-muted)' }} data-m={p.costePmp ? 'dato' : 'oculto'} data-label="Coste">
+                      <td className="amount" style={{ fontWeight: 500, color: p.costePmp ? 'var(--text-secondary)' : 'var(--text-muted)' }} data-m={p.costePmp ? 'dato' : 'oculto'} data-label="Coste">
                         {p.costePmp ? formatCurrency(p.costePmp) : '—'}
                       </td>
                       <td data-m="estado">

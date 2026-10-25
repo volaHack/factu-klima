@@ -89,7 +89,6 @@ export default function IntegridadPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Fingerprint /> Antifraude</p>
           <h1 className="page-title">Integridad de la cadena</h1>
           <p className="page-subtitle">
             Aquí se comprueba, factura a factura, que nadie ha tocado nada por debajo. También

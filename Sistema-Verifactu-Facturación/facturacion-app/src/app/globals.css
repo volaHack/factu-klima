@@ -210,7 +210,11 @@
   --transition-fast: 120ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-base: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow: 300ms cubic-bezier(0.25, 0.1, 0.25, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Se llamaba «muelle» y rebotaba (1.56 de sobrepaso). En una
+     herramienta de trabajo el rebote se nota como temblor: ahora sale
+     rápido y frena en seco, sin pasarse. Se mantiene el nombre para no
+     tocar las reglas que lo usan. */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   /* Curva de "asentamiento seguro": entra rápido, frena sin rebote.
      Es la firma de movimiento de la app — se reutiliza en transición de
      página, sello de integridad y entrada escalonada de listas, en vez
@@ -981,7 +985,7 @@ a:hover { color: var(--accent-300); }
    principal se distingue por ser el único con fondo de acento, no por
    brillar. Al pasar el ratón oscurece; no salta. */
 .btn-primary {
-  background: var(--accent-gradient); color: white; border: none;
+  background: var(--accent-gradient); color: white; border-color: transparent;
   box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12);
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-600); }
@@ -1287,15 +1291,18 @@ a:hover { color: var(--accent-300); }
 .table-responsive { -webkit-overflow-scrolling: touch; }
 .table { width: 100%; border-collapse: collapse; }
 
+/* La cabecera rotula, no compite: letra pequeña y en tono terciario,
+   para que la vista vaya a los datos. Antes iba en negrita negra con
+   raya doble y pesaba más que las filas. */
 .table th {
-  padding: 14px var(--space-4);
+  padding: 11px var(--space-4);
   text-align: left;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  border-bottom: 2px solid var(--border-color);
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1322,8 +1329,8 @@ a:hover { color: var(--accent-300); }
 }
 .table th.sorted {
   color: var(--accent-500);
-  font-weight: 800;
-  border-bottom-color: var(--accent-500);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--accent-500);
 }
 .table th .sort-icon {
   vertical-align: -2px;
@@ -1587,18 +1594,13 @@ a:hover { color: var(--accent-300); }
 /* Overline en mono con versalitas: el mismo recurso que usan los
    paneles de operaciones para decir "sección" sin gastar una línea
    de título. En mono porque toda la app lee datos en Plex Mono. */
+/* Sólo queda donde dice algo (el paso de un asistente, la norma que
+   se cumple): en texto normal y tono terciario, sin acento ni filete. */
 .page-eyebrow {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs); font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--accent-400);
-  margin-bottom: var(--space-2);
-}
-.page-eyebrow::before {
-  content: ''; width: 14px; height: 1px;
-  background: currentColor; opacity: 0.55;
+  font-size: var(--text-xs); font-weight: 500;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
 }
 .page-eyebrow svg { width: 13px; height: 13px; }
 
@@ -1940,6 +1942,38 @@ a:hover { color: var(--accent-300); }
 .tab.active { color: var(--accent-400); }
 .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--accent-500); }
 
+/* --- Segmentos ---
+   Para elegir UNA vista entre varias (Todos / Clientes / Proveedores).
+   Un botón de acento por pestaña se leía como la acción principal de la
+   página y competía con «Nuevo cliente»; aquí el elegido se levanta en
+   blanco sobre el carril y el acento se queda para lo que hace algo. */
+.segmentos {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  max-width: 100%;
+}
+.segmentos > .btn {
+  background: transparent; border-color: transparent; box-shadow: none;
+  color: var(--text-secondary);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: var(--text-sm); font-weight: 600;
+}
+.segmentos > .btn:hover:not(:disabled) { background: rgba(26, 18, 22, 0.05); color: var(--text-primary); }
+.segmentos > .btn[aria-pressed="true"],
+.segmentos > .btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(76, 26, 40, 0.10), 0 1px 1px rgba(76, 26, 40, 0.04);
+}
+.segmentos > .btn svg { width: 14px; height: 14px; opacity: 0.8; }
+.segmentos-num { color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+:root[data-theme="dark"] .segmentos > .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+
 /* --- Stats List --- */
 .stats-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .stats-item {
@@ -1982,7 +2016,7 @@ a:hover { color: var(--accent-300); }
   background: var(--bg-input); border: 1px solid var(--border-color);
   border-radius: var(--radius-sm); color: var(--text-primary);
 }
-.line-item-subtotal { font-family: var(--font-mono); font-weight: 700; font-size: var(--text-sm); color: var(--text-primary); text-align: right; }
+.line-item-subtotal { font-variant-numeric: tabular-nums; font-weight: 700; font-size: var(--text-sm); color: var(--text-primary); text-align: right; }
 .line-item-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: var(--space-1); border-radius: var(--radius-sm); }
 .line-item-delete:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 .line-item-row input[type="range"] { padding: 0; border: none; background: none; }
@@ -2001,7 +2035,7 @@ a:hover { color: var(--accent-300); }
 .tax-rate-slider-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .tax-rate-slider-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
 .tax-rate-slider-value {
-  font-family: var(--font-mono); font-weight: 800; font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: var(--text-sm);
   color: var(--accent-500); min-width: 34px; text-align: right;
 }
 .tax-rate-slider-control { display: flex; align-items: center; gap: var(--space-2); }
@@ -2014,10 +2048,12 @@ a:hover { color: var(--accent-300); }
 .invoice-totals-table { min-width: 300px; }
 .invoice-totals-row { display: flex; justify-content: space-between; padding: var(--space-2) var(--space-4); font-size: var(--text-sm); }
 .invoice-totals-row .label { color: var(--text-muted); }
-.invoice-totals-row .value { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); }
-.invoice-totals-row.total { border-top: 2px solid var(--accent-500); margin-top: var(--space-2); padding-top: var(--space-3); }
-.invoice-totals-row.total .label { font-size: var(--text-md); font-weight: 800; color: var(--text-primary); }
-.invoice-totals-row.total .value { font-size: var(--text-xl); font-weight: 800; color: var(--accent-400); }
+/* Importes en la misma letra que el resto, con cifras de ancho fijo
+   para que cuadren en columna: el mono los hacía parecer código. */
+.invoice-totals-row .value { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-primary); }
+.invoice-totals-row.total { border-top: 1px solid var(--border-strong); margin-top: var(--space-2); padding-top: var(--space-3); align-items: baseline; }
+.invoice-totals-row.total .label { font-size: var(--text-md); font-weight: 700; color: var(--text-primary); }
+.invoice-totals-row.total .value { font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
 
 /* --- Settings --- */
 .settings-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-6); }
@@ -4107,8 +4143,10 @@ a:focus-visible {
    para no alargar la espera en listas largas.
    ============================================================ */
 
+/* Parte de un estado ya legible: si la lista se vuelve a pintar (llega
+   la copia del servidor) las filas no desaparecen ni parpadean. */
 @keyframes stagger-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0.45; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -8149,9 +8187,14 @@ a.stats-item:focus-visible {
 
 /* ------------------------------------------------------------------
    Botones públicos
+   La web pública usa `btn-primary` y `btn-ghost` sueltos, sin `.btn`.
+   El panel usa las mismas clases junto a `.btn`, así que todo lo de aquí
+   va con `:not(.btn)`: antes se colaba en la app y dejaba los botones
+   principales en píldora, los fantasmas con fondo blanco y borde, y dos
+   tamaños de letra distintos en la misma botonera.
    ------------------------------------------------------------------ */
-.btn-primary,
-.btn-ghost,
+.btn-primary:not(.btn),
+.btn-ghost:not(.btn),
 .btn-ghost-light {
   display: inline-flex;
   align-items: center;
@@ -8169,34 +8212,26 @@ a.stats-item:focus-visible {
               background var(--transition-fast), color var(--transition-fast),
               border-color var(--transition-fast);
 }
-.btn-lg { padding: 14px 26px; }
+.btn-lg:not(.btn) { padding: 14px 26px; }
 
-.btn-primary {
+.btn-primary:not(.btn) {
   background: var(--accent-gradient);
   color: #fff;
   box-shadow: 0 10px 26px -12px rgba(76, 26, 40, 0.7);
 }
-.btn-primary:hover {
+.btn-primary:not(.btn):hover {
   transform: translateY(-2px);
   box-shadow: 0 16px 34px -14px rgba(76, 26, 40, 0.8);
   color: #fff;
 }
 
-/* Estas reglas son de la web pública, pero `.btn-primary` es la misma
-   clase que usa el panel y le llegaban la sombra larga y el salto al
-   pasar el ratón. Dentro de la app (`.btn`) el botón se queda quieto y
-   con la sombra corta de su regla original. */
-.btn.btn-primary { box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12); }
-.btn.btn-ghost:hover { transform: none; }
-.btn.btn-primary:hover:not(:disabled) { transform: none; box-shadow: 0 1px 2px rgba(26, 18, 22, 0.18), inset 0 1px 0 rgba(255,255,255,0.12); }
-
 /* Secundario sobre fondo claro. */
-.btn-ghost {
+.btn-ghost:not(.btn) {
   background: var(--bg-elevated);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
-.btn-ghost:hover {
+.btn-ghost:not(.btn):hover {
   color: var(--text-primary);
   border-color: var(--border-color-hover);
   transform: translateY(-2px);
@@ -9922,17 +9957,6 @@ body.nav-abierta { overflow: hidden; }
    RESPONSIVE FIXES — contención de overflow en pantallas pequeñas
    ============================================================ */
 
-/* Pestañas tipo catálogo (productos) y filas de acciones parecidas:
-   que envuelvan en vez de forzar una fila que no cabe en móvil. */
-.tab-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: var(--space-3);
-}
-
 /* Los tracks de grid `1fr` no se encogen por debajo del min-content de sus
    items. En los formularios (Nueva factura / Nuevo albarán) cada tarjeta
    cuelga de un grid de una columna, así que el min-content de .form-row
@@ -9958,8 +9982,6 @@ body.nav-abierta { overflow: hidden; }
   .network-bar-content { min-width: 0; flex: 1 1 auto; }
   .network-bar-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .network-bar-action { flex-shrink: 0; }
-
-  .tab-bar .btn { flex: 1 1 auto; justify-content: center; }
 }
 
 /* ============================================================
@@ -11349,12 +11371,36 @@ body.nav-abierta { overflow: hidden; }
 .lineas-doc-campo--impuesto { flex: 1 1 140px; }
 
 .lineas-doc-campo > span {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
-.lineas-doc-campo input { width: 100%; text-align: right; }
+/* Los campos de la línea no llevan `.form-input` (son muchos y van
+   apretados), así que salían con el borde y la altura del navegador. */
+.lineas-doc-campo input:not([type="range"]):not([type="checkbox"]),
+.lineas-doc-campo select {
+  width: 100%; text-align: right;
+  height: 34px; padding: 0 var(--space-2);
+  font: inherit; font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.lineas-doc-campo select { text-align: left; }
+.lineas-doc-campo input:not([type="range"]):hover,
+.lineas-doc-campo select:hover { border-color: var(--border-color-hover); }
+.lineas-doc-campo input:not([type="range"]):focus,
+.lineas-doc-campo select:focus {
+  outline: none;
+  border-color: var(--border-color-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.lineas-doc-campo input::placeholder { color: var(--text-muted); }
 .lineas-doc-campo--ancho input { text-align: left; }
 
 .lineas-doc-pie {
@@ -11946,7 +11992,6 @@ body.nav-abierta { overflow: hidden; }
   padding: var(--space-4);
   margin-bottom: var(--space-6);
   border: 1px solid var(--border-color);
-  border-left: 3px solid var(--accent-500);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   color: var(--text-secondary);

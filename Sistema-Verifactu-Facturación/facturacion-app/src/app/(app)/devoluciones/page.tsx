@@ -98,7 +98,6 @@ export default function DevolucionesAbonosPage() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><ReceiptText /> Créditos</p>
           <h1 className="page-title">Abonos y devoluciones</h1>
           {abonos.length > 0 && (
             <div className="page-meta">

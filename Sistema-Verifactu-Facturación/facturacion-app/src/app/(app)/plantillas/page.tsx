@@ -423,9 +423,6 @@ export default function PlantillasPage() {
             {/* El tipo, en la cejilla y en cuanto se entra: es lo que
                 decide el título impreso, la advertencia legal y el QR, y
                 antes no se veía por ninguna parte hasta bajar al pie. */}
-            <p className="page-eyebrow">
-              <LayoutTemplate /> Diseño de {personalidadDe(tipoDominante(aplicaA)).plural.toLowerCase()}
-            </p>
             <h1 className="page-title">
               {editando ? `Editando «${editando.nombre}»` : 'Revisa lo que se ha detectado'}
             </h1>
@@ -532,7 +529,6 @@ export default function PlantillasPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><LayoutTemplate /> Diseño de documentos</p>
           <h1 className="page-title">El diseño de tus documentos</h1>
           <p className="page-subtitle">
             Sube en PDF un documento tuyo —una factura, un albarán, un presupuesto— y el

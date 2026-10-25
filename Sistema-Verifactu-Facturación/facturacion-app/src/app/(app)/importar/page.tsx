@@ -174,7 +174,6 @@ export default function ImportarPage() {
     <div className="animate-fade-in imp">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Upload /> Datos</p>
           <h1 className="page-title">Importar de otro programa</h1>
           <p className="page-subtitle">Trae tus clientes y tus productos desde {PROGRAMAS}.</p>
         </div>

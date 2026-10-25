@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EstadoBanco, MovimientoVista } from '@/components/banco/tipos';
 import Link from 'next/link';
 import {
-  Landmark, Upload, CheckCircle2, Sparkles, EyeOff, Undo2, Receipt, X, FileSpreadsheet, RefreshCw,
+  Upload, CheckCircle2, Sparkles, EyeOff, Undo2, Receipt, X, FileSpreadsheet, RefreshCw,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useToast } from '@/hooks/useToast';
@@ -233,7 +233,6 @@ export default function ConciliacionPage() {
     <div className="page banco">
       <div className="page-header">
         <div className="page-header-left">
-          <p className="page-eyebrow"><Landmark /> Tesorería</p>
           <h1 className="page-title">Conciliación bancaria</h1>
           <p className="page-subtitle">
             Sube el extracto del banco y cada movimiento sale casado con su factura o su gasto.
