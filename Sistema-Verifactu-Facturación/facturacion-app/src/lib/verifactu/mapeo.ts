@@ -62,6 +62,8 @@ export interface FilaFactura {
   client_vat_number: string | null;
   es_intracomunitaria: boolean | null;
   clave_regimen_iva: string | null;
+  /** IVA o IGIC fijado al crear la factura (077); null en las anteriores. */
+  impuesto?: string | null;
   tipo: string;
   documento_origen_number: string | null;
   documento_origen_id: string | null;

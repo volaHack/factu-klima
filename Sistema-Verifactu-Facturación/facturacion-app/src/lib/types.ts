@@ -841,6 +841,12 @@ export interface Invoice {
    */
   claveRegimenIva?: ClaveRegimenIva;
 
+  /**
+   * IVA o IGIC, fijado al crear la factura (migración 077). Vacío en las
+   * anteriores: entonces manda el régimen de la empresa (ver lib/impuesto).
+   */
+  impuesto?: 'IVA' | 'IGIC';
+
   /** true si la operación es intracomunitaria (cliente con VAT de otro país UE). */
   esIntracomunitaria?: boolean;
 

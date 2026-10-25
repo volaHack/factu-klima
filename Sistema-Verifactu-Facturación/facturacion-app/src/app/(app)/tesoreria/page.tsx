@@ -72,23 +72,30 @@ function TesoreriaPageContenido() {
 
   const { success, error: toastError } = useToast();
 
-  const loadData = async (silencioso = false) => {
-    if (!silencioso) setLoading(true);
-    try {
-      const [allInvs, allCobros, allClients, st] = await Promise.all([
-        getInvoices(),
-        getCobrosPagos(),
-        getClients(),
-        getCompanySettings(),
-      ]);
-      setInvoices(allInvs);
-      setCobrosPagos(allCobros);
-      setClients(allClients);
-      setSettings(st);
+  // La lectura va aparte del setState (como en Gastos): el montaje la
+  // encadena con un centinela y los manejadores la reutilizan. Al recargar
+  // no se vuelve a enseñar el esqueleto: `loading` sólo vale en la primera.
+  const leerDatos = () => Promise.all([
+    getInvoices(),
+    getCobrosPagos(),
+    getClients(),
+    getCompanySettings(),
+  ]);
 
-      if (allClients.length > 0 && !selectedContraparteId) {
-        setSelectedContraparteId(allClients[0].id);
-      }
+  const aplicarDatos = ([allInvs, allCobros, allClients, st]: Awaited<ReturnType<typeof leerDatos>>) => {
+    setInvoices(allInvs);
+    setCobrosPagos(allCobros);
+    setClients(allClients);
+    setSettings(st);
+
+    if (allClients.length > 0 && !selectedContraparteId) {
+      setSelectedContraparteId(allClients[0].id);
+    }
+  };
+
+  const loadData = async () => {
+    try {
+      aplicarDatos(await leerDatos());
     } catch {
       toastError('Error al cargar datos de tesorería');
     } finally {
@@ -98,12 +105,17 @@ function TesoreriaPageContenido() {
   };
 
   useEffect(() => {
-    loadData();
+    let vivo = true;
+    leerDatos()
+      .then(d => { if (vivo) aplicarDatos(d); })
+      .catch(() => toastError('Error al cargar datos de tesorería'))
+      .finally(() => { if (vivo) { setLoading(false); setMounted(true); } });
     // Cobros, facturas o clientes cambiados (aquí o en otro equipo): se repinta sin el «cargando».
-    const alCambiar = () => { void loadData(true); };
+    const alCambiar = () => { void loadData(); };
     const avisos = ['klima-invoices-updated', 'klima-clients-updated', 'klima-cobros_pagos-updated'];
     avisos.forEach(a => window.addEventListener(a, alCambiar));
-    return () => avisos.forEach(a => window.removeEventListener(a, alCambiar));
+    return () => { vivo = false; avisos.forEach(a => window.removeEventListener(a, alCambiar)); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al entrar
   }, []);
 
   useRevisarAlVolver(['invoices', 'clients']);
@@ -472,7 +484,7 @@ function TesoreriaPageContenido() {
               <select
                 className="form-select"
                 value={filtroSentido}
-                onChange={e => setFiltroSentido(e.target.value as any)}
+                onChange={e => setFiltroSentido(e.target.value as typeof filtroSentido)}
                 style={{ width: 180 }}
               >
                 <option value="todos">Todos los sentidos</option>

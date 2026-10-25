@@ -362,92 +362,68 @@ function DocumentosContent() {
               <tr>
                 <th
                   className={sortField === 'number' ? 'sorted' : ''}
-                  onClick={() => handleSort('number')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('number'); } }}
                   aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por número"
                 >
-                  Número {sortIcon('number')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('number')} title="Ordenar por número">
+                    Número {sortIcon('number')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'tipo' ? 'sorted' : ''}
-                  onClick={() => handleSort('tipo')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('tipo'); } }}
                   aria-sort={sortField === 'tipo' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por tipo de documento"
                 >
-                  Tipo {sortIcon('tipo')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('tipo')} title="Ordenar por tipo de documento">
+                    Tipo {sortIcon('tipo')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'sentido' ? 'sorted' : ''}
-                  onClick={() => handleSort('sentido')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('sentido'); } }}
                   aria-sort={sortField === 'sentido' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por sentido (venta o compra)"
                 >
-                  Sentido {sortIcon('sentido')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('sentido')} title="Ordenar por sentido (venta o compra)">
+                    Sentido {sortIcon('sentido')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'issueDate' ? 'sorted' : ''}
-                  onClick={() => handleSort('issueDate')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('issueDate'); } }}
                   aria-sort={sortField === 'issueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por fecha"
                 >
-                  Fecha {sortIcon('issueDate')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('issueDate')} title="Ordenar por fecha">
+                    Fecha {sortIcon('issueDate')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'clientName' ? 'sorted' : ''}
-                  onClick={() => handleSort('clientName')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('clientName'); } }}
                   aria-sort={sortField === 'clientName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por cliente o proveedor"
                 >
-                  Cliente / Proveedor {sortIcon('clientName')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('clientName')} title="Ordenar por cliente o proveedor">
+                    Cliente / Proveedor {sortIcon('clientName')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'documentoOrigenNumber' ? 'sorted' : ''}
-                  onClick={() => handleSort('documentoOrigenNumber')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('documentoOrigenNumber'); } }}
                   aria-sort={sortField === 'documentoOrigenNumber' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por documento de origen"
                 >
-                  Origen {sortIcon('documentoOrigenNumber')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('documentoOrigenNumber')} title="Ordenar por documento de origen">
+                    Origen {sortIcon('documentoOrigenNumber')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'total' ? 'sorted' : ''}
-                  onClick={() => handleSort('total')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
                   aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   style={{ textAlign: 'right' }}
-                  title="Ordenar por total"
                 >
-                  Total {sortIcon('total')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por total">
+                    Total {sortIcon('total')}
+                  </button>
                 </th>
                 <th
                   className={sortField === 'status' ? 'sorted' : ''}
-                  onClick={() => handleSort('status')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('status'); } }}
                   aria-sort={sortField === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  title="Ordenar por estado"
                 >
-                  Estado {sortIcon('status')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('status')} title="Ordenar por estado">
+                    Estado {sortIcon('status')}
+                  </button>
                 </th>
                 <th style={{ textAlign: 'right' }}><span className="solo-lectores">Acciones</span></th>
               </tr>

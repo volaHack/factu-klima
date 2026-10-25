@@ -593,3 +593,37 @@ export async function historicoParaListado(
   }
   return { filas, total };
 }
+
+// ------------------------------------------------------------
+// Los mejores clientes y proveedores del programa anterior
+// ------------------------------------------------------------
+
+/** Una fila de `top_historico()` (migración 073). Sin ficha aquí, viene el código del otro programa. */
+export interface FilaTopHistorico {
+  clientId: string | null;
+  codigo: string | null;
+  nombre: string | null;
+  documentos: number;
+  total: number;
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+export function filaTopDe(f: any): FilaTopHistorico {
+  return {
+    clientId: f.client_id ?? null,
+    codigo: f.codigo_tercero ?? null,
+    nombre: f.nombre ?? null,
+    documentos: Number(f.documentos) || 0,
+    total: Number(f.total) || 0,
+  };
+}
+
+/** Sumado por la base de datos, como el resumen. Sin la función (migración 073), ninguno. */
+export async function topHistorico(tipo: TipoHistorico, limite = 6): Promise<FilaTopHistorico[]> {
+  const { data, error } = await createClient().rpc('top_historico', { p_tipo: tipo, p_limite: limite });
+  if (error) {
+    if (faltaLaTabla(error) || /top_historico/.test(error.message ?? '')) return [];
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as unknown[]).map(filaTopDe);
+}

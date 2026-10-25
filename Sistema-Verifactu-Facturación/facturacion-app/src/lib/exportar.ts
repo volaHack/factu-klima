@@ -29,6 +29,7 @@ import type {
   Oferta, Product,
 } from './types';
 import { sinFormula } from './csvSeguro';
+import type { NombreImpuesto } from './impuesto';
 
 // ============================================================
 // CSV
@@ -78,7 +79,7 @@ export function importeCsv(valor: number | undefined | null): string {
 // ============================================================
 
 /** IVA en la península y Baleares; IGIC en Canarias. Los libros lo rotulan igual que la empresa. */
-export type NombreImpuesto = 'IVA' | 'IGIC';
+export type { NombreImpuesto };
 
 const cabecerasFacturas = (impuesto: NombreImpuesto) => [
   'Número', 'Fecha', 'Vencimiento', 'Cliente', 'NIF', 'Base imponible',

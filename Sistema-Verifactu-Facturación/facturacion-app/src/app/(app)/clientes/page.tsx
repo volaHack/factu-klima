@@ -24,6 +24,8 @@ import { NOMBRE_TIPO_FISCAL, tipoFiscalDe } from '@/lib/facturaElectronica/ambit
 import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
+import { NOMBRE_ORIGEN, origenDelHistorico, topHistorico, type FilaTopHistorico, type TipoHistorico } from '@/lib/historico';
+import { TIPOS_RANKING, esDeCompra, rankingDeKlima, rankingDelHistorico } from '@/lib/rankingTerceros';
 
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
@@ -48,6 +50,10 @@ function ClientesPageContenido() {
   const [refreshing, setRefreshing] = useState(false);
   const [sortField, setSortField] = useState<'name' | 'nif' | 'city' | 'email' | 'invoiceCount' | 'total'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [tipoTop, setTipoTop] = useState<TipoHistorico>('factura_venta');
+  const [origenTop, setOrigenTop] = useState<string>('klima');
+  const [origenHistorico, setOrigenHistorico] = useState<string | null>(null);
+  const [topDelHistorico, setTopDelHistorico] = useState<{ tipo: TipoHistorico; filas: FilaTopHistorico[] } | null>(null);
   const { success, error: toastError } = useToast();
 
   // Form state
@@ -92,6 +98,23 @@ function ClientesPageContenido() {
 
   // Al volver a la pestaña y cada rato: lo de otros equipos sale solo.
   useRevisarAlVolver(['clients', 'invoices']);
+
+  // ¿Hay historial de otro programa? Sólo entonces se ofrece en el top.
+  useEffect(() => {
+    let vivo = true;
+    origenDelHistorico().then(o => { if (vivo) setOrigenHistorico(o); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  // El top del historial lo suma la base de datos: se pide al elegirlo.
+  useEffect(() => {
+    if (origenTop === 'klima') return;
+    let vivo = true;
+    topHistorico(tipoTop)
+      .catch(() => [] as FilaTopHistorico[])
+      .then(filas => { if (vivo) setTopDelHistorico({ tipo: tipoTop, filas }); });
+    return () => { vivo = false; };
+  }, [origenTop, tipoTop]);
 
   // Declaración, no constante: el escuchador de eventos de arriba la usa
   // antes de esta línea. Con `const` se quedaba con la versión del primer
@@ -188,21 +211,23 @@ function ClientesPageContenido() {
   // Datos de la analítica
   const { accent } = useColoresGrafica();
 
-  const topClientsData = useMemo(() => {
-    return clients
-      .map(c => {
-        const stats = getClientStats(c.id);
-        return {
-          id: c.id,
-          name: c.tradeName || c.businessName,
-          total: Number(stats.total.toFixed(2)),
-          count: stats.count
-        };
-      })
-      .filter(c => c.total > 0)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6);
-  }, [clients, invoices]);
+  // El top: de qué documento y de dónde (Klima o el programa anterior).
+  const nombreDeFicha = useMemo(() => {
+    const nombres = new Map(clients.map(c => [c.id, c.tradeName || c.businessName]));
+    return (id: string) => nombres.get(id);
+  }, [clients]);
+  const topClientsData = useMemo(
+    () => origenTop === 'klima'
+      ? rankingDeKlima(invoices, nombreDeFicha, tipoTop)
+      : topDelHistorico?.tipo === tipoTop ? rankingDelHistorico(topDelHistorico.filas, nombreDeFicha) : [],
+    [origenTop, tipoTop, invoices, nombreDeFicha, topDelHistorico],
+  );
+  const cargandoTop = origenTop !== 'klima' && topDelHistorico?.tipo !== tipoTop;
+  const tituloTop = esDeCompra(tipoTop) ? 'Top proveedores' : 'Top clientes';
+  const nombreTipoTop = TIPOS_RANKING.find(t => t.id === tipoTop)?.nombre.toLowerCase() ?? '';
+  const subtituloTop = origenTop === 'klima'
+    ? `Por importe en ${nombreTipoTop} de Klima`
+    : `Por importe en ${nombreTipoTop} de ${NOMBRE_ORIGEN[origenTop] ?? origenTop}`;
 
   // Cómo pagan los de la pestaña que se mira: los clientes, los proveedores o todos.
   const contactosDeLaPestana = useMemo(
@@ -395,14 +420,34 @@ function ClientesPageContenido() {
       </div>
 
       <div className="dashboard-grid" style={{ marginBottom: 'var(--space-6)' }}>
-        <ChartCard
-          title="Top clientes por facturación"
-          subtitle="Basado en facturas emitidas"
-        >
-          {topClientsData.length > 0 ? (
+        <ChartCard title={tituloTop} subtitle={subtituloTop}>
+          <div className="top-terceros-filtros">
+            <select
+              className="form-select form-select-sm"
+              aria-label="Tipo de documento"
+              value={tipoTop}
+              onChange={e => setTipoTop(e.target.value as TipoHistorico)}
+            >
+              {TIPOS_RANKING.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+            {origenHistorico && (
+              <select
+                className="form-select form-select-sm"
+                aria-label="Origen de los documentos"
+                value={origenTop}
+                onChange={e => setOrigenTop(e.target.value)}
+              >
+                <option value="klima">Klima</option>
+                <option value={origenHistorico}>{NOMBRE_ORIGEN[origenHistorico] ?? origenHistorico}</option>
+              </select>
+            )}
+          </div>
+          {cargandoTop ? (
+            <div className="empty-state-card" aria-busy="true">Sumando el historial…</div>
+          ) : topClientsData.length > 0 ? (
             <RankedBars data={topClientsData} color={accent} />
           ) : (
-            <div className="empty-state-card">Sin datos de facturación</div>
+            <div className="empty-state-card">Sin {nombreTipoTop} que sumar</div>
           )}
         </ChartCard>
 
@@ -456,77 +501,54 @@ function ClientesPageContenido() {
             <tr>
               <th
                 className={sortField === 'nif' ? 'sorted' : ''}
-                onClick={() => handleSort('nif')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('nif'); } }}
                 aria-sort={sortField === 'nif' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ cursor: 'pointer' }}
-                title="Ordenar por NIF/CIF"
               >
-                NIF/CIF {sortIcon('nif')}
+                <button type="button" className="th-orden" onClick={() => handleSort('nif')} title="Ordenar por NIF/CIF">
+                  NIF/CIF {sortIcon('nif')}
+                </button>
               </th>
               <th
                 className={sortField === 'name' ? 'sorted' : ''}
-                onClick={() => handleSort('name')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('name'); } }}
                 aria-sort={sortField === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ cursor: 'pointer' }}
-                title="Ordenar por nombre comercial"
               >
-                Nombre comercial {sortIcon('name')}
+                <button type="button" className="th-orden" onClick={() => handleSort('name')} title="Ordenar por nombre comercial">
+                  Nombre comercial {sortIcon('name')}
+                </button>
               </th>
               <th>Tipo</th>
               <th>Tarifa / Dtos.</th>
               <th
                 className={sortField === 'city' ? 'sorted' : ''}
-                onClick={() => handleSort('city')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('city'); } }}
                 aria-sort={sortField === 'city' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ cursor: 'pointer' }}
-                title="Ordenar por ciudad"
               >
-                Ciudad {sortIcon('city')}
+                <button type="button" className="th-orden" onClick={() => handleSort('city')} title="Ordenar por ciudad">
+                  Ciudad {sortIcon('city')}
+                </button>
               </th>
               <th
                 className={sortField === 'email' ? 'sorted' : ''}
-                onClick={() => handleSort('email')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('email'); } }}
                 aria-sort={sortField === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ cursor: 'pointer' }}
-                title="Ordenar por contacto / email"
               >
-                Contacto {sortIcon('email')}
+                <button type="button" className="th-orden" onClick={() => handleSort('email')} title="Ordenar por contacto / email">
+                  Contacto {sortIcon('email')}
+                </button>
               </th>
               <th
                 className={sortField === 'invoiceCount' ? 'sorted' : ''}
-                onClick={() => handleSort('invoiceCount')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('invoiceCount'); } }}
                 aria-sort={sortField === 'invoiceCount' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ cursor: 'pointer' }}
-                title="Ordenar por número de facturas"
               >
-                Facturas {sortIcon('invoiceCount')}
+                <button type="button" className="th-orden" onClick={() => handleSort('invoiceCount')} title="Ordenar por número de facturas">
+                  Facturas {sortIcon('invoiceCount')}
+                </button>
               </th>
               <th
                 className={sortField === 'total' ? 'sorted' : ''}
-                onClick={() => handleSort('total')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
                 aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ textAlign: 'right', cursor: 'pointer' }}
-                title="Ordenar por total facturado"
+                style={{ textAlign: 'right', }}
               >
-                Total facturado {sortIcon('total')}
+                <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por total facturado">
+                  Total facturado {sortIcon('total')}
+                </button>
               </th>
               <th>Estado</th>
               <th style={{ width: 120 }}><span className="solo-lectores">Acciones</span></th>

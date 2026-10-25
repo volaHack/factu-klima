@@ -639,70 +639,52 @@ export default function FacturasPage() {
               </th>
               <th
                 className={sortField === 'number' ? 'sorted' : ''}
-                onClick={() => handleSort('number')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('number'); } }}
                 aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title="Ordenar por número de factura"
               >
-                Nº Factura {sortIcon('number')}
+                <button type="button" className="th-orden" onClick={() => handleSort('number')} title="Ordenar por número de factura">
+                  Nº Factura {sortIcon('number')}
+                </button>
               </th>
               <th
                 className={sortField === 'clientName' ? 'sorted' : ''}
-                onClick={() => handleSort('clientName')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('clientName'); } }}
                 aria-sort={sortField === 'clientName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title="Ordenar por cliente"
               >
-                Cliente {sortIcon('clientName')}
+                <button type="button" className="th-orden" onClick={() => handleSort('clientName')} title="Ordenar por cliente">
+                  Cliente {sortIcon('clientName')}
+                </button>
               </th>
               <th
                 className={sortField === 'issueDate' ? 'sorted' : ''}
-                onClick={() => handleSort('issueDate')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('issueDate'); } }}
                 aria-sort={sortField === 'issueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title="Ordenar por fecha de emisión"
               >
-                Fecha {sortIcon('issueDate')}
+                <button type="button" className="th-orden" onClick={() => handleSort('issueDate')} title="Ordenar por fecha de emisión">
+                  Fecha {sortIcon('issueDate')}
+                </button>
               </th>
               <th
                 className={sortField === 'dueDate' ? 'sorted' : ''}
-                onClick={() => handleSort('dueDate')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('dueDate'); } }}
                 aria-sort={sortField === 'dueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title="Ordenar por fecha de vencimiento"
               >
-                Vencimiento {sortIcon('dueDate')}
+                <button type="button" className="th-orden" onClick={() => handleSort('dueDate')} title="Ordenar por fecha de vencimiento">
+                  Vencimiento {sortIcon('dueDate')}
+                </button>
               </th>
               <th
                 className={sortField === 'status' ? 'sorted' : ''}
-                onClick={() => handleSort('status')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('status'); } }}
                 aria-sort={sortField === 'status' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title="Ordenar por estado"
               >
-                Estado {sortIcon('status')}
+                <button type="button" className="th-orden" onClick={() => handleSort('status')} title="Ordenar por estado">
+                  Estado {sortIcon('status')}
+                </button>
               </th>
               <th
                 className={sortField === 'total' ? 'sorted' : ''}
-                onClick={() => handleSort('total')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort('total'); } }}
                 aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 style={{ textAlign: 'right' }}
-                title="Ordenar por importe total"
               >
-                Total {sortIcon('total')}
+                <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por importe total">
+                  Total {sortIcon('total')}
+                </button>
               </th>
               <th style={{ width: 50 }}><span className="solo-lectores">Acciones</span></th>
             </tr>

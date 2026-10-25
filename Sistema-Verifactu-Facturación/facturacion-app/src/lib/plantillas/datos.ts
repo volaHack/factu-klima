@@ -19,6 +19,7 @@ import { calculateInvoiceTotals, desgloseDescuentos, formatCurrency, formatDate 
 import { LEYENDA_LARGA } from '../verifactu/qrFactura';
 import { CAMPOS, RENGLONES_IMPUESTO, totalDeColumna } from './contrato';
 import { personalidadDe } from './tiposDocumento';
+import { impuestoDeFactura } from '@/lib/impuesto';
 
 /** Documento imprimible: factura, albarán, presupuesto, pedido o rectificativa. */
 export type DocumentoImprimible =
@@ -277,7 +278,8 @@ export function construirDatos(
   const doc = entrada.documento;
   const esFactura = entrada.tipo === 'factura' || entrada.tipo === 'rectificativa';
   const factura = ('dueDate' in doc) ? (doc as Invoice) : null;
-  const impuesto = nombreImpuesto(ajustes);
+  // El de la propia factura si lo guarda; si no, el de la empresa.
+  const impuesto = factura ? impuestoDeFactura(factura, ajustes) : nombreImpuesto(ajustes);
   const cliente = opciones.cliente;
   // Los datos manuales viajan en el propio documento; opciones es la red de
   // seguridad para quien llame sin documento con datosExtras.

@@ -11,6 +11,7 @@ import { productorDePlataforma } from '@/lib/plataforma/productor';
 import { avisoNifDistinto, certificadoValeParaNif } from '@/lib/verifactu/titular';
 import { ESTADOS_PENDIENTES } from '@/lib/verifactu/entorno';
 import { todasLasFilas } from '@/lib/porTandas';
+import { esNombreImpuesto, impuestoDeFactura, type NombreImpuesto } from '@/lib/impuesto';
 
 const TAMANO_LOTE = 100;
 
@@ -212,7 +213,7 @@ export async function enviarPendientes(
   const idsFactura = [...new Set(lote.map(r => r.invoice_id))];
   const [{ data: facturas }, { data: tramos }, { data: lineas }, { data: anteriores }] = await Promise.all([
     db.from('invoices')
-      .select('id, client_name, client_nif, client_vat_number, es_intracomunitaria, clave_regimen_iva, tipo, documento_origen_number, documento_origen_id, issue_date, notes, datos_extras')
+      .select('id, client_name, client_nif, client_vat_number, es_intracomunitaria, clave_regimen_iva, impuesto, tipo, documento_origen_number, documento_origen_id, issue_date, notes, datos_extras')
       .in('id', idsFactura),
     todasLasFilas((desde, hasta) => db.from('invoice_tax_breakdown').select('invoice_id, rate, base_amount, tax_amount')
       .in('invoice_id', idsFactura).order('invoice_id').order('id').range(desde, hasta)),
@@ -273,7 +274,12 @@ export async function enviarPendientes(
           tramos: (tramos ?? []).filter(t => t.invoice_id === r.invoice_id),
           lineas: (lineas ?? []).filter(l => l.invoice_id === r.invoice_id),
           nombreRazonEmisor: ajustes.business_name,
-          igic: ajustes.igic_enabled ?? false,
+          // El impuesto con que se emitió la factura; en las anteriores a
+          // la 077, que no lo guardan, el régimen de la empresa.
+          igic: impuestoDeFactura(
+            { impuesto: esNombreImpuesto(porFactura.get(r.invoice_id)!.impuesto) ? porFactura.get(r.invoice_id)!.impuesto as NombreImpuesto : null },
+            { igicEnabled: ajustes.igic_enabled ?? false },
+          ) === 'IGIC',
           anterior: datosAnterior,
         }),
       };

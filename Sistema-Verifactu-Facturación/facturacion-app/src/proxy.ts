@@ -149,6 +149,8 @@ export const config = {
     // /descargas son los instaladores de escritorio que ofrece /instalar, una
     // página pública: pasando por aquí devolvían un 307 a /login y los
     // botones de descarga no bajaban nada.
-    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|descargas/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|json|txt|woff|woff2|ttf|eot|exe|dmg|zip|apk)$).*)',
+    // .mjs es el worker de pdf.js (/pdfjs/), que se carga como módulo: un
+    // 307 a /login le llega como HTML y el visor de PDF no arranca.
+    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|descargas/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|mjs|css|json|txt|woff|woff2|ttf|eot|exe|dmg|zip|apk)$).*)',
   ],
 };
