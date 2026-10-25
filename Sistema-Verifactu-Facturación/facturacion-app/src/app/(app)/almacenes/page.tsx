@@ -24,6 +24,8 @@ import { vocabularioDe } from '@/lib/vocabulario';
 import type { BusinessSector } from '@/lib/types';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'almacenes' | 'existencias' | 'traspasos' | 'regularizaciones';
 
@@ -355,6 +357,10 @@ function AlmacenesPageContenido() {
     else if (activeTab === 'regularizaciones') handleOpenRegModal();
   });
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagStock = usePaginacion(filteredProducts, { clave: 'almacenes-stock', reinicio: searchTerm });
+  const pagTraspasos = usePaginacion(traspasos, { clave: 'almacenes-traspasos', reinicio: '' });
+
   if (!mounted || loading) return <PageSkeleton />;
 
   return (
@@ -591,7 +597,7 @@ function AlmacenesPageContenido() {
                     hint="Prueba a cambiar el texto de búsqueda o añade nuevos productos."
                   />
                 ) : (
-                  filteredProducts.map(p => (
+                  pagStock.visibles.map(p => (
                     <tr key={p.id}>
                       <td><code>{p.ref}</code></td>
                       <td>
@@ -634,6 +640,7 @@ function AlmacenesPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={pagStock} etiqueta="artículos" />
           </div>
         </div>
       )}
@@ -662,7 +669,7 @@ function AlmacenesPageContenido() {
                     hint="Realiza un movimiento de mercancía entre almacenes usando el botón superior."
                   />
                 ) : (
-                  traspasos.map(trp => (
+                  pagTraspasos.visibles.map(trp => (
                     <tr key={trp.id}>
                       <td><strong>{trp.number}</strong></td>
                       <td>{formatDate(trp.fecha)}</td>
@@ -691,6 +698,7 @@ function AlmacenesPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={pagTraspasos} etiqueta="traspasos" />
           </div>
         </div>
       )}

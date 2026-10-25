@@ -27,6 +27,8 @@ import TaxRateSlider from '@/components/ui/TaxRateSlider';
 import { useToast } from '@/hooks/useToast';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 interface CategoryOption {
   value: string;
@@ -249,6 +251,12 @@ function ProductosPageContenido() {
 
     return result;
   }, [products, search, categoryFilter, sortField, sortDir]);
+
+  // Por páginas: un catálogo de cientos de artículos no se pinta de una vez.
+  const paginado = usePaginacion(filteredProducts, {
+    clave: 'articulos',
+    reinicio: [search, categoryFilter, sortField, sortDir].join('|'),
+  });
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -716,7 +724,7 @@ function ProductosPageContenido() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map(p => {
+                {paginado.visibles.map(p => {
                   const cat = getCategoryInfo(p.category);
                   const isLowStock = p.lowStockThreshold != null && (p.stockQuantity ?? 0) <= p.lowStockThreshold;
                   const isOutOfStock = (p.stockQuantity ?? 0) <= 0;
@@ -827,6 +835,7 @@ function ProductosPageContenido() {
                 )}
               </tbody>
             </table>
+            <Paginacion paginado={paginado} etiqueta="artículos" />
           </div>
         </>
       )}

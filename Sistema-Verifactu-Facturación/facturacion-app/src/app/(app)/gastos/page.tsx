@@ -21,6 +21,8 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import { casaTexto } from '@/lib/casaTexto';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import Paginacion from '@/components/ui/Paginacion';
 
 type Tab = 'gastos' | 'vehiculos';
 type GastoSortField = 'fecha' | 'concepto' | 'categoria' | 'proveedorNombre' | 'baseImponible' | 'total';
@@ -289,6 +291,9 @@ export default function GastosPage() {
     }
   };
 
+  // Por páginas: las listas largas no se pintan de una vez.
+  const pagGastos = usePaginacion(visibles, { clave: 'gastos', reinicio: [busqueda, filtroCategoria, filtroDesde, filtroHasta, sortField, sortDir].join('|') });
+
   if (!mounted) return <PageSkeleton />;
 
   return (
@@ -452,7 +457,7 @@ export default function GastosPage() {
                       hint="Registra el alquiler, los suministros o cualquier otro pago que no sea mercancía."
                     />
                   ) : (
-                    visibles.map(g => (
+                    pagGastos.visibles.map(g => (
                       <tr key={g.id}>
                         <td>{formatDate(g.fecha)}</td>
                         <td><strong>{g.concepto}</strong></td>
@@ -483,6 +488,7 @@ export default function GastosPage() {
                   </tfoot>
                 )}
               </table>
+              <Paginacion paginado={pagGastos} etiqueta="gastos" />
             </div>
           </div>
         </>
