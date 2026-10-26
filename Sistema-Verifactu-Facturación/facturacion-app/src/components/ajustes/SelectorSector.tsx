@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Search, ChevronDown, Check } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Search, ChevronDown, Check, X } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { BUSINESS_SECTORS, GRUPOS_SECTOR } from '@/lib/constants';
 import type { BusinessSector } from '@/lib/types';
@@ -35,6 +35,20 @@ export default function SelectorSector({ valor, onElegir }: Props) {
    */
   const [abierto, setAbierto] = useState(!valor);
   const actual = BUSINESS_SECTORS.find(s => s.value === valor);
+  /**
+   * A dónde va el foco al abrir o cerrar.
+   *
+   * El botón que se pulsa desaparece al cambiar de vista, y sin esto el
+   * foco se iba al principio de la página: con teclado había que volver a
+   * bajar hasta aquí. Al abrir va al buscador; al cerrar, a «Cambiar
+   * sector». Sólo cuando lo pide un clic, nunca al cargar la página.
+   */
+  const foco = useRef<'buscador' | 'cambiar' | null>(null);
+  const enfocarSi = (cual: 'buscador' | 'cambiar') => (el: HTMLElement | null) => {
+    if (el && foco.current === cual) { foco.current = null; el.focus(); }
+  };
+  const abrir = () => { foco.current = 'buscador'; setAbierto(true); };
+  const cerrar = () => { foco.current = 'cambiar'; setBusqueda(''); setAbierto(false); };
 
   const porGrupo = useMemo(() => {
     const limpia = busqueda.trim().toLowerCase();
@@ -51,12 +65,7 @@ export default function SelectorSector({ valor, onElegir }: Props) {
   // Plegado: la actividad que hay puesta y un botón para cambiarla.
   if (!abierto && actual) {
     return (
-      <button
-        type="button"
-        className="selector-sector-resumen"
-        onClick={() => setAbierto(true)}
-        aria-expanded={false}
-      >
+      <div className="selector-sector-resumen">
         <span className="selector-sector-resumen-icono">
           <CategoryIcon name={actual.icon} size={22} />
         </span>
@@ -64,18 +73,35 @@ export default function SelectorSector({ valor, onElegir }: Props) {
           <strong>{actual.label}</strong>
           <span>{actual.description}</span>
         </span>
-        <span className="selector-sector-resumen-accion">
-          Cambiar <ChevronDown size={15} />
-        </span>
-      </button>
+        <button
+          type="button"
+          ref={enfocarSi('cambiar')}
+          className="btn btn-secondary btn-sm selector-sector-resumen-accion"
+          onClick={abrir}
+          aria-expanded={false}
+        >
+          Cambiar sector <ChevronDown size={15} />
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="selector-sector">
+      {/* Abierto con un sector ya puesto: se puede volver sin tocarlo. */}
+      {actual && (
+        <div className="selector-sector-cabeza">
+          <span>Ahora: <strong>{actual.label}</strong>. Elige otro o déjalo como está.</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={cerrar} aria-expanded={true}>
+            <X size={14} /> Dejar el actual
+          </button>
+        </div>
+      )}
+
       <div className="selector-sector-buscar">
         <Search size={15} />
         <input
+          ref={enfocarSi('buscador')}
           type="search"
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
@@ -103,7 +129,7 @@ export default function SelectorSector({ valor, onElegir }: Props) {
                 role="radio"
                 aria-checked={valor === sec.value}
                 className={`choice-card ${valor === sec.value ? 'active' : ''}`}
-                onClick={() => { onElegir(sec.value); setBusqueda(''); setAbierto(false); }}
+                onClick={() => { onElegir(sec.value); cerrar(); }}
               >
                 <span className="choice-card-icon"><CategoryIcon name={sec.icon} size={22} /></span>
                 <span className="choice-card-title">

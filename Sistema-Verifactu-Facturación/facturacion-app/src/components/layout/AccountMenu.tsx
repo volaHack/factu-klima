@@ -27,10 +27,14 @@ export interface PlanDeCuenta {
 }
 
 /**
- * El menú de la cuenta. En el móvil recoge además el plan y el «Tip», que
+ * El menú de la cuenta. En el móvil recoge además el plan y la propina, que
  * en la cabecera del ordenador van sueltos pero en el móvil no caben.
+ *
+ * `esAdmin` llega de la cabecera, que ya lo pregunta para la propina: así
+ * no se hace la misma consulta dos veces en cada pantalla. La propina sólo
+ * sale si la cabecera pasa `onTip`, y sólo lo pasa a la administración de la plataforma.
  */
-export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTip?: () => void } = {}) {
+export default function AccountMenu({ plan, onTip, esAdmin = false }: { plan?: PlanDeCuenta; onTip?: () => void; esAdmin?: boolean } = {}) {
   // Perfil de trabajo: su avatar en el botón, y los ajustes y el plan sólo
   // para el titular (o para todos si la cuenta no usa perfiles).
   const { activo: perfilActivo, cuenta: cuentaPerfiles } = usePerfiles();
@@ -43,7 +47,6 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
   const [nameDraft, setNameDraft] = useState('');
   const [avatarDraft, setAvatarDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const [esAdmin, setEsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   // Varias empresas: con más de una, la cabecera dice en cuál se está.
   const { empresas, setEmpresas } = useEmpresas();
@@ -95,16 +98,14 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
 
   useEffect(() => {
     (async () => {
-      const [p, { data }, esAdminRes] = await Promise.all([
+      const [p, { data }] = await Promise.all([
         getUserProfile(),
         createClient().auth.getUser(),
-        createClient().rpc('soy_admin'),
       ]);
       setProfile(p);
       setEmail(data?.user?.email || '');
       setNameDraft(p?.displayName || '');
       setAvatarDraft(p?.avatarUrl || '');
-      setEsAdmin(esAdminRes.data === true);
     })();
   }, []);
 
