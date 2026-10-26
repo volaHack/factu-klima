@@ -2106,6 +2106,36 @@ th[style*="right"] .th-orden { justify-content: flex-end; }
 .tax-rate-slider.compact { gap: 0; }
 .tax-rate-slider.compact .tax-rate-slider-value { font-size: var(--text-xs); min-width: 30px; }
 
+/* --- Tipo de impuesto como botones (components/ui/TaxRateButtons) ---
+   Misma altura que las casillas de la línea (34px) para que la fila no
+   baile. Los botones se reparten el ancho y, si no caben (móvil, o una
+   empresa con seis tipos), bajan a otra fila en vez de salirse. El
+   marcado va en el acento, como la página actual de la paginación. */
+.tipo-impuesto {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  padding: 2px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+.tipo-impuesto-opcion {
+  flex: 1 0 auto;
+  min-width: 40px; height: 28px; padding: 0 8px;
+  font: inherit; font-size: var(--text-sm); font-weight: 600; font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: transparent; border: 1px solid transparent; border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.tipo-impuesto-opcion:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.tipo-impuesto-opcion[aria-checked="true"],
+.tipo-impuesto-opcion[aria-checked="true"]:hover { background: var(--accent-500); color: #fff; }
+/* Un tipo que no es de los configurados: con borde discontinuo, para que
+   se vea que es la excepción y no uno más de la lista. */
+.tipo-impuesto-opcion.es-fuera { border-style: dashed; border-color: var(--border-color-hover); }
+.tipo-impuesto-opcion:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+
 /* --- Invoice Totals Summary --- */
 .invoice-totals { display: flex; justify-content: flex-end; margin-top: var(--space-4); }
 .invoice-totals-table { min-width: 300px; }
@@ -11427,7 +11457,7 @@ body.nav-abierta { overflow: hidden; }
 }
 
 .lineas-doc-campo--ancho { flex: 1 1 180px; }
-.lineas-doc-campo--impuesto { flex: 1 1 140px; }
+.lineas-doc-campo--impuesto { flex: 2 1 176px; }
 
 .lineas-doc-campo > span {
   font-size: 11px; font-weight: 600;
@@ -11577,7 +11607,8 @@ body.nav-abierta { overflow: hidden; }
 
 /* El sector, plegado: la actividad puesta y un botón para cambiarla.
    Treinta y seis fichas con descripción son media pantalla de Ajustes
-   para una decisión que se toma una vez. */
+   para una decisión que se toma una vez. Antes la ficha entera era el
+   botón; ahora lo es sólo «Cambiar sector», que se ve como tal. */
 .selector-sector-resumen {
   width: 100%;
   display: flex;
@@ -11588,12 +11619,6 @@ body.nav-abierta { overflow: hidden; }
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-.selector-sector-resumen:hover {
-  border-color: var(--accent-500);
-  background: var(--bg-card-hover);
 }
 .selector-sector-resumen-icono {
   flex-shrink: 0;
@@ -11610,13 +11635,14 @@ body.nav-abierta { overflow: hidden; }
   color: var(--text-muted);
   line-height: 1.45;
 }
-.selector-sector-resumen-accion {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: var(--text-xs); font-weight: 600;
-  color: var(--accent-500);
+.selector-sector-resumen-accion { margin-left: auto; flex-shrink: 0; }
+/* Abierto con un sector ya puesto: cuál es y cómo volver sin cambiarlo. */
+.selector-sector-cabeza {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); flex-wrap: wrap;
+  font-size: var(--text-sm); color: var(--text-secondary);
 }
+.selector-sector-cabeza strong { color: var(--text-primary); }
 .choice-card-check { color: var(--accent-500); margin-left: 6px; vertical-align: -2px; }
 
 @media (max-width: 560px) {
@@ -11667,6 +11693,75 @@ body.nav-abierta { overflow: hidden; }
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: var(--text-sm);
+}
+
+/* --- Ajustes: la página y su índice (components/ajustes/IndiceAjustes) ---
+   Una rejilla de dos columnas: la de los ajustes, de 880 px como siempre, y
+   a su derecha lo que sobre. El índice se va a esa columna sólo cuando cabe
+   de verdad, y eso lo decide el ancho de la página (con el menú lateral
+   abierto o plegado), no el de la ventana: por eso es una consulta de
+   contenedor. Mientras no cabe, es una fila de fichas encima de todo. */
+.ajustes-pagina {
+  container: ajustes-pagina / inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
+}
+.ajustes-pagina > * { grid-column: 1; min-width: 0; }
+/* Al saltar a una sección, el título no se esconde bajo la cabecera fija. */
+.ajustes-pagina .settings-section[id],
+.ajustes-pagina .status-panel[id] { scroll-margin-top: calc(var(--header-height) + var(--space-4)); }
+
+.ajustes-indice { margin-bottom: var(--space-5); }
+.ajustes-indice-titulo { display: none; }
+.ajustes-indice ol {
+  list-style: none;
+  display: flex; gap: var(--space-2);
+  overflow-x: auto; scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  /* Hueco para que el anillo de foco no lo recorte el desplazamiento. */
+  padding: 4px;
+  margin: -4px;
+}
+.ajustes-indice ol::-webkit-scrollbar { display: none; }
+.ajustes-indice li { flex-shrink: 0; }
+.ajustes-indice .filter-chip { white-space: nowrap; text-decoration: none; }
+
+@container ajustes-pagina (min-width: 1112px) {
+  .ajustes-indice {
+    grid-column: 2;
+    grid-row: 2 / span 40;
+    align-self: start;
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-6));
+    width: 200px;
+    margin: 0 0 0 var(--space-8);
+    max-height: calc(100dvh - var(--header-height) - var(--space-12));
+    overflow-y: auto;
+  }
+  .ajustes-indice-titulo {
+    display: block;
+    margin: 0 0 var(--space-2);
+    padding: 0 10px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .ajustes-indice ol { flex-direction: column; gap: 2px; overflow: visible; }
+  /* En la columna es una lista, no fichas: sin borde ni fondo hasta que
+     se pasa por encima o es la sección que se está leyendo. */
+  .ajustes-indice .filter-chip {
+    display: flex;
+    width: 100%;
+    padding: 6px 10px;
+    border-color: transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-tertiary);
+    white-space: normal;
+  }
+  .ajustes-indice .filter-chip:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+  .ajustes-indice .filter-chip.active { color: var(--accent-400); background: var(--accent-glow); }
+  .ajustes-indice .filter-chip:active { transform: none; }
 }
 
 /* --- Módulos: qué partes del programa ve cada empresa --- */

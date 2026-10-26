@@ -23,6 +23,7 @@ import EditorPanel from '@/components/ajustes/EditorPanel';
 import NotificacionesCorreo from '@/components/ajustes/NotificacionesCorreo';
 import SeguridadCuenta from '@/components/ajustes/SeguridadCuenta';
 import EstadoSuscripcion from '@/components/ajustes/EstadoSuscripcion';
+import IndiceAjustes, { type SeccionDelIndice } from '@/components/ajustes/IndiceAjustes';
 import { useToast } from '@/hooks/useToast';
 import { ajustarPlantillaAlSector } from '@/lib/plantillas/porSector';
 import { aplicarAcento } from '@/lib/acento';
@@ -96,6 +97,35 @@ function TaxRateEditor({ label, rates, activo, onChange, onCommit, onReset }: {
     </div>
   );
 }
+
+/**
+ * Las secciones de Ajustes, en el orden en que salen, para el índice.
+ *
+ * Los ids no se pueden cambiar a la ligera: otras pantallas enlazan a
+ * algunos (`#panel-inicio` desde el panel, `#notificaciones` desde el
+ * resumen por correo, `#seguridad` al volver de la verificación en dos
+ * pasos, `#cobro-online` al volver de Stripe).
+ */
+const SECCIONES: readonly SeccionDelIndice[] = [
+  { id: 'identidad', etiqueta: 'Identidad' },
+  { id: 'empresa', etiqueta: 'Datos de la empresa' },
+  { id: 'plan', etiqueta: 'Plan' },
+  { id: 'facturacion', etiqueta: 'Facturación' },
+  { id: 'factura-electronica', etiqueta: 'Factura electrónica' },
+  { id: 'tpv', etiqueta: 'TPV' },
+  { id: 'banco', etiqueta: 'Datos bancarios' },
+  { id: 'modulos', etiqueta: 'Módulos' },
+  { id: 'panel-inicio', etiqueta: 'Panel de inicio' },
+  { id: 'notificaciones', etiqueta: 'Notificaciones' },
+  { id: 'seguridad', etiqueta: 'Seguridad' },
+  { id: 'vendedores', etiqueta: 'Vendedores' },
+  { id: 'tarifas', etiqueta: 'Tarifas' },
+  { id: 'cobro-online', etiqueta: 'Cobro online' },
+  { id: 'equipo', etiqueta: 'Equipo' },
+  { id: 'gestoria', etiqueta: 'Gestoría' },
+  { id: 'copia', etiqueta: 'Copia de tus datos' },
+  { id: 'mantenimiento', etiqueta: 'Mantenimiento' },
+];
 
 export default function AjustesPage() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -319,7 +349,7 @@ export default function AjustesPage() {
   if (!mounted || !settings) return <PageSkeleton variant="form" label="Cargando los ajustes" />;
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: 880 }}>
+    <div className="animate-fade-in ajustes-pagina">
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Ajustes</h1>
@@ -334,8 +364,10 @@ export default function AjustesPage() {
         </div>
       </div>
 
+      <IndiceAjustes secciones={SECCIONES} />
+
       {/* Business Sector & Theme Customizer */}
-      <div className="settings-section">
+      <div className="settings-section" id="identidad">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Palette size={18} />
           <h2 className="settings-section-title">Identidad y apariencia</h2>
@@ -375,7 +407,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Company Data */}
-      <div className="settings-section">
+      <div className="settings-section" id="empresa">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Building2 size={18} />
           <h2 className="settings-section-title">Datos de la empresa</h2>
@@ -494,7 +526,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Subscription & Membership Tier Section */}
-      <div className="settings-section">
+      <div className="settings-section" id="plan">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Crown size={18} style={{ color: 'var(--accent-500)' }} />
           <h2 className="settings-section-title">Plan y suscripción</h2>
@@ -505,7 +537,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Invoice & Verifactu Settings */}
-      <div className="settings-section">
+      <div className="settings-section" id="facturacion">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <FileText size={18} />
           <h2 className="settings-section-title">Facturación y sellado fiscal</h2>
@@ -556,12 +588,12 @@ export default function AjustesPage() {
         </div>
 
         {/* IGIC / Canarias Switch */}
-        <div className="status-panel" id="regimen-fiscal" style={{ marginTop: 'var(--space-4)', alignItems: 'center', scrollMarginTop: 'calc(var(--header-height) + 16px)' }}>
+        <div className="status-panel" id="regimen-fiscal" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
           <span className="status-panel-icon">
             <Building2 size={19} />
           </span>
           <div className="status-panel-body">
-            <div className="status-panel-title">Régimen Fiscal IGIC (Islas Canarias)</div>
+            <div className="status-panel-title">Régimen fiscal IGIC (islas Canarias)</div>
             <p className="status-panel-text">Activa esta casilla para facturar con el régimen canario. Los porcentajes (por defecto IGIC 7%, 3%, 13% y 0% exento) los eliges tú justo debajo.</p>
           </div>
           <label className="toggle-switch">
@@ -641,10 +673,10 @@ export default function AjustesPage() {
       </div>
 
       {/* TPV / Terminal Punto de Venta */}
-      <div className="settings-section">
+      <div className="settings-section" id="tpv">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Store size={18} />
-          <h2 className="settings-section-title">Terminal Punto de Venta (TPV / Caja)</h2>
+          <h2 className="settings-section-title">Terminal punto de venta (TPV / caja)</h2>
         </div>
         <p className="settings-section-subtitle">Venta rápida en mostrador para supermercados, comercios, panaderías y hostelería</p>
 
@@ -653,8 +685,8 @@ export default function AjustesPage() {
             <Store size={19} />
           </span>
           <div className="status-panel-body">
-            <div className="status-panel-title">Módulo TPV y Control de Caja</div>
-            <p className="status-panel-text">Al activarlo, aparecerá la pestaña «TPV (Caja)» en el menú lateral con pantalla táctil, tickets simplificados, cobro en efectivo/tarjeta y arqueos de caja.</p>
+            <div className="status-panel-title">Módulo TPV y control de caja</div>
+            <p className="status-panel-text">Al activarlo, aparecerá «TPV (caja)» en el menú lateral con pantalla táctil, tickets simplificados, cobro en efectivo/tarjeta y arqueos de caja.</p>
           </div>
           <label className="toggle-switch">
             <input
@@ -698,7 +730,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Banking */}
-      <div className="settings-section">
+      <div className="settings-section" id="banco">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <CreditCard size={18} />
           <h2 className="settings-section-title">Datos bancarios</h2>
@@ -718,7 +750,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Módulos y panel de inicio */}
-      <div className="card settings-section">
+      <div className="card settings-section" id="modulos">
         <div className="settings-section-header">
           <SlidersHorizontal size={18} />
           <h2 className="settings-section-title">Qué usa tu empresa</h2>
@@ -774,7 +806,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Vendedores y series */}
-      <div className="settings-section">
+      <div className="settings-section" id="vendedores">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <UserCheck size={18} />
           <h2 className="settings-section-title">Vendedores y series</h2>
@@ -835,8 +867,8 @@ export default function AjustesPage() {
               <thead>
                 <tr>
                   <th>Vendedor</th>
-                  <th>Serie Factura</th>
-                  <th>Serie Albarán</th>
+                  <th>Serie de factura</th>
+                  <th>Serie de albarán</th>
                   <th>Almacén</th>
                   <th>Comisión</th>
                   <th>Estado</th>
@@ -933,12 +965,12 @@ export default function AjustesPage() {
       </div>
 
       {/* Tarifas de precios */}
-      <div className="settings-section">
+      <div className="settings-section" id="tarifas">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Tag size={18} />
           <h2 className="settings-section-title">Tarifas de precios</h2>
         </div>
-        <p className="settings-section-subtitle">Define tarifas para clientes (Mayorista, Distribuidor, Especial...) con precios o márgenes dedicados</p>
+        <p className="settings-section-subtitle">Define tarifas para clientes (mayorista, distribuidor, especial…) con precios o márgenes dedicados</p>
 
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)', flexWrap: 'wrap' }}>
           <input
@@ -1081,7 +1113,7 @@ export default function AjustesPage() {
 
       {/* Justo antes de «tus datos son tuyos» a propósito: las dos
           secciones van de lo mismo, de quién puede ver tus libros. */}
-      <div className="settings-section">
+      <div className="settings-section" id="gestoria">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Briefcase size={18} />
           <h2 className="settings-section-title">Tu gestoría</h2>
@@ -1092,7 +1124,7 @@ export default function AjustesPage() {
       {/* Copia de seguridad. Va justo antes de la zona de mantenimiento a
           propósito: quien llega ahí buscando el botón de borrar se encuentra
           primero con el de llevarse los datos. */}
-      <div className="settings-section">
+      <div className="settings-section" id="copia">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <Download size={18} />
           <h2 className="settings-section-title">Tus datos son tuyos</h2>
@@ -1114,7 +1146,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Reset */}
-      <div className="settings-section" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+      <div className="settings-section" id="mantenimiento" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
         <h2 className="settings-section-title" style={{ color: 'var(--color-danger)' }}>Zona de mantenimiento</h2>
         <p className="settings-section-subtitle">Elimina clientes, productos y borradores. Las facturas emitidas se conservan.</p>
         <button className="btn btn-danger" onClick={handleReset}>

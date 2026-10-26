@@ -420,76 +420,18 @@ function ClientesPageContenido() {
         </button>
       </div>
 
-      <div className="dashboard-grid" style={{ marginBottom: 'var(--space-6)' }}>
-        <ChartCard title={tituloTop} subtitle={subtituloTop}>
-          <div className="top-terceros-filtros">
-            <select
-              className="form-select form-select-sm"
-              aria-label="Tipo de documento"
-              value={tipoTop}
-              onChange={e => setTipoTop(e.target.value as TipoHistorico)}
-            >
-              {TIPOS_RANKING.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
-            {origenHistorico && (
-              <select
-                className="form-select form-select-sm"
-                aria-label="Origen de los documentos"
-                value={origenTop}
-                onChange={e => setOrigenTop(e.target.value)}
-              >
-                <option value="klima">Klima</option>
-                <option value={origenHistorico}>{NOMBRE_ORIGEN[origenHistorico] ?? origenHistorico}</option>
-              </select>
-            )}
-          </div>
-          {cargandoTop ? (
-            <div className="empty-state-card" aria-busy="true">Sumando el historial…</div>
-          ) : topClientsData.length > 0 ? (
-            <RankedBars data={topClientsData} color={accent} />
-          ) : (
-            <div className="empty-state-card">Sin {nombreTipoTop} que sumar</div>
-          )}
-        </ChartCard>
-
-        <ChartCard
-          title="Formas de pago preferidas"
-          subtitle={tipoContactoFilter === 'proveedores' ? 'Cómo se paga a tus proveedores'
-            : tipoContactoFilter === 'clientes' ? 'Cómo te pagan tus clientes' : 'Clientes y proveedores, según su ficha'}
-          height={200}
-          isEmpty={reparto.length === 0}
-          emptyLabel="Sin fichas todavía"
-          legend={
-            <ChartLegend
-              enLista
-              items={reparto.map((d, i) => ({
-                name: d.nombre,
-                value: `${d.cuantos.toLocaleString('es-ES')} · ${d.porcentaje}`,
-                color: SERIES[i % SERIES.length],
-              }))}
-            />
-          }
-        >
-          <StatusDonut
-            data={reparto.map((d, i) => ({ name: d.nombre, value: d.cuantos, color: SERIES[i % SERIES.length] }))}
-            centerLabel={quienes[1]}
-            centerValue={contactosDeLaPestana.length.toLocaleString('es-ES')}
-            unidad={quienes}
-          />
-        </ChartCard>
-      </div>
-
       <div className="filter-bar" style={{ marginBottom: 'var(--space-4)' }}>
         <div className="search-box">
           <Search size={16} />
           <input
             className="form-input"
             placeholder="Buscar por nombre, NIF, email o ciudad..."
+            aria-label="Buscar clientes"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
           {search && (
-            <button className="search-clear" onClick={() => setSearch('')}>
+            <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
               <X size={14} />
             </button>
           )}
@@ -517,7 +459,7 @@ function ClientesPageContenido() {
                 </button>
               </th>
               <th>Tipo</th>
-              <th>Tarifa / Dtos.</th>
+              <th>Tarifa / dtos.</th>
               <th
                 className={sortField === 'city' ? 'sorted' : ''}
                 aria-sort={sortField === 'city' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -582,7 +524,7 @@ function ClientesPageContenido() {
                         <Tag size={11} /> {matchedTarifa.nombre}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tarifa Base</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tarifa base</span>
                     )}
                     {hasDiscounts && (
                       <span className="badge badge-info" style={{ marginLeft: '4px', fontSize: '10px' }}>
@@ -604,14 +546,14 @@ function ClientesPageContenido() {
                   </td>
                   <td data-m="acciones">
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                      <Link href={`/clientes/${client.id}`} className="btn btn-ghost btn-xs" title="Ver ficha">
+                      <Link href={`/clientes/${client.id}`} className="btn btn-ghost btn-xs" aria-label={`Ver la ficha de ${client.tradeName || client.businessName}`} title="Ver ficha">
                         <Eye size={14} />
                       </Link>
                       <EnlacePortal compacto clientId={client.id} clienteNombre={client.businessName} telefono={client.phone} email={client.email} />
-                      <button className="btn btn-ghost btn-xs" onClick={() => openEditModal(client)} title="Editar">
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEditModal(client)} aria-label={`Editar ${client.tradeName || client.businessName}`} title="Editar">
                         <Edit size={14} />
                       </button>
-                      <button className="btn btn-ghost btn-xs" onClick={() => handleDelete(client)} title="Eliminar">
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleDelete(client)} aria-label={`Eliminar ${client.tradeName || client.businessName}`} title="Eliminar">
                         <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
                       </button>
                     </div>
@@ -632,17 +574,78 @@ function ClientesPageContenido() {
         <Paginacion paginado={paginado} etiqueta={tipoContactoFilter === 'proveedores' ? 'proveedores' : tipoContactoFilter === 'clientes' ? 'clientes' : 'fichas'} />
       </div>
 
+      {/* Las gráficas van después de la lista: a esta pantalla se viene a
+          buscar una ficha, y con ellas arriba había que bajar para llegar. */}
+      <div className="dashboard-grid" style={{ marginTop: 'var(--space-6)' }}>
+        <ChartCard title={tituloTop} subtitle={subtituloTop}>
+          <div className="top-terceros-filtros">
+            <select
+              className="form-select form-select-sm"
+              aria-label="Tipo de documento"
+              value={tipoTop}
+              onChange={e => setTipoTop(e.target.value as TipoHistorico)}
+            >
+              {TIPOS_RANKING.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+            {origenHistorico && (
+              <select
+                className="form-select form-select-sm"
+                aria-label="Origen de los documentos"
+                value={origenTop}
+                onChange={e => setOrigenTop(e.target.value)}
+              >
+                <option value="klima">Klima</option>
+                <option value={origenHistorico}>{NOMBRE_ORIGEN[origenHistorico] ?? origenHistorico}</option>
+              </select>
+            )}
+          </div>
+          {cargandoTop ? (
+            <div className="empty-state-card" aria-busy="true">Sumando el historial…</div>
+          ) : topClientsData.length > 0 ? (
+            <RankedBars data={topClientsData} color={accent} />
+          ) : (
+            <div className="empty-state-card">Sin {nombreTipoTop} que sumar</div>
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title="Formas de pago preferidas"
+          subtitle={tipoContactoFilter === 'proveedores' ? 'Cómo se paga a tus proveedores'
+            : tipoContactoFilter === 'clientes' ? 'Cómo te pagan tus clientes' : 'Clientes y proveedores, según su ficha'}
+          height={200}
+          isEmpty={reparto.length === 0}
+          emptyLabel="Sin fichas todavía"
+          legend={
+            <ChartLegend
+              enLista
+              items={reparto.map((d, i) => ({
+                name: d.nombre,
+                value: `${d.cuantos.toLocaleString('es-ES')} · ${d.porcentaje}`,
+                color: SERIES[i % SERIES.length],
+              }))}
+            />
+          }
+        >
+          <StatusDonut
+            data={reparto.map((d, i) => ({ name: d.nombre, value: d.cuantos, color: SERIES[i % SERIES.length] }))}
+            centerLabel={quienes[1]}
+            centerValue={contactosDeLaPestana.length.toLocaleString('es-ES')}
+            unidad={quienes}
+          />
+        </ChartCard>
+      </div>
+
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editingClient ? 'Editar Contacto' : 'Nuevo Contacto'}</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
+              <h3 className="modal-title">{editingClient ? 'Editar contacto' : 'Nuevo contacto'}</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Cerrar"><X size={18} /></button>
             </div>
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label required">Razón social / Nombre fiscal</label>
+                  <label className="form-label required">Razón social / nombre fiscal</label>
                   <input className="form-input" value={form.businessName} onChange={e => updateForm('businessName', e.target.value)} placeholder="Ej: Acme Solutions S.L." />
                 </div>
                 <div className="form-group">
@@ -696,7 +699,7 @@ function ClientesPageContenido() {
                   <input className="form-input" value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Madrid" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Código Postal</label>
+                  <label className="form-label">Código postal</label>
                   <input className="form-input mono" value={form.postalCode} onChange={e => updateForm('postalCode', e.target.value)} placeholder="28001" />
                 </div>
                 <div className="form-group">
@@ -728,7 +731,7 @@ function ClientesPageContenido() {
                       className="form-input mono"
                       value={form.vatNumber}
                       onChange={e => updateForm('vatNumber', e.target.value.toUpperCase())}
-                      placeholder={form.country === 'FR' ? 'FR12345678901' : form.country === 'DE' ? 'DE123456789' : 'Prefijo + Número'}
+                      placeholder={form.country === 'FR' ? 'FR12345678901' : form.country === 'DE' ? 'DE123456789' : 'Prefijo + número'}
                     />
                   </div>
                 )}
@@ -784,7 +787,7 @@ function ClientesPageContenido() {
                     value={form.tarifaId}
                     onChange={e => updateForm('tarifaId', e.target.value)}
                   >
-                    <option value="">-- Tarifa Estándar / Base --</option>
+                    <option value="">-- Tarifa estándar / base --</option>
                     {settings?.tarifas?.map(t => (
                       <option key={t.id} value={t.id}>
                         {t.nombre} {t.porcentajeDefecto !== undefined ? `(${t.porcentajeDefecto > 0 ? `+${t.porcentajeDefecto}%` : `${t.porcentajeDefecto}%`})` : ''}
@@ -802,7 +805,7 @@ function ClientesPageContenido() {
                       max={100}
                       step={0.5}
                       className="form-input"
-                      placeholder="Dto 1 (%)"
+                      placeholder="Dto. 1 (%)"
                       value={form.defaultDiscounts[0] || ''}
                       onChange={e => updateDefaultDiscount(0, parseFloat(e.target.value) || 0)}
                     />
@@ -812,7 +815,7 @@ function ClientesPageContenido() {
                       max={100}
                       step={0.5}
                       className="form-input"
-                      placeholder="Dto 2 (%)"
+                      placeholder="Dto. 2 (%)"
                       value={form.defaultDiscounts[1] || ''}
                       onChange={e => updateDefaultDiscount(1, parseFloat(e.target.value) || 0)}
                     />
@@ -822,7 +825,7 @@ function ClientesPageContenido() {
                       max={100}
                       step={0.5}
                       className="form-input"
-                      placeholder="Dto 3 (%)"
+                      placeholder="Dto. 3 (%)"
                       value={form.defaultDiscounts[2] || ''}
                       onChange={e => updateDefaultDiscount(2, parseFloat(e.target.value) || 0)}
                     />
@@ -852,7 +855,7 @@ function ClientesPageContenido() {
                       checked={form.esProveedor}
                       onChange={e => updateForm('esProveedor', e.target.checked)}
                     />
-                    <span style={{ fontWeight: 600 }}>Es un Proveedor (para Compras)</span>
+                    <span style={{ fontWeight: 600 }}>Es un proveedor (para compras)</span>
                   </label>
                 </div>
               </div>

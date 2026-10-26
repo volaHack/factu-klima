@@ -58,6 +58,9 @@ export default function EnlacePortal({ clientId, clienteNombre, telefono, email,
         type="button"
         className={compacto ? 'btn btn-ghost btn-xs' : 'btn btn-secondary'}
         onClick={() => void abrir()}
+        // En compacto (las filas de Clientes) solo se ve el globo: sin nombre,
+        // un lector de pantalla decía «botón» y nada más.
+        aria-label={compacto ? `Enlace de pago de ${clienteNombre}` : undefined}
         title="Enlace para que el cliente vea y pague sus facturas"
       >
         <Globe size={compacto ? 14 : 16} />{!compacto && ' Enlace de pago'}

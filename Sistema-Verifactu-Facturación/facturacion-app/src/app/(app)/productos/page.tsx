@@ -465,6 +465,14 @@ function ProductosPageContenido() {
     }
   };
 
+  // Cuántos artículos tiene cada categoría, de una pasada: los chips lo
+  // necesitan para cada familia y antes se recorría el catálogo entero por chip.
+  const productosPorCategoria = useMemo(() => {
+    const cuenta = new Map<string, number>();
+    for (const p of products) cuenta.set(p.category, (cuenta.get(p.category) ?? 0) + 1);
+    return cuenta;
+  }, [products]);
+
   const getCategoryInfo = (catValue: string) => {
     return categories.find(c => c.value === catValue) || { label: catValue, icon: 'Package' };
   };
@@ -505,7 +513,7 @@ function ProductosPageContenido() {
   }, 'editar');
 
   if (!mounted) {
-    return <PageSkeleton variant="list" label="Cargando Productos y categorías" />;
+    return <PageSkeleton variant="list" label="Cargando productos y categorías" />;
   }
 
   const totalInventoryValue = products.reduce((sum, p) => sum + valorStock(p), 0);
@@ -562,81 +570,20 @@ function ProductosPageContenido() {
           aria-pressed={activeTab === 'products'}
           onClick={() => setActiveTab('products')}
         >
-          <Package size={16} /> Catálogo de Productos <span className="segmentos-num">{products.length}</span>
+          <Package size={16} /> Catálogo de productos <span className="segmentos-num">{products.length}</span>
         </button>
         <button
           className="btn btn-sm"
           aria-pressed={activeTab === 'categories'}
           onClick={() => setActiveTab('categories')}
         >
-          <Layers size={16} /> Gestión de Categorías <span className="segmentos-num">{categories.length}</span>
+          <Layers size={16} /> Gestión de categorías <span className="segmentos-num">{categories.length}</span>
         </button>
       </div>
 
       {/* TAB 1: PRODUCTOS */}
       {activeTab === 'products' && (
         <>
-          {/* Bloque de analítica */}
-          {products.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
-              <ChartCard
-                title="Valor del stock por categoría"
-                subtitle={stockPorFamilia.length > RANKING_MAX
-                  ? `Las ${RANKING_MAX} categorías con más dinero en almacén, a precio de coste`
-                  : 'Dinero en almacén de cada categoría, a precio de coste'}
-                height={300}
-                isEmpty={stockPorFamilia.length === 0}
-                emptyLabel="Ningún producto tiene existencias"
-                tableColumns={[
-                  { key: 'name', label: 'Categoría' },
-                  { key: 'count', label: 'Productos', align: 'right' },
-                  { key: 'total', label: 'Valor del stock', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
-                ]}
-                tableRows={stockPorFamilia}
-                legend={
-                  <RestoDelRanking
-                    filas={stockPorFamilia.slice(RANKING_MAX)}
-                    total={stockPorFamilia.reduce((n, c) => n + c.total, 0)}
-                    valor={c => c.total}
-                    formato={formatCurrency}
-                  />
-                }
-              >
-                <RankedBars data={stockPorFamilia.slice(0, RANKING_MAX)} color={accent} ariaLabel="Valor del stock por categoría" />
-              </ChartCard>
-
-              <ChartCard
-                title="Productos por categoría"
-                subtitle={productosPorFamilia.length > RANKING_MAX
-                  ? `Las ${RANKING_MAX} categorías con más referencias`
-                  : 'Referencias de cada categoría'}
-                height={300}
-                isEmpty={productosPorFamilia.length === 0}
-                emptyLabel="Sin datos"
-                tableColumns={[
-                  { key: 'name', label: 'Categoría' },
-                  { key: 'count', label: 'Productos', align: 'right' },
-                ]}
-                tableRows={productosPorFamilia}
-                legend={
-                  <RestoDelRanking
-                    filas={productosPorFamilia.slice(RANKING_MAX)}
-                    total={products.length}
-                    valor={c => c.count}
-                    formato={n => `${n.toLocaleString('es-ES')} productos`}
-                  />
-                }
-              >
-                <RankedBars
-                  data={productosPorFamilia.slice(0, RANKING_MAX).map(c => ({ name: c.name, total: c.count }))}
-                  color={SERIES[0]}
-                  formato="numero"
-                  ariaLabel="Productos por categoría"
-                />
-              </ChartCard>
-            </div>
-          )}
-
           {/* Filters Bar */}
           <div className="filters-bar">
             <div className="search-bar" style={{ maxWidth: 320 }}>
@@ -657,8 +604,12 @@ function ProductosPageContenido() {
               >
                 Todas las categorías
               </button>
+              {/* Las categorías sin artículos no filtran nada: con las que trae el
+                  sector salían decenas de «(0)» y había que buscar las buenas.
+                  La elegida se queda aunque se haya vaciado, para poder quitarla. */}
               {categories.map(cat => {
-                const count = products.filter(p => p.category === cat.value).length;
+                const count = productosPorCategoria.get(cat.value) ?? 0;
+                if (count === 0 && categoryFilter !== cat.value) return null;
                 return (
                   <button
                     key={cat.value}
@@ -696,7 +647,7 @@ function ProductosPageContenido() {
                     Ref. {sortIcon('ref')}
                   </th>
                   <th className={sortField === 'supplierRef' ? 'sorted' : ''} onClick={() => handleSort('supplierRef')} style={{ cursor: 'pointer' }}>
-                    Ref. Proveedor {sortIcon('supplierRef')}
+                    Ref. proveedor {sortIcon('supplierRef')}
                   </th>
                   <th className={sortField === 'name' ? 'sorted' : ''} onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
                     Producto {sortIcon('name')}
@@ -705,16 +656,16 @@ function ProductosPageContenido() {
                     Categoría {sortIcon('category')}
                   </th>
                   <th className={sortField === 'unitPrice' ? 'sorted' : ''} onClick={() => handleSort('unitPrice')} style={{ textAlign: 'right', cursor: 'pointer' }}>
-                    Precio Ud. {sortIcon('unitPrice')}
+                    Precio ud. {sortIcon('unitPrice')}
                   </th>
                   <th className={sortField === 'costePmp' ? 'sorted' : ''} onClick={() => handleSort('costePmp')} style={{ textAlign: 'right', cursor: 'pointer' }}>
-                    PMP (Coste) {sortIcon('costePmp')}
+                    PMP (coste) {sortIcon('costePmp')}
                   </th>
                   <th className={sortField === 'stockQuantity' ? 'sorted' : ''} onClick={() => handleSort('stockQuantity')} style={{ cursor: 'pointer' }}>
-                    Stock Actual {sortIcon('stockQuantity')}
+                    Stock actual {sortIcon('stockQuantity')}
                   </th>
-                  <th>Pdt. Recibir</th>
-                  <th>Pdt. Entregar</th>
+                  <th>Pdte. recibir</th>
+                  <th>Pdte. entregar</th>
                   <th className={sortField === 'defaultTaxRate' ? 'sorted' : ''} onClick={() => handleSort('defaultTaxRate')} style={{ cursor: 'pointer' }}>
                     IVA/IGIC {sortIcon('defaultTaxRate')}
                   </th>
@@ -815,10 +766,10 @@ function ProductosPageContenido() {
                       </td>
                       <td data-m="acciones">
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                          <button className="btn btn-ghost btn-xs" onClick={() => openEditProduct(p)} title="Editar">
+                          <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEditProduct(p)} aria-label={`Editar ${p.name}`} title="Editar">
                             <Edit size={14} />
                           </button>
-                          <button className="btn btn-ghost btn-xs" onClick={() => handleDeleteProduct(p)} title="Eliminar">
+                          <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleDeleteProduct(p)} aria-label={`Eliminar ${p.name}`} title="Eliminar">
                             <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
                           </button>
                         </div>
@@ -838,6 +789,69 @@ function ProductosPageContenido() {
             </table>
             <Paginacion paginado={paginado} etiqueta="artículos" />
           </div>
+
+          {/* Las gráficas, debajo de la lista: lo que se viene a hacer aquí es
+              buscar un artículo, y antes había que bajar dos tarjetas para
+              llegar a la tabla. */}
+          {products.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginTop: 'var(--space-6)' }}>
+              <ChartCard
+                title="Valor del stock por categoría"
+                subtitle={stockPorFamilia.length > RANKING_MAX
+                  ? `Las ${RANKING_MAX} categorías con más dinero en almacén, a precio de coste`
+                  : 'Dinero en almacén de cada categoría, a precio de coste'}
+                height={300}
+                isEmpty={stockPorFamilia.length === 0}
+                emptyLabel="Ningún producto tiene existencias"
+                tableColumns={[
+                  { key: 'name', label: 'Categoría' },
+                  { key: 'count', label: 'Productos', align: 'right' },
+                  { key: 'total', label: 'Valor del stock', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+                ]}
+                tableRows={stockPorFamilia}
+                legend={
+                  <RestoDelRanking
+                    filas={stockPorFamilia.slice(RANKING_MAX)}
+                    total={stockPorFamilia.reduce((n, c) => n + c.total, 0)}
+                    valor={c => c.total}
+                    formato={formatCurrency}
+                  />
+                }
+              >
+                <RankedBars data={stockPorFamilia.slice(0, RANKING_MAX)} color={accent} ariaLabel="Valor del stock por categoría" />
+              </ChartCard>
+
+              <ChartCard
+                title="Productos por categoría"
+                subtitle={productosPorFamilia.length > RANKING_MAX
+                  ? `Las ${RANKING_MAX} categorías con más referencias`
+                  : 'Referencias de cada categoría'}
+                height={300}
+                isEmpty={productosPorFamilia.length === 0}
+                emptyLabel="Sin datos"
+                tableColumns={[
+                  { key: 'name', label: 'Categoría' },
+                  { key: 'count', label: 'Productos', align: 'right' },
+                ]}
+                tableRows={productosPorFamilia}
+                legend={
+                  <RestoDelRanking
+                    filas={productosPorFamilia.slice(RANKING_MAX)}
+                    total={products.length}
+                    valor={c => c.count}
+                    formato={n => `${n.toLocaleString('es-ES')} productos`}
+                  />
+                }
+              >
+                <RankedBars
+                  data={productosPorFamilia.slice(0, RANKING_MAX).map(c => ({ name: c.name, total: c.count }))}
+                  color={SERIES[0]}
+                  formato="numero"
+                  ariaLabel="Productos por categoría"
+                />
+              </ChartCard>
+            </div>
+          )}
         </>
       )}
 
@@ -897,11 +911,11 @@ function ProductosPageContenido() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-ghost btn-xs" onClick={() => openEditCategory(cat)} title="Editar">
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEditCategory(cat)} aria-label={`Editar la categoría ${cat.label}`} title="Editar">
                         <Edit size={14} />
                       </button>
                       {cat.value !== 'otros' && (
-                        <button className="btn btn-ghost btn-xs" onClick={() => handleDeleteCategory(cat)} title="Eliminar">
+                        <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleDeleteCategory(cat)} aria-label={`Eliminar la categoría ${cat.label}`} title="Eliminar">
                           <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
                         </button>
                       )}
@@ -926,13 +940,13 @@ function ProductosPageContenido() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
+              <h3 className="modal-title">{editing ? 'Editar producto' : 'Nuevo producto'}</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Cerrar"><X size={18} /></button>
             </div>
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label required">Referencia / Código</label>
+                  <label className="form-label required">Referencia / código</label>
                   <input className="form-input mono" value={form.ref} onChange={e => updateForm('ref', e.target.value)} placeholder="PRD-001" />
                 </div>
                 <div className="form-group">
@@ -944,7 +958,7 @@ function ProductosPageContenido() {
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group" style={{ flex: '2 1 240px' }}>
                   <label className="form-label required">Nombre del producto</label>
-                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Aceite de Oliva 1L" />
+                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Aceite de oliva 1 L" />
                 </div>
                 <div className="form-group" style={{ flex: '1 1 140px' }}>
                   <label className="form-label">Categoría</label>
@@ -1078,7 +1092,7 @@ function ProductosPageContenido() {
               {settings?.tarifas && settings.tarifas.length > 0 && (
                 <div style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
                   <label className="form-label" style={{ marginBottom: 'var(--space-2)', fontWeight: 700 }}>
-                    Precios específicos por Tarifa (€)
+                    Precios específicos por tarifa (€)
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(180px, 100%), 1fr))', gap: 'var(--space-3)' }}>
                     {settings.tarifas.map(t => (
@@ -1111,7 +1125,7 @@ function ProductosPageContenido() {
 
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
-                  <label className="form-label">Stock Actual</label>
+                  <label className="form-label">Stock actual</label>
                   <input className="form-input" type="number" value={form.stockQuantity} onChange={e => updateForm('stockQuantity', e.target.value)} />
                 </div>
                 <div className="form-group">
@@ -1214,8 +1228,8 @@ function ProductosPageContenido() {
         <div className="modal-overlay" onClick={() => setShowCatModal(false)}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
-              <button className="modal-close" onClick={() => setShowCatModal(false)}><X size={18} /></button>
+              <h3 className="modal-title">{editingCategory ? 'Editar categoría' : 'Nueva categoría'}</h3>
+              <button className="modal-close" onClick={() => setShowCatModal(false)} aria-label="Cerrar"><X size={18} /></button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -1261,7 +1275,7 @@ function ProductosPageContenido() {
 // pide el menú de Mantenimientos (hooks/useDireccion).
 export default function ProductosPage() {
   return (
-    <Suspense fallback={<PageSkeleton variant="list" label="Cargando Productos y categorías" />}>
+    <Suspense fallback={<PageSkeleton variant="list" label="Cargando productos y categorías" />}>
       <ProductosPageContenido />
     </Suspense>
   );

@@ -15,11 +15,12 @@ import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { ComparisonBarChart, StatusDonut, ChartLegend } from '@/components/charts/Charts';
 import { INVOICE_STATUS_COLOR, SERIES, useColoresGrafica } from '@/components/charts/theme';
-import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed } from '@/lib/storage';
+import { getInvoices, saveInvoice, deleteInvoice as removeInvoice, isSealed, getCompanySettings } from '@/lib/storage';
 import { Invoice, InvoiceStatus } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, getShortMonthName } from '@/lib/utils';
 import { isFactura } from '@/lib/documentos';
-import { INVOICE_STATUSES } from '@/lib/constants';
+import { isTpvEnabled } from '@/lib/constants';
+import { esTicketTpv, estadosParaFiltrar, mostrarPestanaTickets } from '@/lib/filtroFacturas';
 import { useToast } from '@/hooks/useToast';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
@@ -49,6 +50,7 @@ export default function FacturasPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [tpvActivo, setTpvActivo] = useState(false);
   const { success, error: toastError } = useToast();
   const { rejections } = useOnlineStatus();
 
@@ -71,15 +73,13 @@ export default function FacturasPage() {
       const y = d.getFullYear();
 
       const ordinarias = invoices.filter(inv => {
-        const isTpv = inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId;
         const id = new Date(inv.issueDate);
-        return !isTpv && id.getMonth() === m && id.getFullYear() === y && inv.status !== InvoiceStatus.ANULADA;
+        return !esTicketTpv(inv) && id.getMonth() === m && id.getFullYear() === y && inv.status !== InvoiceStatus.ANULADA;
       }).reduce((sum, inv) => sum + inv.total, 0);
 
       const tickets = invoices.filter(inv => {
-        const isTpv = inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId;
         const id = new Date(inv.issueDate);
-        return isTpv && id.getMonth() === m && id.getFullYear() === y && inv.status !== InvoiceStatus.ANULADA;
+        return esTicketTpv(inv) && id.getMonth() === m && id.getFullYear() === y && inv.status !== InvoiceStatus.ANULADA;
       }).reduce((sum, inv) => sum + inv.total, 0);
 
       data.push({
@@ -113,6 +113,11 @@ export default function FacturasPage() {
       setMounted(true);
     };
     load();
+
+    // Sólo hace falta saber si el TPV está encendido, para decidir si se
+    // enseña la pestaña de tickets. Si no se puede leer, se queda apagado:
+    // la pestaña sigue saliendo en cuanto haya algún ticket.
+    getCompanySettings().then(s => setTpvActivo(isTpvEnabled(s))).catch(() => {});
 
     const handleAutoRefresh = () => {
       load();
@@ -173,9 +178,9 @@ export default function FacturasPage() {
     }
 
     if (docTypeFilter === 'facturas') {
-      result = result.filter(inv => !(inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId));
+      result = result.filter(inv => !esTicketTpv(inv));
     } else if (docTypeFilter === 'tickets') {
-      result = result.filter(inv => inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId);
+      result = result.filter(inv => esTicketTpv(inv));
     }
 
     if (statusFilter.length > 0) {
@@ -226,6 +231,17 @@ export default function FacturasPage() {
       vencida: invoices.filter(i => i.status === InvoiceStatus.VENCIDA).length,
     };
   }, [invoices]);
+
+  // Cuántas de cada tipo, para las pestañas.
+  const numTickets = useMemo(() => invoices.filter(esTicketTpv).length, [invoices]);
+  const numOrdinarias = invoices.length - numTickets;
+  const conPestanas = mostrarPestanaTickets(numTickets, tpvActivo);
+
+  // Los chips de estado: los de factura y los que tenga alguna cargada.
+  const estadosFiltro = useMemo(
+    () => estadosParaFiltrar(invoices.map(i => i.status), statusFilter),
+    [invoices, statusFilter],
+  );
 
   const hasFilters = search.length > 0 || statusFilter.length > 0 || docTypeFilter !== 'all';
   const clearFilters = () => { setSearch(''); setStatusFilter([]); setDocTypeFilter('all'); };
@@ -467,27 +483,27 @@ export default function FacturasPage() {
       {showAnalytics && invoices.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
           <ChartCard
-            title="Facturas Ordinarias vs. Tickets TPV"
+            title="Facturas ordinarias frente a tickets TPV"
             subtitle="Evolución del volumen facturado en los últimos 6 meses"
             height={220}
             isEmpty={comparisonData.every(d => d.series1 === 0 && d.series2 === 0)}
             emptyLabel="Sin datos de facturación"
             tableColumns={[
               { key: 'name', label: 'Mes' },
-              { key: 'series1', label: 'Facturas Ordinarias', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
+              { key: 'series1', label: 'Facturas ordinarias', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
               { key: 'series2', label: 'Tickets TPV', align: 'right', format: (v: unknown) => formatCurrency(Number(v)) },
             ]}
             tableRows={comparisonData}
             legend={
               <ChartLegend
                 items={[
-                  { name: 'Facturas Ordinarias', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series1, 0)), color: acentoGrafica },
+                  { name: 'Facturas ordinarias', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series1, 0)), color: acentoGrafica },
                   { name: 'Tickets TPV', value: formatCurrency(comparisonData.reduce((sum, d) => sum + d.series2, 0)), color: SERIES[0] },
                 ]}
               />
             }
           >
-            <ComparisonBarChart data={comparisonData} name1="Facturas Ordinarias" name2="Tickets TPV" />
+            <ComparisonBarChart data={comparisonData} name1="Facturas ordinarias" name2="Tickets TPV" />
           </ChartCard>
 
           <ChartCard
@@ -520,30 +536,33 @@ export default function FacturasPage() {
         </div>
       )}
 
-      {/* Document Type Tabs */}
-      <div className="segmentos fila-desplazable" role="group" aria-label="Tipo de documento" style={{ marginBottom: 'var(--space-4)' }}>
-        <button
-          className="btn btn-sm"
-          aria-pressed={docTypeFilter === 'all'}
-          onClick={() => setDocTypeFilter('all')}
-        >
-          Todos <span className="segmentos-num">{invoices.length}</span>
-        </button>
-        <button
-          className="btn btn-sm"
-          aria-pressed={docTypeFilter === 'facturas'}
-          onClick={() => setDocTypeFilter('facturas')}
-        >
-          <FileText size={16} /> Facturas Ordinarias <span className="segmentos-num">{invoices.filter(i => !(i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId)).length}</span>
-        </button>
-        <button
-          className="btn btn-sm"
-          aria-pressed={docTypeFilter === 'tickets'}
-          onClick={() => setDocTypeFilter('tickets')}
-        >
-          <Store size={16} /> Tickets TPV / Simplificados <span className="segmentos-num">{invoices.filter(i => i.series === 'TPV' || i.number.startsWith('TPV') || !!i.posSessionId).length}</span>
-        </button>
-      </div>
+      {/* Pestañas por tipo de documento. Sin TPV y sin tickets no se
+          enseñan: «Todos» y «Facturas ordinarias» serían la misma lista. */}
+      {conPestanas && (
+        <div className="segmentos fila-desplazable" role="group" aria-label="Tipo de documento" style={{ marginBottom: 'var(--space-4)' }}>
+          <button
+            className="btn btn-sm"
+            aria-pressed={docTypeFilter === 'all'}
+            onClick={() => setDocTypeFilter('all')}
+          >
+            Todos <span className="segmentos-num">{invoices.length}</span>
+          </button>
+          <button
+            className="btn btn-sm"
+            aria-pressed={docTypeFilter === 'facturas'}
+            onClick={() => setDocTypeFilter('facturas')}
+          >
+            <FileText size={16} /> Facturas ordinarias <span className="segmentos-num">{numOrdinarias}</span>
+          </button>
+          <button
+            className="btn btn-sm"
+            aria-pressed={docTypeFilter === 'tickets'}
+            onClick={() => setDocTypeFilter('tickets')}
+          >
+            <Store size={16} /> Tickets TPV / simplificados <span className="segmentos-num">{numTickets}</span>
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="filters-bar">
@@ -559,7 +578,7 @@ export default function FacturasPage() {
         </div>
         <div className="cluster-sm">
           <Filter size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
-          {INVOICE_STATUSES.map(s => (
+          {estadosFiltro.map(s => (
             <button
               key={s.value}
               className={`filter-chip ${statusFilter.includes(s.value) ? 'active' : ''}`}
@@ -643,7 +662,7 @@ export default function FacturasPage() {
                 aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 <button type="button" className="th-orden" onClick={() => handleSort('number')} title="Ordenar por número de factura">
-                  Nº Factura {sortIcon('number')}
+                  Nº factura {sortIcon('number')}
                 </button>
               </th>
               <th
@@ -704,7 +723,7 @@ export default function FacturasPage() {
                 <td className="mono primary" data-m="titulo">
                   <Link href={`/facturas/${inv.id}`} className="cell-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {inv.number}
-                    {inv.series === 'TPV' || inv.number.startsWith('TPV') || !!inv.posSessionId ? (
+                    {esTicketTpv(inv) ? (
                       <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 6px' }}>TPV</span>
                     ) : (
                       <span className="badge badge-neutral" style={{ fontSize: '10px', padding: '1px 6px' }}>Factura</span>
