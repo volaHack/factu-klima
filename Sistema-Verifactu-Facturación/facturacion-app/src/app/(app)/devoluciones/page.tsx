@@ -18,6 +18,7 @@ import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 type Tab = 'devoluciones' | 'abonos';
 
 export default function DevolucionesAbonosPage() {
@@ -108,11 +109,11 @@ export default function DevolucionesAbonosPage() {
           {abonos.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value">{devoluciones.length}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(devoluciones.length)} /></span>
                 <span className="page-meta-label">devoluciones</span>
               </span>
               <span className="page-meta-item">
-                <span className="page-meta-value">{abonos.length}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(abonos.length)} /></span>
                 <span className="page-meta-label">abonos</span>
               </span>
               <span className="page-meta-item">

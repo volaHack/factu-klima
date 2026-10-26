@@ -13,6 +13,7 @@ import PageSkeleton from '@/components/ui/PageSkeleton';
 import { useToast } from '@/hooks/useToast';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 /**
  * LOS LIBROS DE UNA EMPRESA, EN SOLO LECTURA.
  *
@@ -124,7 +125,7 @@ export default function LibrosDeEmpresa() {
         ].map(([etiqueta, valor]) => (
           <div key={etiqueta} className="card">
             <div className="card-subtitle">{etiqueta}</div>
-            <div className="page-meta-value">{valor}</div>
+            <div className="page-meta-value"><CifraQueCuenta texto={String(valor)} /></div>
           </div>
         ))}
       </div>

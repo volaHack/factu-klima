@@ -28,6 +28,7 @@ import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
 export default function FacturasPage() {
@@ -415,7 +416,7 @@ export default function FacturasPage() {
           {invoices.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value">{invoices.length}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(invoices.length)} /></span>
                 <span className="page-meta-label">emitidas</span>
               </span>
               <span className="page-meta-item">
@@ -426,7 +427,7 @@ export default function FacturasPage() {
               </span>
               {counts.vencida > 0 && (
                 <span className="page-meta-item">
-                  <span className="page-meta-value is-danger">{counts.vencida}</span>
+                  <span className="page-meta-value is-danger"><CifraQueCuenta texto={String(counts.vencida)} /></span>
                   <span className="page-meta-label">
                     {counts.vencida === 1 ? 'vencida' : 'vencidas'}
                   </span>
