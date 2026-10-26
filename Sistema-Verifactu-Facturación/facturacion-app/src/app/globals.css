@@ -14403,20 +14403,17 @@ body:has(.app-content > .pantalla > .asis) {
 /* Cabecera del móvil: un solo tipo de botón de icono.
    ------------------------------------------------------------------
    Convivían tres: la ayuda era un círculo blanco con borde, la campana
-   una píldora blanca y el tema un cuadrado con borde. Ahora los tres (y
-   la lupa) son el mismo botón: transparente, sin borde, con el fondo de
-   «hover» al tocarlo. El tema sale de la cabecera —vive en el menú de
-   la cuenta, como el plan— y la flecha junto al avatar también: el
-   avatar ya abre el menú. Con eso el título de la pantalla, que en un
-   móvil es la única pista de dónde se está, deja de quedarse en unos
-   pocos píxeles. */
+   una píldora blanca y el tema un cuadrado con borde. Ahora todos (la
+   lupa, la ayuda, la campana y el tema) son el mismo botón: transparente,
+   sin borde, con el fondo de «hover» al tocarlo. La flecha junto al
+   avatar sí sale: el avatar ya abre el menú. */
 @media (max-width: 768px) {
-  .header .tema-boton,
   .header .account-trigger-flecha { display: none; }
 
   .header-actions .apple-guide-trigger,
   .header-actions .btn-icon,
-  .header-actions .header-search-btn-mobile {
+  .header-actions .header-search-btn-mobile,
+  .header-actions .tema-boton {
     width: 44px; height: 44px; min-width: 44px; min-height: 44px;
     padding: 0;
     display: inline-grid; place-items: center;
@@ -14429,7 +14426,8 @@ body:has(.app-content > .pantalla > .asis) {
   }
   .header-actions .apple-guide-trigger:hover,
   .header-actions .btn-icon:hover,
-  .header-actions .header-search-btn-mobile:hover {
+  .header-actions .header-search-btn-mobile:hover,
+  .header-actions .tema-boton:hover {
     background: var(--bg-card-hover);
     color: var(--text-primary);
   }

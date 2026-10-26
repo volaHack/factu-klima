@@ -159,9 +159,12 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
   };
 
   const handleToggle = () => {
+    // En «automático» sin que «system» sea uno de los modos del botón, se
+    // parte de lo que se está viendo: si no, el primer toque pasaba a
+    // claro y, con el sistema en claro, el botón parecía no hacer nada.
     const modoActual =
       temaGuardadoActual === 'auto'
-        ? 'system'
+        ? (modes.includes('system') ? 'system' : esOscuro ? 'dark' : 'light')
         : temaGuardadoActual === 'oscuro'
         ? 'dark'
         : 'light';
@@ -217,7 +220,9 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
           transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
-        {temaGuardadoActual === 'auto' ? (
+        {/* El portátil sólo cuando «sistema» es una opción del botón; si
+            no, se enseña el sol o la luna, que es lo que se entiende. */}
+        {temaGuardadoActual === 'auto' && modes.includes('system') ? (
           <Laptop size={iconSize} />
         ) : esOscuro ? (
           <Sun size={iconSize} />
@@ -228,7 +233,7 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
 
       {showLabel && (
         <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-          {temaGuardadoActual === 'auto'
+          {temaGuardadoActual === 'auto' && modes.includes('system')
             ? 'Sistema'
             : esOscuro
             ? 'Oscuro'

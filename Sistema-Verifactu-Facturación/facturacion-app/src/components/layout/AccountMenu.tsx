@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Moon, Sun, Users, UsersRound } from 'lucide-react';
-import { guardarTema, leerTemaEfectivo, leerTemaEnServidor, suscribirseAlTema } from '@/lib/tema';
+import { User, Settings, LogOut, ChevronDown, Save, X, Shield, Crown, Zap, Lock, Heart, ChevronRight, Users, UsersRound } from 'lucide-react';
 import { cerrarPerfil, pedirCambioDePerfil, usePerfiles } from '@/lib/perfilesCliente';
 import { iniciales as inicialesPerfil, nombreRol } from '@/lib/perfiles';
 import { createClient } from '@/lib/supabase/client';
@@ -32,7 +31,6 @@ export interface PlanDeCuenta {
  * en la cabecera del ordenador van sueltos pero en el móvil no caben.
  */
 export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTip?: () => void } = {}) {
-  const temaActual = useSyncExternalStore(suscribirseAlTema, leerTemaEfectivo, leerTemaEnServidor);
   // Perfil de trabajo: su avatar en el botón, y los ajustes y el plan sólo
   // para el titular (o para todos si la cuenta no usa perfiles).
   const { activo: perfilActivo, cuenta: cuentaPerfiles } = usePerfiles();
@@ -289,15 +287,6 @@ export default function AccountMenu({ plan, onTip }: { plan?: PlanDeCuenta; onTi
                   <Settings size={16} /> Ajustes de la empresa
                 </Link>
               )}
-              {/* En el móvil el interruptor de tema sale de la cabecera para
-                  dejarle sitio al título de la pantalla, y vive aquí. */}
-              <button
-                className="account-dropdown-item account-dropdown-solo-movil"
-                onClick={() => guardarTema(temaActual === 'oscuro' ? 'claro' : 'oscuro')}
-              >
-                {temaActual === 'oscuro' ? <Sun size={16} /> : <Moon size={16} />}
-                {temaActual === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}
-              </button>
               {onTip && (
                 <button
                   className="account-dropdown-item account-dropdown-solo-movil"
