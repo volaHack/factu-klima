@@ -2106,6 +2106,36 @@ th[style*="right"] .th-orden { justify-content: flex-end; }
 .tax-rate-slider.compact { gap: 0; }
 .tax-rate-slider.compact .tax-rate-slider-value { font-size: var(--text-xs); min-width: 30px; }
 
+/* --- Tipo de impuesto como botones (components/ui/TaxRateButtons) ---
+   Misma altura que las casillas de la línea (34px) para que la fila no
+   baile. Los botones se reparten el ancho y, si no caben (móvil, o una
+   empresa con seis tipos), bajan a otra fila en vez de salirse. El
+   marcado va en el acento, como la página actual de la paginación. */
+.tipo-impuesto {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  padding: 2px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+.tipo-impuesto-opcion {
+  flex: 1 0 auto;
+  min-width: 40px; height: 28px; padding: 0 8px;
+  font: inherit; font-size: var(--text-sm); font-weight: 600; font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: transparent; border: 1px solid transparent; border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.tipo-impuesto-opcion:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.tipo-impuesto-opcion[aria-checked="true"],
+.tipo-impuesto-opcion[aria-checked="true"]:hover { background: var(--accent-500); color: #fff; }
+/* Un tipo que no es de los configurados: con borde discontinuo, para que
+   se vea que es la excepción y no uno más de la lista. */
+.tipo-impuesto-opcion.es-fuera { border-style: dashed; border-color: var(--border-color-hover); }
+.tipo-impuesto-opcion:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+
 /* --- Invoice Totals Summary --- */
 .invoice-totals { display: flex; justify-content: flex-end; margin-top: var(--space-4); }
 .invoice-totals-table { min-width: 300px; }
@@ -11427,7 +11457,7 @@ body.nav-abierta { overflow: hidden; }
 }
 
 .lineas-doc-campo--ancho { flex: 1 1 180px; }
-.lineas-doc-campo--impuesto { flex: 1 1 140px; }
+.lineas-doc-campo--impuesto { flex: 2 1 176px; }
 
 .lineas-doc-campo > span {
   font-size: 11px; font-weight: 600;

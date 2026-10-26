@@ -11,7 +11,8 @@ import { lineasDeOtraVez, lineasEnBlanco, ultimoDocumentoDe } from '@/lib/repeti
 import { recalcularLinea, lineaVacia, condicionesDeVenta, condicionesDeCompra, preciosAnteriores, avisosDeLinea, habitualesDe, type PrecioAnterior } from '@/lib/documentos';
 import { lotesDisponibles } from '@/lib/lotes';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
-import TaxRateSlider from '@/components/ui/TaxRateSlider';
+import TaxRateButtons from '@/components/ui/TaxRateButtons';
+import { getConfiguredTaxRates } from '@/lib/constants';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
 export interface ColumnaPersonalizada {
@@ -84,10 +85,11 @@ export default function LineasDocumento({
    */
   const columnas = columnasCustom.length > 0 ? columnasCustom : voz.columnasOficio;
 
-  // CAJ. / U/C / UDES. en los oficios que venden por cajas (ver lib/cajas.ts).
+  // Cajas / U/C / Uds. en los oficios que venden por cajas (ver lib/cajas.ts).
   // Las casillas propias que la plantilla tuviera para cajas o U/C ya no se
   // piden aparte: son estas.
   const porCajas = voz.usaBultos;
+  const tiposConfigurados = getConfiguredTaxRates(settings);
   const columnasPropias = porCajas
     ? columnas.filter(c => !/^(caj|cajas|bultos?|u ?\/ ?c|uds?\.? ?\/ ?caja)\.?$/i.test(c.cabecera.trim()))
     : columnas;
@@ -371,7 +373,7 @@ export default function LineasDocumento({
           style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
         >
           <Percent size={13} />
-          {showExtraDiscounts || hasAnyExtraDiscount ? 'Ocultar Dto. 2 y 3 en línea' : 'Mostrar hasta 3 dtos. en cascada'}
+          {showExtraDiscounts || hasAnyExtraDiscount ? 'Ocultar dtos. 2 y 3 en línea' : 'Mostrar hasta 3 dtos. en cascada'}
           {showExtraDiscounts || hasAnyExtraDiscount ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       </div>
@@ -441,10 +443,10 @@ export default function LineasDocumento({
               <div className="lineas-doc-campos" onKeyDown={alPulsarEnCampos(index)}>
                 {porCajas ? (
                   <>
-                    {/* CAJ.: cajas completas. Se puede dejar en blanco y
+                    {/* Cajas: cajas completas. Se puede dejar en blanco y
                         escribir sólo las unidades (una venta suelta). */}
                     <label className="lineas-doc-campo">
-                      <span title="Cajas completas">CAJ.</span>
+                      <span title="Cajas completas">Cajas</span>
                       <input
                         type="number" min={0} step={1} placeholder="—"
                         value={line.cajas ? line.cajas : ''}
@@ -463,10 +465,10 @@ export default function LineasDocumento({
                         aria-label={`Unidades por caja de la línea ${index + 1}`}
                       />
                     </label>
-                    {/* UDES.: lo que se cobra. Sale de CAJ. × U/C, pero se
+                    {/* Uds.: lo que se cobra. Sale de cajas × U/C, pero se
                         puede escribir a mano (sueltas, o sólo unidades). */}
                     <label className="lineas-doc-campo">
-                      <span title="Unidades en total (lo que se cobra)">UDES.</span>
+                      <span title="Unidades en total (lo que se cobra)">Uds.</span>
                       <input
                         type="number" min={0} step={1}
                         value={line.quantity}
@@ -512,16 +514,23 @@ export default function LineasDocumento({
                 )}
 
                 <label className="lineas-doc-campo">
-                  <span title={porCajas ? 'Precio de cada unidad' : undefined}>{porCajas ? 'Precio/ud.' : 'Precio ud.'}</span>
+                  <span title="Precio de cada unidad">Precio/ud.</span>
                   <input
                     type="number" min={0} step={0.01} value={line.unitPrice}
                     onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                   />
                 </label>
 
+                {/* Los tipos de la empresa como botones, de un toque. Un
+                    div y no un label: dentro hay varios botones. */}
                 <div className="lineas-doc-campo lineas-doc-campo--impuesto">
-                  <span>{settings.igicEnabled ? 'IGIC' : 'IVA'}</span>
-                  <TaxRateSlider compact value={line.taxRate} onChange={v => handleLineChange(index, 'taxRate', v)} />
+                  <span aria-hidden="true">{settings.igicEnabled ? 'IGIC' : 'IVA'}</span>
+                  <TaxRateButtons
+                    value={line.taxRate}
+                    onChange={v => handleLineChange(index, 'taxRate', v)}
+                    rates={tiposConfigurados}
+                    ariaLabel={`${settings.igicEnabled ? 'IGIC' : 'IVA'} de la línea ${index + 1}`}
+                  />
                 </div>
 
                 <label className="lineas-doc-campo">
