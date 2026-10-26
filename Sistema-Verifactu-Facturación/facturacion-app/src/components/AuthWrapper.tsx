@@ -9,6 +9,7 @@ import ToastContainer from '@/components/ui/ToastContainer';
 import CommandPalette from '@/components/layout/CommandPalette';
 import OnboardingModal from '@/components/OnboardingModal';
 import NetworkStatusBar from '@/components/ui/NetworkStatusBar';
+import EfectosPantalla from '@/components/ui/EfectosPantalla';
 import { useToast } from '@/hooks/useToast';
 import { getCompanySettings, seedInitialData, isOnboardingCompleted } from '@/lib/storage';
 import { initAutoSync, fullDownloadToOffline } from '@/lib/syncEngine';
@@ -220,6 +221,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         </main>
       </div>
       <MobileNav />
+      <EfectosPantalla />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       <ControlPerfiles />

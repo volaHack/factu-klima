@@ -23,6 +23,7 @@ import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 type SortField = 'number' | 'clientName' | 'issueDate' | 'total' | 'status';
 
 export default function AlbaranesPage() {
@@ -235,7 +236,7 @@ export default function AlbaranesPage() {
           {albaranes.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value">{counts.total}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(counts.total)} /></span>
                 <span className="page-meta-label">albaranes</span>
               </span>
               <span className="page-meta-item">

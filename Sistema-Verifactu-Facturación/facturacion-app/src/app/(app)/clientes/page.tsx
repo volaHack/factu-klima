@@ -27,6 +27,7 @@ import Paginacion from '@/components/ui/Paginacion';
 import { NOMBRE_ORIGEN, origenDelHistorico, topHistorico, type FilaTopHistorico, type TipoHistorico } from '@/lib/historico';
 import { TIPOS_RANKING, esDeCompra, rankingDeKlima, rankingDelHistorico } from '@/lib/rankingTerceros';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
   const limpio = {
@@ -362,15 +363,15 @@ function ClientesPageContenido() {
           {clients.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value">{clients.length}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(clients.length)} /></span>
                 <span className="page-meta-label">en ficha</span>
               </span>
               <span className="page-meta-item">
-                <span className="page-meta-value is-success">{activeCount}</span>
+                <span className="page-meta-value is-success"><CifraQueCuenta texto={String(activeCount)} /></span>
                 <span className="page-meta-label">activos</span>
               </span>
               <span className="page-meta-item">
-                <span className="page-meta-value">{formatCurrency(totalClientRevenue)}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(formatCurrency(totalClientRevenue))} /></span>
                 <span className="page-meta-label">facturación acumulada</span>
               </span>
             </div>

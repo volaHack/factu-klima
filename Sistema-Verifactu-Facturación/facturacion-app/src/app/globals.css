@@ -16331,7 +16331,7 @@ body {
    ============================================================ */
 @keyframes llegaDesdeIzquierda { from { opacity: 0; transform: translateX(-14px); } }
 @keyframes llegaDesdeArriba { from { opacity: 0; transform: translateY(-6px); } }
-@keyframes llegaDesdeAbajo { from { opacity: 0; transform: translateY(10px); } }
+@keyframes llegaDesdeAbajo { from { opacity: 0; transform: translateY(12px); filter: blur(6px); } }
 @keyframes aparece { from { opacity: 0; } }
 
 @media (min-width: 1024px) {
@@ -16372,4 +16372,114 @@ body {
 :where(.table tbody tr:nth-child(8), .lista-reglada > li:nth-child(8)) { animation-delay: 140ms; }
 :where(.table tbody tr:nth-child(9), .lista-reglada > li:nth-child(9)) { animation-delay: 160ms; }
 :where(.table tbody tr:nth-child(n+10), .lista-reglada > li:nth-child(n+10)) { animation-delay: 180ms; }
+
+/* ============================================================
+   EFECTOS DE CADA PANTALLA
+   Lo que hace que la app se sienta viva sin estorbar: todo entra
+   con desenfoque que se enfoca, lo que está más abajo aparece al
+   llegar a ello, la luz sigue al ratón por tarjetas y paneles, lo
+   que se puede pulsar responde. Los componentes que pinta
+   EfectosPantalla.tsx ponen data-revelar y data-foco.
+   ============================================================ */
+
+/* Revelar al desplazar: espera desenfocado y abajo; al verse, sube. */
+[data-revelar="espera"] { opacity: 0; transform: translateY(24px); filter: blur(8px); }
+[data-revelar="si"] {
+  transition:
+    opacity 640ms var(--ease-settle),
+    transform 760ms var(--ease-settle),
+    filter 640ms var(--ease-settle);
+}
+@media print { [data-revelar] { opacity: 1 !important; transform: none !important; filter: none !important; } }
+
+/* Foco de luz bajo el puntero. */
+.card[data-foco], .cuentas-marco[data-foco], .table-container[data-foco] {
+  background-image: radial-gradient(
+    420px circle at var(--foco-x, -999px) var(--foco-y, -999px),
+    color-mix(in srgb, var(--accent-500) 10%, transparent),
+    transparent 60%
+  );
+}
+:root[data-theme="dark"] .card[data-foco],
+:root[data-theme="dark"] .cuentas-marco[data-foco],
+:root[data-theme="dark"] .table-container[data-foco] {
+  background-image: radial-gradient(
+    420px circle at var(--foco-x, -999px) var(--foco-y, -999px),
+    color-mix(in srgb, var(--accent-500) 13%, transparent),
+    transparent 60%
+  );
+}
+
+/* Lo que se pulsa se eleva un poco al pasar el ratón. */
+:where(a.card, button.card, .card[role="button"], .cuentas-cifra.es-enlace) {
+  transition: transform 260ms var(--ease-settle), box-shadow 260ms var(--ease-settle), border-color 160ms ease;
+}
+:where(a.card, button.card, .card[role="button"]):hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+:where(a.card, button.card, .card[role="button"]):active { transform: translateY(0) scale(0.99); }
+
+/* El botón principal: un brillo cruza al pasar el ratón. */
+.btn-primary {
+  background-image:
+    linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%),
+    var(--accent-gradient);
+  background-size: 260% 100%, 100% 100%;
+  background-position: 130% 0, 0 0;
+  background-repeat: no-repeat;
+  transition: background-position 700ms var(--ease-settle), box-shadow 200ms ease, transform 120ms ease;
+}
+.btn-primary:hover:not(:disabled) {
+  background-image:
+    linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%),
+    var(--accent-gradient);
+  background-color: var(--accent-600);
+  background-position: -30% 0, 0 0;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent-500) 55%, transparent);
+}
+
+/* Títulos de pantalla: se enfocan al llegar. */
+@keyframes tituloLlega { from { opacity: 0; transform: translateY(8px); filter: blur(8px); } }
+:where(.page-title, .page-header h1, .panel-cabeza h1) { animation: tituloLlega 560ms var(--ease-settle) backwards; }
+
+/* Modales: escalan desde un poco más pequeños y se enfocan. */
+@keyframes modalLlega { from { opacity: 0; transform: translateY(10px) scale(0.965); filter: blur(6px); } }
+.modal { animation: modalLlega 380ms var(--ease-settle); }
+.modal-overlay { animation: aparece 220ms ease-out; }
+
+/* Avisos: entran desde la derecha enfocándose. */
+@keyframes avisoLlega { from { opacity: 0; transform: translateX(24px) scale(0.98); filter: blur(4px); } }
+.toast { animation: avisoLlega 420ms var(--ease-settle); }
+
+/* Filas: al pasar el ratón, una barra del acento en el borde. */
+.table tbody tr td:first-child { transition: box-shadow 220ms var(--ease-settle); }
+.table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent-500); }
+
+/* Pestañas: la raya de la activa crece desde la izquierda. */
+@keyframes subrayaCrece { from { transform: scaleX(0); } }
+.tab.active::after { transform-origin: left; animation: subrayaCrece 360ms var(--ease-settle); }
+.tab { transition: color 160ms ease; }
+
+/* Barra lateral: la marca de la activa crece; los iconos se asoman. */
+@keyframes marcaCrece { from { transform: translateY(-50%) scaleY(0); } }
+.sidebar-link.active::before { animation: marcaCrece 380ms var(--ease-settle); }
+.sidebar-link svg { transition: transform 220ms var(--ease-settle), opacity 160ms ease; }
+.sidebar-link:hover svg { transform: translateX(2px); opacity: 1; }
+
+/* Flechas de «ver más»: se adelantan un poco. */
+a > svg.lucide-chevron-right, a > svg.lucide-arrow-right, button > svg.lucide-chevron-right {
+  transition: transform 220ms var(--ease-settle);
+}
+a:hover > svg.lucide-chevron-right, a:hover > svg.lucide-arrow-right, button:hover > svg.lucide-chevron-right {
+  transform: translateX(3px);
+}
+
+/* El número de la campana salta al llegar. */
+@keyframes contadorSalta { 0% { transform: scale(0); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.header-contador { animation: contadorSalta 520ms var(--ease-settle) 700ms backwards; }
+
+/* Estados vacíos: el icono flota despacio. */
+@keyframes flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.empty-state-icon { animation: flota 4.5s ease-in-out infinite; }
+
+/* Campos: el anillo de foco se abre suave. */
+.form-input, .form-select, .form-textarea { transition: border-color 160ms ease, box-shadow 220ms var(--ease-settle), background-color 160ms ease; }
 

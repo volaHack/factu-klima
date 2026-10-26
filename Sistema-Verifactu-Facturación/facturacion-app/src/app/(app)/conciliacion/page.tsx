@@ -30,6 +30,7 @@ import {
 import CajaBusqueda from '@/components/ui/CajaBusqueda';
 import { casaTexto } from '@/lib/casaTexto';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 type Filtro = 'pendientes' | 'todos' | 'conciliados' | 'ignorados';
 
 const CLAVE_EXTRACTO = 'klima_banco_extracto';
@@ -298,13 +299,13 @@ export default function ConciliacionPage() {
           </p>
 
           <div className="kpi-grid">
-            <div className="card"><div className="card-subtitle">Movimientos</div><div className="page-meta-value">{cuenta.total}</div>
+            <div className="card"><div className="card-subtitle">Movimientos</div><div className="page-meta-value"><CifraQueCuenta texto={String(cuenta.total)} /></div>
               <p className="banco-pie">Entran {formatCurrency(cuenta.entradas)} · salen {formatCurrency(cuenta.salidas)}</p></div>
-            <div className="card"><div className="card-subtitle">Conciliados</div><div className="page-meta-value">{cuenta.conciliados}</div>
+            <div className="card"><div className="card-subtitle">Conciliados</div><div className="page-meta-value"><CifraQueCuenta texto={String(cuenta.conciliados)} /></div>
               <p className="banco-pie">{cuenta.ignorados ? `${cuenta.ignorados} ignorados` : 'Ya casados con un cobro, pago o gasto'}</p></div>
-            <div className="card"><div className="card-subtitle">Listos para confirmar</div><div className="page-meta-value">{cuenta.seguras}</div>
+            <div className="card"><div className="card-subtitle">Listos para confirmar</div><div className="page-meta-value"><CifraQueCuenta texto={String(cuenta.seguras)} /></div>
               <p className="banco-pie">{cuenta.conPropuesta ? `Y ${cuenta.conPropuesta} con propuesta que conviene mirar` : 'Pareja clara, sin dudas'}</p></div>
-            <div className="card"><div className="card-subtitle">Sin pareja</div><div className="page-meta-value">{cuenta.sinPareja}</div>
+            <div className="card"><div className="card-subtitle">Sin pareja</div><div className="page-meta-value"><CifraQueCuenta texto={String(cuenta.sinPareja)} /></div>
               <p className="banco-pie">Cargos que se pueden apuntar como gasto</p></div>
           </div>
 

@@ -30,6 +30,7 @@ import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 interface CategoryOption {
   value: string;
   label: string;
@@ -518,15 +519,15 @@ function ProductosPageContenido() {
           {products.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value">{products.length}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(products.length)} /></span>
                 <span className="page-meta-label">referencias</span>
               </span>
               <span className="page-meta-item">
-                <span className="page-meta-value is-success">{categories.length}</span>
+                <span className="page-meta-value is-success"><CifraQueCuenta texto={String(categories.length)} /></span>
                 <span className="page-meta-label">categorías</span>
               </span>
               <span className="page-meta-item">
-                <span className="page-meta-value">{formatCurrency(totalInventoryValue)}</span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(formatCurrency(totalInventoryValue))} /></span>
                 <span className="page-meta-label">valor stock</span>
               </span>
             </div>

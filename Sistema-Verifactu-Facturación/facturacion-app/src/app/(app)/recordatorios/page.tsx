@@ -23,6 +23,7 @@ import {
   EMAIL_VALIDO, diasEntre, mensaje, porCliente, telefonoWhatsApp, tonoDe, vencidas, type Deudor, type Remitente,
 } from '@/lib/recordatorios/textos';
 import type { AjustesRecordatorios } from '@/lib/recordatorios/filas';
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 import {
   anotar, enviarPorCorreo, estadoServidor, guardarAjustes, leerAjustes, leerRegistro, type Envio,
 } from '@/lib/recordatorios/registro';
@@ -159,10 +160,10 @@ export default function RecordatoriosPage() {
       </div>
 
       <div className="kpi-grid">
-        <div className="card"><div className="card-subtitle">Vencido sin cobrar</div><div className="page-meta-value">{formatCurrency(total)}</div></div>
-        <div className="card"><div className="card-subtitle">Clientes</div><div className="page-meta-value">{deudores.length}</div></div>
+        <div className="card"><div className="card-subtitle">Vencido sin cobrar</div><div className="page-meta-value"><CifraQueCuenta texto={String(formatCurrency(total))} /></div></div>
+        <div className="card"><div className="card-subtitle">Clientes</div><div className="page-meta-value"><CifraQueCuenta texto={String(deudores.length)} /></div></div>
         <div className="card"><div className="card-subtitle">La más antigua</div><div className="page-meta-value">{masAntigua ? `${masAntigua} días` : '—'}</div></div>
-        <div className="card"><div className="card-subtitle">Recordados esta semana</div><div className="page-meta-value">{estaSemana}</div></div>
+        <div className="card"><div className="card-subtitle">Recordados esta semana</div><div className="page-meta-value"><CifraQueCuenta texto={String(estaSemana)} /></div></div>
       </div>
 
       <section className="card recor-auto">
