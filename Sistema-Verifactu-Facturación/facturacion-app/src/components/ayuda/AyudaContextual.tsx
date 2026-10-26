@@ -3,10 +3,10 @@
 /**
  * «¿CÓMO SE USA?» — LA GUÍA DE CADA PANTALLA
  *
- * Se abre igual que el panel de avisos: un velo desenfoca la app y la guía
- * queda delante, nítida y opaca (antes era translúcida y el texto de detrás
- * se colaba). Para qué sirve, los pasos, lo que conviene saber, a dónde ir
- * después y, al final, una pregunta al asistente sobre esta pantalla.
+ * Una hoja que entra por la derecha sobre la pantalla desenfocada, como la
+ * ayuda de cualquier herramienta de trabajo: deja ver de qué pantalla se
+ * habla. Para qué sirve, cómo se hace, lo que hay que tener en cuenta, lo
+ * relacionado y, abajo, una pregunta al asistente sobre esta pantalla.
  *
  * Escape, la X o un clic en el velo la cierran con una salida corta; el foco
  * entra en la guía al abrirla y vuelve al botón al cerrarla.
@@ -15,9 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  ArrowRight, BookOpen, CircleHelp, CornerDownLeft, Lightbulb, Loader2, Sparkles, X,
-} from 'lucide-react';
+import { ArrowUp, ChevronRight, CircleHelp, Info, Loader2, X } from 'lucide-react';
 import { ayudaDe } from '@/lib/ayuda/paginas';
 import Portal from '@/components/ui/Portal';
 
@@ -148,73 +146,60 @@ function ModalAyuda({
         tabIndex={-1}
       >
         <header className="guia-cabecera">
-          <div className="guia-cabecera-texto">
-            <span className="guia-etiqueta"><BookOpen size={13} aria-hidden="true" /> Guía rápida</span>
-            <h2 id="guia-titulo" className="guia-titulo">{ayuda.titulo}</h2>
-            <p className="guia-para-que">{ayuda.paraQue}</p>
-          </div>
-          <button type="button" className="guia-cerrar" onClick={cerrar} aria-label="Cerrar la guía">
+          <h2 id="guia-titulo" className="guia-titulo">{ayuda.titulo}</h2>
+          <button type="button" className="guia-cerrar" onClick={cerrar} aria-label="Cerrar la ayuda">
             <X size={18} />
           </button>
         </header>
 
         <div className="guia-cuerpo">
-          <section className="guia-bloque" aria-labelledby="guia-pasos">
-            <h3 id="guia-pasos" className="guia-bloque-titulo">
-              Paso a paso <span className="guia-bloque-cuenta">{ayuda.pasos.length}</span>
-            </h3>
+          <p className="guia-para-que">{ayuda.paraQue}</p>
+
+          <section aria-labelledby="guia-pasos">
+            <h3 id="guia-pasos" className="guia-apartado">Cómo se hace</h3>
             <ol className="guia-pasos">
-              {ayuda.pasos.map((p, i) => (
-                <li key={i} className="guia-paso">
-                  <span className="guia-paso-num" aria-hidden="true">{i + 1}</span>
-                  <p className="guia-paso-texto">{p}</p>
-                </li>
-              ))}
+              {ayuda.pasos.map((p, i) => <li key={i}>{p}</li>)}
             </ol>
           </section>
 
           {ayuda.saber && ayuda.saber.length > 0 && (
-            <section className="guia-saber" aria-labelledby="guia-saber">
-              <h3 id="guia-saber" className="guia-saber-titulo">
-                <Lightbulb size={15} aria-hidden="true" /> Lo que conviene saber
+            <section aria-labelledby="guia-saber" className="guia-saber">
+              <h3 id="guia-saber" className="guia-apartado">
+                <Info size={15} aria-hidden="true" /> Ten en cuenta
               </h3>
-              <ul className="guia-saber-lista">
+              <ul>
                 {ayuda.saber.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </section>
           )}
 
           {ayuda.relacionadas && ayuda.relacionadas.length > 0 && (
-            <section className="guia-bloque" aria-labelledby="guia-sigue">
-              <h3 id="guia-sigue" className="guia-bloque-titulo">Sigue por aquí</h3>
-              <div className="guia-enlaces">
+            <section aria-labelledby="guia-sigue">
+              <h3 id="guia-sigue" className="guia-apartado">Relacionado</h3>
+              <ul className="guia-enlaces">
                 {ayuda.relacionadas.map(r => (
-                  <Link key={r.ruta} href={r.ruta} className="guia-enlace" onClick={onCerrar}>
-                    <span>{r.texto}</span>
-                    <ArrowRight size={14} aria-hidden="true" />
-                  </Link>
+                  <li key={r.ruta}>
+                    <Link href={r.ruta} className="guia-enlace" onClick={onCerrar}>
+                      {r.texto}
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
         </div>
 
         <footer className="guia-asistente">
-          <label className="guia-asistente-titulo" htmlFor="guia-pregunta">
-            <Sparkles size={14} aria-hidden="true" /> ¿Otra duda? Pregunta al asistente
-          </label>
-
-          {respuesta && (
-            <div className="guia-respuesta" aria-live="polite">{respuesta}</div>
-          )}
+          {respuesta && <div className="guia-respuesta" aria-live="polite">{respuesta}</div>}
           {error && <p className="guia-error" role="alert">{error}</p>}
 
           <div className="guia-campo">
             <textarea
-              id="guia-pregunta"
               className="guia-campo-texto"
               rows={1}
-              placeholder={`Sobre ${ayuda.titulo}…`}
+              aria-label={`Pregunta sobre ${ayuda.titulo}`}
+              placeholder="Pregunta sobre esta pantalla"
               value={pregunta}
               onChange={e => setPregunta(e.target.value)}
               onKeyDown={e => {
@@ -231,7 +216,7 @@ function ModalAyuda({
               disabled={cargando || !pregunta.trim()}
               aria-label="Enviar la pregunta"
             >
-              {cargando ? <Loader2 size={15} className="spin" /> : <CornerDownLeft size={15} />}
+              {cargando ? <Loader2 size={15} className="spin" /> : <ArrowUp size={16} />}
             </button>
           </div>
         </footer>
