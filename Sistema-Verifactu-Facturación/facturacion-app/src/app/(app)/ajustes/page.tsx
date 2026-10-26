@@ -144,14 +144,6 @@ export default function AjustesPage() {
     }
   };
 
-  const [stripeKeys, setStripeKeys] = useState<{
-    hasSecretKey: boolean;
-    hasWebhookSecret: boolean;
-    publishableKey: string;
-    webhookUrl: string;
-  } | null>(null);
-  const [stripeForm, setStripeForm] = useState({ secretKey: '', webhookSecret: '', publishableKey: '' });
-  const [savingStripe, setSavingStripe] = useState(false);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState('');
@@ -191,17 +183,6 @@ export default function AjustesPage() {
       // Borradores iniciales de los porcentajes de impuesto
       setIvaRatesDraft((data.ivaRates?.length ? data.ivaRates : DEFAULT_IVA_RATES).map(r => r));
       setIgicRatesDraft((data.igicRates?.length ? data.igicRates : DEFAULT_IGIC_RATES).map(r => r));
-      
-      try {
-        const res = await fetch('/api/stripe/tenant-keys');
-        if (res.ok) {
-          const keys = await res.json();
-          setStripeKeys(keys);
-          setStripeForm({ secretKey: '', webhookSecret: '', publishableKey: keys.publishableKey });
-        }
-      } catch (err) {
-        console.error('No se pudieron cargar las claves de Stripe', err);
-      }
       
       setMounted(true);
     })();
@@ -311,32 +292,6 @@ export default function AjustesPage() {
       toastError('No se pudo guardar', err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSaveStripe = async () => {
-    setSavingStripe(true);
-    try {
-      const res = await fetch('/api/stripe/tenant-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stripeForm),
-      });
-      if (!res.ok) throw new Error('Error al guardar credenciales de Stripe');
-      
-      success('Stripe actualizado', 'Las credenciales de cobro se han guardado con seguridad');
-      
-      // Actualizar vista
-      const keysRes = await fetch('/api/stripe/tenant-keys');
-      if (keysRes.ok) {
-        const keys = await keysRes.json();
-        setStripeKeys(keys);
-        setStripeForm({ secretKey: '', webhookSecret: '', publishableKey: keys.publishableKey });
-      }
-    } catch (err) {
-      toastError('No se pudo actualizar Stripe', err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setSavingStripe(false);
     }
   };
 
@@ -762,93 +717,6 @@ export default function AjustesPage() {
         </div>
       </div>
 
-      {/* Stripe Online Payments */}
-      <div className="settings-section">
-        <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
-          <CreditCard size={18} />
-          <h2 className="settings-section-title">Cobros con Stripe</h2>
-        </div>
-        <p className="settings-section-subtitle">Genera un enlace de pago para que el cliente abone la factura con tarjeta</p>
-
-        <div className="status-panel status-panel--info" style={{ alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <span className="status-panel-icon"><CreditCard size={19} /></span>
-          <div className="status-panel-body">
-            <div className="status-panel-title" style={{ color: 'var(--text-primary)' }}>Aceptar pagos con tarjeta</div>
-            <p className="status-panel-text">Añade un botón de cobro en la ficha de cada factura y la marca como pagada en cuanto Stripe confirma el cargo.</p>
-          </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={settings.stripeEnabled ?? false}
-              onChange={e => updateField('stripeEnabled', e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Stripe Publishable Key</label>
-          <input
-            className="form-input"
-            type="text"
-            placeholder={stripeKeys?.hasSecretKey && !stripeForm.publishableKey ? '••••••••••••••••••••••••' : 'pk_live_...'}
-            value={stripeForm.publishableKey}
-            onChange={e => setStripeForm({ ...stripeForm, publishableKey: e.target.value })}
-          />
-        </div>
-
-        <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-          <label className="form-label">Stripe Secret Key</label>
-          <input
-            className="form-input"
-            type="password"
-            placeholder={stripeKeys?.hasSecretKey ? '•••••••••••••••••••••••• (Guardada)' : 'sk_live_...'}
-            value={stripeForm.secretKey}
-            onChange={e => setStripeForm({ ...stripeForm, secretKey: e.target.value })}
-          />
-          <span className="form-hint">Se cifra de forma segura en la base de datos (AES-256).</span>
-        </div>
-
-        {stripeKeys?.webhookUrl && (
-          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-            <label className="form-label">URL del Webhook (Copia esto en Stripe)</label>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <input
-                className="form-input"
-                type="text"
-                readOnly
-                value={stripeKeys.webhookUrl}
-                style={{ background: 'var(--bg-tertiary)', cursor: 'copy' }}
-                onClick={(e) => {
-                  (e.target as HTMLInputElement).select();
-                  navigator.clipboard.writeText(stripeKeys.webhookUrl);
-                  success('Copiado', 'URL de webhook copiada al portapapeles');
-                }}
-              />
-            </div>
-            <span className="form-hint">En el panel de Stripe: Developers &gt; Webhooks &gt; Add endpoint. Pega esta URL y selecciona el evento <code>checkout.session.completed</code>.</span>
-          </div>
-        )}
-
-        <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-          <label className="form-label">Stripe Webhook Secret</label>
-          <input
-            className="form-input"
-            type="password"
-            placeholder={stripeKeys?.hasWebhookSecret ? '•••••••••••••••••••••••• (Guardado)' : 'whsec_...'}
-            value={stripeForm.webhookSecret}
-            onChange={e => setStripeForm({ ...stripeForm, webhookSecret: e.target.value })}
-          />
-          <span className="form-hint">Lo obtienes después de añadir el Webhook en Stripe. Necesario para confirmar los pagos automáticamente.</span>
-        </div>
-
-        <div style={{ marginTop: 'var(--space-4)' }}>
-          <button className="btn btn-secondary" onClick={handleSaveStripe} disabled={savingStripe}>
-            {savingStripe ? <Loader2 size={16} className="spin" /> : <Save size={16} />} {savingStripe ? 'Guardando...' : 'Guardar claves Stripe'}
-          </button>
-        </div>
-      </div>
-
       {/* Módulos y panel de inicio */}
       <div className="card settings-section">
         <div className="settings-section-header">
@@ -1178,6 +1046,21 @@ export default function AjustesPage() {
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <CreditCard size={18} />
           <h2 className="settings-section-title">Cobro online</h2>
+        </div>
+        <div className="status-panel status-panel--info" style={{ alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <span className="status-panel-icon"><CreditCard size={19} /></span>
+          <div className="status-panel-body">
+            <div className="status-panel-title" style={{ color: 'var(--text-primary)' }}>Aceptar pagos con tarjeta</div>
+            <p className="status-panel-text">Añade un botón de cobro en la ficha de cada factura y la marca como pagada en cuanto Stripe confirma el cargo.</p>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={settings.stripeEnabled ?? false}
+              onChange={e => updateField('stripeEnabled', e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
         </div>
         <CobroOnline />
       </div>
