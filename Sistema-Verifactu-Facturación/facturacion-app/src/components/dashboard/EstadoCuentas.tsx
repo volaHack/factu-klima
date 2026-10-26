@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
+import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 
 export interface CifraPanel {
   id: string;
@@ -20,8 +21,8 @@ export interface CifraPanel {
  * Las cifras de arriba del panel, como en un libro de cuentas: una sola
  * hoja dividida por filetes, no una fila de tarjetas iguales. La primera
  * que la empresa haya puesto manda (es la que más le importa) y va más
- * grande, con la doble raya con la que se cierra un total; las demás la
- * acompañan a su lado. Las cifras van con números de ancho fijo para que
+ * grande; las demás la acompañan a su lado. Al llegar, las cifras cuentan
+ * hasta su valor (ver CifraQueCuenta). Las cifras van con números de ancho fijo para que
  * se comparen de un vistazo.
  */
 export default function EstadoCuentas({ cifras }: { cifras: CifraPanel[] }) {
@@ -39,7 +40,7 @@ export default function EstadoCuentas({ cifras }: { cifras: CifraPanel[] }) {
                 {c.tono === 'peligro' && <AlertTriangle size={13} aria-hidden="true" />}
                 {c.etiqueta}
               </span>
-              <span className="cuentas-valor">{c.valor}</span>
+              <span className="cuentas-valor"><CifraQueCuenta texto={c.valor} /></span>
               {(c.cambio || c.detalle) && (
                 <span className="cuentas-pie">
                   {c.cambio && (

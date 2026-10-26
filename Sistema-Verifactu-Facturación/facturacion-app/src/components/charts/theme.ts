@@ -9,7 +9,7 @@ import { acentoActual, suscribirseAlAcento, type Acento } from '@/lib/acento';
 // Los colores están VALIDADOS con el script de la skill de datos
 // (scripts/validate_palette.js), no elegidos a ojo, y contra las dos
 // superficies REALES de las tarjetas tras el rediseño blush:
-// clara #fbf6f2 y oscura #211619.
+// clara #ffffff y oscura #17181b.
 //
 //   Categóricos (6 slots), superficie clara .... banda de luminosidad,
 //       croma y separación para daltonismo PASS (peor par adyacente
@@ -47,7 +47,7 @@ export const SERIES = [
  * Antes era la de fábrica (verde #0ca30c, amarillo #fab219, azul #3987e5):
  * saturada, ajena al blush y con el amarillo a 1,7:1 sobre la tarjeta. El
  * donut de «Reparto por estado» era lo primero que se veía y parecía de
- * plantilla. Estos tonos son más sobrios y, validados sobre #fbf6f2 con
+ * plantilla. Estos tonos son más sobrios y, validados sobre blanco con
  * todos los pares: banda de luminosidad PASS, daltonismo PASS (peor par
  * vencido↔cobrado ΔE 8.0 deutan), visión normal PASS (≥ 15,6). El gris
  * del borrador no llega al croma mínimo a propósito: es gris.
@@ -73,7 +73,7 @@ export const STATUS = {
  * oscuro se va a luminosidades de 0.7–0.78, fuera de la banda 0.48–0.67
  * en la que una barra se lee bien junto al azul). Así que cada acento
  * lleva su paso de gráfica por modo, VALIDADO con el script de la guía
- * de visualización contra su superficie (#fbf6f2 / #211619) y contra el
+ * de visualización contra su superficie (#ffffff / #17181b) y contra el
  * azul de SERIES con el que convive. Los ocho pasan todo:
  *   rosa      claro #b02a5c · oscuro #c9407a
  *   vino      claro #8f2e46 · oscuro #c25a70
@@ -143,12 +143,12 @@ export interface TintaGrafica {
 }
 
 const TINTA_CLARA: TintaGrafica = {
-  primary: '#1a1216',
-  secondary: '#4a3a40',
-  muted: '#6f5d63',
-  grid: 'rgba(26, 18, 22, 0.08)',
-  axis: 'rgba(26, 18, 22, 0.16)',
-  surface: '#fbf6f2',
+  primary: '#14161b',
+  secondary: '#444a54',
+  muted: '#5f656f',
+  grid: 'rgba(17, 20, 26, 0.08)',
+  axis: 'rgba(17, 20, 26, 0.16)',
+  surface: '#ffffff',
 };
 
 /**
@@ -159,12 +159,12 @@ const TINTA_CLARA: TintaGrafica = {
  * compite con los datos deja de ser cromo y pasa a ser ruido.
  */
 const TINTA_OSCURA: TintaGrafica = {
-  primary: '#f7ebef',
-  secondary: '#d3bfc7',
-  muted: '#a08d95',
-  grid: 'rgba(247, 235, 239, 0.10)',
-  axis: 'rgba(247, 235, 239, 0.20)',
-  surface: '#211619',
+  primary: '#ececee',
+  secondary: '#c3c5ca',
+  muted: '#92959c',
+  grid: 'rgba(236, 236, 238, 0.10)',
+  axis: 'rgba(236, 236, 238, 0.20)',
+  surface: '#17181b',
 };
 
 /** Compatibilidad: quien importe `INK` sigue recibiendo la tinta clara. */
@@ -202,7 +202,7 @@ export function mezclar(a: string, b: string, t: number): string {
  */
 export function rampaSecuencial(modo: ModoGrafica = modoGrafica(), tema: TemaAcento = temaAcento()): string[] {
   const acento = ACENTO_GRAFICA[tema][modo];
-  const superficie = modo === 'oscuro' ? '#211619' : '#fbf6f2';
+  const superficie = modo === 'oscuro' ? '#17181b' : '#ffffff';
   const extremo = modo === 'oscuro' ? mezclar(acento, '#ffffff', 0.38) : mezclar(acento, '#000000', 0.32);
   return [
     mezclar(superficie, acento, modo === 'oscuro' ? 0.28 : 0.2),

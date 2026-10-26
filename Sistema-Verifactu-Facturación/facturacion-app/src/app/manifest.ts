@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
       'Sistema de facturación profesional multitarea para empresas de distribución y comercio con Verifactu Ready',
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: '#f2e7e0',
+    background_color: '#f3f4f6',
     theme_color: '#b02a5c',
     // Los PNG salen de scripts/generar-iconos.mjs. Los «maskable» llevan margen:
     // Android los recorta en círculo o en gota y, a sangre, la estrella se cortaba.

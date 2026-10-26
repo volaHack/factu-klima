@@ -211,8 +211,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       <div className="app-main">
         <NetworkStatusBar />
         <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCmdOpen(true)} menuButtonRef={menuButtonRef} />
-        <main className="app-content animate-fade-in">
-          {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
+        <main className="app-content">
+          {/* Una capa por pantalla: al cambiar de ruta se monta otra y entra
+              con su animación (ver .pantalla en globals.css). */}
+          <div key={pathname} className="pantalla">
+            {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
+          </div>
         </main>
       </div>
       <MobileNav />

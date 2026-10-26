@@ -126,8 +126,8 @@ export const ThemeTogglerButton: React.FC<ThemeTogglerButtonProps> = ({
       // Fallback fluido con elemento overlay expansivo para navegadores sin View Transitions
       try {
         const targetColor = nuevoTema === 'oscuro' || (nuevoTema === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          ? '#191013'
-          : '#f2e7e0';
+          ? '#0f1012'
+          : '#f3f4f6';
 
         const overlay = document.createElement('div');
         overlay.style.position = 'fixed';

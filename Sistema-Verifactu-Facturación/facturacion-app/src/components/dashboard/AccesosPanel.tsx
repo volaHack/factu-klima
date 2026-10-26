@@ -71,7 +71,7 @@ export default function AccesosPanel({ modulos, clientesActivos, productos, prod
       </section>
 
       <nav className="accesos-hoja" aria-labelledby="accesos-ir">
-        <h2 id="accesos-ir" className="accesos-titulo">Ir a</h2>
+        <h2 id="accesos-ir" className="accesos-titulo">Accesos</h2>
         <ul className="accesos-lista">
           {cartera.map(c => (
             <li key={c.href}>

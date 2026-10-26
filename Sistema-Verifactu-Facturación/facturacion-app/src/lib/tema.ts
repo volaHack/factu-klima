@@ -47,7 +47,7 @@ export function aplicarTema(tema: Tema): void {
   document.documentElement.dataset.theme = efectivo === 'oscuro' ? 'dark' : 'light';
 
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', efectivo === 'oscuro' ? '#191013' : '#f2e7e0');
+  if (meta) meta.setAttribute('content', efectivo === 'oscuro' ? '#0f1012' : '#f3f4f6');
 }
 
 /** Guarda la elección y la aplica. */
