@@ -16127,7 +16127,8 @@ body {
 .menu-arbol-flecha { margin-left: auto; flex-shrink: 0; opacity: 0.6; transition: transform var(--transition-fast); }
 [aria-expanded="true"] > .menu-arbol-rama .menu-arbol-flecha { transform: rotate(90deg); }
 
-.menu-arbol > li > ul {
+/* La lista va dentro del cajón que se despliega (ver panel.css). */
+.menu-arbol-cajon-dentro > ul {
   margin: 2px 0 6px 20px;
   padding-left: 10px;
   border-left: 1px solid var(--border-color);

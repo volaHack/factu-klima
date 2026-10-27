@@ -115,10 +115,11 @@ export default function NotificationsPopover({ onClose }: NotificationsPopoverPr
     stock: resumen?.stock ?? 0,
   };
 
-  const fila = (a: Aviso) => {
+  // `orden` escalona la entrada de las filas (ver panel.css).
+  const fila = (a: Aviso, orden: number) => {
     const Icono = ICONO[a.tipo];
     return (
-      <Link key={a.id} href={a.href} onClick={onClose} className={`notif-fila is-${a.gravedad}`}>
+      <Link key={a.id} href={a.href} onClick={onClose} className={`notif-fila is-${a.gravedad}`} style={{ '--i': orden } as React.CSSProperties}>
         <span className="notif-fila-icono" aria-hidden="true"><Icono size={16} /></span>
         <span className="notif-fila-texto">
           <span className="notif-fila-titulo">{a.titulo}</span>
@@ -189,14 +190,15 @@ export default function NotificationsPopover({ onClose }: NotificationsPopoverPr
               </span>
             </div>
           ) : (
-            grupos.map(({ g, avisos }) => (
+            grupos.map(({ g, avisos }, n) => (
               <section key={g} className="notif-grupo" aria-label={ETIQUETA_GRUPO[g]}>
                 {pestana === 'todos' && (
                   <h3 className="notif-grupo-titulo">
                     {ETIQUETA_GRUPO[g]} <span>{avisos.length}</span>
                   </h3>
                 )}
-                {avisos.map(fila)}
+                {/* El segundo grupo sigue la cascada donde la dejó el primero. */}
+                {avisos.map((a, i) => fila(a, i + (n > 0 ? grupos[0].avisos.length : 0)))}
               </section>
             ))
           )}

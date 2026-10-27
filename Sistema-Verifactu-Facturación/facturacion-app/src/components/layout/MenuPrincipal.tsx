@@ -281,31 +281,37 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
                 <span>{rama.label}</span>
                 <ChevronRight size={14} className="menu-arbol-flecha" aria-hidden />
               </button>
-              {abierta && (
-                <ul role="group">
-                  {rama.hojas.map(hoja => {
-                    const activa = esHojaActiva(hoja, pathname, params);
-                    return (
-                      <li key={hoja.lista} role="treeitem" aria-selected={activa} className={`menu-arbol-hoja${activa ? ' active' : ''}`}>
-                        <Link href={hoja.lista} onClick={onClose} aria-current={activa ? 'page' : undefined}>
-                          {hoja.label}
-                        </Link>
-                        {hoja.nuevo && (
-                          <Link
-                            href={hoja.nuevo}
-                            onClick={onClose}
-                            className="menu-arbol-nuevo"
-                            aria-label={`Nuevo: ${hoja.label}`}
-                            title={`Nuevo: ${hoja.label.toLowerCase()}`}
-                          >
-                            <Plus size={14} />
+              {/* Siempre montada: así la rama se abre y se cierra deslizando
+                  (la rejilla pasa de 0 a su alto, ver panel.css). Cerrada
+                  queda `inert`: ni el tabulador ni el lector de pantalla
+                  entran en lo que no se ve. */}
+              <div className="menu-arbol-cajon" data-abierta={abierta || undefined} inert={!abierta}>
+                <div className="menu-arbol-cajon-dentro">
+                  <ul role="group">
+                    {rama.hojas.map(hoja => {
+                      const activa = esHojaActiva(hoja, pathname, params);
+                      return (
+                        <li key={hoja.lista} role="treeitem" aria-selected={activa} className={`menu-arbol-hoja${activa ? ' active' : ''}`}>
+                          <Link href={hoja.lista} onClick={onClose} aria-current={activa ? 'page' : undefined}>
+                            {hoja.label}
                           </Link>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                          {hoja.nuevo && (
+                            <Link
+                              href={hoja.nuevo}
+                              onClick={onClose}
+                              className="menu-arbol-nuevo"
+                              aria-label={`Nuevo: ${hoja.label}`}
+                              title={`Nuevo: ${hoja.label.toLowerCase()}`}
+                            >
+                              <Plus size={14} />
+                            </Link>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
             </li>
           );
         })}

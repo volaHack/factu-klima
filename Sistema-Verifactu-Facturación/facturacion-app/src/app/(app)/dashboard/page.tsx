@@ -338,6 +338,8 @@ export default function DashboardPage() {
         return {
           id, etiqueta: `Facturado en ${nombreMes}`, valor: formatCurrency(mes.total),
           detalle: facturas(mes.facturas),
+          // Los doce meses de «Evolución de facturación»: la línea y la gráfica cuadran.
+          serie: monthlyData.map(m => m.total),
           cambio: mes.variacion != null && mes.variacion !== 0 ? {
             porcentaje: mes.variacion,
             texto: `frente al 1–${mes.hastaDia} del mes pasado`,
@@ -354,7 +356,10 @@ export default function DashboardPage() {
           tono: kpis.overdueCount > 0 ? 'peligro' : undefined, href: '/recordatorios',
         };
       case 'cobrado_mes':
-        return { id, etiqueta: 'Cobrado este mes', valor: formatCurrency(cobradoMes(invoices, hoy)), detalle: 'Lo que ha entrado de verdad' };
+        return {
+          id, etiqueta: 'Cobrado este mes', valor: formatCurrency(cobradoMes(invoices, hoy)), detalle: 'Lo que ha entrado de verdad',
+          serie: facturadoCobrado.map(m => m.series2),
+        };
       case 'margen_mes': {
         const m = margenMes(invoices, products, hoy);
         if (m.porcentaje == null && m.lineasSinCoste) {

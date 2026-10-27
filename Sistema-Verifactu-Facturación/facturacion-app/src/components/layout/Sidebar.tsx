@@ -177,9 +177,11 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           </Suspense>
         </nav>
 
-        {/* CTA */}
+        {/* CTA: la acción principal de la app lleva la luz del marco en
+            todas las pantallas (ver neon.css); en el móvil la lleva el
+            botón redondo de la barra de abajo. */}
         <div className="sidebar-cta">
-          <Link href="/facturas/nueva" className="btn btn-primary" onClick={onClose} title={collapsed ? 'Nueva factura' : undefined}>
+          <Link href="/facturas/nueva" className="btn btn-primary neon" onClick={onClose} title={collapsed ? 'Nueva factura' : undefined}>
             <Plus size={16} />
             <span>Nueva factura</span>
           </Link>
