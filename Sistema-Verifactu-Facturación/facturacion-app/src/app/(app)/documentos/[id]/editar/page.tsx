@@ -187,7 +187,7 @@ export default function EditarDocumentoPage() {
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary neon neon--al-pasar"
             onClick={() => handleSave(InvoiceStatus.EMITIDA)}
             disabled={saving}
           >
@@ -329,6 +329,7 @@ export default function EditarDocumentoPage() {
           porcentajesPie={globalDiscounts.filter(p => p > 0)}
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
+          destacado
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
         />
       </div>

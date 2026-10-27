@@ -1,1 +1,531 @@
-/* Estilos de la mejora visual: formularios. Ver neon.css para la luz del marco. */
+/* Estilos de la mejora visual: formularios. Ver neon.css para la luz del marco.
+
+   Aquí va lo de crear y editar documentos, la ficha de factura, las
+   ventanas, la entrada (login), Ajustes y los avisos. Todo lo que se
+   mueve lo hace con transform, opacity o colores, nunca con medidas, y
+   quien pide menos movimiento lo ve quieto: el interruptor global de
+   prefers-reduced-motion (globals.css) deja cada animación en su último
+   fotograma, que aquí siempre es el estado final. */
+
+/* ============================================================
+   MARCOS CON LUZ
+   El halo de .neon se pinta por encima del fondo del elemento que lo
+   lleva (es su propio contexto de apilado), así que sobre una tarjeta
+   opaca manchaba el interior con una cuña de color. Por eso la luz va
+   en un envoltorio sin fondo alrededor de la tarjeta: la tarjeta tapa
+   el halo y éste sólo asoma por fuera. Cada marco copia el radio de lo
+   que envuelve, que es lo que hereda la luz.
+   ============================================================ */
+.totales-marco { border-radius: var(--radius-lg); }
+.sello-marco { border-radius: var(--radius-lg); }
+.login-marco { border-radius: var(--radius-xl); }
+.modal-marco { border-radius: var(--radius-xl); }
+
+/* ============================================================
+   TOTALES: LA CIFRA PROTAGONISTA
+   Mientras se rellenan las líneas, lo que se mira es el total. Va en
+   grande, en una banda con un toque del acento, y cada vez que cambia
+   se asienta con un pequeño golpe (la cifra se monta de nuevo, ver
+   TotalesDocumento).
+   ============================================================ */
+.totales-heroe .invoice-totals-table { min-width: min(340px, 100%); }
+.totales-heroe .invoice-totals-row.total {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 0;
+  border-radius: var(--radius-md);
+  align-items: center;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent-500) 11%, transparent),
+    color-mix(in srgb, var(--accent-500) 3%, transparent) 75%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-500) 22%, transparent);
+}
+.totales-heroe .invoice-totals-row.total .label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-500);
+}
+.totales-heroe .invoice-totals-row.total .value {
+  display: inline-block;
+  font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2.125rem);
+  letter-spacing: -0.03em;
+  animation: totalSeAsienta 420ms var(--ease-settle);
+}
+@keyframes totalSeAsienta {
+  from { opacity: 0.55; transform: translateY(3px) scale(0.97); filter: blur(2px); }
+}
+@media (max-width: 640px) {
+  .totales-heroe .invoice-totals { justify-content: stretch; }
+  .totales-heroe .invoice-totals-table { width: 100%; min-width: 0; }
+}
+
+/* El botón de emitir: la luz sólo al pasar el ratón o con el foco. Sobre
+   el relleno del acento, la segunda tinta tira a blanco para que el
+   trazo se distinga del propio botón. */
+.btn-primary.neon--al-pasar { --neon-b: #ffffff; }
+/* En oscuro, la regla de neon.css que sube el halo
+   (`:root[data-theme="dark"] .neon::after`) pesa más que la que lo apaga
+   en reposo, y el botón brillaba sin pasar por encima. Se devuelve aquí
+   el reposo apagado para los botones de este apartado. */
+:root[data-theme="dark"] .btn-primary.neon--al-pasar::after { opacity: 0; }
+:root[data-theme="dark"] .btn-primary.neon--al-pasar:is(:hover, :focus-visible, :focus-within)::after { opacity: 0.45; }
+
+/* ============================================================
+   LÍNEAS DEL DOCUMENTO
+   Una línea nueva cae en su sitio; una que se quita se desliza y se
+   apaga antes de irse (LineasDocumento retrasa el quitarla lo que dura
+   esto: SALIDA_LINEA_MS). La línea en la que se está escribiendo se
+   marca con el acento, para no perder el sitio en una factura larga.
+   ============================================================ */
+.lineas-doc-ficha {
+  animation: lineaLlega 360ms var(--ease-settle) backwards;
+  transition: border-color 200ms ease, box-shadow 260ms var(--ease-settle);
+}
+.lineas-doc-ficha:focus-within {
+  border-color: color-mix(in srgb, var(--accent-500) 45%, var(--border-color));
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.lineas-doc-ficha.es-saliendo {
+  animation: lineaSale 220ms var(--ease-settle) forwards;
+  pointer-events: none;
+}
+@keyframes lineaLlega { from { opacity: 0; transform: translateY(-6px) scale(0.985); } }
+@keyframes lineaSale { to { opacity: 0; transform: translateX(-16px) scale(0.97); } }
+
+/* ============================================================
+   IGIC / IVA: LA PASTILLA QUE SE DESLIZA
+   Una sola pieza (.tipo-impuesto-marca) se mueve debajo de los botones
+   hasta el marcado; TaxRateButtons la mide y la coloca. Los botones van
+   por encima, y el marcado deja su fondo a la pastilla.
+   ============================================================ */
+.tipo-impuesto { position: relative; }
+.tipo-impuesto-marca {
+  position: absolute; top: 0; left: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: var(--accent-gradient);
+  box-shadow:
+    0 1px 2px rgba(17, 20, 26, 0.18),
+    0 4px 12px -4px color-mix(in srgb, var(--accent-500) 60%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 320ms var(--ease-settle), opacity 160ms ease;
+}
+.tipo-impuesto.con-marca .tipo-impuesto-opcion { position: relative; z-index: 1; }
+.tipo-impuesto.con-marca .tipo-impuesto-opcion[aria-checked="true"],
+.tipo-impuesto.con-marca .tipo-impuesto-opcion[aria-checked="true"]:hover {
+  background: transparent;
+  color: #fff;
+  transition: color 180ms ease 60ms;
+}
+
+/* ============================================================
+   CAMPOS
+   El foco abre un anillo y un resplandor suave del acento. Lo que está
+   mal se avisa con un anillo rojo que aparece (sin temblar mientras se
+   escribe: un NIF es incorrecto hasta la última letra); sólo tiemblan
+   los errores que llegan después de pulsar algo (una caja sin U/C, un
+   fallo al entrar). Lo correcto se confirma con su marca, que salta.
+   ============================================================ */
+.form-input:hover:not(:focus):not(:disabled),
+.form-select:hover:not(:focus):not(:disabled),
+.form-textarea:hover:not(:focus):not(:disabled) { border-color: var(--border-color-hover); }
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    0 6px 18px -8px color-mix(in srgb, var(--accent-500) 55%, transparent);
+}
+.lineas-doc-campo input:not([type="range"]):focus,
+.lineas-doc-campo select:focus {
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    0 6px 16px -8px color-mix(in srgb, var(--accent-500) 50%, transparent);
+}
+
+.form-input.is-invalid { animation: anilloError 360ms var(--ease-settle); }
+@keyframes anilloError { from { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.28); } }
+
+.lineas-doc-campo--error input,
+.login-alert--error { animation: campoTiembla 420ms ease both; }
+@keyframes campoTiembla {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+.field-affix-icon.is-valid { animation: marcaSalta 380ms var(--ease-spring) both; }
+@keyframes marcaSalta { from { opacity: 0; transform: translateY(-50%) scale(0.4); } }
+.field-message.is-error,
+.field-message.is-success { animation: llegaDesdeArriba 260ms var(--ease-settle) backwards; }
+
+/* ============================================================
+   FICHA DE FACTURA (Y DE DOCUMENTO)
+   El color del estado asoma detrás del número como un resplandor: se
+   sabe cómo está la factura antes de leer la etiqueta. Lo que espera
+   (pendiente, vencida) late despacio en el punto de la etiqueta.
+   ============================================================ */
+.detalle-cabecera { position: relative; isolation: isolate; --estado: var(--accent-500); }
+.detalle-cabecera::before {
+  content: '';
+  position: absolute; z-index: -1;
+  top: -28px; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(
+    60% 90% at 12% 45%,
+    color-mix(in srgb, var(--estado) 16%, transparent),
+    transparent 72%
+  );
+  pointer-events: none;
+  animation: aparece 700ms ease-out backwards;
+}
+.detalle-cabecera--emitida,
+.detalle-cabecera--emitido,
+.detalle-cabecera--expedido,
+.detalle-cabecera--pre_aprobacion { --estado: var(--color-info); }
+.detalle-cabecera--pagada,
+.detalle-cabecera--aprobado,
+.detalle-cabecera--facturado,
+.detalle-cabecera--abonada { --estado: var(--color-success); }
+.detalle-cabecera--pendiente,
+.detalle-cabecera--aprobado_parcial,
+.detalle-cabecera--registrada,
+.detalle-cabecera--parcial { --estado: var(--color-warning); }
+.detalle-cabecera--vencida,
+.detalle-cabecera--rechazado { --estado: var(--color-danger); }
+.detalle-cabecera--borrador,
+.detalle-cabecera--anulada,
+.detalle-cabecera--anulado { --estado: var(--color-neutral); }
+
+.detalle-cabecera--pendiente .badge-dot,
+.detalle-cabecera--vencida .badge-dot { animation: puntoLate 2.4s ease-out infinite; }
+@keyframes puntoLate {
+  0% { box-shadow: 0 0 0 0 currentColor; }
+  70%, 100% { box-shadow: 0 0 0 5px transparent; }
+}
+
+/* Los botones de la cabecera se elevan al pasar y se hunden al pulsar. */
+.detalle-acciones-cabecera .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px rgba(16, 24, 40, 0.35);
+}
+.detalle-acciones-cabecera .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent-500) 60%, transparent);
+}
+.detalle-acciones-cabecera .btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+
+/* ============================================================
+   EL SELLO
+   Una luz dorada da vueltas despacio alrededor de la tarjeta del sello
+   (lo que hace que la factura valga ante Hacienda), y un brillo cruza
+   la huella y la etiqueta «Sellada» de vez en cuando, como el reflejo
+   en un lacre. Si se acaba de emitir aquí mismo, el cuño cae una vez.
+   ============================================================ */
+.sello-marco {
+  --neon-a: #d4961a;
+  --neon-b: #ffe9a8;
+}
+:root[data-theme="dark"] .sello-marco {
+  --neon-a: var(--verifactu-gold);
+  --neon-b: #fff3cf;
+}
+
+.sello-brilla {
+  --sello-luz: rgba(255, 255, 255, 0.65);
+  background-image: linear-gradient(105deg, transparent 35%, var(--sello-luz) 50%, transparent 65%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 150% 0;
+}
+:root[data-theme="dark"] .sello-brilla { --sello-luz: color-mix(in srgb, var(--verifactu-gold) 32%, transparent); }
+.verifactu-badge.sello-brilla { animation: selloBrilla 6.5s ease-in-out 1.5s infinite; }
+/* La huella ya tenía su entrada (seal-settle): se encadenan las dos. */
+.hash-seal.sello-brilla {
+  animation:
+    seal-settle 460ms var(--ease-spring) both,
+    selloBrilla 6.5s ease-in-out 2.2s infinite;
+}
+@keyframes selloBrilla {
+  0% { background-position: 150% 0; }
+  22%, 100% { background-position: -50% 0; }
+}
+
+/* globals.css esconde .verifactu-badge por debajo de 1024 px para que
+   la de la cabecera no empuje la campana fuera de la pantalla, pero la
+   regla es general y se llevaba también la de la ficha y la del login,
+   que no estorban a nada. Aquí vuelven. */
+.page-title-row .verifactu-badge,
+.login-footer .verifactu-badge { display: inline-flex; }
+
+.es-recien-sellada > .card { animation: selloDestella 900ms var(--ease-settle); }
+@keyframes selloDestella {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, #d4961a 55%, transparent), var(--shadow-sm); }
+  to { box-shadow: 0 0 0 16px transparent, var(--shadow-sm); }
+}
+.es-recien-sellada .hash-seal-cuno { animation: cunoCae 620ms var(--ease-spring) 120ms both; }
+@keyframes cunoCae {
+  from { opacity: 0; transform: scale(2.4) rotate(-18deg); }
+  60% { opacity: 1; transform: scale(0.9) rotate(3deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* ============================================================
+   AVISOS: EL VISTO BUENO SE DIBUJA
+   En los de éxito el círculo se traza y después la marca, con el anillo
+   del sello expandiéndose detrás (seal-ring, globals.css). El de
+   «factura emitida y sellada» suelta además unas chispas doradas y
+   verdes y un reflejo cruza el aviso: es el momento de la app.
+   ============================================================ */
+.toast-icono-exito {
+  position: relative;
+  flex-shrink: 0;
+  display: grid; place-items: center;
+  width: 20px; height: 20px;
+  color: var(--color-success);
+}
+.toast-icono-exito::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-success);
+  animation: seal-ring 650ms var(--ease-settle) 300ms both;
+  pointer-events: none;
+}
+.toast-visto { stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.toast-visto-aro,
+.toast-visto-marca { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.toast-visto-aro {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: trazoSeDibuja 420ms var(--ease-settle) 80ms forwards;
+}
+.toast-visto-marca { animation: trazoSeDibuja 300ms var(--ease-settle) 400ms forwards; }
+@keyframes trazoSeDibuja { to { stroke-dashoffset: 0; } }
+
+.toast-chispas { position: absolute; inset: 0; pointer-events: none; }
+.toast-chispas i {
+  position: absolute; left: 50%; top: 50%;
+  width: 3px; height: 7px;
+  margin: -3.5px 0 0 -1.5px;
+  border-radius: 2px;
+  background: #d4961a;
+  opacity: 0;
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-8px) scaleY(0.4);
+  animation: chispaSale 680ms var(--ease-settle) 520ms forwards;
+}
+.toast-chispas i:nth-child(even) { background: var(--color-success); }
+@keyframes chispaSale {
+  0% { opacity: 0; transform: rotate(calc(var(--i) * 45deg)) translateY(-8px) scaleY(0.4); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 45deg)) translateY(-21px) scaleY(1); }
+}
+
+.toast-sellado {
+  border-color: color-mix(in srgb, #d4961a 45%, var(--border-color));
+  box-shadow:
+    var(--shadow-lg),
+    0 12px 32px -14px color-mix(in srgb, #d4961a 60%, transparent);
+  background-image: linear-gradient(105deg, transparent 35%, rgba(255, 233, 168, 0.35) 50%, transparent 65%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 150% 0;
+  animation:
+    avisoLlega 420ms var(--ease-settle),
+    selloBrilla 1.6s ease-in-out 700ms both;
+}
+.toast-sellado.toast-leaving { animation: toastOut 200ms ease-in forwards; }
+
+/* ============================================================
+   VENTANAS
+   Un filo de luz arriba y un velo muy leve del acento: se leen como una
+   pieza que flota sobre la pantalla, no como un rectángulo más. Las que
+   van en un marco (.modal-marco, para llevar la luz) entran con él.
+   ============================================================ */
+.modal {
+  box-shadow: var(--shadow-xl), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent-500) 5%, transparent), transparent 140px);
+}
+:root[data-theme="dark"] .modal {
+  box-shadow:
+    var(--shadow-xl),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.modal-marco { width: 100%; animation: modalLlega 380ms var(--ease-settle); }
+.modal-marco > .modal { max-width: none; animation: none; }
+
+/* ============================================================
+   NUEVA FACTURA: EL CIERRE EN EL TELÉFONO
+   ============================================================ */
+.nueva-cierre { display: none; }
+@media (max-width: 768px) {
+  .nueva-cierre {
+    display: flex; flex-direction: column; gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .nueva-cierre-total { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+  .nueva-cierre-total span { font-size: var(--text-sm); font-weight: 600; color: var(--text-muted); }
+  .nueva-cierre-total strong {
+    font-size: var(--text-xl); font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+  .nueva-cierre-acciones { display: grid; grid-template-columns: 1fr 1.6fr; gap: var(--space-2); }
+  .nueva-cierre-acciones .btn { justify-content: center; }
+}
+
+/* ============================================================
+   ENTRADA (LOGIN)
+   Es lo primero que ve un cliente. Detrás, una aurora del color de la
+   marca que deriva muy despacio: son degradados radiales en una sola
+   capa que sólo se traslada y gira, sin desenfoques, así que no cuesta.
+   La página pública va siempre en claro (.public-layout-force-light),
+   por eso no hay variante oscura. En pantalla ancha, a la izquierda,
+   qué es Klima; a la derecha la tarjeta, con la luz en el marco.
+   ============================================================ */
+.login-aurora {
+  position: absolute;
+  inset: -25%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 22% 26%, color-mix(in srgb, var(--accent-500) 24%, transparent), transparent 70%),
+    radial-gradient(34% 30% at 80% 72%, rgba(76, 26, 40, 0.16), transparent 70%),
+    radial-gradient(28% 26% at 66% 18%, rgba(217, 158, 26, 0.15), transparent 70%),
+    radial-gradient(30% 30% at 30% 84%, color-mix(in srgb, var(--accent-200) 30%, transparent), transparent 70%);
+  animation: auroraDeriva 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes auroraDeriva {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(3%, -2%, 0) rotate(6deg) scale(1.06); }
+  100% { transform: translate3d(-3%, 2%, 0) rotate(-4deg) scale(1.03); }
+}
+@media (prefers-reduced-motion: reduce) { .login-aurora { animation: none; } }
+@media print { .login-aurora { display: none; } }
+
+.login-escena {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 420px;
+  display: grid; align-items: center;
+  gap: var(--space-12);
+}
+.login-marco {
+  width: 100%; max-width: 420px;
+  justify-self: center;
+  animation: login-card-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.login-marco > .login-card { max-width: none; animation: none; }
+/* En la parte pública manda el claro aunque el panel esté en oscuro: el
+   halo, con la intensidad del claro. */
+:root[data-theme="dark"] .public-layout-force-light .login-marco::after { opacity: 0.5; }
+@media (max-width: 480px) { .login-marco { border-radius: var(--radius-lg); } }
+
+.login-heroe { display: none; }
+@media (min-width: 960px) {
+  .login-escena { max-width: 1040px; grid-template-columns: minmax(0, 1fr) 420px; }
+  .login-heroe { display: block; }
+}
+.login-heroe > * { animation: llegaDesdeAbajo 640ms var(--ease-settle) backwards; }
+.login-heroe > :nth-child(2) { animation-delay: 80ms; }
+.login-heroe > :nth-child(3) { animation-delay: 160ms; }
+.login-heroe > :nth-child(4) { animation-delay: 240ms; }
+
+.login-heroe-marca {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin: 0;
+  padding: 6px 14px 6px 6px;
+  font-size: var(--text-sm); font-weight: 700; letter-spacing: 0.01em;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+}
+.login-heroe-marca img { border-radius: var(--radius-full); }
+.login-heroe-titulo {
+  margin: var(--space-6) 0 var(--space-4);
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 1.3rem + 2.2vw, 3.4rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+.login-heroe-titulo em {
+  font-style: italic;
+  background: linear-gradient(100deg, var(--accent-500), var(--accent-700) 60%, #a86a0c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.login-heroe-texto {
+  max-width: 46ch;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.login-heroe-puntos {
+  list-style: none;
+  margin: var(--space-6) 0 0; padding: 0;
+  display: grid; gap: var(--space-3);
+}
+.login-heroe-puntos li {
+  display: flex; align-items: center; gap: var(--space-3);
+  font-size: var(--text-sm); font-weight: 500;
+  color: var(--text-primary);
+}
+.login-heroe-puntos svg {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  padding: 8px;
+  color: var(--accent-600);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+/* ============================================================
+   AJUSTES
+   Las secciones se iluminan un poco al pasar por encima, para saber en
+   cuál se está. En el índice, la marca de la sección que se lee se
+   desliza de una a otra (IndiceAjustes la mide y la coloca); el enlace
+   activo le deja su fondo y su borde.
+   ============================================================ */
+.ajustes-pagina .settings-section {
+  transition: border-color 220ms ease, box-shadow 320ms var(--ease-settle);
+}
+.ajustes-pagina .settings-section:hover {
+  border-color: color-mix(in srgb, var(--accent-500) 28%, var(--border-color));
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 3px color-mix(in srgb, var(--accent-500) 6%, transparent),
+    0 14px 36px -18px color-mix(in srgb, var(--accent-500) 45%, transparent);
+}
+
+.ajustes-indice.con-marca ol { position: relative; }
+.ajustes-indice-marca {
+  position: absolute; top: 0; left: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 0 1px var(--accent-500);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 380ms var(--ease-settle), opacity 160ms ease;
+}
+.ajustes-indice.con-marca .filter-chip { position: relative; z-index: 1; }
+.ajustes-indice.con-marca .filter-chip.active { background: transparent; border-color: transparent; }
+@container ajustes-pagina (min-width: 1112px) {
+  .ajustes-indice-marca {
+    border-radius: var(--radius-sm);
+    box-shadow: inset 2px 0 0 var(--accent-500);
+  }
+}

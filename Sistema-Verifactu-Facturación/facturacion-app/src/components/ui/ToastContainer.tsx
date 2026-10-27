@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ToastMessage } from '@/lib/types';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
@@ -23,6 +23,30 @@ const icons = {
 const EXIT_MS = 200;
 
 type DisplayedToast = ToastMessage & { leaving?: boolean };
+
+/**
+ * El visto bueno de los avisos de éxito, dibujado en el momento: primero
+ * el círculo y luego la marca, como quien firma. Va en SVG propio y no con
+ * el icono de lucide porque hace falta animar cada trazo por separado
+ * (`toast-visto-*` en estilos/formularios.css).
+ */
+function VistoBueno() {
+  return (
+    <svg className="toast-icon toast-visto" width={20} height={20} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle className="toast-visto-aro" cx="12" cy="12" r="10" pathLength={1} />
+      <path className="toast-visto-marca" d="M7.5 12.5l3 3 6-6.5" pathLength={1} />
+    </svg>
+  );
+}
+
+/**
+ * Emitir una factura es EL momento de la app: queda sellada para
+ * Hacienda. Ese aviso, y sólo ese, suelta además unas chispas alrededor
+ * del visto bueno. Se reconoce por el título («… sellada») porque es lo
+ * que tienen en común todas las pantallas que emiten, sin tener que
+ * cambiar cómo se llama al aviso en cada una.
+ */
+const esSellado = (t: ToastMessage) => t.type === 'success' && /sellad/i.test(t.title);
 
 export default function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   const [displayed, setDisplayed] = useState<DisplayedToast[]>([]);
@@ -66,12 +90,24 @@ export default function ToastContainer({ toasts, onRemove }: ToastContainerProps
     <div className="toast-container">
       {displayed.map(toast => {
         const Icon = icons[toast.type];
+        const sellado = esSellado(toast);
         return (
           <div
             key={toast.id}
-            className={`toast toast-${toast.type}${toast.leaving ? ' toast-leaving' : ''}`}
+            className={`toast toast-${toast.type}${sellado ? ' toast-sellado' : ''}${toast.leaving ? ' toast-leaving' : ''}`}
           >
-            <Icon className="toast-icon" size={20} />
+            {toast.type === 'success' ? (
+              <span className="toast-icono-exito">
+                <VistoBueno />
+                {sellado && (
+                  <span className="toast-chispas" aria-hidden="true">
+                    {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--i': i } as CSSProperties} />)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <Icon className="toast-icon" size={20} />
+            )}
             <div className="toast-content">
               <div className="toast-title">{toast.title}</div>
               {toast.message && (

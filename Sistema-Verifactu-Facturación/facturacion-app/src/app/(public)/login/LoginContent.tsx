@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clearOfflineCache } from '@/lib/offlineDb';
-import { Mail, Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, Loader2, RefreshCw, Percent, Truck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { isSafeRedirectPath } from '@/lib/security';
 import { errorDeAcceso } from '@/lib/erroresDeAcceso';
@@ -202,10 +202,38 @@ export default function LoginContent() {
 
   return (
     <div className="login-page">
-      <div className="login-bg-glow login-bg-glow--1" />
-      <div className="login-bg-glow login-bg-glow--2" />
+      {/* El fondo: una aurora del color de la marca que se mueve muy
+          despacio, y la rejilla encima. Son degradados, no desenfoques,
+          así que no cuesta nada mantenerla en marcha (estilos/formularios.css). */}
+      <div className="login-aurora" aria-hidden="true" />
       <div className="login-bg-grid" />
 
+      <div className="login-escena">
+        {/* Lo primero que ve quien llega: qué es esto y por qué fiarse.
+            En el teléfono se queda sólo la tarjeta, que es a lo que se viene. */}
+        <section className="login-heroe" aria-label="Klima Solutions">
+          <p className="login-heroe-marca">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/klima-mark.svg" alt="" width={28} height={28} />
+            Klima Solutions
+          </p>
+          <p className="login-heroe-titulo">
+            Factura en un minuto. <em>Sellada</em> para Hacienda.
+          </p>
+          <p className="login-heroe-texto">
+            Facturas, albaranes, clientes y cobros en un solo sitio, pensado para
+            el distribuidor que factura desde el almacén o desde la furgoneta.
+          </p>
+          <ul className="login-heroe-puntos">
+            <li><ShieldCheck size={16} aria-hidden /> Cada factura con su huella, como pide Veri*Factu</li>
+            <li><Percent size={16} aria-hidden /> IGIC canario o IVA, de un toque por línea</li>
+            <li><Truck size={16} aria-hidden /> Cajas, unidades y precios de cada cliente</li>
+          </ul>
+        </section>
+
+      {/* La luz recorre el marco de la tarjeta. Va en un envoltorio sin
+          fondo para que el halo quede por fuera de la tarjeta. */}
+      <div className="login-marco neon">
       <div className="login-card">
         <div className="login-header">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -361,10 +389,12 @@ export default function LoginContent() {
         </div>
 
         <div className="login-footer">
-          <span className="verifactu-badge">
+          <span className="verifactu-badge sello-brilla">
             <ShieldCheck size={12} /> Registros sellados · SHA-256
           </span>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

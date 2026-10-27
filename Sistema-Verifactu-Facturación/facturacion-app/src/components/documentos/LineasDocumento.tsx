@@ -15,6 +15,9 @@ import TaxRateButtons from '@/components/ui/TaxRateButtons';
 import { getConfiguredTaxRates } from '@/lib/constants';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
 
+/** Lo que dura la salida de una línea (`lineaSale` en estilos/formularios.css). */
+const SALIDA_LINEA_MS = 220;
+
 export interface ColumnaPersonalizada {
   clave: string;
   cabecera: string;
@@ -341,9 +344,39 @@ export default function LineasDocumento({
     return null;
   };
 
+  /**
+   * Quitar una línea: primero se va (se desliza y se apaga) y después
+   * desaparece de la lista.
+   *
+   * Se quita por id y no por posición, y con la lista vigente cuando
+   * acaba la salida, no con la de cuando se pulsó: si en ese cuarto de
+   * segundo se escribe en otra línea, lo escrito no se pierde. Quien pide
+   * menos movimiento la ve desaparecer al instante.
+   */
+  const [saliendo, setSaliendo] = useState<ReadonlySet<string>>(() => new Set());
+  const vigente = useRef({ lineItems, onChange });
+  useEffect(() => { vigente.current = { lineItems, onChange }; });
+  const relojesSalida = useRef<number[]>([]);
+  useEffect(() => () => relojesSalida.current.forEach(r => window.clearTimeout(r)), []);
+
   const removeLine = (index: number) => {
-    if (lineItems.length <= 1) return;
-    onChange(lineItems.filter((_, i) => i !== index));
+    const id = lineItems[index]?.id;
+    if (!id || saliendo.has(id) || lineItems.length - saliendo.size <= 1) return;
+    const quieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (quieto) {
+      onChange(lineItems.filter(l => l.id !== id));
+      return;
+    }
+    setSaliendo(prev => new Set(prev).add(id));
+    relojesSalida.current.push(window.setTimeout(() => {
+      const { lineItems: lineas, onChange: avisar } = vigente.current;
+      avisar(lineas.filter(l => l.id !== id));
+      setSaliendo(prev => {
+        const sigue = new Set(prev);
+        sigue.delete(id);
+        return sigue;
+      });
+    }, SALIDA_LINEA_MS));
   };
 
   // Lo que se descarga del camión: doce cajas de veinticuatro son 288
@@ -416,7 +449,7 @@ export default function LineasDocumento({
         {lineItems.map((line, index) => {
           const producto = line.productId ? products.find(p => p.id === line.productId) : undefined;
           return (
-            <div className="lineas-doc-ficha" key={line.id} data-linea={index}>
+            <div className={`lineas-doc-ficha${saliendo.has(line.id) ? ' es-saliendo' : ''}`} key={line.id} data-linea={index}>
               <div className="lineas-doc-cabeza">
                 <BuscadorProducto
                   className="lineas-doc-producto"
@@ -433,7 +466,7 @@ export default function LineasDocumento({
                   type="button"
                   className="line-item-delete"
                   onClick={() => removeLine(index)}
-                  disabled={lineItems.length <= 1}
+                  disabled={lineItems.length - saliendo.size <= 1 || saliendo.has(line.id)}
                   aria-label={`Quitar la línea ${index + 1}`}
                 >
                   <Trash2 size={14} />
