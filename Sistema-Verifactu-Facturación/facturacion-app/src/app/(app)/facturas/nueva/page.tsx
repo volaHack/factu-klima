@@ -19,7 +19,7 @@ import {
 } from '@/lib/types';
 import {
   generateId, generateInvoiceNumber, getToday, addDays,
-  calculateInvoiceTotals, sequenceFromNumber
+  calculateInvoiceTotals, sequenceFromNumber, formatCurrency
 } from '@/lib/utils';
 import { PAYMENT_METHODS, getDefaultTaxRate } from '@/lib/constants';
 import type { PlanId } from '@/lib/plans';
@@ -334,7 +334,7 @@ export default function NuevaFacturaPage() {
             <Save size={16} /> Guardar borrador
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary neon neon--al-pasar"
             onClick={() => handleSave(InvoiceStatus.EMITIDA)}
             disabled={saving}
             title="Al emitir, la factura se sella y no podrá modificarse"
@@ -451,6 +451,7 @@ export default function NuevaFacturaPage() {
           porcentajesPie={globalDiscounts.filter(p => p > 0)}
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
+          destacado
         >
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">
@@ -494,6 +495,34 @@ export default function NuevaFacturaPage() {
         {clientId && (
           <AbonoPanel key={clientId} clientId={clientId} invoiceTotal={totals.total} onSelection={setAbonoSelection} />
         )}
+
+        {/* El cierre del formulario, sólo en el teléfono. Allí los botones
+            de arriba quedan muy lejos cuando se termina de rellenar, y una
+            barra fija abajo se montaría encima de la navegación móvil (ver
+            «La barra flotante, fuera del teléfono» en globals.css). Aquí
+            van en su sitio, al final, con el total a la vista. */}
+        <div className="nueva-cierre">
+          <div className="nueva-cierre-total">
+            <span>Total</span>
+            <strong>{formatCurrency(totals.total)}</strong>
+          </div>
+          <div className="nueva-cierre-acciones">
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleSave(InvoiceStatus.BORRADOR)}
+              disabled={saving}
+            >
+              <Save size={16} /> Borrador
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+              disabled={saving}
+            >
+              <Send size={16} /> {saving ? 'Sellando…' : 'Emitir factura'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {paywallState && (

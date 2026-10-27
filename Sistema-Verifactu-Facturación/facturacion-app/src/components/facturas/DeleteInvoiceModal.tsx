@@ -72,7 +72,12 @@ export default function DeleteInvoiceModal({
 
   return (
     <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100 }}>
-      <div className="modal" style={{ maxWidth: 480, padding: 0, overflow: 'hidden' }}>
+      {/* Anular una factura sellada es irreversible y queda en el registro
+          de Hacienda: la ventana lleva la luz roja dando vueltas al marco
+          para que no se confunda con un aviso más. Va en un marco aparte
+          porque la ventana recorta lo que se sale de ella (overflow). */}
+      <div className={`modal-marco${sealed ? ' neon neon--peligro neon--lento' : ''}`} style={{ maxWidth: 480 }}>
+      <div className="modal" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{
           padding: 'var(--space-5) var(--space-6)',
           background: sealed ? 'var(--wine-500)' : 'var(--bg-secondary)',
@@ -205,6 +210,7 @@ export default function DeleteInvoiceModal({
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

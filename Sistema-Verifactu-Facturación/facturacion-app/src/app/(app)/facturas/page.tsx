@@ -245,6 +245,9 @@ export default function FacturasPage() {
 
   const hasFilters = search.length > 0 || statusFilter.length > 0 || docTypeFilter !== 'all';
   const clearFilters = () => { setSearch(''); setStatusFilter([]); setDocTypeFilter('all'); };
+  // La cifra de vencidas del encabezado también filtra: quien la ve
+  // quiere esas facturas, no buscar el chip de «Vencida» más abajo.
+  const soloVencidas = statusFilter.length === 1 && statusFilter[0] === InvoiceStatus.VENCIDA;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -424,7 +427,7 @@ export default function FacturasPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pantalla-lista">
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
@@ -441,13 +444,24 @@ export default function FacturasPage() {
                 </span>
                 <span className="page-meta-label">por cobrar</span>
               </span>
+              {/* Lo único del encabezado que pide hacer algo hoy: lleva la
+                  luz roja y, al pulsarlo, deja sólo las vencidas. */}
               {counts.vencida > 0 && (
-                <span className="page-meta-item">
-                  <span className="page-meta-value is-danger"><CifraQueCuenta texto={String(counts.vencida)} /></span>
-                  <span className="page-meta-label">
-                    {counts.vencida === 1 ? 'vencida' : 'vencidas'}
+                <button
+                  type="button"
+                  className="meta-alerta neon neon--peligro neon--lento"
+                  aria-pressed={soloVencidas}
+                  onClick={() => setStatusFilter(soloVencidas ? [] : [InvoiceStatus.VENCIDA])}
+                  title={soloVencidas ? 'Volver a ver todas las facturas' : 'Ver sólo las vencidas'}
+                >
+                  <span className="meta-alerta-cuerpo">
+                    <span className="meta-alerta-punto" aria-hidden="true" />
+                    <span className="page-meta-value"><CifraQueCuenta texto={String(counts.vencida)} /></span>
+                    <span className="page-meta-label">
+                      {counts.vencida === 1 ? 'vencida' : 'vencidas'}
+                    </span>
                   </span>
-                </span>
+                </button>
               )}
             </div>
           )}
@@ -470,10 +484,14 @@ export default function FacturasPage() {
               <BarChart3 size={16} /> {showAnalytics ? 'Ocultar analítica' : 'Ver analítica'}
             </button>
           )}
-          <Link href="/facturas/nueva" className="btn btn-primary">
-            <Plus size={16} />
-            Nueva factura
-          </Link>
+          {/* La acción principal de la pantalla: la luz va en un envoltorio
+              para que el halo quede por fuera y no aclare el botón. */}
+          <span className="neon accion-neon">
+            <Link href="/facturas/nueva" className="btn btn-primary">
+              <Plus size={16} />
+              Nueva factura
+            </Link>
+          </span>
         </div>
       </div>
 
@@ -575,6 +593,11 @@ export default function FacturasPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
+              <X size={14} />
+            </button>
+          )}
         </div>
         <div className="cluster-sm">
           <Filter size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />

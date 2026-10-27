@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 /**
  * El IVA o IGIC de una línea, como una fila de botones: uno por cada tipo
@@ -87,6 +87,49 @@ export default function TaxRateButtons({ value, onChange, rates, ariaLabel }: Ta
   const opciones = opcionesDeTipo(rates, actual, original);
   const elegido = opciones.findIndex(o => igual(o.valor, actual));
   const grupo = useRef<HTMLDivElement>(null);
+  const marca = useRef<HTMLSpanElement>(null);
+
+  /**
+   * La pastilla del marcado se desliza de un tipo a otro en vez de saltar.
+   *
+   * Es una sola pieza debajo de los botones que se mueve con transform: se
+   * mide el botón marcado y se le pone encima. Se escribe en el estilo del
+   * nodo y no en el estado para no repintar el grupo entero en cada
+   * medida. Se vuelve a medir si el grupo cambia de ancho, porque en el
+   * móvil los botones bajan a otra fila y el marcado cambia de sitio. La
+   * primera vez se coloca sin transición, para que no llegue volando desde
+   * la esquina.
+   */
+  useLayoutEffect(() => {
+    const caja = grupo.current;
+    const pastilla = marca.current;
+    if (!caja || !pastilla) return;
+    let primera = !pastilla.dataset.puesta;
+    const colocar = () => {
+      const boton = caja.querySelectorAll<HTMLButtonElement>('[role="radio"]')[elegido];
+      if (!boton) {
+        pastilla.style.opacity = '0';
+        return;
+      }
+      if (primera) pastilla.style.transition = 'none';
+      pastilla.style.opacity = '1';
+      pastilla.style.width = `${boton.offsetWidth}px`;
+      pastilla.style.height = `${boton.offsetHeight}px`;
+      pastilla.style.transform = `translate(${boton.offsetLeft}px, ${boton.offsetTop}px)`;
+      if (primera) {
+        // Forzar el estilo antes de devolver la transición.
+        pastilla.getBoundingClientRect();
+        pastilla.style.transition = '';
+        pastilla.dataset.puesta = 'si';
+        primera = false;
+      }
+    };
+    colocar();
+    if (typeof ResizeObserver === 'undefined') return;
+    const vigia = new ResizeObserver(colocar);
+    vigia.observe(caja);
+    return () => vigia.disconnect();
+  }, [elegido, opciones.length]);
 
   const alPulsarTecla = (e: KeyboardEvent<HTMLDivElement>) => {
     const destino = indiceTrasTecla(e.key, elegido, opciones.length);
@@ -97,7 +140,8 @@ export default function TaxRateButtons({ value, onChange, rates, ariaLabel }: Ta
   };
 
   return (
-    <div className="tipo-impuesto" role="radiogroup" aria-label={ariaLabel} ref={grupo} onKeyDown={alPulsarTecla}>
+    <div className="tipo-impuesto con-marca" role="radiogroup" aria-label={ariaLabel} ref={grupo} onKeyDown={alPulsarTecla}>
+      <span className="tipo-impuesto-marca" ref={marca} aria-hidden="true" />
       {opciones.map((o, i) => {
         const marcado = i === elegido;
         return (

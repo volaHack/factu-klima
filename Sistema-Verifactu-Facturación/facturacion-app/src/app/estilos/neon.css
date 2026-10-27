@@ -1,0 +1,118 @@
+/* ============================================================
+   NEÓN: UNA LUZ QUE RECORRE EL MARCO
+   ------------------------------------------------------------
+   Un trazo de luz del color de la marca da la vuelta al borde de un
+   elemento, en bucle, con un halo suave debajo. Es la firma visual de
+   la app: se reserva para lo que de verdad importa en cada pantalla
+   (la cifra principal, la acción principal, lo que pide atención), uno
+   o dos por pantalla como mucho; si brilla todo, no destaca nada.
+
+   Uso:  <div className="card neon">…</div>
+     · neon            gira siempre.
+     · neon--al-pasar  sólo gira con el ratón encima o con el foco.
+     · neon--exito / neon--aviso / neon--peligro   otro color.
+     · neon--lento     una vuelta cada 8 s en vez de cada 4,5 s.
+
+   Usa ::before (el trazo) y ::after (el halo) del elemento: no se
+   puede poner en algo que ya use sus pseudo-elementos. El elemento
+   necesita un border-radius propio (lo hereda la luz).
+
+   Con «reducir movimiento» la luz se queda quieta, como un filo
+   iluminado. Al imprimir no sale.
+   ============================================================ */
+@property --neon-giro {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.neon {
+  --neon-a: var(--accent-500);
+  --neon-b: color-mix(in srgb, var(--accent-300) 60%, #ffffff);
+  --neon-vuelta: 4.5s;
+  --neon-grosor: 2px;
+  position: relative;
+  isolation: isolate;
+}
+.neon--exito { --neon-a: var(--color-success); --neon-b: color-mix(in srgb, var(--color-success) 55%, #ffffff); }
+.neon--aviso { --neon-a: var(--color-warning); --neon-b: color-mix(in srgb, var(--color-warning) 55%, #ffffff); }
+.neon--peligro { --neon-a: var(--color-danger); --neon-b: color-mix(in srgb, var(--color-danger) 55%, #ffffff); }
+.neon--lento { --neon-vuelta: 8s; }
+
+/* El trazo: un anillo del grosor del borde, recortado con una máscara
+   para que sólo se vea el filo; el degradado cónico gira y la luz
+   corre por el marco. */
+.neon::before,
+.neon::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--neon-grosor));
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--neon-giro),
+    transparent 0deg 150deg,
+    color-mix(in srgb, var(--neon-a) 18%, transparent) 210deg,
+    color-mix(in srgb, var(--neon-a) 65%, transparent) 270deg,
+    var(--neon-a) 315deg,
+    var(--neon-b) 345deg,
+    transparent 360deg
+  );
+  animation: neonGira var(--neon-vuelta) linear infinite;
+}
+.neon::before {
+  z-index: 1;
+  padding: var(--neon-grosor);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* El halo: el mismo degradado, desenfocado, y SÓLO por fuera del
+   marco. El elemento es su propio contexto de apilado (isolation), así
+   que un z-index negativo no lo manda detrás de su fondo: se pintaba
+   encima y teñía el interior de la tarjeta. Una máscara que recorta el
+   hueco del elemento deja la luz alrededor y el interior limpio.
+   Por fuera la máscara no corta en seco: dos degradados (horizontal y
+   vertical) se apagan hacia el borde exterior, y la luz se desvanece en
+   vez de acabar en una caja translúcida de esquinas rectas. */
+.neon::after {
+  --neon-halo-borde: 22px;
+  --neon-halo-fundido:
+    linear-gradient(to right, transparent, #000 var(--neon-halo-borde), #000 calc(100% - var(--neon-halo-borde)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--neon-halo-borde), #000 calc(100% - var(--neon-halo-borde)), transparent);
+  z-index: 0;
+  inset: calc(-1 * var(--neon-halo-borde));
+  padding: var(--neon-halo-borde);
+  filter: blur(12px);
+  opacity: var(--neon-halo, 0.5);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, var(--neon-halo-fundido);
+  -webkit-mask-composite: xor, source-in;
+  mask: linear-gradient(#000 0 0) content-box, var(--neon-halo-fundido);
+  mask-composite: exclude, intersect;
+}
+/* La intensidad del halo va en una variable y no en `opacity` directa:
+   así el oscuro la sube sin pisar el «apagado» de .neon--al-pasar. */
+:root[data-theme="dark"] .neon { --neon-halo: 0.7; }
+
+@keyframes neonGira { to { --neon-giro: 360deg; } }
+
+/* Sólo al pasar el ratón: quieto e invisible hasta entonces. */
+.neon--al-pasar::before,
+.neon--al-pasar::after {
+  opacity: 0;
+  animation-play-state: paused;
+  transition: opacity 320ms var(--ease-settle);
+}
+.neon--al-pasar:hover::before,
+.neon--al-pasar:focus-visible::before,
+.neon--al-pasar:focus-within::before { opacity: 1; animation-play-state: running; }
+.neon--al-pasar:hover::after,
+.neon--al-pasar:focus-visible::after,
+.neon--al-pasar:focus-within::after { opacity: var(--neon-halo, 0.5); animation-play-state: running; }
+
+@media (prefers-reduced-motion: reduce) {
+  .neon::before, .neon::after { animation: none !important; --neon-giro: 300deg; }
+}
+@media print {
+  .neon::before, .neon::after { display: none; }
+}

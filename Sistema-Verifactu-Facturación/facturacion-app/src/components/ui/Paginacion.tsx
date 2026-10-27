@@ -72,7 +72,9 @@ export default function Paginacion<T>({ paginado, etiqueta }: {
             {b}
           </button>
         )))}
-        <span className="paginacion-movil" aria-hidden="true">{pagina} / {totalPaginas}</span>
+        {/* Con `key` el número se monta de nuevo en cada página y vuelve a
+            hacer su entrada: en el teléfono es la única señal del cambio. */}
+        <span key={pagina} className="paginacion-movil" aria-hidden="true">{pagina} / {totalPaginas}</span>
         <button type="button" className="paginacion-paso" onClick={() => ir(pagina + 1)} disabled={pagina >= totalPaginas} aria-label="Página siguiente">
           <span>Siguiente</span><ChevronRight size={15} aria-hidden="true" />
         </button>

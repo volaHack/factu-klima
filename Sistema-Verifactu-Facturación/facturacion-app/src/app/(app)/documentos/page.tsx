@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Plus, Search, Filter, Eye, Edit, Trash2, FileText, ArrowRight,
-  ChevronRight, RefreshCw, ChevronUp, ChevronDown,
+  ChevronRight, RefreshCw, ChevronUp, ChevronDown, X,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -253,7 +253,7 @@ function DocumentosContent() {
   if (loading) return <PageSkeleton />;
 
   return (
-    <div className="page-container">
+    <div className="page-container pantalla-lista">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
           <h1 className="page-title">Documentos</h1>
@@ -280,16 +280,23 @@ function DocumentosContent() {
 
       <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ flex: '1 1 240px', position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          {/* La misma caja de búsqueda que Clientes: lupa dentro, foco con
+              luz y una equis para vaciarla de un toque. */}
+          <div className="search-box" style={{ flex: '1 1 240px', maxWidth: 'none' }}>
+            <Search size={16} aria-hidden="true" />
             <input
               type="text"
               className="form-input"
-              style={{ paddingLeft: '36px' }}
               placeholder="Buscar por número, cliente o referencia..."
+              aria-label="Buscar documentos"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+            {search && (
+              <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>

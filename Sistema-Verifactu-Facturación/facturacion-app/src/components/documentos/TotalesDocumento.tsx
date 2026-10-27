@@ -21,6 +21,13 @@ interface TotalesDocumentoProps {
   porcentajesPie?: number[];
   globalDiscounts?: [number, number, number];
   onGlobalDiscountsChange?: (discounts: [number, number, number]) => void;
+  /**
+   * El bloque como protagonista de la pantalla: el total en grande y la
+   * luz del marco dando vueltas (estilos/neon.css). Sólo en los
+   * formularios de crear y editar, donde el total es lo que se mira
+   * mientras se rellenan las líneas.
+   */
+  destacado?: boolean;
   children?: React.ReactNode;
 }
 
@@ -35,6 +42,7 @@ export default function TotalesDocumento({
   porcentajesPie = [],
   globalDiscounts = [0, 0, 0],
   onGlobalDiscountsChange,
+  destacado = false,
   children,
 }: TotalesDocumentoProps) {
   const [showGlobalDiscounts, setShowGlobalDiscounts] = useState(
@@ -48,8 +56,8 @@ export default function TotalesDocumento({
     onGlobalDiscountsChange(next);
   };
 
-  return (
-    <div className="card">
+  const tarjeta = (
+    <div className={`card${destacado ? ' totales-heroe' : ''}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
         <h3 className="card-title" style={{ margin: 0 }}>Totales</h3>
         {onGlobalDiscountsChange && (
@@ -155,7 +163,10 @@ export default function TotalesDocumento({
           ))}
           <div className="invoice-totals-row total">
             <span className="label">Total</span>
-            <span className="value">{formatCurrency(total)}</span>
+            {/* La clave es el importe: cada vez que cambia, la cifra se monta
+                de nuevo y su animación de llegada vuelve a sonar. Así se
+                nota que el total ha respondido a lo que se acaba de tocar. */}
+            <span className="value" key={destacado ? total : undefined}>{formatCurrency(total)}</span>
           </div>
         </div>
       </div>
@@ -163,4 +174,11 @@ export default function TotalesDocumento({
       {children}
     </div>
   );
+
+  // La luz va en un marco sin fondo alrededor de la tarjeta y no en la
+  // tarjeta misma: el halo de .neon se pinta por debajo del contenido del
+  // elemento que lo lleva pero por encima de su fondo, así que sobre una
+  // tarjeta opaca manchaba el interior. Con el marco, la tarjeta lo tapa
+  // y el halo sólo asoma por fuera.
+  return destacado ? <div className="totales-marco neon">{tarjeta}</div> : tarjeta;
 }

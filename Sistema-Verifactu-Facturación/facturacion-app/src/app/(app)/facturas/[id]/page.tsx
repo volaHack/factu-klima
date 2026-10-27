@@ -51,6 +51,13 @@ export default function InvoiceDetailPage() {
   const [sendingApproval, setSendingApproval] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  /**
+   * Se acaba de emitir aquí mismo. El sello entra entonces como un
+   * cuño que cae sobre el papel, una vez: es la confirmación de que ya
+   * está registrada. Al abrir una factura que ya estaba sellada no pasa,
+   * porque ahí no hay nada que celebrar.
+   */
+  const [recienSellada, setRecienSellada] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -119,6 +126,7 @@ export default function InvoiceDetailPage() {
       if (!revisada) return;
       const issued = await issueInvoice(revisada);
       setInvoice(issued);
+      setRecienSellada(true);
       success('Factura emitida y sellada', `Huella ${issued.verifactu?.chainedHash?.slice(0, 12) ?? ''}…`);
     } catch (err) {
       toastError('No se pudo emitir', err instanceof Error ? err.message : 'Error desconocido');
@@ -273,8 +281,10 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div className="page-header">
+      {/* Header. El color del estado se asoma detrás del número como un
+          resplandor (estilos/formularios.css): se sabe cómo está la factura
+          antes de leer la etiqueta. */}
+      <div className={`page-header detalle-cabecera detalle-cabecera--${invoice.status}`}>
         <div className="page-header-left">
           <Link href="/facturas" className="page-back">
             <ArrowLeft /> Facturas
@@ -288,7 +298,7 @@ export default function InvoiceDetailPage() {
               {getStatusInfo(invoice.status).label}
             </span>
             {sealed && (
-              <span className="verifactu-badge"><Fingerprint size={11} /> Sellada</span>
+              <span className="verifactu-badge sello-brilla"><Fingerprint size={11} /> Sellada</span>
             )}
             {rechazo && (
               <span className="badge badge-warning" title={rechazo.reason}>
@@ -311,7 +321,7 @@ export default function InvoiceDetailPage() {
               <button className="btn btn-secondary" onClick={handleSendForApproval} disabled={sendingApproval}>
                 {sendingApproval ? <Loader2 size={16} className="spin" /> : <Send size={16} />} {sendingApproval ? 'Generando…' : 'Enviar para aprobación'}
               </button>
-              <button className="btn btn-primary" onClick={handleIssue} disabled={issuing}>
+              <button className="btn btn-primary neon neon--al-pasar" onClick={handleIssue} disabled={issuing}>
                 {issuing ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />} {issuing ? 'Sellando…' : 'Emitir y sellar'}
               </button>
             </>
@@ -579,13 +589,17 @@ export default function InvoiceDetailPage() {
         {/* Sidebar */}
         <div className="detail-sidebar">
           {/* Estado de sellado: qué protege esta factura y qué ya no se puede tocar */}
+          {/* La luz dorada da vueltas alrededor del sello: es lo que hace
+              que esta factura valga ante Hacienda. Va en un marco sin fondo
+              para que el halo quede fuera de la tarjeta (ver TotalesDocumento). */}
           {sealed ? (
-            <div className="card detalle-sello">
+            <div className={`detalle-sello sello-marco neon neon--lento${recienSellada ? ' es-recien-sellada' : ''}`}>
+            <div className="card">
               <h4 className="card-title" style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>
                 Sello fiscal
               </h4>
-              <div className="hash-seal">
-                <Fingerprint size={18} style={{ color: 'var(--verifactu-gold)', flexShrink: 0 }} />
+              <div className="hash-seal sello-brilla">
+                <Fingerprint className="hash-seal-cuno" size={18} style={{ color: 'var(--verifactu-gold)', flexShrink: 0 }} />
                 <div className="hash-seal-body">
                   <div className="hash-seal-label">Huella SHA-256 encadenada</div>
                   <div className="hash-seal-value">{chainedHash ?? 'Pendiente de sincronizar'}</div>
@@ -605,6 +619,7 @@ export default function InvoiceDetailPage() {
                 Esta factura está sellada: sus importes, fecha y numeración ya no pueden
                 modificarse ni eliminarse. <Link href="/integridad" style={{ color: 'var(--accent-400)' }}>Verificar cadena</Link>
               </p>
+            </div>
             </div>
           ) : (
             <div className="callout callout-info detalle-sello">

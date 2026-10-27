@@ -356,7 +356,7 @@ function ClientesPageContenido() {
   const totalClientRevenue = invoices.filter(i => i.status !== 'anulada').reduce((sum, i) => sum + i.total, 0);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pantalla-lista">
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Clientes</h1>
@@ -390,9 +390,11 @@ function ClientesPageContenido() {
           <Link href="/importar" className="btn btn-secondary" title="Traer clientes desde otro programa (Excel o CSV)">
             <Upload size={16} /> Importar
           </Link>
-          <button className="btn btn-primary" onClick={openCreateModal}>
-            <Plus size={16} /> Nuevo cliente
-          </button>
+          <span className="neon accion-neon">
+            <button className="btn btn-primary" onClick={openCreateModal}>
+              <Plus size={16} /> Nuevo cliente
+            </button>
+          </span>
         </div>
       </div>
 

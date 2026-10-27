@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, RotateCcw, ReceiptText, Ban, CreditCard, SearchX, FileWarning } from 'lucide-react';
+import { Plus, Search, RotateCcw, ReceiptText, Ban, CreditCard, SearchX, FileWarning, X } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import {
@@ -101,7 +101,7 @@ export default function DevolucionesAbonosPage() {
     .reduce((sum, a) => sum + (a.total - a.usedAmount), 0);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pantalla-lista">
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
@@ -126,31 +126,37 @@ export default function DevolucionesAbonosPage() {
           )}
         </div>
         <div className="page-header-actions">
-          {tab === 'devoluciones' ? (
-            <button className="btn btn-primary" onClick={() => setShowDevolucionForm(true)}>
-              <RotateCcw size={16} /> Registrar devolución
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={() => setShowAbonoForm(true)}>
-              <Plus size={16} /> Nuevo abono
-            </button>
-          )}
+          <span className="neon accion-neon">
+            {tab === 'devoluciones' ? (
+              <button className="btn btn-primary" onClick={() => setShowDevolucionForm(true)}>
+                <RotateCcw size={16} /> Registrar devolución
+              </button>
+            ) : (
+              <button className="btn btn-primary" onClick={() => setShowAbonoForm(true)}>
+                <Plus size={16} /> Nuevo abono
+              </button>
+            )}
+          </span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+      {/* Pestañas: los mismos segmentos que Clientes y Productos. Antes
+          la pestaña elegida era un botón de acento y competía con
+          «Registrar devolución», que es lo que de verdad hace algo. */}
+      <div className="segmentos fila-desplazable" role="group" aria-label="Qué ver" style={{ marginBottom: 'var(--space-4)' }}>
         <button
-          className={`btn ${tab === 'devoluciones' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-sm"
+          aria-pressed={tab === 'devoluciones'}
           onClick={() => { setTab('devoluciones'); setSearch(''); }}
         >
-          <RotateCcw size={16} /> Devoluciones ({devoluciones.length})
+          <RotateCcw size={16} /> Devoluciones <span className="segmentos-num">{devoluciones.length}</span>
         </button>
         <button
-          className={`btn ${tab === 'abonos' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-sm"
+          aria-pressed={tab === 'abonos'}
           onClick={() => { setTab('abonos'); setSearch(''); }}
         >
-          <ReceiptText size={16} /> Abonos ({abonos.length})
+          <ReceiptText size={16} /> Abonos <span className="segmentos-num">{abonos.length}</span>
         </button>
       </div>
 
@@ -164,6 +170,11 @@ export default function DevolucionesAbonosPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 

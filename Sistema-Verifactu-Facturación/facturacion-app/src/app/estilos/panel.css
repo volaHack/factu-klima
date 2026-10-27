@@ -1,0 +1,359 @@
+/* Estilos de la mejora visual: panel. Ver neon.css para la luz del marco. */
+
+/* ============================================================
+   EL PANEL, LA CABECERA Y LOS MENÚS: MÁS VIVOS, SIN RUIDO
+   ------------------------------------------------------------
+   La luz de neón es la firma y se reserva para tres sitios:
+     · el marco de las cifras del panel (lo primero que se mira),
+     · «Nueva factura» abajo del menú lateral (y, en el móvil, el
+       botón redondo de la barra de abajo): la acción principal de la
+       app, en todas las pantallas,
+     · «Nueva factura» de la cabecera del panel, sólo al pasar el ratón.
+   Todo lo demás es pulido: un brillo de fondo detrás del título, una
+   línea con la tendencia de la cifra principal, iconos que responden,
+   un latido en lo urgente, la campana que se mece una vez.
+
+   Sólo se anima transform, opacity y lo que no recoloca la página
+   (stroke-dashoffset, box-shadow). La excepción es el cajón de las
+   ramas del menú (grid-template-rows), que es justo lo que se mueve.
+   Con «reducir movimiento» lo apaga el interruptor global de
+   globals.css; aquí no hace falta repetirlo.
+   ============================================================ */
+
+:root {
+  --aurora-a: color-mix(in srgb, var(--accent-500) 13%, transparent);
+  --aurora-b: color-mix(in srgb, var(--accent-300) 9%, transparent);
+}
+/* Sobre negro el mismo porcentaje se ve el doble: se baja. */
+:root[data-theme="dark"] {
+  --aurora-a: color-mix(in srgb, var(--accent-500) 10%, transparent);
+  --aurora-b: color-mix(in srgb, var(--accent-300) 6%, transparent);
+}
+
+/* --- Cabecera del panel: un brillo que deriva detrás del nombre ---
+   Dos manchas del color de la marca, muy suaves, que se mueven despacio
+   detrás del título y se desvanecen hacia abajo. El ancho tiene tope y
+   deja sitio a la deriva: en el móvil no puede sacar la página de lado. */
+.panel-cabeza { position: relative; isolation: isolate; }
+.panel-cabeza::before {
+  content: '';
+  position: absolute; z-index: -1;
+  top: -56px; left: -32px;
+  width: min(640px, calc(100% - 64px)); height: 220px;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 55% at 24% 46%, var(--aurora-a), transparent 72%),
+    radial-gradient(36% 48% at 62% 32%, var(--aurora-b), transparent 72%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 95%);
+  mask-image: linear-gradient(to bottom, #000 35%, transparent 95%);
+  animation: auroraDeriva 18s ease-in-out infinite alternate;
+}
+@keyframes auroraDeriva {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(36px, 6px, 0) scale(1.06); }
+}
+@media print { .panel-cabeza::before { display: none; } }
+
+/* --- Estado de cuentas: el marco con la luz ---
+   La luz va en el marco y no en la hoja: la hoja recorta lo que se sale
+   (overflow: hidden, para las esquinas de las celdas) y se comería el
+   trazo y el halo. El marco necesita el mismo radio para que la luz siga
+   la esquina. */
+.cuentas-marco { border-radius: var(--radius-lg); }
+
+/* La cifra principal se distingue también por el fondo: una luz del
+   acento muy tenue desde la esquina, que no compite con el número. */
+.cuentas-cifra.es-principal {
+  background:
+    radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--accent-500) 7%, transparent), transparent 62%),
+    var(--bg-card);
+}
+:root[data-theme="dark"] .cuentas-cifra.es-principal {
+  background:
+    radial-gradient(120% 95% at 0% 0%, color-mix(in srgb, var(--accent-500) 9%, transparent), transparent 62%),
+    var(--bg-card);
+}
+.cuentas-cifra.es-principal.es-enlace:hover { background: var(--bg-card-hover); }
+
+/* La línea de tendencia: se dibuja de izquierda a derecha mientras la
+   cifra cuenta, luego asoma el mes en curso (punteado) y su punto. */
+.cuentas-traza-caja {
+  display: flex; align-items: flex-end; gap: 8px;
+  width: 100%; max-width: 280px;
+  margin: 4px 0 2px;
+  color: var(--accent-500);
+}
+.cuentas-cifra.is-peligro .cuentas-traza-caja { color: var(--color-danger); }
+.cuentas-traza {
+  display: block; flex: 1; min-width: 0;
+  aspect-ratio: 5 / 1; height: auto;
+  overflow: visible;
+}
+.cuentas-traza-linea,
+.cuentas-traza-curso {
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cuentas-traza-linea {
+  stroke-dasharray: 1;
+  animation: trazaDibuja 1400ms var(--ease-settle) 250ms backwards;
+}
+.cuentas-traza-curso {
+  stroke-dasharray: 3 4; opacity: 0.55;
+  animation: aparece 400ms ease-out 1300ms backwards;
+}
+.cuentas-traza-area { animation: aparece 900ms ease-out 600ms backwards; }
+.cuentas-traza-punto {
+  fill: currentColor; stroke: var(--bg-card); stroke-width: 2;
+  transform-box: fill-box; transform-origin: center;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 55%, transparent));
+  animation: puntoLlega 520ms var(--ease-settle) 1450ms backwards;
+}
+.cuentas-traza-pie {
+  flex-shrink: 0;
+  font-size: 10.5px; font-weight: 500; line-height: 1;
+  color: var(--text-muted); white-space: nowrap;
+}
+@keyframes trazaDibuja { from { stroke-dashoffset: 1; } }
+@keyframes puntoLlega { from { opacity: 0; transform: scale(0); } }
+
+/* --- Para hoy --- */
+/* Al pasar el ratón, la barra del borde izquierdo como en las tablas,
+   del color de lo que dice la fila. */
+.para-hoy-fila {
+  transition: background-color var(--transition-fast), box-shadow 220ms var(--ease-settle);
+}
+.para-hoy-fila:hover { box-shadow: inset 3px 0 0 var(--accent-500); }
+.para-hoy-fila.is-peligro:hover { box-shadow: inset 3px 0 0 var(--color-danger); }
+.para-hoy-fila.is-aviso:hover { box-shadow: inset 3px 0 0 var(--color-warning); }
+.para-hoy-fila:active { background: var(--bg-tertiary); }
+
+.para-hoy-icono { position: relative; transition: transform 260ms var(--ease-settle); }
+.para-hoy-icono svg { transition: transform 320ms var(--ease-settle); }
+.para-hoy-fila:hover .para-hoy-icono { transform: scale(1.06); }
+.para-hoy-fila:hover .para-hoy-icono svg { transform: rotate(-8deg); }
+
+/* Lo más urgente: un punto rojo fijo en la esquina del icono y, al
+   llegar, tres latidos que se abren desde él. Luego se calla: el punto
+   basta para saber dónde mirar, y un latido eterno acaba molestando. */
+.para-hoy-fila.es-urgente .para-hoy-icono::before {
+  content: '';
+  position: absolute; top: -3px; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.para-hoy-fila.es-urgente .para-hoy-icono::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--color-danger);
+  opacity: 0;
+  pointer-events: none;
+  animation: latidoUrgente 2.4s var(--ease-settle) 900ms 3;
+}
+@keyframes latidoUrgente {
+  0% { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.65); }
+}
+.para-hoy:has(.es-urgente) .para-hoy-cuenta { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* --- Atajos: los iconos responden al ratón y al dedo --- */
+.accesos-crear-boton {
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.accesos-crear-boton svg {
+  transition: color var(--transition-fast), transform 320ms var(--ease-settle);
+}
+.accesos-crear-boton:hover svg { transform: translateY(-1px) scale(1.14); }
+.accesos-crear-boton:active { background: var(--bg-tertiary); }
+.accesos-crear-boton:active svg { transform: scale(0.9); transition-duration: 80ms; }
+
+.accesos-fila > svg:first-child {
+  transition: color var(--transition-fast), transform 320ms var(--ease-settle);
+}
+.accesos-fila:hover > svg:first-child { color: var(--accent-500); transform: scale(1.12); }
+.accesos-fila:active { background: var(--bg-tertiary); }
+.accesos-personalizar svg { transition: transform 420ms var(--ease-settle); }
+.accesos-personalizar:hover svg { transform: rotate(60deg); }
+
+/* --- Tarjetas de gráficas y listas del panel ---
+   No se pulsan, así que ni suben ni cambian de borde (prometerían un
+   clic). Sólo se despegan un poco con una sombra del acento, para que
+   se note cuál se está leyendo. Sólo con ratón. */
+.panel .chart-card { transition: box-shadow 360ms var(--ease-settle); }
+@media (hover: hover) and (pointer: fine) {
+  .panel .chart-card:hover {
+    box-shadow:
+      0 14px 34px -18px color-mix(in srgb, var(--accent-500) 30%, transparent),
+      0 2px 8px -4px rgba(16, 24, 40, 0.08);
+  }
+  :root[data-theme="dark"] .panel .chart-card:hover {
+    box-shadow:
+      0 14px 34px -18px color-mix(in srgb, var(--accent-500) 22%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--accent-500) 10%, transparent);
+  }
+}
+
+/* ============================================================
+   MENÚ LATERAL
+   ============================================================ */
+
+/* La marca de la pantalla activa brilla un poco: se encuentra de un
+   vistazo sin buscar el texto en rosa. */
+.sidebar-link.active::before {
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--accent-500) 55%, transparent);
+}
+
+/* En el árbol, la hoja activa enciende su tramo de la línea de la rama. */
+.menu-arbol-hoja { position: relative; }
+.menu-arbol-hoja.active::before {
+  content: '';
+  position: absolute; left: -12px; top: 7px; bottom: 7px;
+  width: 3px; border-radius: var(--radius-full);
+  background: var(--accent-500);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-500) 60%, transparent);
+  animation: tramoCrece 380ms var(--ease-settle);
+}
+@keyframes tramoCrece { from { transform: scaleY(0); } }
+
+/* Las ramas se abren deslizando: la rejilla pasa de 0fr a 1fr y el
+   contenido, recortado, la sigue. Cerrada se esconde del todo al acabar
+   (visibility), además de quedar `inert` en el componente. */
+.menu-arbol-cajon {
+  display: grid; grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 300ms var(--ease-settle), visibility 0s linear 300ms;
+}
+.menu-arbol-cajon[data-abierta] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 300ms var(--ease-settle), visibility 0s;
+}
+.menu-arbol-cajon-dentro { min-height: 0; overflow: hidden; }
+.menu-arbol-cajon-dentro > ul {
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 300ms var(--ease-settle);
+}
+.menu-arbol-cajon[data-abierta] .menu-arbol-cajon-dentro > ul {
+  opacity: 1; transform: none;
+  transition-delay: 60ms;
+}
+.menu-arbol-flecha { transition: transform 300ms var(--ease-settle), opacity var(--transition-fast); }
+.menu-arbol-rama:hover .menu-arbol-flecha { opacity: 1; }
+
+/* «Nueva factura» de abajo: la luz da la vuelta más despacio que en el
+   panel, porque se ve en todas las pantallas y no debe tirar de la vista
+   mientras se trabaja en otra cosa. */
+.sidebar-cta .neon { --neon-vuelta: 6.5s; }
+
+/* ============================================================
+   BARRA DE ABAJO (MÓVIL)
+   ============================================================ */
+/* La sección activa: una raya con brillo en lo alto de su pastilla, que
+   crece desde el centro, y el icono que da un saltito al llegar. */
+.mobile-nav-item { position: relative; }
+.mobile-nav-item.active::before {
+  content: '';
+  position: absolute; top: 0; left: 50%;
+  width: 20px; height: 3px; margin-left: -10px;
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  background: var(--accent-500);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--accent-500) 55%, transparent);
+  animation: rayaMovilCrece 360ms var(--ease-settle);
+}
+.mobile-nav-item.active svg { animation: iconoSalta 420ms var(--ease-settle); }
+@keyframes rayaMovilCrece { from { transform: scaleX(0); } }
+@keyframes iconoSalta {
+  0% { transform: scale(0.86); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.mobile-nav-fab.neon { --neon-vuelta: 6.5s; }
+
+/* ============================================================
+   CABECERA
+   ============================================================ */
+/* Cristal de verdad: algo más transparente, para que lo que pasa por
+   debajo se adivine borroso, y un filo de luz del acento abajo que se
+   apaga hacia los lados. En oscuro se queda casi opaca: sobre negro el
+   contenido se transparenta mucho más (ver --bg-header). */
+.header { background: color-mix(in srgb, var(--bg-header) 84%, transparent); }
+:root[data-theme="dark"] .header { background: color-mix(in srgb, var(--bg-header) 94%, transparent); }
+.header::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent-500) 40%, transparent) 30%,
+    color-mix(in srgb, var(--accent-500) 40%, transparent) 70%,
+    transparent
+  );
+  opacity: 0.7;
+}
+
+/* La campana se mece una vez cuando hay avisos, después de que salte el
+   número (ver .header-contador). Al pasar el ratón se inclina un poco. */
+.header-campana > svg {
+  transform-origin: 50% 3px;
+  transition: transform 320ms var(--ease-settle);
+}
+.header-campana.suena > svg { animation: campanaSuena 1100ms linear 1000ms 1; }
+.header-campana:hover > svg { transform: rotate(12deg); }
+@keyframes campanaSuena {
+  0% { transform: rotate(0); }
+  12% { transform: rotate(16deg); }
+  26% { transform: rotate(-13deg); }
+  40% { transform: rotate(9deg); }
+  54% { transform: rotate(-6deg); }
+  68% { transform: rotate(3deg); }
+  82% { transform: rotate(-1deg); }
+  100% { transform: rotate(0); }
+}
+
+/* El avatar de la cuenta: crece un poco y se rodea de un anillo del
+   acento al pasar el ratón; se hunde al pulsarlo. */
+.account-trigger .account-avatar {
+  transition: transform 260ms var(--ease-settle), box-shadow 260ms var(--ease-settle);
+}
+.account-trigger:hover .account-avatar,
+.account-trigger.open .account-avatar {
+  transform: scale(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 0 0 2px var(--bg-secondary),
+    0 0 0 4px color-mix(in srgb, var(--accent-500) 35%, transparent);
+}
+.account-trigger:active .account-avatar { transform: scale(0.95); transition-duration: 90ms; }
+
+/* ============================================================
+   PANEL DE AVISOS
+   ============================================================ */
+/* Las filas llegan en cascada justo detrás del panel, con tope en la
+   novena para que una lista larga no haga esperar. (Con .notif-panel
+   delante: Ajustes reutiliza .notif-fila para otra cosa.) */
+.notif-panel .notif-fila {
+  position: relative;
+  animation: notifFilaLlega 360ms var(--ease-settle) backwards;
+  animation-delay: calc(120ms + min(var(--i, 0), 8) * 35ms);
+}
+@keyframes notifFilaLlega { from { opacity: 0; transform: translateY(6px); } }
+
+/* Lo grave (cobros vencidos, stock agotado), con una barra roja que
+   brilla en el borde izquierdo y un velo rojo que se apaga hacia la
+   derecha. Va en background-image: el color de fondo al pasar el ratón
+   sigue funcionando debajo. */
+.notif-panel .notif-fila.is-peligro {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--color-danger) 7%, transparent), transparent 55%);
+}
+.notif-panel .notif-fila.is-peligro::before {
+  content: '';
+  position: absolute; left: 0; top: 10px; bottom: 10px;
+  width: 3px; border-radius: var(--radius-full);
+  background: var(--color-danger);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 60%, transparent);
+}
+.notif-panel .notif-fila-icono { transition: transform 260ms var(--ease-settle); }
+.notif-panel .notif-fila:hover .notif-fila-icono { transform: scale(1.08); }

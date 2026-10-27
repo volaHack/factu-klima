@@ -34,8 +34,9 @@ export default function MobileNav() {
           </Link>
         ))}
 
-        {/* FAB - New Invoice */}
-        <Link href="/facturas/nueva" className="mobile-nav-fab" aria-label="Nueva factura">
+        {/* Nueva factura: la acción principal, con la luz del marco como el
+            botón del menú lateral en el ordenador. */}
+        <Link href="/facturas/nueva" className="mobile-nav-fab neon" aria-label="Nueva factura">
           <Plus size={26} strokeWidth={2.4} />
         </Link>
 

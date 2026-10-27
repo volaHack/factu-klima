@@ -158,7 +158,7 @@ export default function DocumentoDetallePage() {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+      <div className={`page-header detalle-cabecera detalle-cabecera--${documento.status}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <Link href="/documentos" className="btn btn-ghost btn-sm">
             <ArrowLeft size={16} /> Volver

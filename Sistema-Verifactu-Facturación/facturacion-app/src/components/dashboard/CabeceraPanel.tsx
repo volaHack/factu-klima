@@ -46,7 +46,9 @@ export default function CabeceraPanel({ nombre, sector, fecha, siguiente, plan, 
           </li>
         </ul>
       </div>
-      <Link href="/facturas/nueva" className="btn btn-primary panel-cabeza-cta">
+      {/* La luz sólo al pasar el ratón: la del marco de las cifras ya gira
+          siempre y dos a la vez se pisarían. */}
+      <Link href="/facturas/nueva" className="btn btn-primary panel-cabeza-cta neon neon--al-pasar">
         <Plus size={16} />
         Nueva factura
       </Link>

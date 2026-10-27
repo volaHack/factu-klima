@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export interface SeccionDelIndice {
   id: string;
@@ -91,6 +91,45 @@ export default function IndiceAjustes({ secciones }: { secciones: readonly Secci
     return () => relojes.forEach(r => window.clearTimeout(r));
   }, [secciones]);
 
+  /**
+   * La marca de la sección activa se desliza de una a otra en vez de
+   * saltar, como un dedo que baja por el índice.
+   *
+   * Es una sola pieza dentro de la lista que se mueve con transform; se
+   * mide el enlace activo y se escribe en el estilo del nodo, sin pasar
+   * por el estado. Se vuelve a medir si la lista cambia de tamaño, que es
+   * cuando pasa de fila de fichas (móvil) a columna (pantalla ancha). La
+   * primera vez se coloca sin transición.
+   */
+  const lista = useRef<HTMLOListElement>(null);
+  const marca = useRef<HTMLLIElement>(null);
+  useLayoutEffect(() => {
+    const ol = lista.current;
+    const pieza = marca.current;
+    if (!ol || !pieza) return;
+    let primera = !pieza.dataset.puesta;
+    const colocar = () => {
+      const enlace = ol.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
+      if (!enlace) { pieza.style.opacity = '0'; return; }
+      if (primera) pieza.style.transition = 'none';
+      pieza.style.opacity = '1';
+      pieza.style.width = `${enlace.offsetWidth}px`;
+      pieza.style.height = `${enlace.offsetHeight}px`;
+      pieza.style.transform = `translate(${enlace.offsetLeft}px, ${enlace.offsetTop}px)`;
+      if (primera) {
+        pieza.getBoundingClientRect();
+        pieza.style.transition = '';
+        pieza.dataset.puesta = 'si';
+        primera = false;
+      }
+    };
+    colocar();
+    if (typeof ResizeObserver === 'undefined') return;
+    const vigia = new ResizeObserver(colocar);
+    vigia.observe(ol);
+    return () => vigia.disconnect();
+  }, [activa]);
+
   const ir = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     // Con Ctrl, Cmd o la rueda se deja hacer al navegador (otra pestaña).
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -108,9 +147,10 @@ export default function IndiceAjustes({ secciones }: { secciones: readonly Secci
   };
 
   return (
-    <nav className="ajustes-indice" aria-label="Secciones de ajustes">
+    <nav className="ajustes-indice con-marca" aria-label="Secciones de ajustes">
       <p className="ajustes-indice-titulo">En esta página</p>
-      <ol>
+      <ol ref={lista}>
+        <li className="ajustes-indice-marca" ref={marca} aria-hidden="true" />
         {secciones.map(s => (
           <li key={s.id}>
             <a

@@ -292,7 +292,7 @@ function NuevoDocumentoContent() {
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary neon neon--al-pasar"
             onClick={() => handleSave(InvoiceStatus.EMITIDA)}
             disabled={saving}
           >
@@ -524,6 +524,7 @@ function NuevoDocumentoContent() {
           porcentajesPie={globalDiscounts.filter(p => p > 0)}
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
+          destacado
           etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
         >
           {modoRetenciones && (tipo === 'factura' || tipo === 'rectificativa') && (

@@ -143,8 +143,10 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         )}
 
         <div style={{ position: 'relative' }}>
+          {/* Con avisos, la campana se mece una vez al llegar (no en bucle:
+              un aviso que no para de moverse se acaba ignorando). */}
           <button
-            className="btn btn-ghost btn-icon"
+            className={`btn btn-ghost btn-icon header-campana${totalAlerts > 0 ? ' suena' : ''}`}
             style={{ position: 'relative' }}
             title={totalAlerts > 0 ? `${totalAlerts} avisos de stock o vencimiento` : 'Sin avisos pendientes'}
             onClick={() => setShowNotifications(prev => !prev)}

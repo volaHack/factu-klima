@@ -280,7 +280,7 @@ export default function EditInvoicePage() {
             <Save size={16} /> Guardar borrador
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary neon neon--al-pasar"
             onClick={() => handleSave(InvoiceStatus.EMITIDA)}
             disabled={saving}
             title="Al emitir, la factura se sella y no podrá modificarse"
@@ -375,6 +375,7 @@ export default function EditInvoicePage() {
           porcentajesPie={globalDiscounts.filter(p => p > 0)}
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
+          destacado
         >
           <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
             <div className="form-group">

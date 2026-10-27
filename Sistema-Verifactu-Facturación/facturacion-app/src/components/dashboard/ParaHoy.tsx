@@ -25,6 +25,9 @@ const ICONO: Record<string, LucideIcon> = {
 
 /** Lo que toca hacer, de lo más urgente a lo menos. Cada fila lleva a donde se resuelve. */
 export default function ParaHoy({ tareas, sinDocumentos = false }: ParaHoyProps) {
+  // Sólo la primera urgente llama la atención con un latido: si laten
+  // todas, ninguna destaca.
+  const urgente = tareas.findIndex(t => t.tono === 'peligro');
   return (
     <section className="para-hoy" aria-labelledby="para-hoy-titulo">
       <div className="para-hoy-cabecera">
@@ -55,7 +58,7 @@ export default function ParaHoy({ tareas, sinDocumentos = false }: ParaHoyProps)
             const Icono = ICONO[t.id] ?? AlertTriangle;
             return (
               <li key={t.id} style={{ '--i': i } as React.CSSProperties}>
-                <Link href={t.href} className={`para-hoy-fila is-${t.tono}`}>
+                <Link href={t.href} className={`para-hoy-fila is-${t.tono}${i === urgente ? ' es-urgente' : ''}`}>
                   <span className="para-hoy-icono" aria-hidden="true"><Icono size={16} /></span>
                   <span className="para-hoy-texto">
                     <span className="para-hoy-fila-titulo">{t.titulo}</span>
