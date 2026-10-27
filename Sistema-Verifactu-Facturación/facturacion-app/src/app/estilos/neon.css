@@ -71,17 +71,24 @@
    marco. El elemento es su propio contexto de apilado (isolation), así
    que un z-index negativo no lo manda detrás de su fondo: se pintaba
    encima y teñía el interior de la tarjeta. Una máscara que recorta el
-   hueco del elemento deja la luz alrededor y el interior limpio. */
+   hueco del elemento deja la luz alrededor y el interior limpio.
+   Por fuera la máscara no corta en seco: dos degradados (horizontal y
+   vertical) se apagan hacia el borde exterior, y la luz se desvanece en
+   vez de acabar en una caja translúcida de esquinas rectas. */
 .neon::after {
-  --neon-halo-borde: 18px;
+  --neon-halo-borde: 22px;
+  --neon-halo-fundido:
+    linear-gradient(to right, transparent, #000 var(--neon-halo-borde), #000 calc(100% - var(--neon-halo-borde)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--neon-halo-borde), #000 calc(100% - var(--neon-halo-borde)), transparent);
   z-index: 0;
   inset: calc(-1 * var(--neon-halo-borde));
   padding: var(--neon-halo-borde);
-  filter: blur(14px);
+  filter: blur(12px);
   opacity: var(--neon-halo, 0.5);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, var(--neon-halo-fundido);
+  -webkit-mask-composite: xor, source-in;
+  mask: linear-gradient(#000 0 0) content-box, var(--neon-halo-fundido);
+  mask-composite: exclude, intersect;
 }
 /* La intensidad del halo va en una variable y no en `opacity` directa:
    así el oscuro la sube sin pisar el «apagado» de .neon--al-pasar. */

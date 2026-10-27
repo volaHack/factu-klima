@@ -36,9 +36,10 @@
   border-radius: calc(var(--radius-md) + var(--neon-grosor));
 }
 @media (max-width: 768px) {
-  /* En el teléfono los botones de la cabecera se reparten el ancho
-     (globals.css); el envoltorio tiene que repartirse con ellos. */
-  .page-header-actions > .accion-neon { flex: 1 1 0; min-width: 0; }
+  /* En el teléfono la acción principal va primero y en su propia fila, a
+     todo el ancho: repartida con las demás se encogía y el botón se salía
+     de la pantalla. */
+  .page-header-actions > .accion-neon { flex: 1 1 100%; order: -1; min-width: 0; }
   .page-header-actions > .accion-neon > .btn { flex: 1; justify-content: center; }
 }
 

@@ -602,6 +602,11 @@ a:hover { color: var(--accent-300); }
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left var(--transition-slow);
+  /* El halo de los neones (neon.css) sale unos píxeles del elemento; en
+     el teléfono, junto al borde, ensanchaba la página y dejaba arrastrarla
+     de lado (el overflow-x del body no basta en los navegadores móviles).
+     `clip` recorta sin crear contenedor de scroll: no rompe lo sticky. */
+  overflow-x: clip;
 }
 
 .app-content {
