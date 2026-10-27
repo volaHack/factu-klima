@@ -1,1 +1,453 @@
-/* Estilos de la mejora visual: listas. Ver neon.css para la luz del marco. */
+/* Estilos de la mejora visual: listas. Ver neon.css para la luz del marco.
+
+   ============================================================
+   PANTALLAS DE LISTA (Facturas, Clientes, Productos, Albaranes,
+   Documentos, Devoluciones, Tesorería)
+   ------------------------------------------------------------
+   Lo que se ve al abrir cada lista tiene que vender a primera vista sin
+   estorbar el trabajo de todos los días. La luz de neón es la firma y se
+   reserva: la acción principal de la pantalla y, si la hay, la cifra que
+   pide atención hoy (las facturas vencidas). Todo lo demás se pule sin
+   brillar: filas que responden, insignias con su punto, chips que se
+   encienden, una lista vacía que no parece un error.
+
+   Lo de cada pantalla va dentro de `.pantalla-lista` (la clase está en la
+   raíz de cada una) para no cambiar tablas y chips de otras pantallas.
+   Las piezas compartidas (estado vacío, paginación, punto de las
+   insignias, botón de borrar la búsqueda) van sin acotar: son las mismas
+   en toda la app.
+
+   Sólo se animan transform, opacity, box-shadow y colores; nada que
+   recoloque la página. Con «reducir movimiento» se queda todo quieto
+   (bloque global de globals.css y el de aquí abajo).
+   ============================================================ */
+
+
+/* --- La acción principal, con la luz alrededor ---
+   La luz va en un envoltorio y no en el botón: el halo de neon.css se
+   pinta por encima del fondo del propio elemento, y sobre el botón de
+   acento aclaraba una franja que iba girando y comía contraste al texto
+   blanco. En el envoltorio queda por fuera y el botón sigue entero.
+   El radio es el del botón más el grosor de la luz, para que el trazo
+   corra paralelo a la esquina. */
+.neon.accion-neon {
+  --neon-vuelta: 5.5s;
+  display: inline-flex;
+  border-radius: calc(var(--radius-md) + var(--neon-grosor));
+}
+@media (max-width: 768px) {
+  /* En el teléfono los botones de la cabecera se reparten el ancho
+     (globals.css); el envoltorio tiene que repartirse con ellos. */
+  .page-header-actions > .accion-neon { flex: 1 1 0; min-width: 0; }
+  .page-header-actions > .accion-neon > .btn { flex: 1; justify-content: center; }
+}
+
+
+/* --- Tira de cifras del encabezado ---
+   Cada cifra en su pastilla en vez de texto corrido con filetes: se lee
+   de un vistazo y, al saltar de línea en el móvil, no deja separadores
+   sueltos (por eso globals.css recortaba la tira con overflow: hidden;
+   aquí no hay separadores y la luz de la alerta puede asomar). */
+.pantalla-lista .page-meta { overflow: visible; gap: var(--space-2); }
+.pantalla-lista .page-meta-item {
+  padding: 5px 12px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.pantalla-lista .page-meta-item + .page-meta-item::before { content: none; }
+/* Lo que está en aviso (por cobrar, en preparación, por facturar) se
+   tiñe un poco desde la izquierda: se distingue sin gritar. */
+.pantalla-lista .page-meta-item:has(> .page-meta-value.is-warning) {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, var(--border-subtle));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-warning) 10%, var(--bg-card)), var(--bg-card) 75%);
+}
+
+/* La cifra que pide atención (facturas vencidas): un botón con la luz
+   roja que, al pulsarlo, filtra la lista. Igual que con el botón
+   principal, la luz va en el botón y el fondo en el cuerpo de dentro,
+   para que el halo quede por fuera y el número se lea entero. */
+.meta-alerta {
+  display: inline-flex;
+  padding: 0; margin: 0; border: 0;
+  background: none;
+  font: inherit; color: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.meta-alerta:focus-visible { outline: 2px solid var(--color-danger); outline-offset: 4px; }
+.meta-alerta-cuerpo {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 12px 6px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 32%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-danger) 9%, var(--bg-card));
+  color: var(--color-danger);
+  transition: background-color 200ms var(--ease-settle), color 200ms ease, transform 160ms var(--ease-settle);
+}
+.meta-alerta .page-meta-value,
+.meta-alerta .page-meta-label { color: inherit; }
+.meta-alerta .page-meta-label { font-weight: 600; }
+.meta-alerta:hover .meta-alerta-cuerpo { background: color-mix(in srgb, var(--color-danger) 15%, var(--bg-card)); }
+.meta-alerta:active .meta-alerta-cuerpo { transform: scale(0.97); }
+/* Filtrando: relleno pleno. El texto toma el color de la tarjeta, que
+   contrasta en los dos esquemas (blanco sobre rojo oscuro en claro,
+   casi negro sobre rojo claro en oscuro). */
+.meta-alerta[aria-pressed="true"] .meta-alerta-cuerpo {
+  background: var(--color-danger);
+  border-color: transparent;
+  color: var(--bg-card);
+}
+.meta-alerta-punto {
+  align-self: center;
+  width: 6px; height: 6px; flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+
+/* --- Tablas --- */
+
+/* Cabecera: un degradado casi imperceptible la despega de las filas. */
+.pantalla-lista .table thead th {
+  background: linear-gradient(180deg, var(--bg-secondary), color-mix(in srgb, var(--bg-tertiary) 55%, var(--bg-secondary)));
+}
+/* La columna por la que se ordena: el subrayado se dibuja al elegirla y
+   la flecha entra desde el lado hacia el que ordena. Las dos flechas son
+   iconos distintos, así que al cambiar el sentido la nueva hace su
+   entrada sola. */
+@keyframes ordenSubraya { from { box-shadow: inset 0 0 0 var(--accent-500); } }
+@keyframes ordenSube { from { opacity: 0; transform: translateY(4px) scale(0.6); } }
+@keyframes ordenBaja { from { opacity: 0; transform: translateY(-4px) scale(0.6); } }
+.pantalla-lista .table th.sorted { animation: ordenSubraya 320ms var(--ease-settle); }
+.pantalla-lista .table th .sort-icon.lucide-chevron-up { animation: ordenSube 280ms var(--ease-settle); }
+.pantalla-lista .table th .sort-icon.lucide-chevron-down { animation: ordenBaja 280ms var(--ease-settle); }
+
+/* Importes: cifras de ancho fijo y sin partir, para que la columna cuadre. */
+.pantalla-lista .table td.amount { font-feature-settings: "tnum" 1, "lnum" 1; white-space: nowrap; }
+
+/* Insignias de estado con un filo de su propio color: sobre la fila
+   resaltada o elegida, el fondo translúcido sólo se perdía. */
+.pantalla-lista .table .badge { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent); }
+
+@media (hover: hover) and (min-width: 1024px) {
+  /* Al pasar el ratón la fila se ilumina desde la barra de acento de la
+     izquierda (globals.css) y se apaga hacia la derecha: se ve qué fila
+     es sin teñir los datos. El gris de globals.css era fijo y en oscuro
+     no se veía; este sale del color del texto, que cambia con el tema. */
+  .pantalla-lista .table tbody tr:not(.fila-vacia):hover {
+    background-image: linear-gradient(90deg, color-mix(in srgb, var(--accent-500) 8%, transparent), transparent 70%);
+  }
+  .pantalla-lista .table tbody tr:not(.fila-vacia):hover > td {
+    background-color: color-mix(in srgb, var(--text-primary) 3.5%, transparent);
+  }
+}
+
+/* Filas elegidas con la casilla: quedan marcadas aunque el ratón se vaya,
+   con la barra de acento fija. */
+@media (min-width: 1024px) {
+  .pantalla-lista .table tbody tr:has(> td.table-checkbox input:checked) > td {
+    background-color: color-mix(in srgb, var(--accent-500) 8%, var(--bg-card));
+  }
+  .pantalla-lista .table tbody tr:has(> td.table-checkbox input:checked) > td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent-500);
+  }
+}
+
+/* La fila del estado vacío no es una fila: ni resalte ni barra. */
+.table tbody tr.fila-vacia:hover > td { background: transparent; }
+.table tbody tr.fila-vacia > td:first-child,
+.table tbody tr.fila-vacia:hover > td:first-child { box-shadow: none; }
+
+
+/* --- Tarjetas del teléfono y la tableta (.tabla-tarjetas) ---
+   Cada tarjeta responde al dedo hundiéndose un poco, y lleva a la
+   izquierda un filo del color de su estado: al bajar por la lista se ven
+   las vencidas sin leer las insignias. */
+@media screen and (max-width: 1023px) {
+  .pantalla-lista .tabla-tarjetas tbody tr:not(.fila-vacia) {
+    transition: transform 180ms var(--ease-settle), background-color 160ms ease, box-shadow 220ms var(--ease-settle);
+    -webkit-tap-highlight-color: transparent;
+    /* La entrada en cascada de globals.css (stagger-in) se queda puesta al
+       terminar (`both`) y, como una animación manda sobre cualquier regla,
+       el hundirse al pulsar no se veía. Su último fotograma es el estado
+       normal de la fila, así que soltarla al acabar no cambia nada más. */
+    animation-fill-mode: backwards;
+  }
+  .pantalla-lista .tabla-tarjetas tbody tr:not(.fila-vacia):active {
+    transform: scale(0.985);
+    background-color: var(--bg-card-hover);
+  }
+
+  .pantalla-lista .tabla-tarjetas tbody tr:has(.badge-vencida, .badge-rechazado) { box-shadow: inset 3px 0 0 var(--color-danger); }
+  .pantalla-lista .tabla-tarjetas tbody tr:has(.badge-pendiente, .badge-parcial, .badge-registrada, .badge-aprobado_parcial) { box-shadow: inset 3px 0 0 var(--color-warning); }
+  .pantalla-lista .tabla-tarjetas tbody tr:has(.badge-pagada, .badge-facturado, .badge-abonada, .badge-aprobado) { box-shadow: inset 3px 0 0 var(--color-success); }
+  .pantalla-lista .tabla-tarjetas tbody tr:has(.badge-emitida, .badge-expedido, .badge-emitido, .badge-pre_aprobacion) { box-shadow: inset 3px 0 0 var(--color-info); }
+  .pantalla-lista .tabla-tarjetas tbody tr:has(.badge-borrador) { box-shadow: inset 3px 0 0 var(--border-strong); }
+
+  /* Elegida: la tarjeta entera (celda a celda salían recuadros sueltos). */
+  .pantalla-lista .tabla-tarjetas tbody tr:has(> td.table-checkbox input:checked) {
+    background-color: color-mix(in srgb, var(--accent-500) 8%, var(--bg-card));
+    box-shadow: inset 3px 0 0 var(--accent-500);
+  }
+}
+
+
+/* --- Chips de filtro y segmentos --- */
+
+/* Antes pasar el ratón y estar activo se pintaban igual: no se sabía si
+   el filtro estaba puesto. Ahora el ratón sólo aclara; el activo se
+   enciende en acento, con su punto más grande, y al activarlo suelta un
+   destello que se apaga. */
+@keyframes chipSeEnciende { from { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-500) 24%, transparent); } }
+.pantalla-lista .filter-chip {
+  transition:
+    background-color 180ms var(--ease-settle),
+    border-color 180ms var(--ease-settle),
+    color 180ms ease,
+    box-shadow 260ms var(--ease-settle),
+    transform 140ms var(--ease-settle);
+  -webkit-tap-highlight-color: transparent;
+}
+.pantalla-lista .filter-chip:hover:not(.active) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color-hover);
+  color: var(--text-primary);
+}
+.pantalla-lista .filter-chip.active {
+  background: color-mix(in srgb, var(--accent-500) 10%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent-500) 70%, transparent);
+  color: var(--accent-400);
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent-500) 55%, transparent);
+  animation: chipSeEnciende 460ms var(--ease-settle);
+}
+.pantalla-lista .filter-chip .badge-dot { transition: transform 220ms var(--ease-settle), box-shadow 220ms ease; }
+.pantalla-lista .filter-chip.active .badge-dot { transform: scale(1.5); box-shadow: 0 0 0 2px var(--bg-card); }
+
+/* Segmentos (Todos / Clientes / Proveedores…): la pastilla elegida se
+   asienta al llegar y su contador toma el acento. */
+@keyframes segmentoLlega { from { transform: scale(0.94); opacity: 0.6; } }
+.pantalla-lista .segmentos > .btn[aria-pressed="true"] { animation: segmentoLlega 280ms var(--ease-settle); }
+.pantalla-lista .segmentos-num {
+  display: inline-block;
+  min-width: 20px; padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  text-align: center;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+.pantalla-lista .segmentos > .btn[aria-pressed="true"] .segmentos-num {
+  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
+  color: var(--accent-500);
+}
+
+
+/* --- Buscador --- */
+
+/* Al escribir, la caja se ilumina con un halo corto (sombra acotada, sin
+   desenfoques grandes) y la lupa toma el acento. */
+.pantalla-lista .search-bar input,
+.pantalla-lista .search-box > .form-input {
+  transition: border-color 180ms ease, box-shadow 260ms var(--ease-settle), background-color 180ms ease;
+}
+.pantalla-lista .search-bar input:focus,
+.pantalla-lista .search-box > .form-input:focus {
+  background: var(--bg-card);
+  border-color: var(--accent-500);
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    0 8px 22px -12px color-mix(in srgb, var(--accent-500) 70%, transparent);
+}
+.pantalla-lista .search-bar-icon,
+.pantalla-lista .search-box > svg:first-child { transition: color 180ms ease, transform 260ms var(--ease-settle); }
+.pantalla-lista .search-bar:focus-within .search-bar-icon,
+.pantalla-lista .search-box:focus-within > svg:first-child {
+  color: var(--accent-500);
+  transform: translateY(-50%) scale(1.08);
+}
+
+/* La equis de borrar entra girando y gira al pasar el ratón: se lee
+   como «quitar» antes de leer la etiqueta. */
+@keyframes borrarAparece { from { opacity: 0; transform: translateY(-50%) scale(0.5) rotate(-90deg); } }
+.search-clear {
+  animation: borrarAparece 260ms var(--ease-settle);
+  transition: background-color 160ms ease, color 160ms ease, transform 220ms var(--ease-settle);
+  -webkit-tap-highlight-color: transparent;
+}
+.search-clear:hover { transform: translateY(-50%) rotate(90deg); }
+.search-clear:active { transform: translateY(-50%) scale(0.9); }
+.search-clear:focus-visible { outline: 2px solid var(--accent-500); outline-offset: -2px; }
+/* En la caja redonda (.search-bar) va redonda y algo más pequeña: la de
+   36 px sobresalía de una caja de 34. */
+.search-bar .search-clear { width: 28px; height: 28px; right: 4px; border-radius: var(--radius-full); }
+@media (pointer: coarse) {
+  .search-bar .search-clear { width: 34px; height: 34px; right: 0; }
+}
+
+
+/* --- Paginación (components/ui/Paginacion) ---
+   La página actual se rellena con el degradado del botón principal (en
+   oscuro el acento plano daba un 2,3:1 con el número blanco) y se
+   asienta al llegar; los botones se hunden al pulsarlos. */
+@keyframes paginaLlega { from { transform: scale(0.82); opacity: 0.5; } }
+.paginacion-num,
+.paginacion-paso {
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform 140ms var(--ease-settle);
+  -webkit-tap-highlight-color: transparent;
+}
+.paginacion-num:active:not(.es-actual),
+.paginacion-paso:active:not(:disabled) { transform: scale(0.94); }
+.paginacion-num.es-actual {
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow:
+    0 4px 12px -5px color-mix(in srgb, var(--accent-500) 70%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  animation: paginaLlega 300ms var(--ease-settle);
+}
+.paginacion-movil { animation: paginaLlega 300ms var(--ease-settle); }
+@media (max-width: 640px) {
+  /* Un transform no se aplica a un elemento en línea. */
+  .paginacion-movil { display: inline-block; }
+}
+
+
+/* --- ESTADO VACÍO (components/ui/TableEmpty) ---
+   El icono dentro de un pequeño dibujo: un aro de puntos que gira muy
+   despacio, otro que se traza al llegar, un resplandor detrás y tres
+   chispas que titilan por turnos. El texto y el botón suben después.
+   Es lo primero que ve quien estrena la app: tiene que invitar, no
+   parecer un error. */
+.table-empty > div { padding: var(--space-8) var(--space-6); }
+.vacio-dibujo {
+  position: relative;
+  display: grid; place-items: center;
+  width: 96px; height: 96px;
+  margin-bottom: var(--space-2);
+}
+.vacio-dibujo::before {
+  content: '';
+  position: absolute; inset: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-500) 16%, transparent), transparent 70%);
+}
+.vacio-aros { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.vacio-aro { stroke-linecap: round; transform-box: fill-box; transform-origin: center; }
+.vacio-aro--fuera {
+  stroke: color-mix(in srgb, var(--accent-500) 34%, transparent);
+  stroke-width: 1.25;
+  stroke-dasharray: 1.5 7;
+  animation: vacioGira 40s linear infinite;
+}
+/* Empieza a trazarse arriba, como las agujas de un reloj. */
+.vacio-aro--dentro {
+  stroke: color-mix(in srgb, var(--accent-500) 45%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 100;
+  transform: rotate(-90deg);
+  animation: vacioTraza 1100ms var(--ease-settle) 120ms backwards;
+}
+@keyframes vacioGira { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes vacioTraza { from { stroke-dashoffset: 100; } }
+
+.vacio-dibujo .table-empty-icon {
+  position: relative; z-index: 1;
+  width: 48px; height: 48px; margin: 0;
+  border-radius: 14px;
+  color: var(--accent-500);
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--accent-500) 24%, var(--border-color));
+  box-shadow:
+    0 10px 22px -12px color-mix(in srgb, var(--accent-500) 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  /* Llega y, cuando ha llegado, flota despacio (`flota` es el mismo
+     vaivén de los estados vacíos de globals.css). */
+  animation: vacioLlega 520ms var(--ease-settle) 80ms backwards, flota 5s ease-in-out 700ms infinite;
+}
+:root[data-theme="dark"] .vacio-dibujo .table-empty-icon {
+  box-shadow:
+    0 10px 24px -12px color-mix(in srgb, var(--accent-500) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.vacio-dibujo .table-empty-icon svg { width: 22px; height: 22px; }
+@keyframes vacioLlega { from { opacity: 0; transform: translateY(6px) scale(0.7); } }
+
+/* Chispas de cuatro puntas, recortadas de un cuadrado. */
+.vacio-chispa {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: var(--accent-400);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: vacioTitila 3.6s ease-in-out infinite;
+}
+.vacio-chispa--1 { top: 6px; right: 12px; animation-delay: 0.5s; }
+.vacio-chispa--2 { bottom: 12px; left: 4px; width: 7px; height: 7px; animation-delay: 1.7s; }
+.vacio-chispa--3 { top: 26px; left: -2px; width: 6px; height: 6px; animation-delay: 2.6s; }
+@keyframes vacioTitila {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  45%, 55% { opacity: 0.9; transform: scale(1) rotate(45deg); }
+}
+
+@keyframes vacioTexto { from { opacity: 0; transform: translateY(6px); } }
+.table-empty-title { animation: vacioTexto 460ms var(--ease-settle) 160ms backwards; }
+.table-empty-hint { animation: vacioTexto 460ms var(--ease-settle) 220ms backwards; }
+.table-empty > div > .btn { animation: vacioTexto 460ms var(--ease-settle) 280ms backwards; }
+
+
+/* --- Tesorería: la tarjeta de vencimientos ---
+   Con alguna factura ya vencida, la tarjeta lleva la luz roja. Va en un
+   envoltorio por lo mismo que el botón principal: el halo por fuera, las
+   cifras sin teñir. */
+.tarjeta-neon { display: flex; min-width: 0; }
+.tarjeta-neon > .card { flex: 1; min-width: 0; }
+.neon.tarjeta-neon { border-radius: calc(var(--radius-lg) + var(--neon-grosor)); }
+.tarjeta-neon-aviso {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 2px;
+  font-size: var(--text-xs); font-weight: 650;
+  color: var(--color-danger);
+}
+
+
+/* --- Insignias que piden atención ---
+   Sólo lo vencido late: un anillo sale del punto y se apaga. Si latiera
+   todo, no avisaría nada. */
+@keyframes puntoAvisa {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 0%, transparent); }
+}
+.badge-vencida .badge-dot,
+.badge.es-urgente .badge-dot,
+.tarjeta-neon-aviso .badge-dot,
+.meta-alerta-punto {
+  animation: puntoAvisa 2.2s ease-out infinite;
+}
+/* El punto rojo dentro de la alerta ya filtrando: no hace falta que siga
+   llamando, ya se está mirando. */
+.meta-alerta[aria-pressed="true"] .meta-alerta-punto { animation: none; }
+.badge.es-urgente { display: inline-flex; align-items: center; gap: 5px; }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-vencida .badge-dot,
+  .badge.es-urgente .badge-dot,
+  .tarjeta-neon-aviso .badge-dot,
+  .meta-alerta-punto,
+  .vacio-aro,
+  .vacio-chispa,
+  .vacio-dibujo .table-empty-icon { animation: none !important; }
+  /* Quietas pero visibles: el dibujo no debe quedarse a medias. */
+  .vacio-chispa { opacity: 0.6; transform: rotate(45deg); }
+  .pantalla-lista .tabla-tarjetas tbody tr:not(.fila-vacia):active { transform: none; }
+}
+
+@media print {
+  .vacio-dibujo { display: none; }
+}

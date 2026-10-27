@@ -7,7 +7,7 @@ import {
   ArrowDownLeft, ArrowUpRight, Calendar, Users,
   CheckCircle2, Clock, AlertCircle, Plus, Search, Filter,
   FileText, CreditCard, Euro, Download, Printer, RefreshCw,
-  Trash2, ChevronRight, AlertTriangle
+  Trash2, ChevronRight, X
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -324,10 +324,13 @@ function TesoreriaPageContenido() {
   const pagCobros = usePaginacion(cobrosLista, { clave: 'tesoreria-cobros', reinicio: '' });
   const pagPagos = usePaginacion(pagosLista, { clave: 'tesoreria-pagos', reinicio: '' });
 
+  // Las que ya han pasado su fecha: es lo que hay que mirar primero.
+  const numVencidas = vencimientos.filter(v => v.vencida).length;
+
   if (!mounted || loading) return <PageSkeleton />;
 
   return (
-    <div className="page-container">
+    <div className="page-container pantalla-lista">
       {/* Header */}
       <div className="page-header">
         <div className="page-header-left">
@@ -336,9 +339,11 @@ function TesoreriaPageContenido() {
         </div>
 
         <div className="page-header-actions">
-          <button className="btn btn-primary" onClick={() => handleOpenCreatePaymentModal('cobro')}>
-            <ArrowDownLeft size={16} /> Registrar Cobro (Cliente)
-          </button>
+          <span className="neon accion-neon">
+            <button className="btn btn-primary" onClick={() => handleOpenCreatePaymentModal('cobro')}>
+              <ArrowDownLeft size={16} /> Registrar Cobro (Cliente)
+            </button>
+          </span>
           <button className="btn btn-outline" onClick={() => handleOpenCreatePaymentModal('pago')}>
             <ArrowUpRight size={16} /> Registrar Pago (Proveedor)
           </button>
@@ -367,13 +372,24 @@ function TesoreriaPageContenido() {
           </div>
         </div>
 
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Facturas vencidas o pendientes</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{vencimientos.length} facturas</div>
+        {/* Si hay alguna ya vencida, esta tarjeta lleva la luz roja: es lo
+            que hay que atender antes que nada. La luz va en un envoltorio
+            para que el halo quede por fuera y no tiña las cifras. */}
+        <div className={numVencidas > 0 ? 'neon neon--peligro neon--lento tarjeta-neon' : 'tarjeta-neon'}>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-md)', background: numVencidas > 0 ? 'var(--color-danger-bg)' : 'var(--bg-tertiary)', color: numVencidas > 0 ? 'var(--color-danger)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Facturas vencidas o pendientes</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{vencimientos.length} facturas</div>
+              {numVencidas > 0 && (
+                <div className="tarjeta-neon-aviso">
+                  <span className="badge-dot" aria-hidden="true" />
+                  {numVencidas} {numVencidas === 1 ? 'ya vencida' : 'ya vencidas'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -478,6 +494,11 @@ function TesoreriaPageContenido() {
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button type="button" className="search-clear" onClick={() => setSearchTerm('')} aria-label="Borrar la búsqueda" title="Borrar">
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -531,8 +552,8 @@ function TesoreriaPageContenido() {
                       <td>{formatDate(v.invoice.dueDate || v.invoice.issueDate)}</td>
                       <td>
                         {v.vencida ? (
-                          <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AlertTriangle size={12} /> Vencida hace {Math.abs(v.diffDays)}d
+                          <span className="badge badge-danger es-urgente">
+                            <span className="badge-dot" /> Vencida hace {Math.abs(v.diffDays)}d
                           </span>
                         ) : v.diffDays === 0 ? (
                           <span className="badge badge-warning">Vence Hoy</span>

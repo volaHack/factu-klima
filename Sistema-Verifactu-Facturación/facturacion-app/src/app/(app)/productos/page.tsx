@@ -519,7 +519,7 @@ function ProductosPageContenido() {
   const totalInventoryValue = products.reduce((sum, p) => sum + valorStock(p), 0);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pantalla-lista">
       {/* Header */}
       <div className="page-header">
         <div className="page-header-left">
@@ -557,9 +557,11 @@ function ProductosPageContenido() {
           <Link href="/importar" className="btn btn-secondary" title="Traer productos desde otro programa (Excel o CSV)">
             <Upload size={16} /> Importar
           </Link>
-          <button className="btn btn-primary" onClick={openCreateProduct}>
-            <Plus size={16} /> Nuevo producto
-          </button>
+          <span className="neon accion-neon">
+            <button className="btn btn-primary" onClick={openCreateProduct}>
+              <Plus size={16} /> Nuevo producto
+            </button>
+          </span>
         </div>
       </div>
 
@@ -595,6 +597,11 @@ function ProductosPageContenido() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
+              {search && (
+                <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             <div className="cluster-sm" style={{ flexWrap: 'wrap' }}>

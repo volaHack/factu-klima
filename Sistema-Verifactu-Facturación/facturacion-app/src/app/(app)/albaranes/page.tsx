@@ -228,7 +228,7 @@ export default function AlbaranesPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pantalla-lista">
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
@@ -255,10 +255,12 @@ export default function AlbaranesPage() {
           )}
         </div>
         <div className="page-header-actions">
-          <Link href="/albaranes/nueva" className="btn btn-primary">
-            <Plus size={16} />
-            Nuevo albarán
-          </Link>
+          <span className="neon accion-neon">
+            <Link href="/albaranes/nueva" className="btn btn-primary">
+              <Plus size={16} />
+              Nuevo albarán
+            </Link>
+          </span>
         </div>
       </div>
 
@@ -286,6 +288,11 @@ export default function AlbaranesPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label="Borrar la búsqueda" title="Borrar">
+              <X size={14} />
+            </button>
+          )}
         </div>
         <div className="cluster-sm">
           <Filter size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
