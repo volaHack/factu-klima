@@ -41,6 +41,12 @@ import { comparativaMes, plural, tareasDeHoy, type EntradaHoy, type TareaHoy } f
 import { avisoRegimen } from '@/lib/regimenFiscal';
 import { getFacturasElectronicas } from '@/lib/facturaElectronica/almacen';
 import type { FeResumen } from '@/lib/facturaElectronica/estados';
+import DeudoresHoy from '@/components/dashboard/DeudoresHoy';
+import ClientesFrios from '@/components/dashboard/ClientesFrios';
+import ObjetivoMes from '@/components/dashboard/ObjetivoMes';
+import { deudoresDe } from '@/lib/reclamar';
+import { clientesFrios } from '@/lib/clientesFrios';
+import { objetivoPropuesto } from '@/lib/objetivoMes';
 
 /** Lo que cada ficha necesita leer además de facturas, clientes y productos. */
 interface Extras {
@@ -291,6 +297,13 @@ export default function DashboardPage() {
   );
   const { accent: acentoGrafica } = useColoresGrafica();
 
+  // El asesor: a quién reclamar hoy, quién ha dejado de pedir y qué meta
+  // proponer. Todo sale de los documentos que ya se han leído.
+  const fichas = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
+  const deudores = useMemo(() => deudoresDe(invoices, hoyIso()), [invoices]);
+  const frios = useMemo(() => clientesFrios(extras.documentos, clients, hoyIso()), [extras.documentos, clients]);
+  const propuesto = useMemo(() => objetivoPropuesto(invoices, hoyIso()), [invoices]);
+
   const sectorInfo = BUSINESS_SECTORS.find(s => s.value === settings?.sector) || BUSINESS_SECTORS[0];
 
   /**
@@ -324,6 +337,7 @@ export default function DashboardPage() {
   })() : tareasDelDia;
 
   const planCheck = evaluatePlanLimit(settings, invoices);
+  const remitente = { nombre: settings?.tradeName || settings?.businessName || '', email: settings?.email, telefono: settings?.phone, iban: settings?.iban };
 
   if (!mounted) {
     return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
@@ -737,7 +751,11 @@ export default function DashboardPage() {
         <EstadoCuentas cifras={cifras.map(datoCifra).filter((c): c is CifraPanel => c !== null)} />
 
         {/* 2. ¿Qué requiere mi atención? */}
-        <ParaHoy tareas={tareas} sinDocumentos={extras.documentos.length === 0} />
+        <ParaHoy
+          tareas={tareas}
+          sinDocumentos={extras.documentos.length === 0}
+          debajo={{ vencidas: <DeudoresHoy deudores={deudores} clientes={fichas} remitente={remitente} /> }}
+        />
 
         {/* 3. ¿Qué puedo hacer ahora? */}
         <AccesosPanel
@@ -747,6 +765,12 @@ export default function DashboardPage() {
           productosActivos={kpis.activeProducts}
           estadoAeat={conAeat ? <VerifactuStatus /> : undefined}
         />
+
+        {/* 4. ¿Llego a fin de mes, y a quién no he vuelto a ver? */}
+        <div className="asesor-pareja">
+          <ObjetivoMes facturado={mes.total} propuesto={propuesto} hoy={hoy} />
+          <ClientesFrios frios={frios} clientes={fichas} remitente={remitente.nombre} />
+        </div>
 
         {/* El resto, en el orden elegido: las grandes a todo el ancho de la
             columna y las medianas en dos por turnos (ver `colocar`). */}

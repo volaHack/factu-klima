@@ -26,6 +26,13 @@ import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import { casaTexto } from '@/lib/casaTexto';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
+import dynamic from 'next/dynamic';
+
+// La previsión trae la gráfica de Nivo: se carga aparte, con la pantalla ya pintada.
+const PrevisionTesoreria = dynamic(() => import('./PrevisionTesoreria'), {
+  ssr: false,
+  loading: () => <div className="prevision prevision--cargando" aria-busy="true" />,
+});
 
 type Tab = 'vencimientos' | 'cobros' | 'pagos' | 'extractos';
 
@@ -393,6 +400,9 @@ function TesoreriaPageContenido() {
           </div>
         </div>
       </div>
+
+      {/* Cuándo va a entrar lo que está por cobrar */}
+      <PrevisionTesoreria invoices={invoices} />
 
       {/* Tabs */}
       <div className="tabs" style={{ display: 'flex', gap: 'var(--space-2)', borderBottom: '1px solid var(--border-color)', marginBottom: 'var(--space-4)' }}>

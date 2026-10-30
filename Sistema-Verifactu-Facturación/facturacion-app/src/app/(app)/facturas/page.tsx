@@ -30,6 +30,7 @@ import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
+import CobroEnLote, { type ResultadoLote } from '@/components/cobros/CobroEnLote';
 type SortField = 'number' | 'clientName' | 'issueDate' | 'dueDate' | 'total' | 'status';
 
 export default function FacturasPage() {
@@ -50,6 +51,8 @@ export default function FacturasPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  /** Las facturas que se están cobrando en el diálogo, si está abierto. */
+  const [cobrando, setCobrando] = useState<Set<string> | null>(null);
   const [tpvActivo, setTpvActivo] = useState(false);
   const { success, error: toastError } = useToast();
   const { rejections } = useOnlineStatus();
@@ -281,23 +284,11 @@ export default function FacturasPage() {
     }
   };
 
-  const handleMarkPaid = async (id: string) => {
-    const inv = invoices.find(i => i.id === id);
+  // Cobrar, una o varias: el mismo diálogo, con fecha y forma de pago, y
+  // por la vía del cobro de tesorería (ver CobroEnLote).
+  const handleMarkPaid = (id: string) => {
     setActionMenuId(null);
-    if (!inv) return;
-
-    try {
-      await saveInvoice({
-        ...inv,
-        status: InvoiceStatus.PAGADA,
-        paidDate: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString(),
-      });
-      await reload();
-      success('Factura marcada como pagada', inv.number);
-    } catch (err) {
-      toastError('No se pudo actualizar', err instanceof Error ? err.message : 'Error desconocido');
-    }
+    setCobrando(new Set([id]));
   };
 
   const handleDuplicate = async (id: string) => {
@@ -339,40 +330,20 @@ export default function FacturasPage() {
     setDeleteTargetInvoice(inv);
   };
 
-  const handleBulkPaid = async () => {
-    let updated = 0;
-    const failures: string[] = [];
-
-    for (const id of selectedIds) {
-      const inv = invoices.find(i => i.id === id);
-      if (!inv) continue;
-      if (inv.status === InvoiceStatus.PAGADA || inv.status === InvoiceStatus.ANULADA) continue;
-
-      try {
-        await saveInvoice({
-          ...inv,
-          status: InvoiceStatus.PAGADA,
-          paidDate: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString(),
-        });
-        updated += 1;
-      } catch {
-        failures.push(inv.number);
-      }
-    }
-
+  const alCobrar = async ({ cobradas, fallidas }: ResultadoLote) => {
+    const eranVarias = (cobrando?.size ?? 0) > 1;
+    setCobrando(null);
     await reload();
-    setSelectedIds(new Set());
-
+    if (eranVarias) setSelectedIds(new Set());
     // Informe honesto: si alguna falla, se dice cuál en vez de cantar
     // un éxito global que no ha ocurrido.
-    if (failures.length > 0) {
+    if (fallidas.length > 0) {
       toastError(
-        `${updated} actualizadas, ${failures.length} rechazadas`,
-        `No se pudieron marcar: ${failures.join(', ')}`
+        `${cobradas} cobradas, ${fallidas.length} sin apuntar`,
+        `No se pudieron cobrar: ${fallidas.join(', ')}`
       );
     } else {
-      success('Facturas actualizadas', `${updated} marcadas como pagadas`);
+      success(cobradas === 1 ? 'Factura cobrada' : 'Facturas cobradas', `${cobradas} ${cobradas === 1 ? 'apuntada' : 'apuntadas'} en Tesorería`);
     }
   };
 
@@ -626,8 +597,8 @@ export default function FacturasPage() {
           <span className="bulk-bar-count">
             {selectedIds.size} {selectedIds.size === 1 ? 'factura seleccionada' : 'facturas seleccionadas'}
           </span>
-          <button className="btn btn-sm btn-secondary" onClick={handleBulkPaid}>
-            <CheckCircle size={14} /> Marcar como pagadas
+          <button className="btn btn-sm btn-secondary" onClick={() => setCobrando(new Set(selectedIds))}>
+            <CheckCircle size={14} /> Marcar como cobradas
           </button>
           <button className="btn btn-sm btn-secondary">
             <Download size={14} /> Exportar
@@ -809,7 +780,7 @@ export default function FacturasPage() {
                       <button className="action-menu-item" role="menuitem" onClick={() => handleDuplicate(inv.id)}>
                         <Copy /> Duplicar como borrador
                       </button>
-                      {(inv.status === InvoiceStatus.PENDIENTE || inv.status === InvoiceStatus.EMITIDA || inv.status === InvoiceStatus.VENCIDA) && (
+                      {(inv.status === InvoiceStatus.PENDIENTE || inv.status === InvoiceStatus.EMITIDA || inv.status === InvoiceStatus.VENCIDA || inv.status === InvoiceStatus.PARCIAL) && (
                         <button className="action-menu-item" role="menuitem" onClick={() => handleMarkPaid(inv.id)}>
                           <CheckCircle /> Marcar como cobrada
                         </button>
@@ -859,6 +830,10 @@ export default function FacturasPage() {
 
         <Paginacion paginado={paginado} etiqueta="facturas" />
       </div>
+
+      {cobrando && (
+        <CobroEnLote facturas={invoices} ids={cobrando} onCerrar={() => setCobrando(null)} onHecho={r => void alCobrar(r)} />
+      )}
 
       {deleteTargetInvoice && (
         <DeleteInvoiceModal

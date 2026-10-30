@@ -1,0 +1,252 @@
+/* Estilos del asesor: cobrar y aconsejar.
+
+   ============================================================
+   LO QUE EL PROGRAMA TE AVISA, TE PREVÉ Y TE DEJA HECHO
+   ------------------------------------------------------------
+   El semáforo y el perfil de pago de cada cliente (ficha y documento),
+   la reclamación escrita, la previsión de tesorería, el cobro en lote,
+   el objetivo del mes y los clientes que se enfrían.
+
+   Todo con los tokens de globals.css, así que el modo oscuro sale solo;
+   lo único con color propio son los dos tonos de la previsión, que tienen
+   que ser los mismos que pinta la gráfica (STATUS de charts/theme.ts).
+   Nada de luz de neón: esto informa, no llama la atención.
+
+   En el móvil (390 px) cada fila se parte en dos líneas antes que
+   desbordar; las cifras no se cortan nunca (`white-space: nowrap`), los
+   nombres sí.
+   ============================================================ */
+
+:root {
+  --prevision-seguro: #17876f;
+  --prevision-probable: #3570c8;
+}
+
+/* --- Semáforo: luz + nombre, nunca sólo el color --- */
+.semaforo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px 2px 6px; border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: 600; white-space: nowrap;
+  background: var(--color-success-bg); color: var(--color-success);
+}
+.semaforo-luz {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: currentColor;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.semaforo.is-ambar { background: var(--color-warning-bg); color: var(--color-warning); }
+.semaforo.is-rojo { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* --- La línea de la tarjeta del cliente elegido --- */
+.linea-cobro {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  margin-bottom: 6px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.linea-cobro-texto { font-weight: 600; color: var(--text-primary); }
+.linea-cobro.is-rojo .linea-cobro-texto { color: var(--color-danger); }
+.linea-cobro-perfil { color: var(--text-tertiary); }
+
+.perfil-tendencia {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary);
+}
+.perfil-tendencia.is-empeora { color: var(--color-danger); }
+.perfil-tendencia.is-mejora { color: var(--color-success); }
+
+/* --- La tarjeta de la ficha --- */
+.tarjeta-cobro {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-lg);
+}
+.tarjeta-cobro.is-ambar { border-left-color: var(--color-warning); }
+.tarjeta-cobro.is-rojo { border-left-color: var(--color-danger); }
+.tarjeta-cobro-cabeza { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+.tarjeta-cobro-titulo { margin: 0; font-size: var(--text-md); font-weight: 650; color: var(--text-primary); }
+.tarjeta-cobro-deuda {
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: var(--text-lg); font-weight: 650; letter-spacing: var(--tracking-tight);
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+.tarjeta-cobro.is-rojo .tarjeta-cobro-deuda { color: var(--color-danger); }
+.tarjeta-cobro-perfil {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  gap: var(--space-2) var(--space-4); margin: 0 0 var(--space-3);
+}
+.tarjeta-cobro-perfil dt { font-size: var(--text-xs); color: var(--text-tertiary); }
+.tarjeta-cobro-perfil dd { margin: 2px 0 0; font-size: var(--text-base); font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.tarjeta-cobro-nota { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--text-tertiary); }
+.tarjeta-cobro-acciones { margin-top: var(--space-3); display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* --- Reclamar --- */
+.reclamar { max-width: 620px; }
+.reclamar-resumen { margin: 0 0 var(--space-4); color: var(--text-secondary); }
+.reclamar-resumen strong { color: var(--text-primary); }
+.reclamar-opciones { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+.reclamar-opciones .segmentos { max-width: 100%; overflow-x: auto; }
+.reclamar-sugerido { font-weight: 400; color: var(--text-tertiary); }
+.reclamar-asunto { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--text-primary); overflow-wrap: anywhere; }
+.reclamar-asunto span { color: var(--text-tertiary); }
+.reclamar-texto { width: 100%; font-family: var(--font-family); font-size: var(--text-sm); line-height: 1.5; resize: vertical; }
+.reclamar-acciones { flex-wrap: wrap; }
+
+/* --- A quién reclamar, bajo «Para hoy» --- */
+.deudores-hoy {
+  margin: 0; padding: 0 var(--hoja-pad, var(--space-5)) var(--space-3) calc(var(--hoja-pad, var(--space-5)) + 42px);
+  list-style: none;
+}
+.deudores-hoy-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: 8px 0; border-top: 1px dashed var(--border-subtle);
+}
+.deudores-hoy-quien { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.deudores-hoy-quien a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deudores-hoy-quien a:hover { text-decoration: underline; }
+.deudores-hoy-detalle { font-size: var(--text-xs); font-weight: 400; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.deudores-hoy-fila .btn { flex-shrink: 0; }
+.deudores-hoy-mas { padding: 6px 0 0; font-size: var(--text-xs); }
+.deudores-hoy-mas a { color: var(--accent-500); }
+
+/* --- Hojas del asesor en el panel: objetivo y clientes fríos --- */
+.asesor-pareja {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: var(--space-4); align-items: start;
+}
+.asesor-pareja:empty { display: none; }
+.asesor-hoja {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+.asesor-hoja-cabeza { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-3); }
+.asesor-hoja-cabeza > div { flex: 1; min-width: 0; }
+.asesor-hoja-icono {
+  width: 30px; height: 30px; border-radius: var(--radius-md); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-50); color: var(--accent-500);
+}
+.asesor-hoja-titulo { margin: 0; font-size: var(--text-md); font-weight: 650; color: var(--text-primary); text-transform: none; }
+.asesor-hoja-sub { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+/* Objetivo del mes */
+.objetivo-barra {
+  position: relative; height: 10px; border-radius: var(--radius-full);
+  background: var(--bg-tertiary); overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.objetivo-barra > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; transition: width var(--transition-slow); }
+.objetivo-barra-proyeccion { background: var(--accent-200); opacity: 0.55; }
+.objetivo-barra-hecho { background: var(--accent-500); }
+.objetivo-barra.llega .objetivo-barra-hecho { background: var(--color-success); }
+.objetivo-barra.llega .objetivo-barra-proyeccion { background: var(--color-success-bg); opacity: 1; }
+.objetivo-texto { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.objetivo-texto.llega, .objetivo-texto.cumplido { color: var(--color-success); font-weight: 600; }
+.objetivo-propuesta p { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+.objetivo-propuesta strong { color: var(--text-primary); }
+.objetivo-propuesta-acciones, .objetivo-form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.objetivo-campo { position: relative; flex: 1 1 140px; min-width: 0; }
+.objetivo-campo .form-input { width: 100%; padding-right: 28px; font-variant-numeric: tabular-nums; }
+.objetivo-campo > span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none; }
+.objetivo-editar { margin-left: auto; }
+
+/* Clientes que se enfrían */
+.clientes-frios-lista { margin: 0; padding: 0; list-style: none; }
+.clientes-frios-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: 10px 0; border-top: 1px solid var(--border-subtle);
+}
+.clientes-frios-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.clientes-frios-nombre { font-size: var(--text-base); font-weight: 600; color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clientes-frios-nombre:hover { text-decoration: underline; }
+.clientes-frios-detalle { font-size: var(--text-xs); color: var(--text-tertiary); }
+.clientes-frios-acciones { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+
+/* --- Previsión de tesorería --- */
+.prevision {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+.prevision--cargando { min-height: 260px; }
+.prevision-titulo { margin: 0; font-size: var(--text-lg); font-weight: 650; color: var(--text-primary); }
+.prevision-sub { margin: 2px 0 var(--space-3); font-size: var(--text-sm); color: var(--text-tertiary); }
+.prevision-vacio { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-success); }
+.prevision-resumen { margin: 0 0 var(--space-4); color: var(--text-secondary); }
+.prevision-resumen strong { color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prevision-resumen .prevision-riesgo-cifra { color: var(--color-danger); }
+.prevision-tramos {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: var(--space-3); margin: 0 0 var(--space-4); padding: 0; list-style: none;
+}
+.prevision-tramo {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+.prevision-tramo-etiqueta { font-size: var(--text-xs); font-weight: 600; color: var(--text-tertiary); }
+.prevision-tramo-total { font-size: var(--text-xl); font-weight: 650; letter-spacing: var(--tracking-tight); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.prevision-tramo-detalle { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.prevision-punto { width: 8px; height: 8px; border-radius: 2px; background: var(--prevision-seguro); }
+.prevision-punto.is-probable { background: var(--prevision-probable); margin-left: 4px; }
+.prevision .chart-card { margin: 0; }
+.prevision-riesgo { margin-top: var(--space-4); }
+.prevision-riesgo-titulo {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 var(--space-2);
+  font-size: var(--text-base); font-weight: 650; color: var(--color-danger);
+}
+.prevision-riesgo-lista { margin: 0; padding: 0; list-style: none; }
+.prevision-riesgo-lista > li { border-top: 1px solid var(--border-subtle); }
+.prevision-riesgo-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: 8px 4px; color: inherit; text-decoration: none; border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+.prevision-riesgo-fila:hover { background: var(--bg-card-hover); }
+.prevision-riesgo-fila:focus-visible { outline: 2px solid var(--accent-500); outline-offset: -2px; }
+.prevision-riesgo-quien { display: flex; flex-direction: column; min-width: 0; font-size: var(--text-sm); color: var(--text-secondary); overflow-wrap: anywhere; }
+.prevision-riesgo-quien strong { color: var(--text-primary); }
+.prevision-riesgo-motivo { font-size: var(--text-xs); color: var(--text-tertiary); }
+.prevision-riesgo-importe { font-weight: 650; color: var(--color-danger); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.prevision-riesgo-mas { display: inline-block; margin-top: var(--space-2); font-size: var(--text-sm); color: var(--accent-500); }
+.prevision-nota { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-tertiary); }
+
+/* --- Cobro en lote --- */
+.cobro-lote-resumen {
+  margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); background: var(--color-success-bg);
+  color: var(--text-primary); font-size: var(--text-md); font-variant-numeric: tabular-nums;
+}
+.cobro-lote-grupos { margin: 0 0 var(--space-3); padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
+.cobro-lote-grupos li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3);
+  padding: 8px 0; border-top: 1px solid var(--border-subtle);
+}
+.cobro-lote-cliente { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cobro-lote-importe { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cobro-lote-facturas { font-size: var(--text-xs); color: var(--text-tertiary); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.cobro-lote-fuera { color: var(--color-warning); }
+
+/* --- Móvil --- */
+@media (max-width: 640px) {
+  .tarjeta-cobro, .asesor-hoja, .prevision { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .deudores-hoy { padding-left: var(--hoja-pad, var(--space-4)); }
+  .deudores-hoy-fila, .clientes-frios-fila { flex-wrap: wrap; }
+  .clientes-frios-texto { flex: 1 1 100%; }
+  .clientes-frios-acciones { margin-left: auto; }
+  .reclamar-acciones > .btn { flex: 1 1 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .objetivo-barra > span, .prevision-riesgo-fila { transition: none; }
+}
