@@ -28,6 +28,9 @@ import { NOMBRE_ORIGEN, origenDelHistorico, topHistorico, type FilaTopHistorico,
 import { TIPOS_RANKING, esDeCompra, rankingDeKlima, rankingDelHistorico } from '@/lib/rankingTerceros';
 
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
+import { programarBorrado, ESPERA_DESHACER_MS } from '@/lib/borradoDiferido';
+import { olvidarFicha } from '@/lib/memoriaFichas';
+import { usePerfiles } from '@/lib/perfilesCliente';
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
   const limpio = {
@@ -55,7 +58,10 @@ function ClientesPageContenido() {
   const [origenTop, setOrigenTop] = useState<string>('klima');
   const [origenHistorico, setOrigenHistorico] = useState<string | null>(null);
   const [topDelHistorico, setTopDelHistorico] = useState<{ tipo: TipoHistorico; filas: FilaTopHistorico[] } | null>(null);
-  const { success, error: toastError } = useToast();
+  const { success, error: toastError, addToast } = useToast();
+  const { cuenta } = usePerfiles();
+  // Lo borrado que aún se puede deshacer: no se pinta, pero no se ha tocado.
+  const [ocultos, setOcultos] = useState<Set<string>>(() => new Set());
 
   // Form state
   const [form, setForm] = useState({
@@ -148,7 +154,7 @@ function ClientesPageContenido() {
   }, [clients, invoices]);
 
   const filtered = useMemo(() => {
-    let list = [...clients];
+    let list = clients.filter(c => !ocultos.has(c.id));
     if (tipoContactoFilter === 'clientes') list = list.filter(c => !c.esProveedor);
     if (tipoContactoFilter === 'proveedores') list = list.filter(c => c.esProveedor);
 
@@ -181,7 +187,7 @@ function ClientesPageContenido() {
     });
 
     return list;
-  }, [clients, search, tipoContactoFilter, clientStats, sortField, sortDir]);
+  }, [clients, ocultos, search, tipoContactoFilter, clientStats, sortField, sortDir]);
 
   // Por páginas: con cientos de fichas la tabla entera se hacía eterna.
   const paginado = usePaginacion(filtered, {
@@ -322,12 +328,31 @@ function ClientesPageContenido() {
     }
   };
 
-  const handleDelete = async (client: Client) => {
-    if (confirm(`¿Eliminar el cliente "${client.tradeName || client.businessName}"?`)) {
+  // Sin «¿seguro?»: la ficha sale de la lista y el aviso ofrece deshacer
+  // unos segundos; el borrado de verdad espera a que pasen
+  // (lib/borradoDiferido). Sus facturas no se tocan nunca.
+  const handleDelete = (client: Client) => {
+    const nombre = client.tradeName || client.businessName;
+    const volverAPintar = () => setOcultos(prev => { const s = new Set(prev); s.delete(client.id); return s; });
+    setOcultos(prev => new Set(prev).add(client.id));
+    const borrado = programarBorrado(`cliente:${client.id}`, async () => {
       await removeClient(client.id);
-      await reload();
-      success('Cliente eliminado', client.tradeName || client.businessName);
-    }
+      olvidarFicha(cuenta, `cliente:${client.id}`);
+    }, {
+      alTerminar: () => { void reload().then(volverAPintar); },
+      alFallar: e => {
+        volverAPintar();
+        toastError('No se ha podido eliminar', `${nombre}: ${e instanceof Error ? e.message : 'error desconocido'}`);
+      },
+    });
+    const facturas = clientStats.get(client.id)?.count ?? 0;
+    addToast({
+      type: 'info',
+      title: client.esProveedor ? 'Proveedor eliminado' : 'Cliente eliminado',
+      message: facturas > 0 ? `${nombre}. Sus ${facturas} facturas se quedan como están.` : nombre,
+      duration: ESPERA_DESHACER_MS,
+      accion: { etiqueta: 'Deshacer', alPulsar: () => { if (borrado.deshacer()) volverAPintar(); } },
+    });
   };
 
   const updateForm = (field: string, value: unknown) => {

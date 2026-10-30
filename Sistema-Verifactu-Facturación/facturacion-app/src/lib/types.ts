@@ -1352,6 +1352,8 @@ export interface ToastMessage {
   title: string;
   message?: string;
   duration?: number;
+  /** Un botón dentro del aviso («Deshacer»). Al pulsarlo, el aviso se cierra. */
+  accion?: { etiqueta: string; alPulsar: () => void };
 }
 
 // --- Order Pre-Approval System ---
