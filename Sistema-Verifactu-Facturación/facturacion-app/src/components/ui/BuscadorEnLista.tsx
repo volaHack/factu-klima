@@ -121,6 +121,9 @@ export default function BuscadorEnLista<T>({
   };
 
   const alTeclear = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Con la lista cerrada, Alt+flechas es cambiar de línea en el editor de
+    // documentos (lib/atajos.ts): se deja pasar.
+    if (e.altKey && !abierto && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') movido.current = true;
     if (e.key === 'ArrowDown') {
       e.preventDefault();

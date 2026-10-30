@@ -24,6 +24,7 @@ import {
   lineaVacia, numeroDeDocumento, etiquetaTipo, actualizarContadorSerie, serieParaCliente,
 } from '@/lib/documentos';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import AtajosVencimiento from '@/components/documentos/AtajosVencimiento';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
@@ -407,9 +408,12 @@ function NuevoDocumentoContent() {
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
                 />
-                {selectedClient?.paymentDays ? (
-                  <p className="form-hint">A {selectedClient.paymentDays} días, como tiene puesto el cliente.</p>
-                ) : null}
+                <AtajosVencimiento
+                  emision={issueDate}
+                  vencimiento={dueDate}
+                  diasCliente={selectedClient?.paymentDays || null}
+                  onElegir={setDueDate}
+                />
               </div>
             )}
           </div>

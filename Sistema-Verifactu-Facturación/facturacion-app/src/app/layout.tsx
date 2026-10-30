@@ -4,6 +4,7 @@ import './estilos/panel.css';
 import './estilos/listas.css';
 import './estilos/formularios.css';
 import './estilos/asesor.css';
+import './estilos/rapidez.css';
 import type { Metadata, Viewport } from 'next';
 import RegistroErrores from '@/components/RegistroErrores';
 import AuthWrapper from '@/components/AuthWrapper';

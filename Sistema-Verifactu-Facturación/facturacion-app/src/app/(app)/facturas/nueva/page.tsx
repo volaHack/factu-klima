@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, Send, ArrowLeft } from 'lucide-react';
+import { Save, Send, ArrowLeft, Keyboard, RotateCcw, X } from 'lucide-react';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
 import { problemasDeLineas } from '@/lib/validation/lineas';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import {
   getClients, getProducts, getCompanySettings, saveInvoice, EMISION_SIN_CONEXION,
   saveCompanySettings, issueInvoice, getOnboardingStatus, getInvoices,
-  applyAbonoToInvoice
+  applyAbonoToInvoice, getCurrentUserId
 } from '@/lib/storage';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
@@ -40,6 +40,18 @@ import {
 } from '@/lib/plantillas/datos';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import ResumenFichaElegida from '@/components/clientes/ResumenFichaElegida';
+import AtajosVencimiento from '@/components/documentos/AtajosVencimiento';
+import ChuletaAtajos from '@/components/documentos/ChuletaAtajos';
+import RevisionAntesDeEmitir from '@/components/facturas/RevisionAntesDeEmitir';
+import { accionDelEditorEnEvento } from '@/lib/atajos';
+import { revisarAntesDeEmitir, type PuntoRevision } from '@/lib/revisionEmision';
+import {
+  almacenDelNavegador, borrarBorrador, guardarBorrador, leerBorrador, resumenBorrador,
+  VERSION_BORRADOR, type BorradorFactura,
+} from '@/lib/borradorLocal';
+
+/** Lo que se espera desde la última tecla antes de copiar la factura a medias. */
+const ESPERA_AUTOGUARDADO_MS = 800;
 
 function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
   return {
@@ -56,6 +68,18 @@ function createEmptyLine(settings?: CompanySettings | null): InvoiceLineItem {
     taxAmount: 0,
     total: 0,
   };
+}
+
+/** «hoy a las 10:32», «el 28 de octubre a las 18:05». */
+function cuandoSeGuardo(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const hoy = new Date();
+  if (d.toDateString() === hoy.toDateString()) return `hoy a las ${hora}`;
+  const ayer = new Date(hoy.getTime() - 86_400_000);
+  if (d.toDateString() === ayer.toDateString()) return `ayer a las ${hora}`;
+  return `el ${d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} a las ${hora}`;
 }
 
 export default function NuevaFacturaPage() {
@@ -89,6 +113,21 @@ export default function NuevaFacturaPage() {
   // si se factura con IVA o con IGIC y qué tipos se ofrecen.
   const [ajustes, setAjustes] = useState<CompanySettings | null>(null);
   const [datosExtras, setDatosExtras] = useState<Record<string, string>>({});
+
+  // La factura a medias de esta cuenta (lib/borradorLocal.ts). `cuenta` es
+  // el usuario de la sesión: sin él no se guarda nada.
+  const [cuenta, setCuenta] = useState<string | null>(null);
+  const [copiaPendiente, setCopiaPendiente] = useState<BorradorFactura | null>(null);
+  // Mientras no se decida qué hacer con la copia que había, no se escribe
+  // encima: la primera tecla la borraría antes de poder recuperarla.
+  const [copiaDecidida, setCopiaDecidida] = useState(false);
+  // Al guardar o emitir ya no hay nada a medias que copiar.
+  const terminada = useRef(false);
+  // Los documentos que ya hay, para el repaso antes de emitir (duplicadas y
+  // lo habitual del cliente).
+  const [anteriores, setAnteriores] = useState<Invoice[]>([]);
+  const [revision, setRevision] = useState<PuntoRevision[] | null>(null);
+  const [chuleta, setChuleta] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -125,6 +164,12 @@ export default function NuevaFacturaPage() {
       } catch {
         // Sin plantilla activa no hay campos manuales que mostrar.
       }
+      const usuario = await getCurrentUserId().catch(() => null);
+      const copia = leerBorrador(almacenDelNavegador(), usuario);
+      setCuenta(usuario);
+      setCopiaPendiente(copia);
+      setCopiaDecidida(!copia);
+      getInvoices().then(setAnteriores).catch(() => {});
       setMounted(true);
     })();
   }, []);
@@ -152,6 +197,71 @@ export default function NuevaFacturaPage() {
   );
 
   const selectedClient = clients.find(c => c.id === clientId);
+
+  /** Lo que se lleva escrito, tal cual se guarda en el equipo. */
+  const copiaActual = (): BorradorFactura => ({
+    version: VERSION_BORRADOR,
+    guardado: new Date().toISOString(),
+    clientId: clienteOcasional ? '' : clientId,
+    clienteNombre: selectedClient?.tradeName || selectedClient?.businessName || '',
+    clienteOcasional,
+    clienteManual,
+    issueDate,
+    dueDate,
+    paymentMethod,
+    notes,
+    globalDiscounts,
+    lineItems,
+    datosExtras,
+    cobradaAlEmitir,
+    total: totals.total,
+  });
+  const ultimaCopia = useRef(copiaActual);
+  useEffect(() => { ultimaCopia.current = copiaActual; });
+
+  // Se copia un poco después de la última tecla, no en cada una.
+  useEffect(() => {
+    if (!mounted || !copiaDecidida || !cuenta || terminada.current) return;
+    const reloj = window.setTimeout(() => guardarBorrador(almacenDelNavegador(), cuenta, ultimaCopia.current()), ESPERA_AUTOGUARDADO_MS);
+    return () => window.clearTimeout(reloj);
+  }, [mounted, copiaDecidida, cuenta, clientId, clienteOcasional, clienteManual, issueDate, dueDate,
+    paymentMethod, notes, globalDiscounts, lineItems, datosExtras, cobradaAlEmitir]);
+
+  // Y al irse (otra pantalla, cerrar la pestaña), lo último sin esperar.
+  useEffect(() => {
+    if (!mounted || !copiaDecidida || !cuenta) return;
+    const volcar = () => { if (!terminada.current) guardarBorrador(almacenDelNavegador(), cuenta, ultimaCopia.current()); };
+    window.addEventListener('pagehide', volcar);
+    return () => { window.removeEventListener('pagehide', volcar); volcar(); };
+  }, [mounted, copiaDecidida, cuenta]);
+
+  const recuperarCopia = () => {
+    const b = copiaPendiente;
+    if (!b) return;
+    // La ficha puede haberse dado de baja desde entonces.
+    const ficha = b.clientId ? clients.find(c => c.id === b.clientId) : undefined;
+    setClientId(ficha ? ficha.id : '');
+    setClienteOcasional(b.clienteOcasional);
+    setClienteManual(b.clienteManual);
+    setIssueDate(b.issueDate);
+    setDueDate(b.dueDate);
+    if (b.paymentMethod) setPaymentMethod(b.paymentMethod);
+    setNotes(b.notes);
+    setGlobalDiscounts(b.globalDiscounts);
+    setLineItems(b.lineItems.length ? b.lineItems : [createEmptyLine(ajustes)]);
+    setDatosExtras(b.datosExtras);
+    setCobradaAlEmitir(b.cobradaAlEmitir);
+    setCopiaPendiente(null);
+    setCopiaDecidida(true);
+    success('Factura recuperada', b.clientId && !ficha ? 'Ese cliente ya no está de alta: elige otro.' : 'Sigue donde lo dejaste.');
+  };
+
+  const descartarCopia = () => {
+    borrarBorrador(almacenDelNavegador(), cuenta);
+    setCopiaPendiente(null);
+    setCopiaDecidida(true);
+  };
+
 
   const handleSave = async (status: InvoiceStatus) => {
     const esOcasional = clienteOcasional;
@@ -289,6 +399,10 @@ export default function NuevaFacturaPage() {
         );
       }
 
+      // Ya está guardada en su sitio: la copia de la factura a medias sobra.
+      terminada.current = true;
+      borrarBorrador(almacenDelNavegador(), cuenta);
+
       await saveCompanySettings(settings);
 
       router.push('/facturas');
@@ -297,6 +411,8 @@ export default function NuevaFacturaPage() {
       // Sin conexión no se emite: ya está guardada como borrador en este
       // equipo. Se sale a la lista para no crear otro borrador al reintentar.
       if (mensaje.startsWith(EMISION_SIN_CONEXION)) {
+        terminada.current = true;
+        borrarBorrador(almacenDelNavegador(), cuenta);
         error('No emitida: no hay conexión', mensaje);
         router.push('/facturas');
         return;
@@ -306,6 +422,66 @@ export default function NuevaFacturaPage() {
       setSaving(false);
     }
   };
+
+  /**
+   * Emitir pasa antes por el repaso (lib/revisionEmision.ts): si hay algo
+   * raro se enseña y se elige; si no, se emite sin más ventanas. Lo que
+   * falta del todo (cliente, líneas) lo sigue diciendo `handleSave`.
+   */
+  const pedirEmision = () => {
+    if (saving) return;
+    const lineas = lineItems.filter(l => l.productId);
+    const sinCliente = clienteOcasional ? !clienteManual.nombre.trim() : !clientId;
+    if (sinCliente || lineas.length === 0) {
+      void handleSave(InvoiceStatus.EMITIDA);
+      return;
+    }
+    const ficha = clienteOcasional ? undefined : selectedClient;
+    const nif = clienteOcasional ? clienteManual.nif : ficha?.nif;
+    const puntos = revisarAntesDeEmitir({
+      lineas,
+      clienteId: ficha?.id ?? null,
+      clienteNombre: clienteOcasional ? clienteManual.nombre : (ficha?.tradeName || ficha?.businessName),
+      clienteNif: nif,
+      clienteDireccion: clienteOcasional ? clienteManual.direccion : ficha?.address,
+      clientePais: ficha?.country,
+      intracomunitaria: ficha ? esOperacionIntracomunitaria(ficha) : false,
+      simplificada: !nif?.trim() && !ficha?.vatNumber,
+      fechaEmision: issueDate,
+      fechaVencimiento: dueDate,
+      total: totals.total,
+      descuentosPie: globalDiscounts,
+    }, anteriores);
+    if (puntos.length > 0) setRevision(puntos);
+    else void handleSave(InvoiceStatus.EMITIDA);
+  };
+
+  // Ctrl+Intro, Ctrl+S y la chuleta (lib/atajos.ts). Alt+N y Alt+flechas los
+  // lleva el editor de líneas. Antes de emitir o guardar se suelta el foco:
+  // así una cuenta a medio escribir en una casilla se resuelve y entra.
+  const teclado = useRef({ emitir: pedirEmision, guardar: () => {} });
+  useEffect(() => {
+    teclado.current = {
+      emitir: pedirEmision,
+      guardar: () => { if (!saving) void handleSave(InvoiceStatus.BORRADOR); },
+    };
+  });
+  const alAtajo = useCallback((e: KeyboardEvent) => {
+    const accion = accionDelEditorEnEvento(e);
+    if (accion === 'chuleta') {
+      e.preventDefault();
+      setChuleta(true);
+      return;
+    }
+    if (accion !== 'emitir' && accion !== 'guardar') return;
+    e.preventDefault();
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.setTimeout(() => teclado.current[accion](), 0);
+  }, []);
+  useEffect(() => {
+    window.addEventListener('keydown', alAtajo);
+    return () => window.removeEventListener('keydown', alAtajo);
+  }, [alAtajo]);
 
   if (!mounted) {
     return <PageSkeleton variant="form" label="Preparando la factura" />;
@@ -327,22 +503,50 @@ export default function NuevaFacturaPage() {
         </div>
         <div className="page-header-actions">
           <button
+            type="button"
+            className="btn btn-ghost btn-sm boton-atajos"
+            onClick={() => setChuleta(true)}
+            aria-label="Atajos de teclado"
+            title="Atajos de teclado (?)"
+          >
+            <Keyboard size={16} aria-hidden />
+          </button>
+          <button
             className="btn btn-secondary"
             onClick={() => handleSave(InvoiceStatus.BORRADOR)}
             disabled={saving}
+            title="Guardar como borrador (Ctrl+S)"
           >
             <Save size={16} /> Guardar borrador
           </button>
           <button
             className="btn btn-primary neon neon--al-pasar"
-            onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+            onClick={pedirEmision}
             disabled={saving}
-            title="Al emitir, la factura se sella y no podrá modificarse"
+            title="Al emitir, la factura se sella y no podrá modificarse (Ctrl+Intro)"
           >
             <Send size={16} /> {saving ? 'Sellando…' : 'Emitir factura'}
           </button>
         </div>
       </div>
+
+      {copiaPendiente && (
+        <div className="factura-sin-terminar" role="status">
+          <RotateCcw size={18} aria-hidden className="factura-sin-terminar-icono" />
+          <p className="factura-sin-terminar-texto">
+            <strong>{resumenBorrador(copiaPendiente)}</strong>
+            <span>Guardada en este equipo {cuandoSeGuardo(copiaPendiente.guardado)}.</span>
+          </p>
+          <div className="factura-sin-terminar-acciones">
+            <button type="button" className="btn btn-primary btn-sm" onClick={recuperarCopia}>
+              <RotateCcw size={14} aria-hidden /> Recuperar
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={descartarCopia}>
+              <X size={14} aria-hidden /> Descartar
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: '900px' }}>
         <AvisoPlantillaDeOtroOficio oficioDeLaPlantilla={oficioDeLaPlantilla} sector={ajustes?.sector} />
@@ -389,6 +593,12 @@ export default function NuevaFacturaPage() {
                 className="form-input"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
+              />
+              <AtajosVencimiento
+                emision={issueDate}
+                vencimiento={dueDate}
+                diasCliente={clienteOcasional ? null : selectedClient?.paymentDays}
+                onElegir={setDueDate}
               />
             </div>
           </div>
@@ -516,7 +726,7 @@ export default function NuevaFacturaPage() {
             </button>
             <button
               className="btn btn-primary"
-              onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+              onClick={pedirEmision}
               disabled={saving}
             >
               <Send size={16} /> {saving ? 'Sellando…' : 'Emitir factura'}
@@ -524,6 +734,16 @@ export default function NuevaFacturaPage() {
           </div>
         </div>
       </div>
+
+      {revision && (
+        <RevisionAntesDeEmitir
+          puntos={revision}
+          onRevisar={() => setRevision(null)}
+          onEmitir={() => { setRevision(null); void handleSave(InvoiceStatus.EMITIDA); }}
+        />
+      )}
+
+      {chuleta && <ChuletaAtajos onCerrar={() => setChuleta(false)} />}
 
       {paywallState && (
         <SubscriptionPaywallModal
