@@ -227,7 +227,7 @@
   border-radius: var(--radius-md); background: var(--color-success-bg);
   color: var(--text-primary); font-size: var(--text-md); font-variant-numeric: tabular-nums;
 }
-.cobro-lote-grupos { margin: 0 0 var(--space-3); padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
+.cobro-lote-grupos { margin: var(--space-4) 0 var(--space-3); padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
 .cobro-lote-grupos li {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3);
   padding: 8px 0; border-top: 1px solid var(--border-subtle);

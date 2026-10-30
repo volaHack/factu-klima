@@ -19,7 +19,8 @@ import { formatCurrency } from '@/lib/utils';
 
 const CUANTOS = 4;
 
-export const enlaceFacturarA = (clienteId: string) => `/documentos/nuevo?tipo=factura&sentido=venta&clientId=${encodeURIComponent(clienteId)}`;
+/** La factura nueva de siempre, con el cliente ya elegido (lee `?cliente=`). */
+export const enlaceFacturarA = (clienteId: string) => `/facturas/nueva?cliente=${encodeURIComponent(clienteId)}`;
 
 export default function ClientesFrios({ frios, clientes, remitente }: {
   frios: readonly ClienteFrio[];

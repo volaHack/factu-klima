@@ -126,7 +126,7 @@ export default function PrevisionTesoreria({ invoices }: { invoices: Invoice[] }
                   <li key={c.facturaId}>
                     <Link href={`/facturas/${c.facturaId}`} className="prevision-riesgo-fila">
                       <span className="prevision-riesgo-quien">
-                        <strong>{c.cliente}</strong> · {c.numero}
+                        <span><strong>{c.cliente}</strong> · {c.numero}</span>
                         <span className="prevision-riesgo-motivo">{c.motivo}</span>
                       </span>
                       <span className="prevision-riesgo-importe">{formatCurrency(c.pendiente)}</span>
