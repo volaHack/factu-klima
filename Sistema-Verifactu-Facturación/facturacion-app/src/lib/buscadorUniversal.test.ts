@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- datos de prueba a medias */
 import { describe, it, expect } from 'vitest';
-import { buscarPantallas, buscarDocumentos, buscarFichas, buscarArticulos, enlaceDeDocumento } from './buscadorUniversal';
+import { buscarPantallas, buscarDocumentos, buscarFichas, buscarArticulos, enlaceDeDocumento, fichaDeResultado } from './buscadorUniversal';
 
 const docs = [
   { id: 'd1', number: 'F-2026-0012', tipo: 'factura', sentido: 'venta', clientName: 'Bar Pepe', clientNif: 'B12345678', issueDate: '2026-10-02', total: 1234.5, lineItems: [{ productName: 'Queso curado', productRef: 'Q1' }] },
@@ -38,5 +38,13 @@ describe('buscador universal', () => {
   it('los artículos abren su ficha', () => {
     const r = buscarArticulos([{ id: 'p1', ref: 'A1', name: 'Aceite', active: true, unitPrice: 5, unit: 'ud', stockQuantity: 3 }] as any, 'aceite');
     expect(r[0]).toMatchObject({ href: '/productos?editar=p1', titulo: '[A1] Aceite' });
+  });
+
+  it('lo que se abre se recuerda con la misma clave que pone el menú lateral; crear, no', () => {
+    expect(fichaDeResultado(buscarDocumentos(docs, '0012')[0])).toMatchObject({ clave: 'factura:d1', tipo: 'factura', href: '/facturas/d1' });
+    expect(fichaDeResultado(buscarDocumentos(docs, 'aceite')[0])).toMatchObject({ clave: 'documento:d2', tipo: 'documento' });
+    expect(fichaDeResultado(buscarFichas(fichas, 'jaen')[0])).toMatchObject({ clave: 'cliente:c2', tipo: 'cliente' });
+    expect(fichaDeResultado({ clave: 'art:p1', grupo: 'articulo', titulo: 'A', href: '/productos?editar=p1' })).toMatchObject({ clave: 'producto:p1' });
+    expect(fichaDeResultado({ clave: 'nuevo:x', grupo: 'accion', titulo: 'Crear', href: '/facturas/nueva' })).toBeNull();
   });
 });

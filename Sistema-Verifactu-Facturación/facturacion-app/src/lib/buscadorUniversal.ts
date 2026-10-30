@@ -19,6 +19,7 @@
 import type { Client, Invoice, Product } from './types';
 import { buscarProductos, plano } from './buscarProductos';
 import { MENU, ACCESOS, type Hoja } from '@/components/layout/MenuPrincipal';
+import type { FichaRecordada, TipoFicha } from './memoriaFichas';
 
 export type GrupoResultado = 'accion' | 'pantalla' | 'documento' | 'ficha' | 'articulo' | 'historico';
 
@@ -173,22 +174,23 @@ export function buscarArticulos(productos: readonly Product[], texto: string, ma
   }));
 }
 
-// ---- Lo último abierto, como sugerencia con la caja vacía ----
+// ---- Lo que se abre desde aquí se recuerda (lib/memoriaFichas) ----
 
-const CLAVE_RECIENTES = 'klima-buscador-recientes';
-
-export function leerRecientes(): Resultado[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(CLAVE_RECIENTES) ?? '[]');
-    return Array.isArray(v) ? v.filter(r => r && typeof r.href === 'string' && typeof r.titulo === 'string').slice(0, 8) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function apuntarReciente(r: Resultado): void {
-  try {
-    const sigue = [r, ...leerRecientes().filter(x => x.clave !== r.clave)].slice(0, 8);
-    localStorage.setItem(CLAVE_RECIENTES, JSON.stringify(sigue));
-  } catch { /* sin almacenamiento: no se recuerda */ }
+/**
+ * La ficha que se recuerda de un resultado: documentos, clientes, artículos
+ * y pantallas. Crear algo nuevo no se recuerda: no hay nada a lo que volver.
+ */
+export function fichaDeResultado(r: Resultado): Omit<FichaRecordada, 'cuando'> | null {
+  const tipo: TipoFicha | null =
+    r.grupo === 'documento' ? (r.href.startsWith('/facturas/') ? 'factura' : 'documento')
+      : r.grupo === 'historico' ? 'documento'
+        : r.grupo === 'ficha' ? 'cliente'
+          : r.grupo === 'articulo' ? 'producto'
+            : r.grupo === 'pantalla' ? 'pantalla'
+              : null;
+  if (!tipo) return null;
+  // Las mismas claves que pone el menú lateral al abrir la ficha por su dirección.
+  const id = r.clave.slice(r.clave.indexOf(':') + 1);
+  const clave = tipo === 'pantalla' ? `pantalla:${r.href}` : `${tipo}:${id}`;
+  return { clave, tipo, titulo: r.titulo, detalle: r.detalle, href: r.href };
 }

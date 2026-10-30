@@ -142,6 +142,15 @@ export default function NuevaFacturaPage() {
       setPaymentMethod(settings.defaultPaymentMethod);
       setDueDate(addDays(getToday(), settings.defaultPaymentDays));
       setLineItems([createEmptyLine(settings)]);
+      // Desde el buscador («fra bar pepe») se llega con el cliente ya pedido
+      // en `?cliente=`. Se lee una vez al cargar; lo demás de la pantalla no cambia.
+      const pedido = new URLSearchParams(window.location.search).get('cliente');
+      const elegido = pedido ? c.find(cl => cl.id === pedido && cl.active) : undefined;
+      if (elegido) {
+        setClientId(elegido.id);
+        if (elegido.defaultPaymentMethod) setPaymentMethod(elegido.defaultPaymentMethod);
+        setDueDate(addDays(getToday(), elegido.paymentDays ?? settings.defaultPaymentDays));
+      }
       try {
         // Antes de leer el diseño, que siga al sector. Ajustes ya lo hace al
         // tocar el selector, pero eso no alcanza a quien cambió de gremio
