@@ -151,9 +151,11 @@ export interface AvisoLinea {
  *   · el stock (en una venta): cuánto hay y cuánto quedará con TODAS las
  *     líneas del documento de ese artículo. Se puede vender sin stock (queda
  *     en negativo, como pendiente), pero se avisa;
- *   · si se vende por debajo del coste;
  *   · si se ha quedado sin precio;
  *   · si el mismo artículo ya está en otra línea.
+ *
+ * Lo de vender por debajo del coste ya no va aquí: lo dice el margen de la
+ * línea (margen.ts), que además avisa antes, cuando el margen es muy bajo.
  */
 export function avisosDeLinea(
   linea: InvoiceLineItem,
@@ -165,7 +167,6 @@ export function avisosDeLinea(
   if (!linea.productId || !producto) return [];
   const avisos: AvisoLinea[] = [];
   const fmt = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
-  const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
   const otra = todas.findIndex((l, i) => i !== indice && l.productId === linea.productId);
   if (otra >= 0 && otra < indice) {
@@ -183,12 +184,6 @@ export function avisosDeLinea(
     avisos.push(quedara < 0
       ? { tipo: 'aviso', texto: `Stock ${fmt(stock)} ${producto.unit}: quedará en ${fmt(quedara)} (se puede vender igual; queda pendiente de entrar).` }
       : { tipo: 'info', texto: `Stock ${fmt(stock)} ${producto.unit} · quedarán ${fmt(quedara)}` });
-
-    const coste = costeDe(producto);
-    const neto = precioNetoDe(linea);
-    if (coste > 0 && linea.unitPrice > 0 && neto < coste) {
-      avisos.push({ tipo: 'aviso', texto: `Por debajo del coste: ${eur(neto)} la unidad y cuesta ${eur(coste)}.` });
-    }
   }
   return avisos;
 }

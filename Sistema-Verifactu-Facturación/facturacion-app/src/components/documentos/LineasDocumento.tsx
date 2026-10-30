@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw, Repeat, Check } from 'lucide-react';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw, Repeat, Check, TrendingDown } from 'lucide-react';
 import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice, Albaran } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
@@ -14,6 +14,11 @@ import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import TaxRateButtons from '@/components/ui/TaxRateButtons';
 import { getConfiguredTaxRates } from '@/lib/constants';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
+import { margenDeLinea, precioParaMargen, textoMargen, MARGEN_PROPUESTO } from '@/lib/margen';
+import { articulosHabituales, lineaDeHabitual, type ArticuloHabitual } from '@/lib/pedidoHabitual';
+import { accionDelEditorEnEvento } from '@/lib/atajos';
+import CampoNumerico from './CampoNumerico';
+import HabitualesCliente from './HabitualesCliente';
 
 /** Lo que dura la salida de una línea (`lineaSale` en estilos/formularios.css). */
 const SALIDA_LINEA_MS = 220;
@@ -54,6 +59,11 @@ interface LineasDocumentoProps {
   clienteId?: string | null;
   /** El documento que se edita, para no sugerir su propio precio. */
   documentoId?: string;
+  /**
+   * Alt+N para una línea nueva y Alt+↑/↓ para cambiar de línea (ver
+   * `accionDelEditor` en lib/atajos.ts). Encendido salvo que se diga.
+   */
+  conAtajos?: boolean;
 }
 
 export default function LineasDocumento({
@@ -70,6 +80,7 @@ export default function LineasDocumento({
   sentido = 'venta',
   clienteId,
   documentoId,
+  conAtajos = true,
 }: LineasDocumentoProps) {
   const [showExtraDiscounts, setShowExtraDiscounts] = useState(false);
   // Las palabras de este oficio. Un distribuidor cuenta bultos y unidades;
@@ -136,6 +147,15 @@ export default function LineasDocumento({
     () => habitualesDe(anteriores, clienteId, sentido, 10).map(id => products.find(p => p.id === id)).filter((p): p is Product => !!p),
     [anteriores, clienteId, sentido, products],
   );
+
+  // Y los mismos, a la vista y de un toque, con la cantidad y el precio de
+  // la última vez (pedidoHabitual.ts). Sólo lo que sigue de alta.
+  const masPedidos = React.useMemo(
+    () => articulosHabituales(anteriores, clienteId, sentido, { max: 8, excluirId: documentoId })
+      .filter(h => products.some(p => p.id === h.productId && p.active !== false)),
+    [anteriores, clienteId, sentido, documentoId, products],
+  );
+  const yaPuestos = new Set(lineItems.map(l => l.productId).filter(Boolean));
 
   /** Lo que se sugiere en la línea: lo último a esta ficha o, si no, lo último a cualquiera. */
   const sugerencia = (line: InvoiceLineItem): { p: PrecioAnterior; deEste: boolean } | null => {
@@ -214,6 +234,42 @@ export default function LineasDocumento({
     }
   };
 
+  /*
+   * Alt+N y Alt+↑/↓ (lib/atajos.ts). Al cambiar de línea el cursor va a la
+   * misma casilla de la otra línea: de la cantidad de la 2 a la cantidad
+   * de la 3, que es lo que se hace al repasar un pedido de arriba abajo.
+   */
+  const atajos = useRef({ addLine: () => {}, total: 0 });
+  useEffect(() => {
+    if (!conAtajos) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      const accion = accionDelEditorEnEvento(e);
+      const caja = contenedor.current;
+      if (!caja || (accion !== 'nueva-linea' && accion !== 'linea-anterior' && accion !== 'linea-siguiente')) return;
+      e.preventDefault();
+      if (accion === 'nueva-linea') {
+        focoPendiente.current = { linea: atajos.current.total, donde: 'producto' };
+        atajos.current.addLine();
+        return;
+      }
+      const activo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const ficha = activo?.closest<HTMLElement>('[data-linea]');
+      const fichas = [...caja.querySelectorAll<HTMLElement>('[data-linea]')];
+      if (!fichas.length) return;
+      const actual = ficha && caja.contains(ficha) ? fichas.indexOf(ficha) : -1;
+      const destino = actual < 0
+        ? (accion === 'linea-siguiente' ? 0 : fichas.length - 1)
+        : Math.min(fichas.length - 1, Math.max(0, actual + (accion === 'linea-siguiente' ? 1 : -1)));
+      const casillas = (f: HTMLElement) => [...f.querySelectorAll<HTMLInputElement>('input:not([type="checkbox"])')];
+      const posicion = ficha && activo instanceof HTMLInputElement ? casillas(ficha).indexOf(activo) : 0;
+      const objetivo = casillas(fichas[destino])[Math.max(0, posicion)] ?? casillas(fichas[destino])[0];
+      objetivo?.focus();
+      objetivo?.select?.();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [conAtajos]);
+
   const handleProductSelect = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
     const updated = [...lineItems];
@@ -287,6 +343,29 @@ export default function LineasDocumento({
     }
     onChange([...lineItems, recalcularLinea(nueva)]);
   };
+  useEffect(() => { atajos.current = { addLine, total: lineItems.length }; });
+
+  /**
+   * Un habitual a la factura: ocupa la última línea si está en blanco (la
+   * que se abre sola) y si no, va detrás. El cursor salta a su cantidad,
+   * por si esta vez son otras.
+   */
+  const anadirHabitual = (h: ArticuloHabitual) => {
+    const p = products.find(x => x.id === h.productId);
+    if (!p) return;
+    const ultima = lineItems[lineItems.length - 1];
+    const enBlanco = ultima && !ultima.productId && !ultima.productName?.trim();
+    const linea = lineaDeHabitual(h, p, enBlanco ? ultima : lineaVacia(settings));
+    const indice = enBlanco ? lineItems.length - 1 : lineItems.length;
+    focoPendiente.current = { linea: indice, donde: 'cantidad' };
+    onChange(enBlanco ? [...lineItems.slice(0, -1), linea] : [...lineItems, linea]);
+  };
+
+  /** El precio que deja el margen propuesto, sin tocar los descuentos de la línea. */
+  const subirAlMargen = (index: number, coste: number) => cambiarLinea(index, l => {
+    const precio = precioParaMargen(coste, MARGEN_PROPUESTO, [l.discountPercent, l.discountPercent2, l.discountPercent3]);
+    return precio ? { ...l, unitPrice: precio } : l;
+  });
 
   const repetirUltimo = () => {
     if (!ultimo) return;
@@ -438,6 +517,10 @@ export default function LineasDocumento({
         )
       )}
 
+      {clienteId && (
+        <HabitualesCliente habituales={masPedidos} puestos={yaPuestos} sentido={sentido} onAnadir={anadirHabitual} />
+      )}
+
       {/* Una ficha por línea, no una rejilla de nueve columnas.
           
           Con los tres descuentos abiertos salían nueve columnas apretadas y
@@ -480,42 +563,41 @@ export default function LineasDocumento({
                         escribir sólo las unidades (una venta suelta). */}
                     <label className="lineas-doc-campo">
                       <span title="Cajas completas">Cajas</span>
-                      <input
-                        type="number" min={0} step={1} placeholder="—"
-                        value={line.cajas ? line.cajas : ''}
-                        onChange={e => cambiarLinea(index, l => conCajas(l, parseFloat(e.target.value) || 0))}
-                        aria-label={`Cajas de la línea ${index + 1}`}
+                      <CampoNumerico
+                        placeholder="—" vacioSiCero
+                        valor={line.cajas ?? 0}
+                        onValor={n => cambiarLinea(index, l => conCajas(l, n))}
+                        ariaLabel={`Cajas de la línea ${index + 1}`}
                       />
                     </label>
                     {/* U/C: viene de la ficha del producto; sólo se toca si
                         esta entrega viene en otro formato. */}
                     <label className={`lineas-doc-campo${(line.cajas ?? 0) > 0 && !(line.unitsPerPackage && line.unitsPerPackage > 0) ? ' lineas-doc-campo--error' : ''}`}>
                       <span title="Unidades que trae cada caja">U/C</span>
-                      <input
-                        type="number" min={0} step={1} placeholder="—"
-                        value={line.unitsPerPackage || ''}
-                        onChange={e => cambiarLinea(index, l => conUdsCaja(l, parseFloat(e.target.value) || 0))}
-                        aria-label={`Unidades por caja de la línea ${index + 1}`}
+                      <CampoNumerico
+                        placeholder="—" vacioSiCero
+                        valor={line.unitsPerPackage ?? 0}
+                        onValor={n => cambiarLinea(index, l => conUdsCaja(l, n))}
+                        ariaLabel={`Unidades por caja de la línea ${index + 1}`}
                       />
                     </label>
                     {/* Uds.: lo que se cobra. Sale de cajas × U/C, pero se
                         puede escribir a mano (sueltas, o sólo unidades). */}
                     <label className="lineas-doc-campo">
                       <span title="Unidades en total (lo que se cobra)">Uds.</span>
-                      <input
-                        type="number" min={0} step={1}
-                        value={line.quantity}
-                        onChange={e => cambiarLinea(index, l => conUnidades(l, parseFloat(e.target.value) || 0))}
-                        aria-label={`Unidades de la línea ${index + 1}`}
+                      <CampoNumerico
+                        valor={line.quantity}
+                        onValor={n => cambiarLinea(index, l => conUnidades(l, n))}
+                        ariaLabel={`Unidades de la línea ${index + 1}`}
                       />
                     </label>
                   </>
                 ) : (
                   <label className="lineas-doc-campo">
                     <span>{voz.cantidad}</span>
-                    <input
-                      type="number" min={0} step={0.01} value={line.quantity}
-                      onChange={e => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                    <CampoNumerico
+                      valor={line.quantity}
+                      onValor={n => handleLineChange(index, 'quantity', n)}
                     />
                   </label>
                 )}
@@ -548,9 +630,9 @@ export default function LineasDocumento({
 
                 <label className="lineas-doc-campo">
                   <span title="Precio de cada unidad">Precio/ud.</span>
-                  <input
-                    type="number" min={0} step={0.01} value={line.unitPrice}
-                    onChange={e => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                  <CampoNumerico
+                    valor={line.unitPrice}
+                    onValor={n => handleLineChange(index, 'unitPrice', n)}
                   />
                 </label>
 
@@ -568,10 +650,10 @@ export default function LineasDocumento({
 
                 <label className="lineas-doc-campo">
                   <span>Dto. %</span>
-                  <input
-                    type="number" min={0} max={100} step={0.5} placeholder="0"
-                    value={line.discountPercent || ''}
-                    onChange={e => handleLineChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
+                  <CampoNumerico
+                    placeholder="0" vacioSiCero
+                    valor={line.discountPercent || 0}
+                    onValor={n => handleLineChange(index, 'discountPercent', n)}
                   />
                 </label>
 
@@ -579,18 +661,18 @@ export default function LineasDocumento({
                   <>
                     <label className="lineas-doc-campo">
                       <span>Dto. 2 %</span>
-                      <input
-                        type="number" min={0} max={100} step={0.5} placeholder="0"
-                        value={line.discountPercent2 || ''}
-                        onChange={e => handleLineChange(index, 'discountPercent2', parseFloat(e.target.value) || 0)}
+                      <CampoNumerico
+                        placeholder="0" vacioSiCero
+                        valor={line.discountPercent2 || 0}
+                        onValor={n => handleLineChange(index, 'discountPercent2', n)}
                       />
                     </label>
                     <label className="lineas-doc-campo">
                       <span>Dto. 3 %</span>
-                      <input
-                        type="number" min={0} max={100} step={0.5} placeholder="0"
-                        value={line.discountPercent3 || ''}
-                        onChange={e => handleLineChange(index, 'discountPercent3', parseFloat(e.target.value) || 0)}
+                      <CampoNumerico
+                        placeholder="0" vacioSiCero
+                        valor={line.discountPercent3 || 0}
+                        onValor={n => handleLineChange(index, 'discountPercent3', n)}
                       />
                     </label>
                   </>
@@ -639,7 +721,38 @@ export default function LineasDocumento({
                 );
               })()}
 
-              {/* Stock, coste, precio a cero, artículo repetido (documentos.ts). */}
+              {/* El margen de la línea (lib/margen.ts): discreto si está bien;
+                  si se pierde dinero o queda muy poco, se dice claro y se
+                  ofrece el precio que deja un margen razonable. */}
+              {sentido === 'venta' && (() => {
+                const m = margenDeLinea(line, producto);
+                if (!m) return null;
+                if (m.nivel === 'normal') {
+                  return (
+                    <p className="lineas-doc-pie margen-linea" title={`Coste ${formatCurrency(m.coste)} · neto ${formatCurrency(m.neto)} la unidad`}>
+                      {textoMargen(m)} · {formatCurrency(m.porUnidad)} por unidad
+                    </p>
+                  );
+                }
+                const propuesto = precioParaMargen(m.coste, MARGEN_PROPUESTO, [line.discountPercent, line.discountPercent2, line.discountPercent3]);
+                return (
+                  <p className={`lineas-doc-aviso margen-aviso margen-aviso--${m.nivel}`} role="status">
+                    <TrendingDown size={13} aria-hidden />
+                    <span>
+                      {m.nivel === 'perdida'
+                        ? <>Vendes por debajo del coste: {formatCurrency(m.neto)} la unidad y cuesta {formatCurrency(m.coste)}. Pierdes {formatCurrency(-m.porUnidad)} en cada una.</>
+                        : <>Margen muy bajo: {textoMargen(m).replace('Margen ', '')}, {formatCurrency(m.porUnidad)} por unidad sobre un coste de {formatCurrency(m.coste)}.</>}
+                    </span>
+                    {propuesto && (
+                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => subirAlMargen(index, m.coste)}>
+                        Poner {formatCurrency(propuesto)} ({MARGEN_PROPUESTO} % de margen)
+                      </button>
+                    )}
+                  </p>
+                );
+              })()}
+
+              {/* Stock, precio a cero, artículo repetido (documentos.ts). */}
               {avisosDeLinea(line, index, lineItems, producto, sentido).map((a, i) => (
                 a.tipo === 'aviso'
                   ? <p key={i} className="lineas-doc-aviso" role="status"><AlertTriangle size={13} /> {a.texto}</p>

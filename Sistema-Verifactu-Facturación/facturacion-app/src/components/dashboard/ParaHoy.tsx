@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, FileCheck2, FilePen, FilePlus2, Landmark, Plus, type LucideIcon,
@@ -11,6 +12,8 @@ export interface ParaHoyProps {
   readonly tareas: readonly TareaHoy[];
   /** Aún no hay ni un documento: en vez de «todo al día», el primer paso. */
   readonly sinDocumentos?: boolean;
+  /** Lo que va colgado bajo una tarea, por su id: bajo «vencidas», a quién reclamar. */
+  readonly debajo?: Readonly<Partial<Record<string, ReactNode>>>;
 }
 
 const ICONO: Record<string, LucideIcon> = {
@@ -24,7 +27,7 @@ const ICONO: Record<string, LucideIcon> = {
 };
 
 /** Lo que toca hacer, de lo más urgente a lo menos. Cada fila lleva a donde se resuelve. */
-export default function ParaHoy({ tareas, sinDocumentos = false }: ParaHoyProps) {
+export default function ParaHoy({ tareas, sinDocumentos = false, debajo }: ParaHoyProps) {
   // Sólo la primera urgente llama la atención con un latido: si laten
   // todas, ninguna destaca.
   const urgente = tareas.findIndex(t => t.tono === 'peligro');
@@ -70,6 +73,7 @@ export default function ParaHoy({ tareas, sinDocumentos = false }: ParaHoyProps)
                     <ChevronRight size={14} aria-hidden="true" />
                   </span>
                 </Link>
+                {debajo?.[t.id]}
               </li>
             );
           })}

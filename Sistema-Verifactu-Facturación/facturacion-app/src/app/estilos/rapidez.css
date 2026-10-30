@@ -1,0 +1,257 @@
+/* Estilos de «facturar más rápido»: la calculadora de las casillas, los
+   plazos de vencimiento en un toque, lo que suele pedir el cliente, el
+   margen de cada línea, la factura sin terminar, el repaso antes de emitir
+   y la chuleta de atajos.
+
+   Todo con los colores del tema (claro y oscuro salen solos de los tokens),
+   sin anchos fijos que desborden en un teléfono de 390 px, y lo poco que se
+   mueve se queda quieto para quien pide menos movimiento. */
+
+/* ============================================================
+   LA CALCULADORA DE LAS CASILLAS
+   La casilla va envuelta para colgar debajo la pista con el resultado.
+   El envoltorio es un <span> hijo del <label>, y la regla de los rótulos
+   (`.lineas-doc-campo > span`) lo pondría en letra de rótulo: se deshace.
+   ============================================================ */
+.campo-calculo {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.lineas-doc-campo > span.campo-calculo {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  color: inherit;
+  white-space: normal;
+}
+.campo-calculo input[aria-invalid="true"] {
+  border-color: var(--color-danger) !important;
+}
+.campo-calculo-pista {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 2;
+  max-width: 100%;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  color: var(--accent-500);
+  font-size: var(--text-2xs, 11px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: pistaAparece 140ms var(--ease-out, ease-out) both;
+}
+.campo-calculo-pista.es-mala { color: var(--color-danger); }
+@keyframes pistaAparece {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ============================================================
+   CHIPS DE UN TOQUE (vencimiento)
+   ============================================================ */
+.chip-rapido {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 28px;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font: inherit; font-size: var(--text-xs); font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.chip-rapido:hover { border-color: var(--border-color-hover); color: var(--text-primary); }
+.chip-rapido:focus-visible,
+.habitual:focus-visible,
+.boton-atajos:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+.chip-rapido.es-puesto {
+  background: var(--accent-glow);
+  border-color: var(--accent-400);
+  color: var(--accent-500);
+  font-weight: 600;
+}
+.chip-rapido--cliente { border-style: dashed; }
+.chip-rapido--cliente.es-puesto { border-style: solid; }
+
+.vencimiento-rapido { margin-top: var(--space-2); min-width: 0; }
+.vencimiento-rapido-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vencimiento-rapido-dia {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.vencimiento-rapido-dia svg { flex-shrink: 0; margin-top: 2px; }
+.vencimiento-rapido-dia.tiene-aviso { color: var(--text-secondary); }
+.vencimiento-rapido-dia.tiene-aviso svg { color: var(--color-warning); }
+
+/* ============================================================
+   LO QUE SUELE PEDIR EL CLIENTE
+   ============================================================ */
+.habituales {
+  margin-bottom: var(--space-4);
+  min-width: 0;
+}
+.habituales-titulo {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm); font-weight: 600;
+  color: var(--text-primary);
+}
+.habituales-titulo svg { color: var(--accent-500); }
+.habituales-ayuda { font-weight: 400; font-size: var(--text-xs); color: var(--text-muted); }
+.habituales-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.habitual {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 4px var(--space-3) 4px var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit; font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
+}
+.habitual svg { flex-shrink: 0; color: var(--accent-500); }
+.habitual:hover:not(:disabled) {
+  border-color: var(--accent-400);
+  background: color-mix(in srgb, var(--accent-glow) 60%, var(--bg-card));
+}
+.habitual:active:not(:disabled) { transform: scale(0.97); }
+.habitual-nombre {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.habitual-ultima {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.habitual.es-puesto {
+  cursor: default;
+  background: var(--color-success-bg);
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+.habitual.es-puesto svg { color: var(--color-success); }
+
+/* ============================================================
+   EL MARGEN DE LA LÍNEA
+   Discreto cuando está bien; con color cuando no.
+   ============================================================ */
+.margen-linea { color: var(--text-tertiary); }
+.margen-aviso span { flex: 1 1 200px; min-width: 0; }
+.margen-aviso--perdida {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+.margen-aviso--perdida svg { color: var(--color-danger); }
+
+/* ============================================================
+   LA FACTURA SIN TERMINAR
+   ============================================================ */
+.factura-sin-terminar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3);
+  max-width: 900px;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent-500) 35%, var(--border-color));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent-glow) 55%, var(--bg-card));
+  animation: pistaAparece 220ms var(--ease-out, ease-out) both;
+}
+.factura-sin-terminar-icono { flex-shrink: 0; color: var(--accent-500); }
+.factura-sin-terminar-texto {
+  flex: 1 1 260px; min-width: 0;
+  margin: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: var(--text-sm); color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.factura-sin-terminar-texto strong { color: var(--text-primary); font-weight: 600; }
+.factura-sin-terminar-texto span { font-size: var(--text-xs); color: var(--text-muted); }
+.factura-sin-terminar-acciones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ============================================================
+   LAS VENTANAS DEL EDITOR (repaso y chuleta)
+   ============================================================ */
+.dialogo-rapido-fondo { z-index: 1100; }
+.dialogo-rapido { max-width: 520px; }
+.dialogo-rapido-titulo { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+.dialogo-rapido-titulo svg { color: var(--accent-500); flex-shrink: 0; }
+.dialogo-rapido-pie { flex-wrap: wrap; }
+
+.revision-emitir-intro { margin: 0 0 var(--space-4); font-size: var(--text-sm); color: var(--text-secondary); }
+.revision-emitir-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.revision-emitir-punto {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 28%, transparent);
+}
+.revision-emitir-icono { flex-shrink: 0; margin-top: 2px; color: var(--color-warning); }
+.revision-emitir-punto strong { display: block; font-size: var(--text-sm); color: var(--text-primary); }
+.revision-emitir-punto p { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
+
+.chuleta-atajos-lista { margin: 0; display: grid; gap: var(--space-2); }
+.chuleta-atajos-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.chuleta-atajos-fila:last-child { border-bottom: 0; }
+.chuleta-atajos-fila dt { display: flex; align-items: center; flex-shrink: 0; }
+.chuleta-atajos-fila dd { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); text-align: right; }
+.chuleta-atajos-mas { margin: 0 3px; color: var(--text-muted); font-size: var(--text-xs); }
+.chuleta-atajos kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border: 1px solid var(--border-strong, var(--border-color));
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+.chuleta-atajos-nota {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs); color: var(--text-muted); line-height: 1.6;
+}
+
+/* En un teléfono no hay teclado físico: el botón de la chuleta sobra. */
+@media (max-width: 768px), (hover: none) {
+  .boton-atajos { display: none; }
+}
+
+@media (max-width: 480px) {
+  .habitual { min-height: 40px; }
+  .chip-rapido { min-height: 32px; }
+  .factura-sin-terminar-acciones { width: 100%; }
+  .factura-sin-terminar-acciones .btn { flex: 1 1 0; justify-content: center; }
+  .dialogo-rapido-pie .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .campo-calculo-pista,
+  .factura-sin-terminar { animation: none; }
+  .habitual, .chip-rapido { transition: none; }
+  .habitual:active:not(:disabled) { transform: none; }
+}

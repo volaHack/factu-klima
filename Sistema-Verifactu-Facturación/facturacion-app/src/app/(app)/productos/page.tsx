@@ -6,7 +6,8 @@ import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import {
   Plus, Search, SearchX, Edit, Trash2, X, Check, Tag, Package,
-  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload, AlertTriangle, Loader2
+  BarChart3, Layers, AlertCircle, ArrowUpDown, Filter, Store, ChevronRight, ImagePlus, ImageOff, RefreshCw, ChevronUp, ChevronDown, Upload, AlertTriangle, Loader2,
+  TrendingUp, Star,
 } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import PageSkeleton from '@/components/ui/PageSkeleton';
@@ -31,6 +32,14 @@ import { usePaginacion } from '@/hooks/usePaginacion';
 import Paginacion from '@/components/ui/Paginacion';
 
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
+import SubidaPrecios from '@/components/productos/SubidaPrecios';
+import AvisoReposicion from '@/components/productos/AvisoReposicion';
+import ConsejoProducto from '@/components/productos/ConsejoProducto';
+import { conPrecioSubido, conPreciosDeAntes, type Subida } from '@/lib/subidaPrecios';
+import { programarBorrado, ESPERA_DESHACER_MS } from '@/lib/borradoDiferido';
+import { recordarFicha, olvidarFicha, alternarFijada, estaFijada } from '@/lib/memoriaFichas';
+import { usePerfiles } from '@/lib/perfilesCliente';
+
 interface CategoryOption {
   value: string;
   label: string;
@@ -104,7 +113,15 @@ function ProductosPageContenido() {
   const [catIcon, setCatIcon] = useState('Package');
   const [savingCat, setSavingCat] = useState(false);
 
-  const { success, warning, error: toastError } = useToast();
+  const { success, warning, error: toastError, addToast } = useToast();
+  const { cuenta } = usePerfiles();
+
+  // Selección para subir precios en bloque, y lo borrado que aún se puede
+  // deshacer (no se pinta, pero no se ha tocado todavía).
+  const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set());
+  const [verSubida, setVerSubida] = useState(false);
+  const [ocultos, setOcultos] = useState<Set<string>>(() => new Set());
+  const [fijadoEditando, setFijadoEditando] = useState(false);
 
   const [form, setForm] = useState({
     ref: '', supplierRef: '', name: '', description: '', category: 'otros',
@@ -120,6 +137,16 @@ function ProductosPageContenido() {
   });
 
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // La ficha que aconseja mira el precio y los costes que se están
+  // escribiendo, para que el margen responda mientras se teclea.
+  const productoDelConsejo = useMemo(() => editing && {
+    ...editing,
+    unitPrice: Number(form.unitPrice) || 0,
+    costePmp: Number(form.costePmp) || 0,
+    costeUltimaCompra: Number(form.costeUltimaCompra) || 0,
+    purchasePrice: Number(form.purchasePrice) || 0,
+  }, [editing, form.unitPrice, form.costePmp, form.costeUltimaCompra, form.purchasePrice]);
 
   const updateForm = (field: string, value: unknown) => {
     setForm(prev => ({
@@ -208,8 +235,11 @@ function ProductosPageContenido() {
   const reloadCategories = async () => setCategories(await getCompanyCategories());
 
   // Filtered Products
+  // Lo borrado que aún se puede deshacer ya no sale en ninguna parte.
+  const productosVivos = useMemo(() => products.filter(p => !ocultos.has(p.id)), [products, ocultos]);
+
   const filteredProducts = useMemo(() => {
-    let result = [...products];
+    let result = [...productosVivos];
     if (search) {
       // Sin tildes y con varias palabras; también el código de barras (escáner) y la familia.
       result = result.filter(p => casaTexto(search, p.name, p.ref, p.supplierRef, p.barcode, p.description, p.category, p.notes));
@@ -251,7 +281,7 @@ function ProductosPageContenido() {
     });
 
     return result;
-  }, [products, search, categoryFilter, sortField, sortDir]);
+  }, [productosVivos, search, categoryFilter, sortField, sortDir]);
 
   // Por páginas: un catálogo de cientos de artículos no se pinta de una vez.
   const paginado = usePaginacion(filteredProducts, {
@@ -297,6 +327,12 @@ function ProductosPageContenido() {
 
   const openEditProduct = (p: Product) => {
     setEditing(p);
+    // Se recuerda para el buscador y el menú lateral (lib/memoriaFichas).
+    const memoria = recordarFicha(cuenta, {
+      clave: `producto:${p.id}`, tipo: 'producto', titulo: p.ref ? `[${p.ref}] ${p.name}` : p.name,
+      detalle: getCategoryInfo(p.category).label, href: `/productos?editar=${p.id}`,
+    });
+    setFijadoEditando(estaFijada(memoria, `producto:${p.id}`));
     setForm({
       ref: p.ref,
       supplierRef: p.supplierRef || '',
@@ -356,13 +392,96 @@ function ProductosPageContenido() {
     }
   };
 
-  const handleDeleteProduct = async (p: Product) => {
-    if (confirm(`¿Eliminar "${p.name}"?`)) {
+  // Borrar no pregunta: el artículo sale de la lista al momento y el aviso
+  // ofrece deshacer unos segundos. El borrado de verdad espera a que pasen
+  // (lib/borradoDiferido), así que deshacer no tiene nada que reconstruir.
+  const handleDeleteProduct = (p: Product) => {
+    const quitarDe = (set: Set<string>) => { const s = new Set(set); s.delete(p.id); return s; };
+    const volverAPintar = () => setOcultos(quitarDe);
+    setOcultos(prev => new Set(prev).add(p.id));
+    setSeleccion(quitarDe);
+    const borrado = programarBorrado(`producto:${p.id}`, async () => {
       await removeProduct(p.id);
-      await reloadProducts();
-      success('Producto eliminado', p.name);
+      olvidarFicha(cuenta, `producto:${p.id}`);
+    }, {
+      alTerminar: () => { void loadData().then(volverAPintar); },
+      alFallar: e => {
+        volverAPintar();
+        toastError('No se ha podido eliminar', `${p.name}: ${e instanceof Error ? e.message : 'error desconocido'}`);
+      },
+    });
+    addToast({
+      type: 'info',
+      title: 'Producto eliminado',
+      message: p.name,
+      duration: ESPERA_DESHACER_MS,
+      accion: { etiqueta: 'Deshacer', alPulsar: () => { if (borrado.deshacer()) volverAPintar(); } },
+    });
+  };
+
+  // ---- Subir precios en bloque (lib/subidaPrecios) ----
+  // A lo seleccionado; sin selección, a lo que se ve en la lista (la
+  // categoría elegida, o lo que sale con la búsqueda).
+  const objetivoSubida = seleccion.size > 0 ? filteredProducts.filter(p => seleccion.has(p.id)) : filteredProducts;
+  const queSonSubida = () => {
+    const n = objetivoSubida.length;
+    const art = n === 1 ? 'artículo' : 'artículos';
+    if (seleccion.size > 0) return `${n === 1 ? 'el' : `los ${n}`} ${art} ${n === 1 ? 'seleccionado' : 'seleccionados'}`;
+    if (search) return `los ${n} ${art} que salen con «${search}»`;
+    if (categoryFilter) return `los ${n} ${art} de ${getCategoryInfo(categoryFilter).label}`;
+    return `todo el catálogo (${n} ${art})`;
+  };
+
+  const deshacerSubida = async (antes: Pick<Product, 'id' | 'unitPrice' | 'tarifaPrices'>[]) => {
+    try {
+      const actuales = await getProducts();
+      for (const a of antes) {
+        const p = actuales.find(x => x.id === a.id);
+        if (p) await persistProduct(conPreciosDeAntes(p, a), { conservarStock: true });
+      }
+      success('Precios como estaban', `${antes.length} ${antes.length === 1 ? 'artículo' : 'artículos'}`);
+    } catch (e) {
+      toastError('No se han podido devolver todos', e instanceof Error ? e.message : '');
+    } finally {
+      await loadData();
     }
   };
+
+  const aplicarSubida = async (subida: Subida) => {
+    const antes: Pick<Product, 'id' | 'unitPrice' | 'tarifaPrices'>[] = [];
+    try {
+      // Uno a uno por la vía de siempre: sin conexión, cada uno va a la cola.
+      for (const p of objetivoSubida) {
+        const nuevo = conPrecioSubido(p, subida);
+        if (nuevo.unitPrice === p.unitPrice && JSON.stringify(nuevo.tarifaPrices) === JSON.stringify(p.tarifaPrices)) continue;
+        await persistProduct(nuevo, { conservarStock: true });
+        antes.push({ id: p.id, unitPrice: p.unitPrice, tarifaPrices: p.tarifaPrices });
+      }
+    } catch (e) {
+      toastError('La subida se ha quedado a medias', `${antes.length} guardados. ${e instanceof Error ? e.message : ''}`);
+      await loadData();
+      return;
+    }
+    await loadData();
+    setVerSubida(false);
+    setSeleccion(new Set());
+    const valor = `${subida.valor > 0 ? '+' : ''}${String(subida.valor).replace('.', ',')}${subida.modo === 'porcentaje' ? ' %' : ' €'}`;
+    addToast({
+      type: 'success',
+      title: `${antes.length} ${antes.length === 1 ? 'precio actualizado' : 'precios actualizados'}`,
+      message: `${valor}. Las facturas nuevas ya los usan.`,
+      duration: 10000,
+      accion: { etiqueta: 'Deshacer', alPulsar: () => { void deshacerSubida(antes); } },
+    });
+  };
+
+  const alternarSeleccion = (id: string) => setSeleccion(prev => {
+    const s = new Set(prev);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    return s;
+  });
+  const todosSeleccionados = filteredProducts.length > 0 && filteredProducts.every(p => seleccion.has(p.id));
+  const alternarTodos = () => setSeleccion(todosSeleccionados ? new Set() : new Set(filteredProducts.map(p => p.id)));
 
   // Category CRUD
   const openCreateCategory = () => {
@@ -551,6 +670,17 @@ function ProductosPageContenido() {
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
+          {activeTab === 'products' && products.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setVerSubida(true)}
+              disabled={objetivoSubida.length === 0}
+              title={seleccion.size > 0 ? 'Subir el precio de los seleccionados' : 'Subir el precio de lo que ves en la lista (elige una categoría o selecciona)'}
+            >
+              <TrendingUp size={16} /> Subir precios{seleccion.size > 0 ? ` (${seleccion.size})` : ''}
+            </button>
+          )}
           <button className="btn btn-secondary" onClick={openCreateCategory}>
             <Tag size={16} /> Nueva categoría
           </button>
@@ -645,11 +775,36 @@ function ProductosPageContenido() {
             </div>
           )}
 
+          {/* Lo que se va a acabar a su ritmo de venta y lo que lleva meses
+              parado (lib/reposicion). Sin nada que decir, no ocupa sitio. */}
+          <AvisoReposicion productos={productosVivos} documentos={invoices} pendientes={pendientes} onAbrir={openEditProduct} />
+
+          {seleccion.size > 0 && (
+            <div className="cat-seleccion-barra productos-seleccion" role="region" aria-label="Artículos seleccionados">
+              <strong>{seleccion.size} {seleccion.size === 1 ? 'seleccionado' : 'seleccionados'}</strong>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setVerSubida(true)}>
+                <TrendingUp size={14} /> Subir precios
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSeleccion(new Set())}>
+                Quitar selección
+              </button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="table-container">
             <table className="table table--sortable tabla-tarjetas">
               <thead>
                 <tr>
+                  <th className="table-checkbox">
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todos los artículos de la lista"
+                      checked={todosSeleccionados}
+                      ref={el => { if (el) el.indeterminate = seleccion.size > 0 && !todosSeleccionados; }}
+                      onChange={alternarTodos}
+                    />
+                  </th>
                   <th className={sortField === 'ref' ? 'sorted' : ''} onClick={() => handleSort('ref')} style={{ cursor: 'pointer' }}>
                     Ref. {sortIcon('ref')}
                   </th>
@@ -691,7 +846,15 @@ function ProductosPageContenido() {
                   const disponible = (p.stockQuantity ?? 0) + pendienteRecibir - pendienteEntregar;
 
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id} data-seleccionada={seleccion.has(p.id) || undefined}>
+                      <td className="table-checkbox" data-m="check">
+                        <input
+                          type="checkbox"
+                          aria-label={`Seleccionar ${p.name}`}
+                          checked={seleccion.has(p.id)}
+                          onChange={() => alternarSeleccion(p.id)}
+                        />
+                      </td>
                       <td className="mono" data-m="dato" data-label="Ref.">{p.ref}</td>
                       <td data-m={p.supplierRef ? 'dato' : 'oculto'} data-label="Ref. prov.">
                         {p.supplierRef ? (
@@ -786,7 +949,7 @@ function ProductosPageContenido() {
                 })}
                 {filteredProducts.length === 0 && (
                   <TableEmpty
-                    colSpan={12}
+                    colSpan={13}
                     icon={SearchX}
                     title="No hay productos que coincidan"
                     hint="Prueba a cambiar el texto de búsqueda o el filtro de categoría."
@@ -948,6 +1111,23 @@ function ProductosPageContenido() {
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{editing ? 'Editar producto' : 'Nuevo producto'}</h3>
+              {editing && (
+                <button
+                  type="button"
+                  className={`btn btn-ghost btn-sm producto-fijar${fijadoEditando ? ' is-fijada' : ''}`}
+                  aria-pressed={fijadoEditando}
+                  onClick={() => {
+                    const m = alternarFijada(cuenta, {
+                      clave: `producto:${editing.id}`, tipo: 'producto', titulo: editing.ref ? `[${editing.ref}] ${editing.name}` : editing.name,
+                      detalle: getCategoryInfo(editing.category).label, href: `/productos?editar=${editing.id}`,
+                    });
+                    setFijadoEditando(estaFijada(m, `producto:${editing.id}`));
+                  }}
+                  title="Fijado sale arriba en el buscador (Ctrl+K) y en el menú"
+                >
+                  <Star size={14} /> {fijadoEditando ? 'Fijado' : 'Fijar'}
+                </button>
+              )}
               <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Cerrar"><X size={18} /></button>
             </div>
             <div className="modal-body">
@@ -1095,6 +1275,15 @@ function ProductosPageContenido() {
                 })()}
               </fieldset>
 
+              {/* Lo que dicen las facturas de este artículo (lib/consejoProducto). */}
+              {productoDelConsejo && (
+                <ConsejoProducto
+                  producto={productoDelConsejo}
+                  documentos={invoices}
+                  onUsarPrecio={precio => updateForm('unitPrice', precio)}
+                />
+              )}
+
               {/* Matriz de Precios por Tarifa si existen tarifas configuradas */}
               {settings?.tarifas && settings.tarifas.length > 0 && (
                 <div style={{ marginTop: 'var(--space-4)', background: 'var(--bg-tertiary)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)' }}>
@@ -1190,6 +1379,15 @@ function ProductosPageContenido() {
             </div>
           </div>
         </div>
+      )}
+
+      {verSubida && (
+        <SubidaPrecios
+          productos={objetivoSubida}
+          queSon={queSonSubida()}
+          onCerrar={() => setVerSubida(false)}
+          onAplicar={aplicarSubida}
+        />
       )}
 
       {/* Modal Crear / Editar Categoría */}

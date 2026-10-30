@@ -132,6 +132,8 @@ export default function TaxRateButtons({ value, onChange, rates, ariaLabel }: Ta
   }, [elegido, opciones.length]);
 
   const alPulsarTecla = (e: KeyboardEvent<HTMLDivElement>) => {
+    // Alt+flechas es cambiar de línea en el editor (lib/atajos.ts), no de tipo.
+    if (e.altKey) return;
     const destino = indiceTrasTecla(e.key, elegido, opciones.length);
     if (destino === null) return;
     e.preventDefault();

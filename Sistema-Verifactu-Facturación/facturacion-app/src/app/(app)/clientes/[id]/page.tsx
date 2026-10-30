@@ -13,6 +13,9 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import CondicionesEspeciales from '@/components/clientes/CondicionesEspeciales';
 import HistorialAnterior from '@/components/clientes/HistorialAnterior';
 import { getHistoricoDeFicha, NOMBRE_ORIGEN, resumenHistorico, type DocumentoHistorico } from '@/lib/historico';
+import { TarjetaCobroCliente } from '@/components/clientes/CobroCliente';
+import { hoyLocal, perfilDePago, riesgoDeCliente } from '@/lib/perfilPago';
+import { deudorDe } from '@/lib/reclamar';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -88,6 +91,17 @@ export default function ClientDetailPage() {
     const pendingTotal = pending.reduce((sum, i) => sum + i.total, 0);
     return { total, count: valid.length, paidTotal, pendingCount: pending.length, pendingTotal };
   }, [invoicesFiltradas]);
+
+  // Cómo paga y cuánto debe hoy: con todas sus facturas, no con las del filtro de fechas.
+  const cobro = useMemo(() => {
+    if (!client || client.esProveedor) return null;
+    const hoy = hoyLocal();
+    return {
+      riesgo: riesgoDeCliente(invoices, client.id, hoy),
+      perfil: perfilDePago(invoices, client.id, hoy),
+      deudor: deudorDe(invoices, client.id, hoy),
+    };
+  }, [invoices, client]);
 
   if (!mounted) return <PageSkeleton variant="detail" label="Cargando la ficha del cliente" />;
 
@@ -165,6 +179,14 @@ export default function ClientDetailPage() {
               </span>
               <span className="aviso-historial-ir">Ver historial</span>
             </a>
+          )}
+
+          {cobro && (
+            <TarjetaCobroCliente
+              {...cobro}
+              contacto={{ telefono: client.phone, email: client.email }}
+              remitente={{ nombre: settings?.tradeName || settings?.businessName || '', email: settings?.email, telefono: settings?.phone, iban: settings?.iban }}
+            />
           )}
 
           {/* Stats */}

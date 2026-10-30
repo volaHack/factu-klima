@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/useToast';
 import { avisadorDeNavegador, repasarAntesDeEmitir } from '@/lib/validation/antesDeEmitir';
 import AbonoPanel, { AbonoSelection } from '@/components/devoluciones/AbonoPanel';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import AtajosVencimiento from '@/components/documentos/AtajosVencimiento';
 import { problemasDeLineas } from '@/lib/validation/lineas';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { DatosPlantillaCard } from '@/components/facturas/DatosPlantillaCard';
@@ -324,6 +325,12 @@ export default function EditInvoicePage() {
             <div className="form-group">
               <label className="form-label required">Vencimiento</label>
               <input type="date" className="form-input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <AtajosVencimiento
+                emision={issueDate}
+                vencimiento={dueDate}
+                diasCliente={clienteOcasional ? null : clients.find(c => c.id === clientId)?.paymentDays}
+                onElegir={setDueDate}
+              />
             </div>
           </div>
 

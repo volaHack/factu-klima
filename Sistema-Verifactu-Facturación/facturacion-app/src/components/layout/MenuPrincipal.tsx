@@ -180,7 +180,7 @@ function leerAbiertas(): string[] | null {
   }
 }
 
-export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, nombreHistorial }: {
+export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, nombreHistorial, antesDelArbol }: {
   /** Si la hoja sale: módulos encendidos, perfil de trabajo, TPV… */
   visible: (hoja: Hoja) => boolean;
   onClose: () => void;
@@ -189,6 +189,8 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
   onExpand: () => void;
   /** «Historial ISECAN», con el nombre del programa de antes. */
   nombreHistorial?: string;
+  /** Lo que va entre los accesos directos y el árbol (las fichas fijadas). */
+  antesDelArbol?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -264,6 +266,8 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
           </Link>
         );
       })}
+
+      {!collapsed && antesDelArbol}
 
       <ul className="menu-arbol" role="tree" aria-label="Menú">
         {ramas.map(rama => {

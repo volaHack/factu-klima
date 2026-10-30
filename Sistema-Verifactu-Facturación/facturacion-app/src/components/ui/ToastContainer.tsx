@@ -86,16 +86,27 @@ export default function ToastContainer({ toasts, onRemove }: ToastContainerProps
 
   if (displayed.length === 0) return null;
 
+  // Con acción («Deshacer»), el botón se pulsa y el aviso se va con él: lo
+  // que se deshace ya está hecho y dejarlo ahí invitaría a pulsar dos veces.
+  const pulsarAccion = (toast: ToastMessage) => {
+    toast.accion?.alPulsar();
+    onRemove(toast.id);
+  };
+
   return (
-    <div className="toast-container">
+    <div className="toast-container" role="region" aria-label="Avisos" aria-live="polite">
       {displayed.map(toast => {
         const Icon = icons[toast.type];
         const sellado = esSellado(toast);
         return (
           <div
             key={toast.id}
-            className={`toast toast-${toast.type}${sellado ? ' toast-sellado' : ''}${toast.leaving ? ' toast-leaving' : ''}`}
+            className={`toast toast-${toast.type}${sellado ? ' toast-sellado' : ''}${toast.accion ? ' toast-con-accion' : ''}${toast.leaving ? ' toast-leaving' : ''}`}
           >
+            {/* El tiempo que queda para deshacer, como una raya que se acaba. */}
+            {toast.accion && (
+              <span className="toast-cuenta" style={{ '--duracion': `${toast.duration ?? 4000}ms` } as CSSProperties} aria-hidden="true" />
+            )}
             {toast.type === 'success' ? (
               <span className="toast-icono-exito">
                 <VistoBueno />
@@ -114,7 +125,12 @@ export default function ToastContainer({ toasts, onRemove }: ToastContainerProps
                 <div className="toast-message">{toast.message}</div>
               )}
             </div>
-            <button className="toast-close" onClick={() => onRemove(toast.id)}>
+            {toast.accion && (
+              <button type="button" className="toast-accion" onClick={() => pulsarAccion(toast)}>
+                {toast.accion.etiqueta}
+              </button>
+            )}
+            <button type="button" className="toast-close" onClick={() => onRemove(toast.id)} aria-label="Cerrar el aviso">
               <X size={14} />
             </button>
           </div>

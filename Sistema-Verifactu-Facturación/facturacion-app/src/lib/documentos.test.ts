@@ -561,9 +561,12 @@ describe('avisosDeLinea', () => {
     expect(avisos[1]).toMatch(/quedará en -3/);
   });
 
-  it('por debajo del coste, a cero, y nada de stock en una compra', async () => {
+  it('por debajo del coste (ahora lo dice el margen), a cero, y nada de stock en una compra', async () => {
     const { avisosDeLinea } = await import('./documentos');
-    expect(avisosDeLinea(linea(1, 5, { discountPercent: 30 }), 0, [], prod, 'venta').some(a => /debajo del coste/.test(a.texto))).toBe(true);
+    const { margenDeLinea } = await import('./margen');
+    const bajoCoste = linea(1, 5, { discountPercent: 30 });
+    expect(avisosDeLinea(bajoCoste, 0, [], prod, 'venta').some(a => /coste/.test(a.texto))).toBe(false);
+    expect(margenDeLinea(bajoCoste, prod)?.nivel).toBe('perdida');
     expect(avisosDeLinea(linea(1, 0), 0, [], prod, 'venta').some(a => /Sin precio/.test(a.texto))).toBe(true);
     expect(avisosDeLinea(linea(1, 4), 0, [linea(1, 4)], prod, 'compra')).toEqual([]);
   });

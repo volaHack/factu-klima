@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Plus, ChevronLeft } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import MenuPrincipal, { type Hoja } from './MenuPrincipal';
+import FichasRecordadas from './FichasRecordadas';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
@@ -173,6 +174,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
               collapsed={collapsed}
               onExpand={onToggleCollapse}
               nombreHistorial={origenHistorico ? (NOMBRE_ORIGEN[origenHistorico] ?? 'anterior') : undefined}
+              antesDelArbol={<FichasRecordadas onClose={onClose} />}
             />
           </Suspense>
         </nav>
