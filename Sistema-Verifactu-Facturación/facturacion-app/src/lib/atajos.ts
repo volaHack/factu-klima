@@ -139,3 +139,94 @@ export function hayModalAbierta(): boolean {
   if (typeof document === 'undefined') return false;
   return document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]') !== null;
 }
+
+/*
+ * LOS ATAJOS DEL EDITOR DE DOCUMENTOS
+ * -----------------------------------
+ * Dentro de una factura (o un albarán, o un presupuesto) se trabaja con
+ * las manos en el teclado, y ahí las letras sueltas no sirven: se está
+ * escribiendo todo el rato. Así que todos llevan modificador, salvo la
+ * chuleta (`?`), que sólo se abre si el foco no está en una casilla.
+ *
+ *   · Ctrl/Cmd+Intro emite y Ctrl/Cmd+S guarda el borrador: valen con el
+ *     cursor en cualquier casilla, también en las observaciones, porque es
+ *     la costumbre de todas partes y no se teclean sin querer. Ctrl+S, de
+ *     paso, deja de abrir el «Guardar página como» del navegador, que aquí
+ *     no sirve de nada.
+ *   · Alt+N añade una línea y Alt+↑/↓ pasa a la anterior o la siguiente.
+ *     En un cuadro de texto largo (las observaciones) no se tocan: ahí
+ *     Alt+flechas mueve el cursor por párrafos en el Mac. En un desplegable
+ *     tampoco, que Alt+↓ es lo que lo abre. Y en el Mac, Opción+N es la
+ *     tecla muerta de la tilde de la ñ: llega como «Dead» y se deja pasar.
+ */
+
+export type AccionEditor = 'emitir' | 'guardar' | 'nueva-linea' | 'linea-anterior' | 'linea-siguiente' | 'chuleta';
+
+export interface AtajoEditor {
+  accion: AccionEditor;
+  teclas: string;
+  etiqueta: string;
+}
+
+/** Lo que enseña la chuleta, en el orden en que se usan. */
+export const ATAJOS_EDITOR: AtajoEditor[] = [
+  { accion: 'nueva-linea', teclas: 'Alt+N', etiqueta: 'Añadir una línea' },
+  { accion: 'linea-anterior', teclas: 'Alt+↑', etiqueta: 'Ir a la línea de arriba' },
+  { accion: 'linea-siguiente', teclas: 'Alt+↓', etiqueta: 'Ir a la línea de abajo' },
+  { accion: 'guardar', teclas: 'Ctrl+S', etiqueta: 'Guardar como borrador' },
+  { accion: 'emitir', teclas: 'Ctrl+Intro', etiqueta: 'Emitir (con el repaso de antes)' },
+  { accion: 'chuleta', teclas: '?', etiqueta: 'Abrir esta chuleta (Escape la cierra)' },
+];
+
+export interface TeclaDelEditor extends TeclaPulsada {
+  /** La tecla física, para Alt+N en teclados que no dan «n» con Alt. */
+  code?: string;
+}
+
+export interface EntornoEditor extends EntornoAtajo {
+  /** El foco está en un cuadro de texto de varias líneas. */
+  enTextoLargo: boolean;
+  /** El foco está en un desplegable (o en un buscador con la lista abierta). */
+  enDesplegable: boolean;
+  /** Otro ya se ha ocupado de la tecla (el buscador de artículos, por ejemplo). */
+  yaAtendida?: boolean;
+}
+
+export function accionDelEditor(e: TeclaDelEditor, entorno: EntornoEditor): AccionEditor | null {
+  if (e.isComposing || entorno.hayModal || entorno.yaAtendida) return null;
+  const mando = Boolean(e.ctrlKey || e.metaKey);
+  const tecla = e.key ?? '';
+
+  if (mando) {
+    if (e.altKey || e.shiftKey) return null;
+    if (tecla === 'Enter') return 'emitir';
+    if (tecla.toLowerCase() === 's') return 'guardar';
+    return null;
+  }
+
+  if (e.altKey) {
+    if (e.shiftKey || entorno.enTextoLargo) return null;
+    const esN = tecla.toLowerCase() === 'n' || (e.code === 'KeyN' && tecla.length !== 1 && tecla !== 'Dead');
+    if (esN) return 'nueva-linea';
+    if (entorno.enDesplegable) return null;
+    if (tecla === 'ArrowUp') return 'linea-anterior';
+    if (tecla === 'ArrowDown') return 'linea-siguiente';
+    return null;
+  }
+
+  if (tecla === '?' && !entorno.escribiendo) return 'chuleta';
+  return null;
+}
+
+/** Igual que `accionDelEditor`, leyendo el entorno del propio evento. */
+export function accionDelEditorEnEvento(e: KeyboardEvent): AccionEditor | null {
+  const destino = e.target instanceof HTMLElement ? e.target : null;
+  const listaAbierta = destino?.getAttribute('role') === 'combobox' && destino.getAttribute('aria-expanded') === 'true';
+  return accionDelEditor(e, {
+    escribiendo: isTextEditableTarget(e.target),
+    hayModal: hayModalAbierta(),
+    enTextoLargo: destino?.tagName === 'TEXTAREA' || !!destino?.isContentEditable,
+    enDesplegable: destino?.tagName === 'SELECT' || listaAbierta,
+    yaAtendida: e.defaultPrevented,
+  });
+}
