@@ -11,7 +11,7 @@
  */
 
 import Link from 'next/link';
-import { FilePlus2, MessageCircle, Phone, Snowflake } from 'lucide-react';
+import { FilePlus2, MessageCircle, Phone } from 'lucide-react';
 import type { Client } from '@/lib/types';
 import type { ClienteFrio } from '@/lib/clientesFrios';
 import { telefonoWhatsApp } from '@/lib/recordatorios/textos';
@@ -31,7 +31,6 @@ export default function ClientesFrios({ frios, clientes, remitente }: {
   return (
     <section className="asesor-hoja clientes-frios" aria-labelledby="clientes-frios-titulo">
       <div className="asesor-hoja-cabeza">
-        <span className="asesor-hoja-icono" aria-hidden="true"><Snowflake size={15} /></span>
         <div>
           <h2 id="clientes-frios-titulo" className="asesor-hoja-titulo">Se están enfriando</h2>
           <p className="asesor-hoja-sub">Clientes que llevan bastante más de lo normal sin pedir</p>
@@ -61,7 +60,8 @@ export default function ClientesFrios({ frios, clientes, remitente }: {
                   </a>
                 )}
                 <Link className="btn btn-secondary btn-sm" href={enlaceFacturarA(c.clienteId)} aria-label={`Hacer una factura a ${c.nombre}`}>
-                  <FilePlus2 size={14} aria-hidden /> Factura
+                  {/* En el móvil sólo el icono: el nombre ya lo da aria-label. */}
+                  <FilePlus2 size={14} aria-hidden /> <span className="clientes-frios-etiqueta">Factura</span>
                 </Link>
               </div>
             </li>

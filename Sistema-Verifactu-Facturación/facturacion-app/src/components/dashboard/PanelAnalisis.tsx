@@ -16,6 +16,7 @@ import {
 } from '@/lib/analitica';
 import type { Invoice, Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
+import { textoDelta } from './Delta';
 
 // ============================================================
 // ANÁLISIS DEL NEGOCIO — la sección de gráficas del panel
@@ -115,7 +116,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
   const ranking = useMemo(() => rankingClientes(invoices, hoy, 6, 5), [invoices, hoy]);
   const arbol = useMemo(() => ventasPorCategoria(invoices, products, hoy), [invoices, products, hoy]);
 
-  const { accent: acento } = useColoresGrafica();
+  const { accent: acento, contrapunto } = useColoresGrafica();
   const hayVentas = cifras.facturas > 0;
   const deudaTotal = deuda.reduce((s, t) => s + t.importe, 0);
   const categorias = arbol.children ?? [];
@@ -127,11 +128,12 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
   );
 
   return (
-    <section className="analisis" aria-labelledby="analisis-titulo">
-      <header className="analisis-cabecera">
+    // El ancla de «Análisis» en la barra de secciones (ver NavegacionPanel).
+    <section id="panel-analisis" className="analisis panel-seccion" aria-labelledby="analisis-titulo" tabIndex={-1}>
+      <header className="analisis-cabecera panel-seccion-cabeza">
         <div>
-          <h2 id="analisis-titulo" className="analisis-titulo">Análisis del negocio</h2>
-          <p className="analisis-sub">Últimos doce meses, sin borradores ni facturas anuladas</p>
+          <h2 id="analisis-titulo" className="analisis-titulo panel-seccion-titulo">Análisis del negocio</h2>
+          <p className="analisis-sub panel-seccion-sub">Últimos doce meses, sin borradores ni facturas anuladas</p>
         </div>
         <div className="analisis-pestanas" role="tablist" aria-label="Qué analizar">
           {PESTANAS.map(({ id, nombre, corto, icono: Icono }) => (
@@ -214,7 +216,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
                   { name: 'Hasta hoy', value: '', color: acento },
                   { name: 'Si sigue a este paso', value: '', color: `${acento}55` },
                   { name: 'Mes anterior', value: '', color: 'var(--text-primary)' },
-                  { name: 'Hace un año', value: '', color: SERIES[0] },
+                  { name: 'Hace un año', value: '', color: contrapunto },
                   { name: 'Media y mejor de 12 meses', value: '', color: 'var(--border-color-hover)' },
                 ]}
               />
@@ -227,7 +229,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
             title={`Acumulado de ${hoy.getFullYear()}`}
             subtitle={variacion === null
               ? 'Lo facturado desde enero, frente a lo que se llevaba el año pasado'
-              : `${variacion >= 0 ? '+' : ''}${variacion} % frente a lo que se llevaba a estas alturas de ${hoy.getFullYear() - 1}`}
+              : `${textoDelta(variacion)} frente a lo que se llevaba a estas alturas de ${hoy.getFullYear() - 1}`}
             height={190}
             isEmpty={acumulado.every(m => !m.actual && !m.anterior)}
             emptyLabel="Todavía no hay facturación que acumular"
@@ -242,7 +244,7 @@ export default function PanelAnalisis({ invoices, products }: { invoices: Invoic
               <ChartLegend
                 items={[
                   { name: String(hoy.getFullYear()), value: formatCurrency(mesActual.actual ?? 0), color: acento },
-                  { name: `${hoy.getFullYear() - 1}, a estas alturas`, value: formatCurrency(mesActual.anterior), color: SERIES[0] },
+                  { name: `${hoy.getFullYear() - 1}, a estas alturas`, value: formatCurrency(mesActual.anterior), color: contrapunto },
                 ]}
               />
             }

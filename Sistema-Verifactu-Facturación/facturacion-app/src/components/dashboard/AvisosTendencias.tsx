@@ -3,12 +3,13 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import {
-  Activity, Package, TrendingUp, TrendingDown, CalendarDays, Users,
-  Boxes, AlertTriangle, ArrowRight
+  Package, TrendingUp, TrendingDown, CalendarDays, Users,
+  AlertTriangle, ArrowRight, CheckCircle2, Inbox, type LucideIcon,
 } from 'lucide-react';
 import { buildAvisosData } from '@/lib/insights';
 import { Invoice, Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
+import Delta, { DeltaTexto } from './Delta';
 
 function formatStock(stock: number): string {
   return stock.toLocaleString('es-ES');
@@ -19,6 +20,22 @@ function StockState({ stock }: { stock: number }) {
     return <span className="badge badge-vencida"><span className="badge-dot" /> Sin stock</span>;
   }
   return <span className="badge badge-pendiente"><span className="badge-dot" /> Quedan {formatStock(stock)}</span>;
+}
+
+/**
+ * Lo que sale cuando una tarjeta no tiene nada que contar. Si «nada» es
+ * buena noticia (stock en orden, nadie en riesgo), lo dice con el check
+ * en verde; si sólo faltan datos, con la bandeja en gris.
+ */
+function Vacio({ titulo, texto, bueno = false }: { titulo: string; texto: string; bueno?: boolean }) {
+  const Icono: LucideIcon = bueno ? CheckCircle2 : Inbox;
+  return (
+    <div className={`chart-empty${bueno ? ' es-bueno' : ''}`}>
+      <Icono size={20} strokeWidth={1.75} aria-hidden="true" />
+      <div className="chart-empty-label">{titulo}</div>
+      <div className="chart-empty-hint">{texto}</div>
+    </div>
+  );
 }
 
 interface AvisosTendenciasProps {
@@ -40,13 +57,11 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
   const riskCount = data.riskClients.length;
 
   return (
-    <section id="tendencias" className="tendencias-section animate-fade-in">
-      <div className="tendencias-header">
+    <section id="tendencias" className="tendencias-section panel-seccion" aria-labelledby="tendencias-titulo" tabIndex={-1}>
+      <div className="tendencias-header panel-seccion-cabeza">
         <div className="tendencias-heading">
-          <h2 className="tendencias-title">
-            <Activity size={16} /> Avisos y tendencias
-          </h2>
-          <p className="tendencias-subtitle">
+          <h2 id="tendencias-titulo" className="tendencias-title panel-seccion-titulo">Avisos y tendencias</h2>
+          <p className="tendencias-subtitle panel-seccion-sub">
             Calculado en este equipo con tus facturas y tu stock, sin enviar nada fuera
           </p>
         </div>
@@ -64,15 +79,12 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
               <h3 className="chart-title">Alerta de stock</h3>
               <p className="chart-subtitle">Agotados y bajo el umbral mínimo configurado</p>
             </div>
-            <Link href="/productos" className="btn btn-ghost btn-sm">
-              Gestionar <ArrowRight size={14} />
+            <Link href="/productos" className="chart-enlace">
+              Gestionar <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
           {stockCount === 0 ? (
-            <div className="chart-empty">
-              <div className="chart-empty-label">Stock controlado</div>
-              <div className="chart-empty-hint">Todos tus productos activos están por encima de su umbral.</div>
-            </div>
+            <Vacio bueno titulo="Stock controlado" texto="Todos tus productos activos están por encima de su umbral." />
           ) : (
             <div className="stats-list">
               {data.critical.map(item => (
@@ -110,10 +122,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
             </div>
           </div>
           {data.growing.length === 0 && data.declining.length === 0 ? (
-            <div className="chart-empty">
-              <div className="chart-empty-label">Sin tendencias todavía</div>
-              <div className="chart-empty-hint">Compara un mes con el anterior para detectar productos al alza o a la baja.</div>
-            </div>
+            <Vacio titulo="Sin tendencias todavía" texto="Compara un mes con el anterior para detectar productos al alza o a la baja." />
           ) : (
             <div className="trend-columns">
               {data.growing.length > 0 && (
@@ -130,7 +139,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
                             <div className="stats-item-detail">{formatCurrency(item.previous)} → {formatCurrency(item.current)}</div>
                           </div>
                         </div>
-                        <span className="trend-change up">{item.previous === 0 ? 'Nuevo' : `+${Math.round(item.changePct)} %`}</span>
+                        {item.previous === 0 ? <DeltaTexto texto="Nuevo" tono="bien" /> : <Delta porcentaje={Math.round(item.changePct)} />}
                       </div>
                     ))}
                   </div>
@@ -150,7 +159,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
                             <div className="stats-item-detail">{formatCurrency(item.previous)} → {formatCurrency(item.current)}</div>
                           </div>
                         </div>
-                        <span className="trend-change down">{item.current === 0 ? 'Sin ventas' : `${Math.round(item.changePct)} %`}</span>
+                        {item.current === 0 ? <DeltaTexto texto="Sin ventas" tono="mal" /> : <Delta porcentaje={Math.round(item.changePct)} />}
                       </div>
                     ))}
                   </div>
@@ -169,10 +178,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
             </div>
           </div>
           {data.projection.length === 0 ? (
-            <div className="chart-empty">
-              <div className="chart-empty-label">Sin riesgo de rotura</div>
-              <div className="chart-empty-hint">Ningún producto se agotará en los próximos 7 días al ritmo de venta actual.</div>
-            </div>
+            <Vacio bueno titulo="Sin riesgo de rotura" texto="Ningún producto se agotará en los próximos 7 días al ritmo de venta actual." />
           ) : (
             <div className="stats-list">
               {data.projection.map(item => (
@@ -225,10 +231,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
               )}
             </div>
           ) : (
-            <div className="chart-empty">
-              <div className="chart-empty-label">Sin facturas todavía</div>
-              <div className="chart-empty-hint">Emita facturas para ver en qué días concentra más ventas.</div>
-            </div>
+            <Vacio titulo="Sin facturas todavía" texto="Cuando emitas facturas verás en qué días se concentran las ventas." />
           )}
 
           <div className="tendencias-divider" />
@@ -236,12 +239,7 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
             <Users size={13} /> Clientes en riesgo
           </div>
           {riskCount === 0 ? (
-            <div className="chart-empty">
-              <div className="chart-empty-label">
-                <Boxes size={16} style={{ verticalAlign: '-3px' }} /> Sin clientes en riesgo
-              </div>
-              <div className="chart-empty-hint">Ningún cliente acumula facturas pendientes o vencidas.</div>
-            </div>
+            <Vacio bueno titulo="Sin clientes en riesgo" texto="Ningún cliente acumula facturas pendientes o vencidas." />
           ) : (
             <div className="stats-list">
               {data.riskClients.map(client => (
@@ -250,15 +248,15 @@ export default function AvisosTendencias({ products, invoices }: AvisosTendencia
                     <div>
                       <div className="stats-item-name">{client.name}</div>
                       <div className="stats-item-detail">
-                        {client.pendingCount} {client.pendingCount === 1 ? 'factura' : 'facturas'} pendientes
+                        {client.pendingCount} {client.pendingCount === 1 ? 'factura pendiente' : 'facturas pendientes'}
                         {client.overdueTotal > 0 && ' · con vencidas'}
                       </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div className="stats-item-cifras">
                     <div className="stats-item-value">{formatCurrency(client.pendingTotal)}</div>
                     {client.overdueTotal > 0 && (
-                      <div className="stats-item-detail" style={{ color: 'var(--color-danger)' }}>
+                      <div className="stats-item-detail is-peligro">
                         {formatCurrency(client.overdueTotal)} vencidos
                       </div>
                     )}
