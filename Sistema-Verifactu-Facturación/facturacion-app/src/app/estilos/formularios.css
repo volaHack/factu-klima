@@ -529,3 +529,93 @@
     box-shadow: inset 2px 0 0 var(--accent-500);
   }
 }
+
+/* ============================================================
+   INVITACIÓN CON ENLACE (/invitacion/…)
+   El mismo fondo que la entrada y una sola tarjeta: de quién es la
+   invitación, qué garantías tiene y un botón grande. La luz del marco
+   es la de neon.css; el sello de la empresa entra con un pequeño giro.
+   ============================================================ */
+.invitacion-pagina { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-6) var(--space-4); overflow: hidden; }
+.invitacion-escena {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 460px;
+  display: grid; gap: var(--space-5); justify-items: center;
+}
+.invitacion-marco {
+  width: 100%;
+  border-radius: calc(var(--radius-xl) + 2px);
+  animation: login-card-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.invitacion-tarjeta {
+  position: relative; z-index: 2;
+  display: grid; justify-items: center; text-align: center;
+  padding: var(--space-10) var(--space-8) var(--space-8);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 30px 80px -30px rgba(76, 26, 40, 0.35), 0 2px 6px rgba(15, 16, 18, 0.06);
+}
+.invitacion-sello {
+  position: relative;
+  width: 76px; height: 76px; margin-bottom: var(--space-5);
+  display: grid; place-items: center;
+  border-radius: 22px;
+  background: linear-gradient(145deg, var(--accent-500), color-mix(in srgb, var(--accent-500) 55%, #2a0d18));
+  box-shadow: 0 14px 30px -10px color-mix(in srgb, var(--accent-500) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  animation: invitacionSello 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+}
+.invitacion-logo { width: 100%; height: 100%; object-fit: contain; border-radius: inherit; background: #fff; padding: 8px; }
+.invitacion-inicial { font-size: 34px; font-weight: 750; color: #fff; letter-spacing: -0.02em; }
+.invitacion-chispa {
+  position: absolute; top: -8px; right: -8px;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border-radius: 50%; background: #fff; color: var(--accent-500);
+  box-shadow: 0 4px 12px rgba(15, 16, 18, 0.15);
+}
+@keyframes invitacionSello { from { opacity: 0; transform: translateY(8px) rotate(-8deg); } }
+.invitacion-antetitulo {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm); font-weight: 600; color: var(--accent-500);
+}
+.invitacion-titulo {
+  margin: 0; font-size: clamp(1.9rem, 6vw, 2.4rem); line-height: 1.1;
+  font-weight: 750; letter-spacing: -0.025em; color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.invitacion-razon { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--text-tertiary); }
+.invitacion-texto { margin: var(--space-5) 0 0; font-size: var(--text-base); line-height: 1.6; color: var(--text-secondary); max-width: 36ch; }
+.invitacion-garantias {
+  width: 100%; margin: var(--space-6) 0 0; padding: var(--space-4);
+  list-style: none; display: grid; gap: var(--space-3); text-align: left;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+}
+.invitacion-garantias li { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--text-primary); }
+.invitacion-garantias svg { flex-shrink: 0; color: var(--accent-500); }
+.invitacion-boton {
+  width: 100%; margin-top: var(--space-6);
+  min-height: 52px; justify-content: center; gap: var(--space-2);
+  font-size: var(--text-base); font-weight: 650;
+  border-radius: var(--radius-lg);
+}
+.invitacion-boton svg:last-child { transition: transform 220ms var(--ease-settle); }
+.invitacion-boton:hover:not(:disabled) svg:last-child { transform: translateX(4px); }
+.invitacion-error { margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--color-danger); }
+.invitacion-pie { margin: var(--space-4) 0 0; font-size: var(--text-xs); color: var(--text-tertiary); }
+.invitacion-marca { margin: 0; font-size: var(--text-xs); color: var(--text-tertiary); letter-spacing: 0.02em; }
+.invitacion-cargando { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-8) 0; color: var(--text-secondary); }
+.invitacion-aviso { display: grid; justify-items: center; gap: var(--space-2); }
+.invitacion-aviso-icono {
+  width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: var(--space-2);
+  border-radius: 50%; background: color-mix(in srgb, var(--color-warning) 14%, transparent); color: var(--color-warning);
+}
+.invitacion-titulo-pequeno { margin: 0; font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); }
+.invitacion-aviso .invitacion-texto { margin-top: 0; }
+.invitacion-boton-secundario { margin-top: var(--space-4); }
+@media (max-width: 480px) {
+  .invitacion-tarjeta { padding: var(--space-8) var(--space-5) var(--space-6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .invitacion-marco, .invitacion-sello { animation: none; }
+}
