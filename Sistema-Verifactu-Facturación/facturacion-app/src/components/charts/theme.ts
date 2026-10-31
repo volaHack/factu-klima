@@ -92,6 +92,27 @@ export const ACENTO_GRAFICA: Record<TemaAcento, { claro: string; oscuro: string 
 /** Compatibilidad: el acento rosa, que es el de por defecto. */
 export const CHART_ACCENT = ACENTO_GRAFICA.rose;
 
+/**
+ * EL CONTRAPUNTO: LA SERIE QUE SE COMPARA
+ *
+ * Donde dos series se miden una contra otra (facturado frente a cobrado,
+ * este año frente al pasado), la segunda iba en el azul de SERIES: un
+ * azul eléctrico al lado del vino de la marca, que en el panel parecía
+ * de otra aplicación. La referencia no tiene por qué gritar: va en
+ * pizarra, un gris azulado que se separa del acento por tono (frío
+ * frente a cálido) y se queda en segundo plano.
+ *
+ *   claro  #64748b · 4,8:1 sobre #ffffff
+ *   oscuro #94a3b8 · 7,4:1 sobre #17181b
+ *
+ * Los dos superan el 3:1 de un objeto gráfico. El azul de SERIES sigue
+ * siendo el primer color categórico: esto es sólo para comparar.
+ */
+export const CONTRAPUNTO: Record<'claro' | 'oscuro', string> = {
+  claro: '#64748b',
+  oscuro: '#94a3b8',
+};
+
 /** El acento que ha elegido la empresa (ver lib/acento.ts). */
 export function temaAcento(): TemaAcento {
   return acentoActual();
@@ -247,5 +268,5 @@ const instantaneaServidor = () => 'rose|claro';
 export function useColoresGrafica() {
   const clave = useSyncExternalStore(suscribirseAColores, instantaneaColores, instantaneaServidor);
   const [tema, modo] = clave.split('|') as [TemaAcento, ModoGrafica];
-  return { tema, modo, accent: ACENTO_GRAFICA[tema][modo], ink: resolveInk(modo) };
+  return { tema, modo, accent: ACENTO_GRAFICA[tema][modo], contrapunto: CONTRAPUNTO[modo], ink: resolveInk(modo) };
 }

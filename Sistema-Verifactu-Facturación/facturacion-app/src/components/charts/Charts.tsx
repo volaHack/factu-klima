@@ -33,11 +33,11 @@ import { formatCurrency } from '@/lib/utils';
 export function useGrafica() {
   // Acento y modo en vivo: cambian si la empresa elige otro acento o pasa
   // a modo oscuro con la gráfica en pantalla (ver useColoresGrafica).
-  const { modo, accent, ink } = useColoresGrafica();
+  const { modo, accent, contrapunto, ink } = useColoresGrafica();
   const [reducido] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-  return { modo, accent, ink, reducido };
+  return { modo, accent, contrapunto, ink, reducido };
 }
 
 /** Cromo del gráfico: ejes finos, cuadrícula de un paso sobre el fondo. */
@@ -464,10 +464,16 @@ export function ComparisonBarChart({
   data,
   name1 = 'Serie 1',
   name2 = 'Serie 2',
+  color2,
 }: {
   data: { name: string; series1: number; series2: number }[];
   name1?: string;
   name2?: string;
+  /**
+   * Color de la segunda serie. Sin él, el azul de siempre (facturas e
+   * informes lo pintan así en su leyenda); el panel pasa el contrapunto.
+   */
+  color2?: string;
 }) {
   const { accent, ink } = useGrafica();
   const plot = useMemo<BarDatum[]>(
@@ -484,7 +490,7 @@ export function ComparisonBarChart({
       margin={{ top: 16, right: 12, bottom: 28, left: 48 }}
       padding={0.3}
       innerPadding={2}
-      colors={[accent, SERIES[0]]}
+      colors={[accent, color2 ?? SERIES[0]]}
       theme={temaNivo(ink)}
       animate={false}
       barComponent={BarraVertical}
