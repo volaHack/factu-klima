@@ -219,24 +219,36 @@ export function calcularPendientesProducto(
   return pendientesPorProducto(invoices).get(productId) ?? { pendienteRecibir: 0, pendienteEntregar: 0 };
 }
 
-/** Lo mismo para todo el catálogo de una pasada (la lista de productos). */
-export function pendientesPorProducto(
-  invoices: Invoice[],
-): Map<string, { pendienteRecibir: number; pendienteEntregar: number }> {
-  const noCuenta: readonly InvoiceStatus[] = [InvoiceStatus.ANULADA, InvoiceStatus.FACTURADO, InvoiceStatus.BORRADOR, InvoiceStatus.RECHAZADO];
-  const clave = (pedido: string, producto: string) => `${pedido}|${producto}`;
+/** La clave de `servidoPorPedido`: un pedido y uno de sus productos. */
+export const claveServido = (pedidoId: string, productId: string) => `${pedidoId}|${productId}`;
 
-  // Lo ya servido de cada pedido, por producto.
+/**
+ * Lo ya servido de cada pedido, por producto: lo que suman los albaranes y
+ * facturas que salieron de él (documentoOrigenId) y no se anularon. Lo usan
+ * lo pendiente de cada artículo y la cola del almacén (prepararPedidos.ts),
+ * para que los dos digan lo mismo de un pedido servido a medias.
+ */
+export function servidoPorPedido(invoices: readonly Invoice[]): Map<string, number> {
   const servido = new Map<string, number>();
   for (const inv of invoices) {
     if (!inv.documentoOrigenId || inv.tipo === 'pedido' || inv.tipo === 'presupuesto') continue;
     if (inv.status === InvoiceStatus.ANULADA) continue;
     for (const li of inv.lineItems) {
       if (!li.productId) continue;
-      const k = clave(inv.documentoOrigenId, li.productId);
+      const k = claveServido(inv.documentoOrigenId, li.productId);
       servido.set(k, (servido.get(k) ?? 0) + Number(li.quantity || 0));
     }
   }
+  return servido;
+}
+
+/** Lo mismo para todo el catálogo de una pasada (la lista de productos). */
+export function pendientesPorProducto(
+  invoices: Invoice[],
+): Map<string, { pendienteRecibir: number; pendienteEntregar: number }> {
+  const noCuenta: readonly InvoiceStatus[] = [InvoiceStatus.ANULADA, InvoiceStatus.FACTURADO, InvoiceStatus.BORRADOR, InvoiceStatus.RECHAZADO];
+  const clave = claveServido;
+  const servido = servidoPorPedido(invoices);
 
   const salida = new Map<string, { pendienteRecibir: number; pendienteEntregar: number }>();
   for (const inv of invoices) {
