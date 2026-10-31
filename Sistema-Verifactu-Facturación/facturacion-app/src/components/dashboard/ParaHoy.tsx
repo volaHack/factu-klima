@@ -68,9 +68,13 @@ export default function ParaHoy({ tareas, sinDocumentos = false, debajo }: ParaH
                     <span className="para-hoy-fila-detalle">{t.detalle}</span>
                   </span>
                   {t.importe != null && <span className="para-hoy-importe">{formatCurrency(t.importe)}</span>}
+                  {/* La acción, en una píldora que se enciende al pasar por la
+                      fila: toda la fila lleva allí, y así se ve. */}
                   <span className="para-hoy-accion">
-                    <span>{t.accion}</span>
-                    <ChevronRight size={14} aria-hidden="true" />
+                    <span className="para-hoy-accion-pildora">
+                      <span>{t.accion}</span>
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </span>
                   </span>
                 </Link>
                 {debajo?.[t.id]}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 import Delta from './Delta';
@@ -77,8 +77,28 @@ const hayTraza = (serie?: number[]): serie is number[] =>
  * grande; las demás la acompañan a su lado. Al llegar, las cifras cuentan
  * hasta su valor (ver CifraQueCuenta). Las cifras van con números de ancho fijo para que
  * se comparen de un vistazo.
+ *
+ * Al volver a leer los datos, la cifra que cambia cuenta desde la que había
+ * hasta la nueva y su celda se ilumina un instante: se ve qué se ha movido
+ * sin comparar de memoria.
  */
 export default function EstadoCuentas({ cifras }: { cifras: CifraPanel[] }) {
+  // Lo último que se pintó en cada celda y cuántas veces ha cambiado. Es
+  // estado derivado de las props (se compara al pintar, no en un efecto):
+  // el número de cambios es la llave del destello, que así vuelve a sonar.
+  const firma = cifras.map(c => `${c.id}=${c.valor}`).join('|');
+  const [visto, setVisto] = useState(() => ({
+    firma, valores: new Map(cifras.map(c => [c.id, c.valor])), cambios: new Map<string, number>(),
+  }));
+  if (visto.firma !== firma) {
+    const cambios = new Map(visto.cambios);
+    for (const c of cifras) {
+      const antes = visto.valores.get(c.id);
+      if (antes !== undefined && antes !== c.valor) cambios.set(c.id, (cambios.get(c.id) ?? 0) + 1);
+    }
+    setVisto({ firma, valores: new Map(cifras.map(c => [c.id, c.valor])), cambios });
+  }
+
   if (cifras.length === 0) return null;
   return (
     // El marco es el contenedor que mide el ancho (ver `.cuentas-marco`) y
@@ -94,7 +114,8 @@ export default function EstadoCuentas({ cifras }: { cifras: CifraPanel[] }) {
                 {c.tono === 'peligro' && <AlertTriangle size={13} aria-hidden="true" />}
                 {c.etiqueta}
               </span>
-              <span className="cuentas-valor"><CifraQueCuenta texto={c.valor} /></span>
+              {visto.cambios.has(c.id) && <span key={visto.cambios.get(c.id)} className="cuentas-destello" aria-hidden="true" />}
+              <span className="cuentas-valor"><CifraQueCuenta texto={c.valor} recuenta /></span>
               {i === 0 && hayTraza(c.serie) && <Traza valores={c.serie} />}
               {(c.cambio || c.detalle) && (
                 <span className="cuentas-pie">
