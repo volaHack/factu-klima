@@ -262,12 +262,9 @@
 /* ============================================================
    CABECERA
    ============================================================ */
-/* Cristal de verdad: algo más transparente, para que lo que pasa por
-   debajo se adivine borroso, y un filo de luz del acento abajo que se
-   apaga hacia los lados. En oscuro se queda casi opaca: sobre negro el
-   contenido se transparenta mucho más (ver --bg-header). */
-.header { background: color-mix(in srgb, var(--bg-header) 84%, transparent); }
-:root[data-theme="dark"] .header { background: color-mix(in srgb, var(--bg-header) 94%, transparent); }
+/* Un filo de luz del acento abajo que se apaga hacia los lados. La
+   cabecera es opaca (globals.css): de cristal, lo que pasaba por debajo
+   se colaba borroso. */
 .header::after {
   content: '';
   position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
@@ -377,8 +374,14 @@
   height: var(--panel-secciones-alto);
   margin: 0 0 var(--space-4);
   border-bottom: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
-  backdrop-filter: blur(10px);
+  /* Opaca, como la cabecera: con transparencia y desenfoque el halo del
+     neón de la tarjeta de cifras se veía pasar por debajo. */
+  background: var(--bg-primary);
+  /* El fondo sigue por los márgenes de la página (dos sombras sin
+     difuminar, una a cada lado): si no, el filo y el halo de la tarjeta
+     de cifras asomaban por el hueco junto a la barra. Lo que sobra lo
+     recorta .app-main. */
+  box-shadow: -48px 0 0 var(--bg-primary), 48px 0 0 var(--bg-primary);
 }
 .panel-secciones-nav { min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; }
 .panel-secciones-nav::-webkit-scrollbar { display: none; }

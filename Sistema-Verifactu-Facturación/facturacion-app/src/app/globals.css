@@ -826,8 +826,10 @@ a:hover { color: var(--accent-300); }
   top: 0; right: 0;
   left: var(--sidebar-width);
   height: var(--header-height);
-  background: var(--bg-header);
-  backdrop-filter: blur(20px) saturate(180%);
+  /* Opaca: el color de cabecera pintado sobre el fondo de la página. Con
+     cristal (transparencia y desenfoque) se colaban borrosos las cifras y
+     el halo de los neones al desplazar. */
+  background: linear-gradient(var(--bg-header), var(--bg-header)), var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
   display: flex; align-items: center;
   padding: var(--safe-top) calc(var(--space-6) + var(--safe-right)) 0 calc(var(--space-6) + var(--safe-left));

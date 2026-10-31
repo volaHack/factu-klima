@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type MouseEvent } from 'react';
-import { Printer, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export interface SeccionPanel {
   /** El id del elemento al que lleva (y que se vigila al bajar). */
@@ -19,7 +19,7 @@ export interface SeccionPanel {
  *
  * A la derecha, cuándo se leyeron los datos (el panel no es una foto
  * fija: se repinta al volver a la pestaña o al guardar una factura en
- * otro equipo), el botón para volver a leerlos y el de imprimir.
+ * otro equipo) y el botón para volver a leerlos.
  */
 export default function NavegacionPanel({ secciones, actualizado, recargando, onRecargar }: {
   secciones: readonly SeccionPanel[];
@@ -106,15 +106,6 @@ export default function NavegacionPanel({ secciones, actualizado, recargando, on
           title="Volver a leer los datos"
         >
           <RefreshCw size={14} aria-hidden="true" className={recargando ? 'spin' : undefined} />
-        </button>
-        <button
-          type="button"
-          className="panel-secciones-boton"
-          onClick={() => window.print()}
-          aria-label="Imprimir el panel"
-          title="Imprimir"
-        >
-          <Printer size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
