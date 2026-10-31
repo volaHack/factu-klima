@@ -16579,8 +16579,11 @@ a:hover > svg.lucide-chevron-right, a:hover > svg.lucide-arrow-right, button:hov
   transform: translateX(3px);
 }
 
-/* El número de la campana salta al llegar. */
-@keyframes contadorSalta { 0% { transform: scale(0); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+/* El número de la campana aparece al llegar: se funde y baja un poco, a
+   su tamaño de siempre. Antes crecía desde scale(0), y Safari del iPhone
+   pintaba el texto cuando aún era diminuto y luego lo ampliaba sin volver
+   a pintarlo: el «99+» se quedaba borroso para siempre. */
+@keyframes contadorSalta { from { opacity: 0; transform: translateY(-4px); } }
 .header-contador { animation: contadorSalta 520ms var(--ease-settle) 700ms backwards; }
 
 /* Estados vacíos: el icono flota despacio. */
