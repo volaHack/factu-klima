@@ -139,18 +139,23 @@ const mismoNombre = (a: string, b: string) => a.trim().localeCompare(b.trim(), '
  * sustituye (es «guardar otra vez el pedido semanal»). null si no hay
  * nombre o no hay líneas que guardar.
  */
+/* Fuera de la firma: el compilador de Next no acepta `in` dentro del
+   valor por defecto de un parámetro, aunque TypeScript y Vitest sí. */
+const idNuevo = (ahora: number) =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `pack-${ahora}`;
+
 export function conPackNuevo(
   packs: readonly PackLineas[],
   nombre: string,
   lineas: readonly InvoiceLineItem[],
   ahora = Date.now(),
-  id: string = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `pack-${ahora}`,
+  id?: string,
 ): PackLineas[] | null {
   const limpio = nombre.trim().slice(0, 80);
   const deLineas = lineasParaPack(lineas);
   if (!limpio || !deLineas.length) return null;
   const anterior = packs.find(p => mismoNombre(p.nombre, limpio));
-  const pack: PackLineas = { id: anterior?.id ?? id, nombre: limpio, lineas: deLineas, creado: ahora };
+  const pack: PackLineas = { id: anterior?.id ?? id ?? idNuevo(ahora), nombre: limpio, lineas: deLineas, creado: ahora };
   return [pack, ...packs.filter(p => p !== anterior)].slice(0, MAX_PACKS);
 }
 

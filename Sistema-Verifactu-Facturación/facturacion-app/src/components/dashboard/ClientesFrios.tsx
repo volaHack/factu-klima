@@ -5,9 +5,8 @@
  * sin pedir, con lo necesario para recuperarlos sin salir del panel:
  * llamarles, escribirles por WhatsApp o prepararles ya la factura.
  *
- * La factura se abre con el cliente puesto en el editor de documentos
- * (`/documentos/nuevo?tipo=factura&clientId=`), el mismo enlace que usan las
- * órdenes de trabajo: es la pantalla de alta que ya acepta un cliente.
+ * La factura se abre con el cliente ya puesto en la factura nueva de
+ * siempre (`/facturas/nueva?cliente=`).
  */
 
 import Link from 'next/link';
