@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { ResponsiveBar, type BarDatum, type BarItemProps, type BarCustomLayerProps } from '@nivo/bar';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsivePie } from '@nivo/pie';
@@ -91,9 +91,17 @@ function trazadoBarra(x: number, y: number, w: number, h: number): string {
  * con retraso escalonado por posición: entra como una ola de izquierda
  * a derecha en vez de todas a la vez. `prefers-reduced-motion` la anula
  * allí mismo.
+ *
+ * El color va en degradado: pleno en el extremo del dato y algo más
+ * tenue en la base, que es donde la barra no dice nada. Lo más claro se
+ * queda al 72 %, por encima del 3:1 que pide una marca de gráfico sobre
+ * la tarjeta, así que la barra se sigue leyendo entera.
  */
 function barraDe(orientacion: 'vertical' | 'horizontal') {
   return function Barra({ bar, onMouseEnter, onMouseLeave, onClick }: BarItemProps<BarDatum>) {
+    // Un degradado por barra: con uno por color, dos gráficas iguales en la
+    // misma página se pisarían el id.
+    const degradado = `barra${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
     let { x, y, width, height } = bar;
     if (width <= 0 || height <= 0) return null;
 
@@ -114,18 +122,28 @@ function barraDe(orientacion: 'vertical' | 'horizontal') {
             fn(bar, event as unknown as React.MouseEvent<SVGRectElement>)
         : undefined;
 
+    const vertical = orientacion === 'vertical';
     return (
-      <path
-        d={orientacion === 'vertical'
-          ? trazadoColumna(x, y, width, height)
-          : trazadoBarra(x, y, width, height)}
-        fill={bar.color}
-        className={`barra-dato${orientacion === 'horizontal' ? ' barra-dato--horizontal' : ''}`}
-        style={{ animationDelay: `${Math.min(bar.index, 14) * 26}ms` }}
-        onMouseEnter={puente(onMouseEnter as ManejadorNivo)}
-        onMouseLeave={puente(onMouseLeave as ManejadorNivo)}
-        onClick={puente(onClick as ManejadorNivo)}
-      />
+      <>
+        <defs>
+          {/* Del extremo del dato (pleno) a la base (tenue). */}
+          <linearGradient id={degradado} x1={vertical ? 0 : 1} y1="0" x2="0" y2={vertical ? 1 : 0}>
+            <stop offset="0" stopColor={bar.color} />
+            <stop offset="1" stopColor={bar.color} stopOpacity={0.72} />
+          </linearGradient>
+        </defs>
+        <path
+          d={vertical
+            ? trazadoColumna(x, y, width, height)
+            : trazadoBarra(x, y, width, height)}
+          fill={`url(#${degradado})`}
+          className={`barra-dato${vertical ? '' : ' barra-dato--horizontal'}`}
+          style={{ animationDelay: `${Math.min(bar.index, 14) * 26}ms` }}
+          onMouseEnter={puente(onMouseEnter as ManejadorNivo)}
+          onMouseLeave={puente(onMouseLeave as ManejadorNivo)}
+          onClick={puente(onClick as ManejadorNivo)}
+        />
+      </>
     );
   };
 }
