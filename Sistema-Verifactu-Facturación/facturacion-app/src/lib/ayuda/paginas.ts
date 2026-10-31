@@ -402,6 +402,28 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
     relacionadas: [{ ruta: '/albaranes', texto: 'Albaranes' }],
   },
+  {
+    ruta: '/preparar-pedidos',
+    titulo: 'Preparar pedidos',
+    paraQue: 'La cola del almacén: lo que se ha pedido (también desde el móvil) y hay que sacar, cargar y entregar, con la hoja de cada pedido y la de la furgoneta.',
+    pasos: [
+      'Los pedidos emitidos y los albaranes sin expedir aparecen solos, agrupados por la ruta del cliente. Cuando entra uno nuevo suena un aviso.',
+      'Abre «Ver las líneas» o pulsa la impresora para sacar la hoja de preparación, con una casilla por línea y las cajas y sueltas de cada artículo.',
+      'Con el género en el muelle, pulsa «Preparado». Pasa a «Preparados» y se ve quién lo dejó listo.',
+      'Para la furgoneta, pulsa «Hoja de carga» en la ruta: lo de todos sus pedidos sumado por artículo, y la lista de paradas.',
+      'Al entregarlo, pulsa «Entregado» y vuelve a pulsar para confirmarlo.',
+    ],
+    saber: [
+      '«Entregado» expide el albarán, que es lo que descuenta el stock. Un pedido sale con su albarán, sólo con lo que le falta por servir.',
+      '«Preparado» no cambia el estado ni el stock: es una marca para el almacén, y se puede quitar.',
+      'Los avisos y el sonido se encienden o se apagan en cada equipo, con los botones de arriba.',
+      'Sin conexión se marca igual: se sube al volver la red.',
+    ],
+    relacionadas: [
+      { ruta: '/rutas-reparto', texto: 'Rutas de reparto' },
+      { ruta: '/documentos', texto: 'Pedidos y albaranes' },
+    ],
+  },
 
   // ============================================================
   // PROYECTO

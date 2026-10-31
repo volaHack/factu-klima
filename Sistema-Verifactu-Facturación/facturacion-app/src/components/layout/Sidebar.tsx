@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Plus, ChevronLeft } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import MenuPrincipal, { type Hoja } from './MenuPrincipal';
+import MenuPrincipal, { MENU, type Hoja } from './MenuPrincipal';
 import FichasRecordadas from './FichasRecordadas';
 import { getCompanySettings } from '@/lib/storage';
 import { isTpvEnabled, BUSINESS_SECTORS } from '@/lib/constants';
@@ -15,6 +15,9 @@ import { NOMBRE_ORIGEN, origenDelHistorico } from '@/lib/historico';
 import type { CompanySettings } from '@/lib/types';
 import { usePerfiles } from '@/lib/perfilesCliente';
 import { puedeEntrar } from '@/lib/perfiles';
+import { usePedidosNuevos } from '@/hooks/useColaAlmacen';
+
+const PREPARAR = MENU.flatMap(r => r.hojas).find(h => h.lista === '/preparar-pedidos');
 
 interface SidebarProps {
   isOpen: boolean;
@@ -54,6 +57,13 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
     if (h.requiere === 'gestoria' && !tieneGestoria) return false;
     return !perfilActivo || puedeEntrar(perfilActivo.rol, h.lista.split('?')[0]);
   }, [modulos, tpvActive, origenHistorico, tieneGestoria, perfilActivo]);
+
+  // El aviso de pedidos nuevos vive aquí porque el menú está en todas las
+  // pantallas: el almacén se entera esté donde esté. Se enciende si sale la
+  // entrada «Preparar pedidos»: con el módulo de albaranes y un perfil que
+  // pueda abrir la cola.
+  const { sinVer } = usePedidosNuevos(Boolean(PREPARAR && visible(PREPARAR)));
+  const contadores = useMemo(() => ({ '/preparar-pedidos': sinVer }), [sinVer]);
 
   useEffect(() => {
     origenDelHistorico().then(setOrigenHistorico).catch(() => {});
@@ -175,6 +185,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
               onExpand={onToggleCollapse}
               nombreHistorial={origenHistorico ? (NOMBRE_ORIGEN[origenHistorico] ?? 'anterior') : undefined}
               antesDelArbol={<FichasRecordadas onClose={onClose} />}
+              contadores={contadores}
             />
           </Suspense>
         </nav>
