@@ -21,6 +21,10 @@
  * este dispositivo; la rama de la pantalla en que se está se abre sola.
  * Con el menú plegado solo quedan los iconos de las ramas: pulsar uno lo
  * despliega con esa rama abierta.
+ *
+ * Una hoja puede llevar un número al lado (`contadores`): los pedidos que
+ * han entrado y el almacén no ha visto todavía. Con la rama cerrada, el
+ * número sube a la rama, para que se vea sin abrirla.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -111,6 +115,10 @@ export const MENU: Rama[] = [
   },
   {
     id: 'almacen', label: 'Almacén', icon: Warehouse, hojas: [
+      // La cola del almacén: lo que el comercial ha pedido y hay que
+      // preparar, cargar y entregar. Sale con los albaranes, que es lo que
+      // mueve el género.
+      { label: 'Preparar pedidos', lista: '/preparar-pedidos', modulo: 'albaranes' },
       { label: 'Existencias', lista: '/almacenes?tab=existencias', modulo: 'almacenes' },
       { label: 'Regularizaciones de stock', lista: '/almacenes?tab=regularizaciones', nuevo: '/almacenes?tab=regularizaciones&nuevo=1', modulo: 'almacenes' },
       { label: 'Traspasos entre almacenes', lista: '/almacenes?tab=traspasos', nuevo: '/almacenes?tab=traspasos&nuevo=1', modulo: 'almacenes' },
@@ -181,7 +189,7 @@ function leerAbiertas(): string[] | null {
   }
 }
 
-export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, nombreHistorial, antesDelArbol }: {
+export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, nombreHistorial, antesDelArbol, contadores }: {
   /** Si la hoja sale: módulos encendidos, perfil de trabajo, TPV… */
   visible: (hoja: Hoja) => boolean;
   onClose: () => void;
@@ -192,6 +200,8 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
   nombreHistorial?: string;
   /** Lo que va entre los accesos directos y el árbol (las fichas fijadas). */
   antesDelArbol?: React.ReactNode;
+  /** Un número junto a la hoja, por su `lista` (0 o sin número: nada). */
+  contadores?: Record<string, number>;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -274,6 +284,7 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
         {ramas.map(rama => {
           const abierta = !collapsed && estaAbierta(rama.id);
           const Icono = rama.icon;
+          const enLaRama = rama.hojas.reduce((s, h) => s + (contadores?.[h.lista] ?? 0), 0);
           return (
             <li key={rama.id} role="treeitem" aria-expanded={abierta} aria-selected={false}>
               <button
@@ -284,6 +295,7 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
               >
                 <Icono size={18} />
                 <span>{rama.label}</span>
+                {!abierta && enLaRama > 0 && <Contador n={enLaRama} />}
                 <ChevronRight size={14} className="menu-arbol-flecha" aria-hidden />
               </button>
               {/* Siempre montada: así la rama se abre y se cierra deslizando
@@ -295,10 +307,12 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
                   <ul role="group">
                     {rama.hojas.map(hoja => {
                       const activa = esHojaActiva(hoja, pathname, params);
+                      const n = contadores?.[hoja.lista] ?? 0;
                       return (
                         <li key={hoja.lista} role="treeitem" aria-selected={activa} className={`menu-arbol-hoja${activa ? ' active' : ''}`}>
                           <Link href={hoja.lista} onClick={onClose} aria-current={activa ? 'page' : undefined}>
                             {hoja.label}
+                            {n > 0 && <Contador n={n} />}
                           </Link>
                           {hoja.nuevo && (
                             <Link
@@ -322,5 +336,14 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
         })}
       </ul>
     </>
+  );
+}
+
+/** El número de lo que está sin ver. Se lee entero para el lector de pantalla. */
+function Contador({ n }: { n: number }) {
+  return (
+    <span className="menu-arbol-contador" aria-label={`${n} sin ver`}>
+      {n > 99 ? '99+' : n}
+    </span>
   );
 }

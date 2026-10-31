@@ -6,7 +6,11 @@
  * La primera vez que aparece, la cifra cuenta desde cero hasta la de verdad
  * en algo menos de un segundo, frenando al final. Así el panel se lee como
  * algo que se acaba de calcular, no como un cartel. Sólo la primera vez: si
- * luego cambia (llega una factura nueva), se pone directamente.
+ * luego cambia (llega una factura nueva), se pone directamente… salvo con
+ * `recuenta`: entonces va desde la cifra que había hasta la nueva, más
+ * deprisa, y el ojo ve qué ha cambiado al volver a leer los datos (el
+ * panel lo usa en sus cifras de arriba; los listados no, porque al
+ * filtrar cambian a cada tecla).
  *
  * Recibe el texto ya formateado («3.796,16 €», «12», «−240,00 €») y respeta
  * su formato: mismos decimales, mismos puntos de miles, mismo símbolo.
@@ -49,31 +53,48 @@ export function escribirCifra(valor: number, decimales: number): string {
 
 const frenada = (t: number) => 1 - Math.pow(1 - t, 4);
 
-export default function CifraQueCuenta({ texto, duracion = 800 }: { texto: string; duracion?: number }) {
+export default function CifraQueCuenta({ texto, duracion = 800, recuenta = false }: {
+  texto: string;
+  duracion?: number;
+  /** Al cambiar después de la primera vez, cuenta desde la cifra anterior. */
+  recuenta?: boolean;
+}) {
   const [mostrado, setMostrado] = useState(texto);
   const contada = useRef(false);
+  // La última cifra que llegó a pintarse entera: de ahí sale el recuento.
+  const anterior = useRef<CifraPartida | null>(null);
 
   useLayoutEffect(() => {
     const partes = partirCifra(texto);
     const quieto = typeof window === 'undefined'
       || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (contada.current || !partes || partes.valor === 0 || quieto) {
+    const desde = anterior.current;
+    anterior.current = partes;
+    // Recuento: sólo si las dos cifras se escriben igual (mismo símbolo y
+    // decimales) y de verdad cambia; si no, se pone sin más.
+    const recontar = recuenta && contada.current && !!partes && !!desde && !quieto
+      && desde.valor !== partes.valor && desde.decimales === partes.decimales
+      && desde.antes === partes.antes && desde.despues === partes.despues;
+    if (!recontar && (contada.current || !partes || partes.valor === 0 || quieto)) {
       setMostrado(texto);
       return;
     }
     contada.current = true;
+    const origen = recontar ? desde!.valor : 0;
+    const tiempo = recontar ? Math.round(duracion * 0.75) : duracion;
     const inicio = performance.now();
     let cuadro = 0;
+    const escribir = (v: number) => `${partes!.antes}${escribirCifra(v, partes!.decimales)}${partes!.despues}`;
     const paso = (ahora: number) => {
-      const t = Math.min(1, (ahora - inicio) / duracion);
+      const t = Math.min(1, (ahora - inicio) / tiempo);
       if (t >= 1) { setMostrado(texto); return; }
-      setMostrado(`${partes.antes}${escribirCifra(partes.valor * frenada(t), partes.decimales)}${partes.despues}`);
+      setMostrado(escribir(origen + (partes!.valor - origen) * frenada(t)));
       cuadro = requestAnimationFrame(paso);
     };
-    setMostrado(`${partes.antes}${escribirCifra(0, partes.decimales)}${partes.despues}`);
+    setMostrado(escribir(origen));
     cuadro = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(cuadro);
-  }, [texto, duracion]);
+  }, [texto, duracion, recuenta]);
 
   return (
     <>

@@ -27,6 +27,11 @@ describe('puedeEntrar', () => {
     expect(puedeEntrar('empleado', '/cierre')).toBe(false);
   });
 
+  it('el empleado del almacén entra en la cola de preparar pedidos; el cajero no', () => {
+    expect(puedeEntrar('empleado', '/preparar-pedidos')).toBe(true);
+    expect(puedeEntrar('cajero', '/preparar-pedidos')).toBe(false);
+  });
+
   it('el prefijo es por segmento: /informes no veda /informes-algo', () => {
     expect(puedeEntrar('empleado', '/informesx')).toBe(true);
   });

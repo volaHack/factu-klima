@@ -153,36 +153,41 @@ export function DiasConVentas({
   const facturasDe = useMemo(() => new Map(dias.map(d => [d.day, d.facturas])), [dias]);
 
   return (
-    <ResponsiveTimeRange
-      data={dias.map(({ day, value }) => ({ day, value }))}
-      from={desde}
-      to={hasta}
-      firstWeekday="monday"
-      weekdays={DIAS_DESDE_DOMINGO}
-      weekdayTicks={[0, 2, 4]}
-      weekdayLegendOffset={30}
-      monthLegend={(_a, _m, fecha) => MESES_CORTOS[fecha.getMonth()]}
-      monthLegendOffset={8}
-      margin={{ top: 22, right: 0, bottom: 0, left: 0 }}
-      square
-      align="top-left"
-      daySpacing={2}
-      dayRadius={Math.min(3, celda / 4)}
-      dayBorderWidth={0}
-      emptyColor={CELDA_VACIA[modo]}
-      colors={rampaSecuencial(modo)}
-      minValue={0}
-      theme={temaNivo(ink)}
-      tooltip={({ day, value, color }) => (
-        <Tip
-          color={color}
-          value={`${value} €`}
-          label={`${fechaLarga(day)} · ${facturasDe.get(day) ?? 0} ${facturasDe.get(day) === 1 ? 'factura' : 'facturas'}`}
-        />
-      )}
-      valueFormat={v => formatCurrency(v).replace(/\s?€$/, '')}
-      role="img"
-    />
+    // La envoltura da la entrada (un barrido de izquierda a derecha, en el
+    // sentido de las semanas) y el anillo de la casilla señalada: ver
+    // `.mapa-calor` en panel.css.
+    <div className="mapa-calor">
+      <ResponsiveTimeRange
+        data={dias.map(({ day, value }) => ({ day, value }))}
+        from={desde}
+        to={hasta}
+        firstWeekday="monday"
+        weekdays={DIAS_DESDE_DOMINGO}
+        weekdayTicks={[0, 2, 4]}
+        weekdayLegendOffset={30}
+        monthLegend={(_a, _m, fecha) => MESES_CORTOS[fecha.getMonth()]}
+        monthLegendOffset={8}
+        margin={{ top: 22, right: 0, bottom: 0, left: 0 }}
+        square
+        align="top-left"
+        daySpacing={2}
+        dayRadius={Math.min(3, celda / 4)}
+        dayBorderWidth={0}
+        emptyColor={CELDA_VACIA[modo]}
+        colors={rampaSecuencial(modo)}
+        minValue={0}
+        theme={temaNivo(ink)}
+        tooltip={({ day, value, color }) => (
+          <Tip
+            color={color}
+            value={`${value} €`}
+            label={`${fechaLarga(day)} · ${facturasDe.get(day) ?? 0} ${facturasDe.get(day) === 1 ? 'factura' : 'facturas'}`}
+          />
+        )}
+        valueFormat={v => formatCurrency(v).replace(/\s?€$/, '')}
+        role="img"
+      />
+    </div>
   );
 }
 
@@ -215,41 +220,43 @@ export function MapaSemanal({ filas }: { filas: FilaSemana[] }) {
   const max = Math.max(0, ...filas.flatMap(f => f.data.map(c => c.y ?? 0)));
 
   return (
-    <ResponsiveHeatMap
-      data={filas}
-      margin={{ top: 26, right: 4, bottom: 4, left: 40 }}
-      xInnerPadding={0.08}
-      yInnerPadding={0.12}
-      borderRadius={3}
-      colors={cell => {
-        if (cell.value === null || cell.value <= 0 || max <= 0) return CELDA_VACIA[modo];
-        const i = Math.min(rampa.length - 1, Math.floor((cell.value / max) * rampa.length));
-        return rampa[i];
-      }}
-      emptyColor={CELDA_VACIA[modo]}
-      enableLabels={false}
-      axisTop={{ tickSize: 0, tickPadding: 8 }}
-      axisLeft={{ tickSize: 0, tickPadding: 8 }}
-      axisRight={null}
-      axisBottom={null}
-      theme={temaNivo(ink)}
-      hoverTarget="cell"
-      inactiveOpacity={0.55}
-      tooltip={({ cell }) => {
-        const d = cell.data as FilaSemana['data'][number];
-        return (
-          <Tip
-            color={cell.color}
-            value={cell.value === null ? 'Sin datos' : formatCurrency(cell.value)}
-            label={`de media cada ${cell.serieId.toLowerCase()} · ${d.x} (${d.dias} ${d.dias === 1 ? 'día' : 'días'})`}
-          />
-        );
-      }}
-      animate={!reducido}
-      motionConfig="gentle"
-      role="img"
-      ariaLabel="Venta media por día de la semana y mes"
-    />
+    <div className="mapa-calor">
+      <ResponsiveHeatMap
+        data={filas}
+        margin={{ top: 26, right: 4, bottom: 4, left: 40 }}
+        xInnerPadding={0.08}
+        yInnerPadding={0.12}
+        borderRadius={3}
+        colors={cell => {
+          if (cell.value === null || cell.value <= 0 || max <= 0) return CELDA_VACIA[modo];
+          const i = Math.min(rampa.length - 1, Math.floor((cell.value / max) * rampa.length));
+          return rampa[i];
+        }}
+        emptyColor={CELDA_VACIA[modo]}
+        enableLabels={false}
+        axisTop={{ tickSize: 0, tickPadding: 8 }}
+        axisLeft={{ tickSize: 0, tickPadding: 8 }}
+        axisRight={null}
+        axisBottom={null}
+        theme={temaNivo(ink)}
+        hoverTarget="cell"
+        inactiveOpacity={0.55}
+        tooltip={({ cell }) => {
+          const d = cell.data as FilaSemana['data'][number];
+          return (
+            <Tip
+              color={cell.color}
+              value={cell.value === null ? 'Sin datos' : formatCurrency(cell.value)}
+              label={`de media cada ${cell.serieId.toLowerCase()} · ${d.x} (${d.dias} ${d.dias === 1 ? 'día' : 'días'})`}
+            />
+          );
+        }}
+        animate={!reducido}
+        motionConfig="gentle"
+        role="img"
+        ariaLabel="Venta media por día de la semana y mes"
+      />
+    </div>
   );
 }
 
@@ -627,56 +634,64 @@ export function AcumuladoLineas({ datos, anio }: { datos: AcumuladoMes[]; anio: 
   );
 
   return (
-    <ResponsiveLine
-      data={series}
-      margin={{ top: 12, right: 16, bottom: 28, left: 48 }}
-      xScale={{ type: 'point' }}
-      yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
-      curve="monotoneX"
-      colors={[contrapunto, accent]}
-      theme={temaNivo(ink)}
-      lineWidth={2}
-      enablePoints
-      pointSize={6}
-      pointColor={{ from: 'series.color' }}
-      pointBorderWidth={2}
-      pointBorderColor={ink.surface}
-      enableGridX={false}
-      axisBottom={{ tickSize: 0, tickPadding: 8 }}
-      axisLeft={{ tickSize: 0, tickPadding: 8, format: v => compactEuro(Number(v)), tickValues: 4 }}
-      layers={[
-        'grid', 'axes', 'areas', 'crosshair',
-        // El año pasado discontinuo: se pinta a mano sobre la línea de Nivo.
-        ({ series: s, lineGenerator }) => (
-          <g>
-            {s.map(serie => (
-              <path
-                key={serie.id}
-                d={lineGenerator(serie.data.map(p => p.position)) ?? ''}
-                fill="none"
-                stroke={serie.color}
-                strokeWidth={2}
-                strokeDasharray={serie.id === anterior ? '5 4' : undefined}
-                strokeLinecap="round"
-              />
-            ))}
-          </g>
-        ),
-        'points', 'slices', 'mesh',
-      ]}
-      enableSlices="x"
-      enableCrosshair
-      crosshairType="x"
-      sliceTooltip={({ slice }) => (
-        <TipRebanada
-          puntos={slice.points
-            .filter(p => p.data.y !== null)
-            .map(p => ({ serie: `Acumulado ${p.seriesId}`, color: p.seriesColor, valor: Number(p.data.y) }))}
-        />
-      )}
-      animate={!reducido}
-      motionConfig="gentle"
-      role="img"
-    />
+    // La envoltura deja al CSS dibujar las líneas al llegar y asomar los
+    // puntos detrás (ver `.linea-dibujada` en panel.css).
+    <div className="grafica-lineas">
+      <ResponsiveLine
+        data={series}
+        margin={{ top: 12, right: 16, bottom: 28, left: 48 }}
+        xScale={{ type: 'point' }}
+        yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
+        curve="monotoneX"
+        colors={[contrapunto, accent]}
+        theme={temaNivo(ink)}
+        lineWidth={2}
+        enablePoints
+        pointSize={6}
+        pointColor={{ from: 'series.color' }}
+        pointBorderWidth={2}
+        pointBorderColor={ink.surface}
+        enableGridX={false}
+        axisBottom={{ tickSize: 0, tickPadding: 8 }}
+        axisLeft={{ tickSize: 0, tickPadding: 8, format: v => compactEuro(Number(v)), tickValues: 4 }}
+        layers={[
+          'grid', 'axes', 'areas', 'crosshair',
+          // El año pasado discontinuo: se pinta a mano sobre la línea de Nivo.
+          ({ series: s, lineGenerator }) => (
+            <g>
+              {s.map(serie => (
+                <path
+                  key={serie.id}
+                  d={lineGenerator(serie.data.map(p => p.position)) ?? ''}
+                  fill="none"
+                  stroke={serie.color}
+                  strokeWidth={2}
+                  strokeDasharray={serie.id === anterior ? '5 4' : undefined}
+                  strokeLinecap="round"
+                  // La de este año se traza de izquierda a derecha; la del año
+                  // pasado, que es discontinua, sólo aparece.
+                  className={serie.id === anterior ? 'linea-referencia' : 'linea-dibujada'}
+                  pathLength={serie.id === anterior ? undefined : 1}
+                />
+              ))}
+            </g>
+          ),
+          'points', 'slices', 'mesh',
+        ]}
+        enableSlices="x"
+        enableCrosshair
+        crosshairType="x"
+        sliceTooltip={({ slice }) => (
+          <TipRebanada
+            puntos={slice.points
+              .filter(p => p.data.y !== null)
+              .map(p => ({ serie: `Acumulado ${p.seriesId}`, color: p.seriesColor, valor: Number(p.data.y) }))}
+          />
+        )}
+        animate={!reducido}
+        motionConfig="gentle"
+        role="img"
+      />
+    </div>
   );
 }

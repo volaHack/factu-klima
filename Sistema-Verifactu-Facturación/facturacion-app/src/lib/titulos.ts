@@ -44,6 +44,7 @@ const EXACTAS: Record<string, string> = {
   '/rappels': 'Rappels',
   '/grupos-clientes': 'Grupos',
   '/rutas-reparto': 'Rutas de reparto',
+  '/preparar-pedidos': 'Preparar pedidos',
   '/numeros-serie': 'Números de serie',
   '/retenciones': 'Retenciones',
   '/fabricacion': 'Fabricación',

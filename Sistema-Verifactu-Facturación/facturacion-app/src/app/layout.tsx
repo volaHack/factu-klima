@@ -8,6 +8,7 @@ import './estilos/rapidez.css';
 import './estilos/navegacion.css';
 import './estilos/automatizar.css';
 import './estilos/gestion.css';
+import './estilos/almacen.css';
 import type { Metadata, Viewport } from 'next';
 import RegistroErrores from '@/components/RegistroErrores';
 import AuthWrapper from '@/components/AuthWrapper';

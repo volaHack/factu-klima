@@ -679,3 +679,323 @@
   .panel-seccion-cabeza, .panel-cuerpo > .panel-seccion-cabeza { margin-top: 6mm; padding-top: 4mm; }
   .panel .charts-grid--even, .asesor-pareja, .tendencias-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ============================================================
+   EL PANEL, PULIDO: UN SOLO RITMO DE MOVIMIENTO
+   ------------------------------------------------------------
+   Cada pieza del panel respondía a su manera: unas filas cambiaban de
+   fondo en 120 ms, otras en 200, otras con la curva de serie; los
+   botones se encogían al pulsarlos (scale, que en el iPhone deja el
+   texto borroso) y las flechas unas se movían y otras no. Aquí todo
+   lo que se pulsa responde igual:
+     · el fondo, en --panel-rapido con la curva de asentamiento;
+     · la flecha de la fila avanza 2 px y toma el acento;
+     · al pulsar, el botón baja 1 px (nunca se escala);
+     · el foco es el anillo de siempre, también dentro de las filas.
+   Lo que entra (filas de «Para hoy», bloques al llegar) sube 6 px y
+   aparece; nada crece desde un punto.
+   ============================================================ */
+
+.panel {
+  --panel-curva: var(--ease-settle);
+  --panel-rapido: 180ms;
+  --panel-medio: 320ms;
+}
+
+/* --- 1. Paso del ratón, foco y pulsación, iguales en todo el panel --- */
+.panel :is(
+  .para-hoy-fila, .lista-reglada-fila.es-enlace, .accesos-fila, .accesos-crear-boton,
+  .accesos-personalizar, .ultimas-movil-fila, .cuentas-cifra.es-enlace, .chart-enlace, .chart-toggle
+) {
+  transition:
+    background-color var(--panel-rapido) var(--panel-curva),
+    color var(--panel-rapido) var(--panel-curva),
+    border-color var(--panel-rapido) var(--panel-curva),
+    box-shadow var(--panel-medio) var(--panel-curva),
+    transform var(--panel-rapido) var(--panel-curva);
+}
+.panel :is(.lista-reglada-flecha, .accesos-fila-flecha, .para-hoy-accion svg, .chart-enlace svg) {
+  transition: transform var(--panel-rapido) var(--panel-curva), color var(--panel-rapido) var(--panel-curva);
+}
+@media (hover: hover) and (pointer: fine) {
+  .panel :is(.lista-reglada-fila.es-enlace, .accesos-fila):hover :is(.lista-reglada-flecha, .accesos-fila-flecha) {
+    transform: translateX(2px); color: var(--accent-500);
+  }
+}
+.panel :is(.lista-reglada-fila.es-enlace, .accesos-fila, .accesos-crear-boton, .ultimas-movil-fila, .cuentas-cifra.es-enlace):active {
+  background: var(--bg-tertiary);
+}
+/* Pulsar es bajar un píxel: el botón se hunde sin tocar el tamaño del
+   texto (la regla general lo escala, y en el iPhone el texto escalado
+   se queda borroso). */
+.panel :is(.btn, .chart-enlace, .chart-toggle, .panel-secciones-boton):active:not(:disabled) {
+  transform: translateY(1px);
+  transition-duration: 60ms;
+}
+.panel :is(.lista-reglada-fila.es-enlace, .ultimas-movil-fila):focus-visible {
+  outline: 2px solid var(--accent-500); outline-offset: -2px;
+}
+
+/* «Para hoy»: la acción, en una píldora que se enciende con la fila. */
+.para-hoy-accion-pildora {
+  display: inline-flex; align-items: center; gap: 2px;
+  margin-right: -8px; padding: 4px 6px 4px 10px;
+  border-radius: var(--radius-full);
+  transition: background-color var(--panel-rapido, 180ms) var(--ease-settle);
+}
+.para-hoy-fila:hover .para-hoy-accion-pildora,
+.para-hoy-fila:focus-visible .para-hoy-accion-pildora {
+  background: color-mix(in srgb, var(--accent-500) 10%, transparent);
+}
+.para-hoy-fila:active .para-hoy-accion-pildora { background: color-mix(in srgb, var(--accent-500) 16%, transparent); }
+
+/* Las tareas llegan en cascada detrás del panel, con tope en la sexta:
+   se leen de arriba abajo, que es el orden de urgencia. */
+.para-hoy-lista > li {
+  animation: notifFilaLlega 420ms var(--ease-settle) backwards;
+  animation-delay: calc(140ms + min(var(--i, 0), 6) * 45ms);
+}
+
+/* «Reclamar»: el avión de papel despega un poco al pasar el ratón; el
+   teléfono de los clientes que se enfrían se inclina como al descolgar. */
+.deudores-hoy .btn svg,
+.clientes-frios-acciones .btn svg { transition: transform var(--panel-medio, 320ms) var(--ease-settle); }
+@media (hover: hover) and (pointer: fine) {
+  .deudores-hoy .btn:hover svg { transform: translate(2px, -2px); }
+  .clientes-frios-acciones a[href^="tel:"]:hover svg { transform: rotate(-12deg); }
+  .clientes-frios-acciones .btn:not([href^="tel:"]):hover svg { transform: translateY(-1px); }
+}
+
+/* --- 2. La barra de secciones: una raya que se desliza ---
+   La raya de cada enlace se apaga; la pinta una sola pieza
+   (NavegacionPanel) que va de la pestaña que se deja a la que se abre.
+   Mide 100 px y se estira con scaleX hasta el ancho de la pestaña: así
+   todo el viaje va en transform, sin recolocar nada. */
+.panel-secciones-nav ul { position: relative; }
+.panel-secciones-enlace::after { content: none; }
+.panel-secciones-raya {
+  position: absolute; left: 0; bottom: 0;
+  width: 100px; height: 2px;
+  background: var(--accent-500);
+  transform-origin: left center;
+  transform: translateX(var(--raya-x)) scaleX(var(--raya-escala));
+  transition: transform var(--panel-medio) var(--panel-curva);
+  pointer-events: none;
+}
+/* Mientras se leen los datos, un hilo de luz recorre el filete de la
+   barra. Es un fondo que se desplaza dentro de su caja: no sale de ella
+   y no puede ensanchar la página en el móvil. */
+.panel-secciones::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--accent-500), transparent) no-repeat;
+  background-size: 32% 100%;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.panel-secciones[data-leyendo]::after {
+  opacity: 1;
+  animation: hiloLee 1100ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes hiloLee {
+  from { background-position: -60% 0; }
+  to { background-position: 160% 0; }
+}
+/* La hora nueva entra desde abajo. */
+.panel-secciones-hora-valor {
+  display: inline-block;
+  animation: horaEntra 420ms var(--ease-settle);
+}
+@keyframes horaEntra { from { opacity: 0; transform: translateY(5px); } }
+.panel-secciones-boton svg { transition: transform var(--panel-medio) var(--panel-curva); }
+@media (hover: hover) and (pointer: fine) {
+  .panel-secciones-boton:not(:disabled):hover svg { transform: rotate(45deg); }
+}
+
+/* --- 3. Al volver a leer: la cifra que cambia se ilumina ---
+   El destello va DETRÁS del texto (z-index negativo dentro de la celda,
+   que hace de capa): tiñe el fondo, nunca rebaja el contraste de la
+   cifra. */
+.cuentas-cifra { position: relative; isolation: isolate; }
+.cuentas-destello {
+  position: absolute; inset: 0; z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(90% 130% at 0% 0%, color-mix(in srgb, var(--accent-500) 16%, transparent), transparent 70%);
+  opacity: 0;
+  animation: destello 1600ms var(--ease-settle);
+}
+@keyframes destello {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* --- 4. Gráficas: foco en la que se señala y tooltip que llega ---
+   (Para todas las gráficas de la app, no sólo las del panel.) Al pasar
+   por una barra, las demás se apagan: se lee la que importa sin perder
+   el conjunto. Va en `filter` y no en `opacity`, que la animación de
+   entrada deja fijada. */
+@media (hover: hover) and (pointer: fine) {
+  .chart-plot .barra-dato { transition: filter 220ms var(--ease-settle); }
+  .chart-plot:has(.barra-dato:hover) .barra-dato:not(:hover) { filter: opacity(0.42) saturate(0.7); }
+}
+.chart-tip { animation: tipLlega 160ms var(--ease-settle); }
+@keyframes tipLlega { from { opacity: 0; transform: translateY(4px); } }
+
+/* Las líneas del acumulado se trazan de izquierda a derecha; la del año
+   pasado y los puntos aparecen detrás. */
+.grafica-lineas, .mapa-calor { width: 100%; height: 100%; }
+.grafica-lineas .linea-dibujada {
+  stroke-dasharray: 1;
+  animation: trazaDibuja 1300ms var(--ease-settle) 150ms backwards;
+}
+.grafica-lineas .linea-referencia { animation: aparece 700ms ease-out 350ms backwards; }
+.grafica-lineas svg circle { animation: aparece 360ms ease-out 1050ms backwards; }
+
+/* --- 5. Mapas de calor: barrido de entrada y casilla señalada ---
+   Una máscara de borde suave recorre el mapa en el sentido de las
+   semanas, de la más antigua a la de hoy. Al pasar el ratón, la casilla
+   se rodea de un anillo de tinta: con cinco tonos de rosa, saber cuál se
+   está leyendo no debe depender del color. */
+.mapa-calor svg {
+  -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent 55%);
+  mask-image: linear-gradient(90deg, #000 45%, transparent 55%);
+  -webkit-mask-size: 260% 100%;
+  mask-size: 260% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+  animation: mapaBarre 1100ms var(--ease-settle) 120ms backwards;
+}
+@keyframes mapaBarre {
+  from { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+}
+.mapa-calor svg rect { transition: stroke-width 140ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .mapa-calor svg rect:hover { stroke: var(--text-primary); stroke-width: 1.5px; }
+}
+
+/* --- 6. El objetivo del mes: se llena, brilla una vez y marca los cuartos --- */
+.panel .objetivo-barra { height: 12px; }
+.objetivo-barra .objetivo-barra-hecho {
+  overflow: hidden;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-500) 72%, var(--bg-card)), var(--accent-500));
+  transform-origin: left center;
+  animation: objetivoLlena 1100ms var(--ease-settle) 250ms backwards;
+}
+.panel .objetivo-barra.llega .objetivo-barra-hecho {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-success) 72%, var(--bg-card)), var(--color-success));
+}
+.objetivo-barra .objetivo-barra-proyeccion {
+  transform-origin: left center;
+  animation: objetivoLlena 1300ms var(--ease-settle) 150ms backwards;
+}
+/* El brillo: una franja de luz cruza lo facturado cuando acaba de
+   llenarse. Una vez: un brillo que vuelve cada pocos segundos acaba
+   tirando de la vista mientras se trabaja. */
+.objetivo-barra-hecho::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.55) 50%, transparent 75%);
+  transform: translateX(-101%);
+  animation: objetivoBrillo 1400ms cubic-bezier(0.65, 0, 0.35, 1) 1250ms;
+}
+@keyframes objetivoLlena { from { transform: scaleX(0); } }
+@keyframes objetivoBrillo {
+  from { transform: translateX(-101%); }
+  to { transform: translateX(101%); }
+}
+/* Las muescas de los cuartos: huecos del color de la tarjeta sobre la
+   pista; las que ya quedan dentro de lo facturado se funden con él. */
+.objetivo-hito {
+  position: absolute; top: 3px; bottom: 3px; z-index: 1;
+  width: 2px; margin-left: -1px; border-radius: 1px;
+  background: var(--bg-card);
+}
+.objetivo-hito.pasado { background: rgba(255, 255, 255, 0.4); }
+.objetivo-mes.cumplido { border-color: color-mix(in srgb, var(--color-success) 35%, var(--border-color)); }
+
+/* --- 7. El esqueleto: un solo brillo que cruza todo el panel ---
+   Cada barra gris llevaba su propio brillo, desacompasado del de al
+   lado: el panel parpadeaba a trozos. Con el degradado fijado a la
+   ventana todas las barras muestran el mismo, que pasa por encima de
+   la silueta entera como una sola luz. (En el iPhone `fixed` no existe
+   en los fondos y cada barra vuelve a su brillo propio: sigue bien.) */
+.panel, .esq-panel, .esq-analisis { --esq-luz: color-mix(in srgb, var(--bg-card) 75%, #fff); }
+:root[data-theme="dark"] :is(.panel, .esq-panel, .esq-analisis) { --esq-luz: rgba(255, 255, 255, 0.07); }
+.esq-panel .skeleton,
+.esq-analisis .skeleton {
+  background-color: var(--bg-tertiary);
+  background-image: linear-gradient(100deg, transparent 35%, var(--esq-luz) 50%, transparent 65%);
+  background-size: 140vw 100%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  /* Más presente que el 0,55 general: sobre la tarjeta blanca la silueta
+     apenas se adivinaba. */
+  opacity: 0.85;
+  animation: esqBrillo 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes esqBrillo {
+  from { background-position: -140vw 0; }
+  to { background-position: 140vw 0; }
+}
+/* Del esqueleto al panel: los bloques de «Hoy» llegan encadenados, en
+   el orden en que se leen (cifras, Para hoy, atajos, objetivo). */
+.panel-cuerpo > :is(.cuentas-marco, .para-hoy, .accesos, .asesor-pareja) {
+  animation: notifFilaLlega 520ms var(--ease-settle) backwards;
+}
+.panel-cuerpo > .para-hoy { animation-delay: 60ms; }
+.panel-cuerpo > .accesos { animation-delay: 120ms; }
+.panel-cuerpo > .asesor-pareja { animation-delay: 180ms; }
+
+/* --- 8. Modo oscuro con profundidad ---
+   Sobre negro las tarjetas eran recortes planos del mismo gris: el
+   borde las separaba y nada más. Ahora cada hoja tiene un filo de luz
+   arriba (como si la luz viniera del techo), un fondo que se apaga
+   hacia abajo y una sombra corta y densa debajo. El borde se queda,
+   más tenue: con la sombra sola, en una pantalla con poco brillo las
+   hojas se perdían. */
+:root[data-theme="dark"] .panel :is(.chart-card, .para-hoy, .asesor-hoja, .accesos-hoja, .resumen-correo) {
+  border-color: rgba(236, 236, 238, 0.09);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 160px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 10px 24px -14px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="dark"] .panel .analisis-cifras {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 24px -14px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="dark"] .panel :is(.para-hoy-fila, .accesos-fila, .accesos-crear-boton, .lista-reglada-fila.es-enlace):hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+:root[data-theme="dark"] .objetivo-hito.pasado { background: rgba(0, 0, 0, 0.35); }
+:root[data-theme="dark"] .objetivo-barra-hecho::after {
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.3) 50%, transparent 75%);
+}
+
+/* --- Móvil --- */
+@media (max-width: 640px) {
+  /* En el móvil la acción es sólo la flecha: la píldora se queda, sin
+     texto, para que el dedo vea dónde ha tocado. */
+  .para-hoy-accion > .para-hoy-accion-pildora { display: inline-flex; margin-right: -6px; padding: 6px; }
+  .para-hoy-accion-pildora > span { display: none; }
+}
+
+/* --- Menos movimiento ---
+   El interruptor global apaga animaciones y transiciones; aquí sólo se
+   arregla lo que se quedaría a medias: el hilo de lectura queda como
+   una línea quieta, y el esqueleto, que debe seguir diciendo «cargando»
+   (globals lo respeta), late en sitio en vez de cruzar la pantalla. */
+@media (prefers-reduced-motion: reduce) {
+  .panel-secciones[data-leyendo]::after { background-size: 100% 100%; opacity: 0.6; }
+  .esq-panel .skeleton, .esq-analisis .skeleton { background-image: none; animation-name: esqLatido; }
+  .objetivo-barra-hecho::after { display: none; }
+}
+@keyframes esqLatido { 50% { opacity: 0.35; } }
+
+@media print {
+  .panel-secciones::after, .cuentas-destello, .objetivo-barra-hecho::after { display: none !important; }
+}

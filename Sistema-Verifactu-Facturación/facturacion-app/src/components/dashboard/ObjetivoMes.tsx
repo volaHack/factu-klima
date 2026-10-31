@@ -8,7 +8,13 @@
  * La barra lleva dos capas: lo facturado, maciza, y lo que se proyecta al
  * ritmo actual, tenue por delante. El texto de debajo dice lo mismo con
  * palabras, para quien no ve la barra.
+ *
+ * Tres muescas la parten en cuartos, para leer «voy por la mitad» sin
+ * contar; las que ya se han pasado se funden con lo facturado. Al llegar,
+ * la barra se llena desde cero y un brillo la recorre una vez.
  */
+
+const HITOS = [25, 50, 75];
 
 import { useEffect, useId, useState } from 'react';
 import { Check, Pencil, X } from 'lucide-react';
@@ -59,7 +65,7 @@ export default function ObjetivoMes({ facturado, propuesto, hoy }: { facturado: 
   const ancho = (n: number) => `${Math.min(100, Math.max(0, n))}%`;
 
   return (
-    <section className="asesor-hoja objetivo-mes" aria-labelledby={`${campo}-titulo`}>
+    <section className={`asesor-hoja objetivo-mes${p && p.falta <= 0 ? ' cumplido' : ''}`} aria-labelledby={`${campo}-titulo`}>
       {/* La misma cabecera que las demás tarjetas del panel: título,
           subtítulo y la acción a la derecha. Sin el icono en su baldosa,
           que sólo llevaban estas dos hojas. */}
@@ -99,6 +105,9 @@ export default function ObjetivoMes({ facturado, propuesto, hoy }: { facturado: 
           >
             <span className="objetivo-barra-proyeccion" style={{ width: ancho((p.proyeccion / p.objetivo) * 100) }} />
             <span className="objetivo-barra-hecho" style={{ width: ancho(p.porcentaje) }} />
+            {HITOS.map(h => (
+              <i key={h} className={`objetivo-hito${p.porcentaje >= h ? ' pasado' : ''}`} style={{ left: `${h}%` }} aria-hidden="true" />
+            ))}
           </div>
           <p className={`objetivo-texto${p.falta <= 0 ? ' cumplido' : p.llega ? ' llega' : ''}`}>{p.texto}</p>
         </>

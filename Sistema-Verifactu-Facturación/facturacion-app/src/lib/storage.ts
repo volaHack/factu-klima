@@ -190,6 +190,16 @@ export function notifyDataUpdate(type: 'invoices' | 'clients' | 'products' | 'se
   }
 }
 
+/**
+ * Un documento acaba de guardarse EN ESTE EQUIPO. El aviso de pedidos
+ * nuevos del almacén (lib/avisoPedidos) lo escucha para no avisar al
+ * comercial del pedido que acaba de escribir él mismo.
+ */
+export const EVENTO_GUARDADO_AQUI = 'klima-documento-guardado';
+function avisarGuardadoAqui(id: string): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENTO_GUARDADO_AQUI, { detail: { id } }));
+}
+
 // ============================================================
 // INVOICES
 // ============================================================
@@ -712,6 +722,7 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
   }
 
   notifyDataUpdate('invoices');
+  avisarGuardadoAqui(current.id);
   refrescarStock();
   return current;
 }
@@ -2000,11 +2011,53 @@ async function cerrarCaja(sessionId: string, countedCash: number): Promise<PosSe
 // ALBARANES (documento de entrega / preparación)
 // ============================================================
 
+/**
+ * Trae los albaranes del servidor y, si algo cambió, avisa a las pantallas
+ * abiertas (`klima-albaranes-updated`), igual que con las facturas: antes
+ * se guardaban en silencio y lo nuevo no se veía hasta volver a leer.
+ */
 async function refreshAlbaranesFromSupabase(): Promise<void> {
   if (!navigator.onLine) return;
   try {
+    const antes = (await isOfflineDbAvailable()) ? firmaDeFilas(await getAll<unknown>('albaranes')) : '';
     await getAlbaranesFromSupabase();
+    const despues = (await isOfflineDbAvailable()) ? firmaDeFilas(await getAll<unknown>('albaranes')) : '';
+    if (antes !== despues) notifyDataUpdate('albaranes');
   } catch { /* silent */ }
+}
+
+/** Vuelve a mirar los albaranes de entrega en el servidor. */
+export function revisarAlbaranes(): Promise<void> {
+  return refreshAlbaranesFromSupabase();
+}
+
+/**
+ * Una huella pequeña de lo que el almacén tiene pendiente: los pedidos y
+ * albaranes de venta que aún no han salido, con su estado y su última
+ * modificación. Sólo trae tres columnas de unas pocas filas, así que se
+ * puede preguntar cada medio minuto sin bajar todas las facturas: cuando
+ * cambia, se hace la lectura completa de siempre (revisarFacturas y
+ * revisarAlbaranes), que es la que repinta las pantallas.
+ *
+ * Sin conexión, o si algo falla, devuelve null: no se sabe, y no se toca nada.
+ */
+export async function firmaDePendientesDeAlmacen(): Promise<string | null> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
+  try {
+    const userId = await idParaLeer();
+    const [docs, albs] = await Promise.all([
+      todasLasFilas((desde, hasta) => soloDe(supabase().from('invoices').select('id, status, updated_at'), userId)
+        .eq('sentido', 'venta').in('tipo', ['pedido', 'albaran'])
+        .in('status', [InvoiceStatus.BORRADOR, InvoiceStatus.EMITIDA, InvoiceStatus.APROBADO, InvoiceStatus.APROBADO_PARCIAL])
+        .order('id').range(desde, hasta)),
+      todasLasFilas((desde, hasta) => soloDe(supabase().from('albaranes').select('id, status, updated_at'), userId)
+        .eq('status', 'borrador').order('id').range(desde, hasta)),
+    ]);
+    if (docs.error || albs.error) return null;
+    return firmaDeFilas([...(docs.data ?? []), ...(albs.data ?? [])]);
+  } catch {
+    return null;
+  }
 }
 
 export async function getAlbaranes(): Promise<Albaran[]> {
@@ -2218,6 +2271,8 @@ export async function saveAlbaran(albaran: Albaran): Promise<Albaran> {
     }
   }
 
+  notifyDataUpdate('albaranes');
+  avisarGuardadoAqui(current.id);
   refrescarStock();
   return current;
 }
