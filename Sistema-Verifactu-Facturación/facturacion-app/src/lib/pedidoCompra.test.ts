@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ultimoProveedorPorArticulo, articulosEnBorradorDeCompra, repartirPorProveedor, lineaDePedido,
-  numerosDePedido, pedidoBorrador,
+  numerosDePedido, pedidoBorrador, proveedorDeFicha, grupoCon,
 } from './pedidoCompra';
 import { InvoiceStatus, PaymentMethod } from './types';
 import { desgloseLinea } from './cajas';
@@ -67,6 +67,15 @@ describe('repartir por proveedor', () => {
     expect(r.grupos).toEqual([]);
     expect(r.sinProveedor.map(l => l.productId)).toEqual(['e']);
     expect(r.yaEnBorrador).toEqual(['Artículo d']);
+  });
+});
+
+describe('lo nunca comprado, con el proveedor elegido a mano', () => {
+  it('sale de su ficha, con su forma de pago', () => {
+    const p = proveedorDeFicha({ id: 'p9', businessName: 'Frutas Paco', nif: 'B9', address: 'C/ Mayor 1', city: 'La Laguna', defaultPaymentMethod: PaymentMethod.PAGARE });
+    expect(p).toEqual({ clave: 'id:p9', clientId: 'p9', clientName: 'Frutas Paco', clientNif: 'B9', clientAddress: 'C/ Mayor 1, La Laguna', paymentMethod: PaymentMethod.PAGARE });
+    const g = grupoCon(p, [{ productId: 'e', nombre: 'E', ref: 'E', unidades: 3, cajas: null, udsCaja: null, precio: 2.5, taxRate: 7, unidad: 'ud' }]);
+    expect(g.base).toBe(7.5);
   });
 });
 

@@ -641,6 +641,28 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
     ],
   },
   {
+    ruta: '/cierre',
+    titulo: 'Cierre del mes',
+    paraQue: 'Repasar el mes antes de darlo por cerrado: lo que queda pendiente, punto por punto, y lo que hay que hacer a un toque.',
+    pasos: [
+      'Elige el mes. A primeros de mes sale el anterior, que es el que se cierra.',
+      'Cada punto sale en verde si está listo y en ámbar si queda algo: borradores olvidados, albaranes sin facturar, facturas vencidas, el banco, los gastos de los proveedores de siempre y el impuesto del mes.',
+      'Usa el botón de cada fila: Abrir, Emitir o Borrar un borrador; Facturar por periodo; Reclamar o Cobrar; Conciliar; Apuntar un gasto.',
+      'Lo que está bien aunque salga en ámbar (un proveedor que este mes no ha facturado, una deuda pactada) dalo por revisado. El impuesto se da por visto cuando lo hayas mirado.',
+    ],
+    saber: [
+      'Desde aquí no se emite nada: Emitir te lleva a la factura, con el repaso de siempre.',
+      'Borrar un borrador se puede deshacer durante unos segundos.',
+      'El impuesto del mes es orientativo: se declara por trimestre, pero te dice cuánto ir apartando.',
+      'Lo que das por revisado se recuerda en este navegador.',
+    ],
+    relacionadas: [
+      { ruta: '/albaranes', texto: 'Facturar albaranes' },
+      { ruta: '/recordatorios', texto: 'Reclamar cobros' },
+      { ruta: '/listados-fiscales', texto: 'Paquete para la gestoría' },
+    ],
+  },
+  {
     ruta: '/listados-fiscales',
     titulo: 'Listados fiscales',
     paraQue: 'Los modelos de Hacienda calculados con tus datos: 303, 390, 347, 349, 130, 131, 111, 190 y, en Canarias, 420, 415 y 425.',
@@ -648,6 +670,7 @@ export const AYUDA_PAGINAS: AyudaPagina[] = [
       'Elige el modelo y el periodo.',
       'Repasa las casillas: salen calculadas de tus facturas y gastos.',
       'Descarga el fichero para presentarlo o pásaselo a tu asesor.',
+      'Para tu gestoría, «Preparar paquete del trimestre» baja de una vez las facturas emitidas, las recibidas, los gastos, el resumen del impuesto y los cobros, en CSV.',
     ],
     saber: [
       'Esto CALCULA los modelos, no los presenta: la presentación se hace en la sede de la AEAT o la hace tu asesor.',

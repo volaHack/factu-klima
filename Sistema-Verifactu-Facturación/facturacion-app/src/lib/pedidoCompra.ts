@@ -19,7 +19,7 @@
  * pulsar dos veces el botón no debe duplicar el pedido.
  */
 
-import { InvoiceStatus, PaymentMethod, type CompanySettings, type Invoice, type InvoiceLineItem, type Product } from './types';
+import { InvoiceStatus, PaymentMethod, type Client, type CompanySettings, type Invoice, type InvoiceLineItem, type Product } from './types';
 import type { Reposicion } from './reposicion';
 import { condicionesDeCompra, recalcularLinea } from './documentos';
 import { calculateInvoiceTotals, generateInvoiceNumber } from './utils';
@@ -142,6 +142,19 @@ export function repartirPorProveedor(
     sinProveedor,
     yaEnBorrador,
   };
+}
+
+/** El proveedor elegido a mano para lo que nunca se ha comprado. */
+export function proveedorDeFicha(c: Pick<Client, 'id' | 'businessName' | 'nif' | 'address' | 'city' | 'defaultPaymentMethod'>): ProveedorPedido {
+  return {
+    clave: `id:${c.id}`, clientId: c.id, clientName: c.businessName, clientNif: c.nif ?? '',
+    clientAddress: [c.address, c.city].filter(Boolean).join(', '), paymentMethod: c.defaultPaymentMethod,
+  };
+}
+
+/** Un grupo con unas líneas para un proveedor, con su base. */
+export function grupoCon(proveedor: ProveedorPedido, lineas: LineaPedido[]): GrupoPedido {
+  return { proveedor, lineas, base: r2(lineas.reduce((n, l) => n + l.unidades * l.precio, 0)) };
 }
 
 /** La línea del pedido: por unidades con su casilla de cajas si va por cajas (ver cajas.ts). */
