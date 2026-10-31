@@ -1,0 +1,231 @@
+/* Estilos de «automatizar la venta»: el pedido pegado del WhatsApp, los
+   packs de líneas, «Pegar datos» en la ficha, el aviso de ficha repetida y
+   los municipios de un código postal compartido.
+
+   Con los colores del tema: claro y oscuro salen de los tokens, y lo poco
+   que se ajusta para el oscuro va abajo. Nada de anchos fijos que pasen de
+   un teléfono de 390 px, y quieto para quien pide menos movimiento. */
+
+/* ============================================================
+   LA BARRA DE «PEGAR PEDIDO» Y LOS PACKS
+   ============================================================ */
+.automatiza-barra {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}
+.automatiza-barra > .btn { display: inline-flex; align-items: center; gap: 4px; }
+.packs-lineas {
+  order: 2;
+  flex: 1 1 100%;
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
+  min-width: 0;
+}
+.packs-lineas-titulo {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-xs); font-weight: 600;
+  color: var(--text-secondary);
+}
+.packs-lineas-titulo svg { color: var(--accent-500); }
+.pack-chip { border-style: dashed; }
+.pack-chip:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+.automatiza-hecho { animation: automatizaAparece 200ms var(--ease-out, ease-out) both; }
+.automatiza-hecho .btn { margin-left: auto; }
+
+/* ============================================================
+   LAS VENTANAS DE PEGAR (pedido y datos de la ficha)
+   ============================================================ */
+.pegar-pedido { max-width: 600px; width: 100%; }
+.pegar-caja {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.pegar-resumen {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.pegar-resumen:focus { outline: none; }
+.pegar-resumen:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pegar-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: 600;
+}
+.pegar-chip.es-ok { background: var(--color-success-bg); color: var(--color-success); }
+.pegar-chip.es-duda { background: var(--color-warning-bg); color: var(--color-warning); }
+.pegar-chip.es-falta { background: var(--color-danger-bg); color: var(--color-danger); }
+
+.pegar-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.pegar-renglon {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--color-success);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  transition: opacity var(--transition-fast);
+}
+.pegar-renglon.es-dudoso { border-left-color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 6%, var(--bg-tertiary)); }
+.pegar-renglon.es-no-encontrado { border-left-color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 6%, var(--bg-tertiary)); }
+.pegar-renglon.esta-fuera { opacity: 0.6; }
+.pegar-renglon-cabeza { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.pegar-renglon-cabeza input[type="checkbox"] { flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--accent-500); }
+.pegar-original {
+  min-width: 0;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.pegar-icono { flex-shrink: 0; color: var(--color-warning); }
+.es-no-encontrado .pegar-icono { color: var(--color-danger); }
+.pegar-detalle {
+  margin: 4px 0 0;
+  font-size: var(--text-sm); color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.pegar-opciones { margin: 4px 0 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 4px; }
+.pegar-opciones legend { padding: 0; margin-bottom: 2px; }
+.pegar-opcion {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px var(--space-2);
+  min-height: 36px;
+  padding: 4px var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  cursor: pointer;
+  min-width: 0;
+}
+.pegar-opcion:hover { border-color: var(--border-color-hover); }
+.pegar-opcion:focus-within { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+.pegar-opcion.es-elegida { border-color: var(--accent-400); background: color-mix(in srgb, var(--accent-glow) 55%, var(--bg-card)); }
+.pegar-opcion input { flex-shrink: 0; accent-color: var(--accent-500); }
+.pegar-opcion-nombre { flex: 1 1 160px; min-width: 0; font-size: var(--text-sm); font-weight: 600; overflow-wrap: anywhere; }
+.pegar-opcion-ref { font-size: var(--text-xs); color: var(--text-muted); }
+.pegar-cantidad {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
+  margin-top: 4px;
+  font-size: var(--text-xs); color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.pegar-segmento {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.pegar-segmento button {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit; font-size: var(--text-xs); font-weight: 600;
+  cursor: pointer;
+}
+.pegar-segmento button[aria-pressed="true"] { background: var(--accent-glow); color: var(--accent-500); }
+.pegar-segmento button:focus-visible { outline: 2px solid var(--accent-500); outline-offset: -2px; }
+.pegar-nota {
+  display: flex; align-items: flex-start; gap: 4px;
+  margin: 4px 0 0;
+  font-size: var(--text-xs); color: var(--text-muted);
+  line-height: 1.4;
+}
+.pegar-nota--aviso { color: var(--color-warning); }
+.pegar-nota svg { flex-shrink: 0; margin-top: 2px; }
+.pegar-apartados {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs); color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.pegar-campo { cursor: pointer; flex-wrap: wrap; }
+.pegar-campo-etiqueta { flex: 0 0 auto; font-size: var(--text-xs); color: var(--text-muted); }
+.pegar-campo-valor { flex: 1 1 160px; min-width: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.pegar-datos-fila {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.pegar-datos-fila .btn { display: inline-flex; align-items: center; gap: 4px; }
+.pegar-datos-fila .form-hint { margin: 0; }
+
+/* ============================================================
+   LOS PACKS (ventana de guardar)
+   ============================================================ */
+.packs-dialogo-titulo { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.packs-dialogo-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.packs-dialogo-lista li {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.packs-dialogo-lista li:last-child { border-bottom: 0; }
+.packs-dialogo-nombre { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.packs-dialogo-resumen { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ============================================================
+   «YA TIENES A…»: LA FICHA REPETIDA
+   ============================================================ */
+.aviso-repetida {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  animation: automatizaAparece 200ms var(--ease-out, ease-out) both;
+}
+.aviso-repetida:focus { outline: none; }
+.aviso-repetida:focus-visible { outline: 2px solid var(--color-warning); outline-offset: 2px; }
+.aviso-repetida-icono { flex-shrink: 0; margin-top: 2px; color: var(--color-warning); }
+.aviso-repetida-cuerpo { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--space-2); justify-items: start; }
+.aviso-repetida-fila {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm); color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================
+   EL CÓDIGO POSTAL DE VARIOS MUNICIPIOS
+   ============================================================ */
+.cp-municipios {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: var(--space-2);
+  min-width: 0;
+}
+.cp-municipios-texto {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-xs); color: var(--text-secondary);
+}
+.cp-municipios-texto svg { color: var(--accent-500); }
+
+@keyframes automatizaAparece {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* En oscuro, los fondos tintados del renglón se aclaran un poco para que
+   el borde de color no se pierda. */
+:root[data-theme="dark"] .pegar-renglon.es-dudoso { background: color-mix(in srgb, var(--color-warning) 12%, var(--bg-tertiary)); }
+:root[data-theme="dark"] .pegar-renglon.es-no-encontrado { background: color-mix(in srgb, var(--color-danger) 12%, var(--bg-tertiary)); }
+:root[data-theme="dark"] .pegar-opcion { background: var(--bg-elevated); }
+
+@media (max-width: 480px) {
+  .pegar-caja { min-height: 140px; }
+  .pegar-opcion { min-height: 44px; }
+  .pegar-segmento button { min-height: 36px; }
+  .packs-dialogo-resumen { display: none; }
+  .automatiza-barra > .btn { min-height: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .automatiza-hecho,
+  .aviso-repetida { animation: none; }
+  .pegar-renglon { transition: none; }
+}
