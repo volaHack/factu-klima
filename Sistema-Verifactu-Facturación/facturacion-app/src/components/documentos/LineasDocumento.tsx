@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw, Repeat, Check, TrendingDown } from 'lucide-react';
+import { Plus, Trash2, Percent, ChevronDown, ChevronUp, AlertTriangle, Tag, History, Info, RefreshCw, Repeat, Check, TrendingDown, ClipboardPaste } from 'lucide-react';
 import { InvoiceLineItem, CompanySettings, Product, Lote, Client, Invoice, Albaran } from '@/lib/types';
 import { aLineaPorUnidades, cajasTotales, conCajas, conUdsCaja, conUnidades, explicarLinea, unidadesTotales, vaPorUnidades } from '@/lib/cajas';
 import { tipoGeneral, tipoImpositivoRaro } from '@/lib/validation/lineas';
@@ -17,8 +17,13 @@ import BuscadorProducto from '@/components/productos/BuscadorProducto';
 import { margenDeLinea, precioParaMargen, textoMargen, MARGEN_PROPUESTO } from '@/lib/margen';
 import { articulosHabituales, lineaDeHabitual, type ArticuloHabitual } from '@/lib/pedidoHabitual';
 import { accionDelEditorEnEvento } from '@/lib/atajos';
+import { lineaDeRenglon, type RenglonPedido } from '@/lib/pedidoPegado';
+import { lineasDePack, type PackLineas } from '@/lib/packsLineas';
+import { usePerfiles } from '@/lib/perfilesCliente';
 import CampoNumerico from './CampoNumerico';
 import HabitualesCliente from './HabitualesCliente';
+import PegarPedido from './PegarPedido';
+import PacksLineas from './PacksLineas';
 
 /** Lo que dura la salida de una línea (`lineaSale` en estilos/formularios.css). */
 const SALIDA_LINEA_MS = 220;
@@ -156,6 +161,18 @@ export default function LineasDocumento({
     [anteriores, clienteId, sentido, documentoId, products],
   );
   const yaPuestos = new Set(lineItems.map(l => l.productId).filter(Boolean));
+
+  // Para leer un pedido pegado: lo que pide esta ficha, más allá de los
+  // ocho botones, para que «aceite» sea el aceite de siempre.
+  const habitualesDelPedido = React.useMemo(
+    () => articulosHabituales(anteriores, clienteId, sentido, { max: 40, excluirId: documentoId })
+      .filter(h => products.some(p => p.id === h.productId && p.active !== false)),
+    [anteriores, clienteId, sentido, documentoId, products],
+  );
+  const [pegando, setPegando] = useState(false);
+  // Lo que acaba de entrar de un pedido pegado o de un pack, dicho una vez.
+  const [anadido, setAnadido] = useState<string | null>(null);
+  const { cuenta } = usePerfiles();
 
   /** Lo que se sugiere en la línea: lo último a esta ficha o, si no, lo último a cualquiera. */
   const sugerencia = (line: InvoiceLineItem): { p: PrecioAnterior; deEste: boolean } | null => {
@@ -361,6 +378,40 @@ export default function LineasDocumento({
     onChange(enBlanco ? [...lineItems.slice(0, -1), linea] : [...lineItems, linea]);
   };
 
+  /**
+   * Varias líneas de golpe (un pedido pegado, un pack): en un documento en
+   * blanco sustituyen a la línea vacía; si ya hay algo, van detrás.
+   */
+  const meterLineas = (nuevas: InvoiceLineItem[]) => {
+    onChange(lineasEnBlanco(lineItems) ? nuevas : [...lineItems, ...nuevas]);
+  };
+
+  const anadirDelPedido = (renglones: RenglonPedido[], noEncontrados: string[]) => {
+    const nuevas = renglones.flatMap(r => {
+      const p = products.find(x => x.id === r.elegido);
+      return p ? [lineaDeRenglon(r, p, lineaVacia(settings), condicionesDe, porCajas)] : [];
+    });
+    setPegando(false);
+    if (nuevas.length) meterLineas(nuevas);
+    const puestas = nuevas.length === 1 ? '1 línea añadida' : `${nuevas.length} líneas añadidas`;
+    const faltan = noEncontrados.length
+      ? ` No he encontrado ${noEncontrados.map(t => `«${t}»`).join(', ')}: ${noEncontrados.length === 1 ? 'añádelo' : 'añádelos'} a mano.`
+      : '';
+    setAnadido(`Del pedido pegado: ${puestas} con los precios de hoy.${faltan}`);
+  };
+
+  const meterPack = (pack: PackLineas) => {
+    const { lineas, sinFicha } = lineasDePack(pack, products, condicionesDe, () => lineaVacia(settings));
+    if (lineas.length) meterLineas(lineas);
+    const puestas = lineas.length === 1 ? '1 línea' : `${lineas.length} líneas`;
+    const fuera = sinFicha.length
+      ? ` No ${sinFicha.length === 1 ? 'entra' : 'entran'} ${sinFicha.join(', ')}: ya no ${sinFicha.length === 1 ? 'está' : 'están'} de alta.`
+      : '';
+    setAnadido(lineas.length
+      ? `Pack «${pack.nombre}»: ${puestas} con los precios de hoy. Ajusta las cantidades si hace falta.${fuera}`
+      : `Del pack «${pack.nombre}» no queda nada de alta.`);
+  };
+
   /** El precio que deja el margen propuesto, sin tocar los descuentos de la línea. */
   const subirAlMargen = (index: number, coste: number) => cambiarLinea(index, l => {
     const precio = precioParaMargen(coste, MARGEN_PROPUESTO, [l.discountPercent, l.discountPercent2, l.discountPercent3]);
@@ -519,6 +570,33 @@ export default function LineasDocumento({
 
       {clienteId && (
         <HabitualesCliente habituales={masPedidos} puestos={yaPuestos} sentido={sentido} onAnadir={anadirHabitual} />
+      )}
+
+      {/* Meter muchas líneas de golpe: un pedido pegado del WhatsApp o un
+          pack guardado (pedidoPegado.ts y packsLineas.ts). */}
+      <div className="automatiza-barra">
+        <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPegando(true)}
+          title="Pega el WhatsApp o el correo del pedido y se convierte en líneas">
+          <ClipboardPaste size={13} aria-hidden /> Pegar pedido
+        </button>
+        <PacksLineas cuenta={cuenta} lineas={lineItems} onMeter={meterPack} />
+      </div>
+      {anadido && (
+        <div className="repetir-pedido is-hecho automatiza-hecho" role="status">
+          <Check size={16} className="repetir-pedido-icono" aria-hidden />
+          <span className="repetir-pedido-texto">{anadido}</span>
+          <button type="button" className="btn btn-ghost btn-xs" onClick={() => setAnadido(null)}>
+            Vale
+          </button>
+        </div>
+      )}
+      {pegando && (
+        <PegarPedido
+          productos={products}
+          habituales={habitualesDelPedido}
+          onAnadir={anadirDelPedido}
+          onCerrar={() => setPegando(false)}
+        />
       )}
 
       {/* Una ficha por línea, no una rejilla de nueve columnas.

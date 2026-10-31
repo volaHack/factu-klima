@@ -64,7 +64,7 @@ function textoSobre(fondo: string): string {
 // ============================================================
 
 export function RitmoBullet({ ritmo }: { ritmo: RitmoDelMes }) {
-  const { accent, ink, reducido } = useGrafica();
+  const { accent, contrapunto, ink, reducido } = useGrafica();
 
   const filas = [
     { id: 'facturado', titulo: 'Facturado', f: ritmo.facturado },
@@ -101,7 +101,7 @@ export function RitmoBullet({ ritmo }: { ritmo: RitmoDelMes }) {
     [accent, 'Hasta hoy'],
     [`${accent}55`, 'Si sigue a este paso'],
     [ink.primary, 'Mes anterior'],
-    [SERIES[0], 'Mismo mes del año pasado'],
+    [contrapunto, 'Mismo mes del año pasado'],
   ]);
   const TipBullet = ({ v0, v1, color }: BulletTooltipProps) => (
     <Tip
@@ -122,7 +122,7 @@ export function RitmoBullet({ ritmo }: { ritmo: RitmoDelMes }) {
       markerSize={0.78}
       rangeColors={[gris(0.16), gris(0.1), gris(0.05)]}
       measureColors={[accent, `${accent}55`]}
-      markerColors={[ink.primary, SERIES[0]]}
+      markerColors={[ink.primary, contrapunto]}
       theme={{
         ...temaNivo(ink),
         axis: { ticks: { line: { strokeWidth: 0 }, text: { fill: 'transparent' } }, domain: { line: { strokeWidth: 0 } } },
@@ -609,13 +609,13 @@ export function CategoriasTreemap({ arbol }: { arbol: NodoArbol }) {
 // ============================================================
 // 9 · ACUMULADO DEL AÑO — Line
 //
-// Este año en vino, el pasado en azul y con trazo discontinuo: es la
-// referencia, no el dato. Los meses que no han llegado van en null y
+// Este año en el acento, el pasado en el contrapunto (pizarra) y con
+// trazo discontinuo: es la referencia, no el dato. Los meses que no han llegado van en null y
 // la línea de este año se corta ahí, sin caer a cero.
 // ============================================================
 
 export function AcumuladoLineas({ datos, anio }: { datos: AcumuladoMes[]; anio: number }) {
-  const { accent, ink, reducido } = useGrafica();
+  const { accent, contrapunto, ink, reducido } = useGrafica();
   const actual = String(anio);
   const anterior = String(anio - 1);
   const series = useMemo(
@@ -633,7 +633,7 @@ export function AcumuladoLineas({ datos, anio }: { datos: AcumuladoMes[]; anio: 
       xScale={{ type: 'point' }}
       yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
       curve="monotoneX"
-      colors={[SERIES[0], accent]}
+      colors={[contrapunto, accent]}
       theme={temaNivo(ink)}
       lineWidth={2}
       enablePoints

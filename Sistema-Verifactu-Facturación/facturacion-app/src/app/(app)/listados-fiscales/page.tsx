@@ -39,6 +39,7 @@ import { calcularModelo425 } from '@/lib/fiscal/atc/modelo425';
 import { getHistorialFiscal } from '@/lib/fiscal/historial';
 import type { GeneracionFiscal } from '@/lib/fiscal/tipos';
 import { formatCurrency } from '@/lib/utils';
+import PaqueteTrimestre from './_componentes/PaqueteTrimestre';
 
 function aplicaALaEmpresa(m: DefinicionModelo, regimen: 'IVA' | 'IGIC'): boolean {
   // El 303, su resumen (390) y el 349 son del IVA; el 420/415/425 son del
@@ -187,6 +188,9 @@ export default function ListadosFiscalesPage() {
           la haces tú en la Sede del organismo: el programa no presenta nada por ti.
         </p>
       </div>
+
+      {/* Lo del trimestre para la gestoría, de una vez (lib/paqueteGestoria). */}
+      <PaqueteTrimestre empresa={datos.empresa} ejercicios={ejercicios} />
 
       <section className="lf-seccion">
         <h2><Landmark size={18} /> Agencia Estatal de Administración Tributaria</h2>

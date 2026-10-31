@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useId, useState } from 'react';
-import { Check, Pencil, Target, X } from 'lucide-react';
+import { Check, Pencil, X } from 'lucide-react';
 import { getCurrentUserId } from '@/lib/storage';
 import { guardarObjetivo, leerImporte, leerObjetivo, progresoObjetivo } from '@/lib/objetivoMes';
 import { formatCurrency } from '@/lib/utils';
@@ -60,8 +60,10 @@ export default function ObjetivoMes({ facturado, propuesto, hoy }: { facturado: 
 
   return (
     <section className="asesor-hoja objetivo-mes" aria-labelledby={`${campo}-titulo`}>
+      {/* La misma cabecera que las demás tarjetas del panel: título,
+          subtítulo y la acción a la derecha. Sin el icono en su baldosa,
+          que sólo llevaban estas dos hojas. */}
       <div className="asesor-hoja-cabeza">
-        <span className="asesor-hoja-icono" aria-hidden="true"><Target size={15} /></span>
         <div>
           <h2 id={`${campo}-titulo`} className="asesor-hoja-titulo">Objetivo de {nombreMes}</h2>
           <p className="asesor-hoja-sub">{p ? `${formatCurrency(facturado)} de ${formatCurrency(p.objetivo)}` : 'Ponte una meta y te digo si llegas'}</p>

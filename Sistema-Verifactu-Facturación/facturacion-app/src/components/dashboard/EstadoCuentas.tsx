@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { useId } from 'react';
-import { AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
+import Delta from './Delta';
 
 export interface CifraPanel {
   id: string;
@@ -98,10 +99,9 @@ export default function EstadoCuentas({ cifras }: { cifras: CifraPanel[] }) {
               {(c.cambio || c.detalle) && (
                 <span className="cuentas-pie">
                   {c.cambio && (
-                    <span className={`cuentas-cambio ${c.cambio.porcentaje >= 0 ? 'sube' : 'baja'}`} title={c.cambio.titulo}>
-                      {c.cambio.porcentaje >= 0 ? <TrendingUp size={13} aria-hidden="true" /> : <TrendingDown size={13} aria-hidden="true" />}
-                      {c.cambio.porcentaje >= 0 ? '+' : '−'}{Math.abs(c.cambio.porcentaje).toFixed(1).replace('.', ',')} %
-                      <span className="cuentas-cambio-texto"> {c.cambio.texto}</span>
+                    <span className="cuentas-cambio">
+                      <Delta porcentaje={c.cambio.porcentaje} decimales={1} titulo={c.cambio.titulo} />
+                      <span className="cuentas-cambio-texto">{c.cambio.texto}</span>
                     </span>
                   )}
                   {c.detalle && <span className="cuentas-detalle">{c.detalle}</span>}

@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { apartarParaHacienda, presentacionPendiente } from '@/lib/fiscal/apartarHacienda';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Eye, Plus, FileText } from 'lucide-react';
-import PageSkeleton from '@/components/ui/PageSkeleton';
+import { ArrowRight, Eye, Plus, FileText, Settings2 } from 'lucide-react';
 import TableEmpty from '@/components/ui/TableEmpty';
 import ChartCard from '@/components/charts/ChartCard';
 import { RevenueColumns, StatusDonut, ChartLegend, RankedBars, ComparisonBarChart } from '@/components/charts/Charts';
-import { INVOICE_STATUS_COLOR, SERIES, useColoresGrafica } from '@/components/charts/theme';
+import { INVOICE_STATUS_COLOR, useColoresGrafica } from '@/components/charts/theme';
 import { facturadoYCobrado, formasDePago } from '@/lib/analitica';
 import {
   getInvoices, getClients, getCompanySettings, getProducts, getOnboardingStatus, completeOnboarding,
@@ -47,6 +46,8 @@ import ObjetivoMes from '@/components/dashboard/ObjetivoMes';
 import { deudoresDe } from '@/lib/reclamar';
 import { clientesFrios } from '@/lib/clientesFrios';
 import { objetivoPropuesto } from '@/lib/objetivoMes';
+import EsqueletoPanel, { EsqueletoAnalisis } from '@/components/dashboard/EsqueletoPanel';
+import NavegacionPanel, { type SeccionPanel } from '@/components/dashboard/NavegacionPanel';
 
 /** Lo que cada ficha necesita leer además de facturas, clientes y productos. */
 interface Extras {
@@ -100,7 +101,7 @@ const altoRanking = (filas: number) => Math.max(110, 34 + Math.max(1, filas) * 3
 // panel ya está pintado, para que la primera vista no espere por ellas.
 const PanelAnalisis = dynamic(() => import('@/components/dashboard/PanelAnalisis'), {
   ssr: false,
-  loading: () => <div className="analisis analisis--cargando" aria-busy="true" />,
+  loading: () => <EsqueletoAnalisis />,
 });
 
 export default function DashboardPage() {
@@ -113,6 +114,13 @@ export default function DashboardPage() {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [extras, setExtras] = useState<Extras>(SIN_EXTRAS);
+  // Cuándo se leyeron los datos por última vez: lo enseña la barra de
+  // secciones, junto al botón de volver a leerlos.
+  const [actualizado, setActualizado] = useState<Date | null>(null);
+  const [recargando, setRecargando] = useState(false);
+  // La lectura vive dentro del efecto; el botón de «volver a leer» de la
+  // barra de secciones la alcanza por aquí.
+  const leerRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const loadData = async () => {
@@ -148,7 +156,9 @@ export default function DashboardPage() {
       setShowOnboarding(!obStatus.isComplete);
       setOnboardingChecked(true);
       setMounted(true);
+      setActualizado(new Date());
     };
+    leerRef.current = loadData;
     loadData();
     // Una factura o un cliente nuevo (aquí o en otro equipo) cambian las cifras: se repinta solo.
     const alCambiar = () => { void loadData(); };
@@ -156,6 +166,11 @@ export default function DashboardPage() {
     avisos.forEach(a => window.addEventListener(a, alCambiar));
     return () => avisos.forEach(a => window.removeEventListener(a, alCambiar));
   }, []);
+
+  const recargar = async () => {
+    setRecargando(true);
+    try { await leerRef.current(); } finally { setRecargando(false); }
+  };
 
   useRevisarAlVolver(['invoices', 'clients', 'products'], 60_000);
 
@@ -295,7 +310,7 @@ export default function DashboardPage() {
     })),
     [invoices],
   );
-  const { accent: acentoGrafica } = useColoresGrafica();
+  const { accent: acentoGrafica, contrapunto } = useColoresGrafica();
 
   // El asesor: a quién reclamar hoy, quién ha dejado de pedir y qué meta
   // proponer. Todo sale de los documentos que ya se han leído.
@@ -340,7 +355,7 @@ export default function DashboardPage() {
   const remitente = { nombre: settings?.tradeName || settings?.businessName || '', email: settings?.email, telefono: settings?.phone, iban: settings?.iban };
 
   if (!mounted) {
-    return <PageSkeleton variant="dashboard" label="Cargando el panel" />;
+    return <EsqueletoPanel />;
   }
 
   /** Cada cifra suelta de arriba, como dato: la pinta `EstadoCuentas`. */
@@ -479,12 +494,12 @@ export default function DashboardPage() {
               <ChartLegend
                 items={[
                   { name: 'Facturado 12 m', value: formatCurrency(facturadoCobrado.reduce((a, m) => a + m.series1, 0)), color: acentoGrafica },
-                  { name: 'Cobrado 12 m', value: formatCurrency(facturadoCobrado.reduce((a, m) => a + m.series2, 0)), color: SERIES[0] },
+                  { name: 'Cobrado 12 m', value: formatCurrency(facturadoCobrado.reduce((a, m) => a + m.series2, 0)), color: contrapunto },
                 ]}
               />
             }
           >
-            <ComparisonBarChart data={facturadoCobrado} name1="Facturado" name2="Cobrado" />
+            <ComparisonBarChart data={facturadoCobrado} name1="Facturado" name2="Cobrado" color2={contrapunto} />
           </ChartCard>
         );
       case 'formas_pago':
@@ -554,6 +569,7 @@ export default function DashboardPage() {
             href="/listados-fiscales"
             enlace="Modelos"
             vacio="Sin datos del trimestre todavía."
+            vacioNeutro
             filas={[
               ...h.conceptos.map(c => ({
                 key: c.modelo,
@@ -577,6 +593,7 @@ export default function DashboardPage() {
             href="/listados-fiscales"
             enlace="Modelos"
             vacio="Todavía no hay facturas emitidas este trimestre."
+            vacioNeutro
             filas={t.tipos.map(x => ({
               key: String(x.tipo), principal: `${String(x.tipo).replace('.', ',')} %`,
               detalle: `Base ${formatCurrency(x.base)}`, valor: formatCurrency(x.cuota),
@@ -590,9 +607,12 @@ export default function DashboardPage() {
         return (
           <div className="chart-card">
             <div className="chart-header">
-              <h3 className="chart-title">Últimas facturas</h3>
-              <Link href="/facturas" className="btn btn-ghost btn-sm">
-                Ver todas <ArrowRight size={14} />
+              <div className="chart-heading">
+                <h3 className="chart-title">Últimas facturas</h3>
+                <p className="chart-subtitle">Las cinco más recientes, con su estado de cobro</p>
+              </div>
+              <Link href="/facturas" className="chart-enlace">
+                Ver todas <ArrowRight size={13} aria-hidden="true" />
               </Link>
             </div>
             {/* En el móvil, una lista: la tabla escondía estado y total
@@ -627,7 +647,7 @@ export default function DashboardPage() {
                     <th>Cliente</th>
                     <th>Fecha</th>
                     <th>Estado</th>
-                    <th style={{ textAlign: 'right' }}>Total</th>
+                    <th className="num">Total</th>
                     <th><span className="solo-lectores">Acciones</span></th>
                   </tr>
                 </thead>
@@ -643,7 +663,7 @@ export default function DashboardPage() {
                           {getStatusInfo(inv.status).label}
                         </span>
                       </td>
-                      <td className="amount">{formatCurrency(inv.total)}</td>
+                      <td className="amount num">{formatCurrency(inv.total)}</td>
                       <td>
                         <Link href={`/facturas/${inv.id}`} className="btn btn-ghost btn-icon btn-sm" aria-label={`Ver la factura ${inv.number}`}>
                           <Eye size={14} />
@@ -678,7 +698,8 @@ export default function DashboardPage() {
             enlace="Recordatorios"
             vacio="No hay facturas pendientes de vencer."
             filas={upcomingDue.map(inv => ({
-              key: inv.id, principal: inv.number, detalle: inv.clientName, href: `/facturas/${inv.id}`,
+              // El importe junto al cliente: «vence en 3 días» sin saber cuánto no sirve para llamar.
+              key: inv.id, principal: inv.number, detalle: `${inv.clientName} · ${formatCurrency(inv.total)}`, href: `/facturas/${inv.id}`,
               valor: inv.daysLeft < 0 ? `Vencida hace ${dias(-inv.daysLeft)}` : inv.daysLeft === 0 ? 'Vence hoy' : `Vence en ${dias(inv.daysLeft)}`,
               tono: inv.daysLeft <= 0 ? 'peligro' as const : inv.daysLeft <= 7 ? 'aviso' as const : undefined,
             }))}
@@ -725,6 +746,21 @@ export default function DashboardPage() {
   const conAeat = visibles.some(f => f.id === 'estado_verifactu');
   const bloquesCentro = bloques.filter(b => !(b.tipo === 'grande' && b.id === 'estado_verifactu'));
 
+  // Las secciones del panel, en el orden en que salen en pantalla. Las
+  // fichas siguen en el orden que la empresa eligió en Ajustes: el
+  // análisis es una ficha más y puede ir antes o después de las otras,
+  // así que «Seguimiento» se rotula justo antes de la primera que no lo
+  // sea y la barra de secciones las nombra según aparecen.
+  const esAnalisis = (b: (typeof bloquesCentro)[number]) => b.tipo === 'grande' && b.id === 'analisis_negocio';
+  const primeraFicha = bloquesCentro.findIndex(b => !esAnalisis(b));
+  const hayAvisos = products.length > 0 || invoices.some(inv => inv.status !== InvoiceStatus.ANULADA);
+  const secciones: SeccionPanel[] = [{ id: 'panel-hoy', nombre: 'Hoy' }];
+  bloquesCentro.forEach((b, i) => {
+    if (esAnalisis(b)) secciones.push({ id: 'panel-analisis', nombre: 'Análisis' });
+    else if (i === primeraFicha) secciones.push({ id: 'panel-seguimiento', nombre: 'Seguimiento' });
+  });
+  if (hayAvisos) secciones.push({ id: 'tendencias', nombre: 'Avisos' });
+
   return (
     <div className="panel animate-fade-in">
       <CabeceraPanel
@@ -743,10 +779,12 @@ export default function DashboardPage() {
         limite={planCheck.limit}
       />
 
+      <NavegacionPanel secciones={secciones} actualizado={actualizado} recargando={recargando} onRecargar={() => void recargar()} />
+
       {/* Dos columnas: el trabajo a la izquierda y, a la derecha, los atajos,
           que se quedan a mano mientras se baja por el panel. En pantallas
           estrechas los atajos van justo después de «Para hoy». */}
-      <div className="panel-cuerpo">
+      <div className="panel-cuerpo" id="panel-hoy" tabIndex={-1}>
         {/* 1. ¿Cómo va mi negocio? Las cifras elegidas, en su orden. */}
         <EstadoCuentas cifras={cifras.map(datoCifra).filter((c): c is CifraPanel => c !== null)} />
 
@@ -774,19 +812,34 @@ export default function DashboardPage() {
 
         {/* El resto, en el orden elegido: las grandes a todo el ancho de la
             columna y las medianas en dos por turnos (ver `colocar`). */}
-        {bloquesCentro.map((b, i) => (b.tipo === 'grande' ? (
-          <div key={b.id} className="panel-bloque">{tarjeta(b.id)}</div>
-        ) : b.derecha.length === 0 ? (
-          // Una mediana sola entre dos grandes: a todo el ancho, sin media fila vacía.
-          <div key={`p${i}`} className="panel-bloque">{tarjeta(b.izquierda[0])}</div>
-        ) : (
-          // En el móvil las dos columnas se deshacen (`display: contents`) y
-          // `order` devuelve cada tarjeta a su puesto: 1, 2, 3… y no 1, 3, 5, 2, 4.
-          <div key={`p${i}`} className="charts-grid charts-grid--even panel-bloque panel-pareja">
-            <div className="stack">{b.izquierda.map((id, k) => <div key={id} style={{ order: 2 * k }}>{tarjeta(id)}</div>)}</div>
-            <div className="stack">{b.derecha.map((id, k) => <div key={id} style={{ order: 2 * k + 1 }}>{tarjeta(id)}</div>)}</div>
-          </div>
-        )))}
+        {bloquesCentro.map((b, i) => (
+          <Fragment key={b.tipo === 'grande' ? b.id : `p${i}`}>
+            {i === primeraFicha && (
+              <div id="panel-seguimiento" className="panel-seccion-cabeza" tabIndex={-1}>
+                <div>
+                  <h2 className="panel-seccion-titulo">Seguimiento</h2>
+                  <p className="panel-seccion-sub">Las fichas que has elegido para tu panel, en tu orden</p>
+                </div>
+                <Link href="/ajustes#panel-inicio" className="chart-enlace">
+                  <Settings2 size={13} aria-hidden="true" /> Elegir fichas
+                </Link>
+              </div>
+            )}
+            {b.tipo === 'grande' ? (
+              <div className="panel-bloque">{tarjeta(b.id)}</div>
+            ) : b.derecha.length === 0 ? (
+              // Una mediana sola entre dos grandes: a todo el ancho, sin media fila vacía.
+              <div className="panel-bloque">{tarjeta(b.izquierda[0])}</div>
+            ) : (
+              // En el móvil las dos columnas se deshacen (`display: contents`) y
+              // `order` devuelve cada tarjeta a su puesto: 1, 2, 3… y no 1, 3, 5, 2, 4.
+              <div className="charts-grid charts-grid--even panel-bloque panel-pareja">
+                <div className="stack">{b.izquierda.map((id, k) => <div key={id} style={{ order: 2 * k }}>{tarjeta(id)}</div>)}</div>
+                <div className="stack">{b.derecha.map((id, k) => <div key={id} style={{ order: 2 * k + 1 }}>{tarjeta(id)}</div>)}</div>
+              </div>
+            )}
+          </Fragment>
+        ))}
 
         {/* Avisos y tendencias: calculados aquí con facturas y stock */}
         <AvisosTendencias products={products} invoices={invoices} />

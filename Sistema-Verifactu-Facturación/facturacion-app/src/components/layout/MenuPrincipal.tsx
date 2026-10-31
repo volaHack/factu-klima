@@ -126,6 +126,7 @@ export const MENU: Rama[] = [
       { label: 'Conciliación bancaria', lista: '/conciliacion' },
       { label: 'Informes y estadísticas', lista: '/informes' },
       { label: 'Contabilidad', lista: '/contabilidad' },
+      { label: 'Cierre del mes', lista: '/cierre' },
       { label: 'Comisiones', lista: '/comisiones', modulo: 'comisiones' },
       { label: 'Retención de IRPF', lista: '/retenciones', modulo: 'retenciones' },
       { label: 'Intracomunitarias', lista: '/intracomunitarias', modulo: 'intracomunitarias' },

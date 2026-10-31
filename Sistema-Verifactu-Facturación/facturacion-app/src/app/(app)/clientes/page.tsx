@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { usePestanaDeLaDireccion, useNuevoDeLaDireccion } from '@/hooks/useDireccion';
 import { useRevisarAlVolver } from '@/hooks/useRevisarAlVolver';
 import Link from 'next/link';
-import { Plus, Search, SearchX, Edit, Trash2, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload } from 'lucide-react';
+import { Plus, Search, SearchX, Edit, Trash2, Eye, X, Check, BarChart3, Tag, Percent, RefreshCw, ChevronUp, ChevronDown, Upload, ClipboardPaste } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import EnlacePortal from '@/components/portal/EnlacePortal';
@@ -31,6 +31,18 @@ import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 import { programarBorrado, ESPERA_DESHACER_MS } from '@/lib/borradoDiferido';
 import { olvidarFicha } from '@/lib/memoriaFichas';
 import { usePerfiles } from '@/lib/perfilesCliente';
+import { fichasParecidas } from '@/lib/clienteRepetido';
+import type { CampoFicha } from '@/lib/fichaPegada';
+import type { CasillasLugar } from '@/lib/codigosPostales';
+import AvisoFichaRepetida from '@/components/clientes/AvisoFichaRepetida';
+import PegarDatosFicha from '@/components/clientes/PegarDatosFicha';
+import { MunicipiosParaElegir, useRellenoPorCp } from '@/components/clientes/RellenoPorCp';
+
+/** Qué casilla del formulario es cada dato de «Pegar datos». */
+const CASILLA_DE: Record<CampoFicha, 'businessName' | 'nif' | 'email' | 'phone' | 'contactPerson' | 'address' | 'postalCode' | 'city' | 'province'> = {
+  razonSocial: 'businessName', nif: 'nif', email: 'email', telefono: 'phone', contacto: 'contactPerson',
+  direccion: 'address', codigoPostal: 'postalCode', municipio: 'city', provincia: 'province',
+};
 /** Solo se guardan los DIR3 si hay alguno puesto. */
 function limpiarDir3(d: { oficinaContable: string; organoGestor: string; unidadTramitadora: string }): Client['dir3'] {
   const limpio = {
@@ -245,8 +257,45 @@ function ClientesPageContenido() {
   const quienes: [string, string] = tipoContactoFilter === 'proveedores' ? ['proveedor', 'proveedores']
     : tipoContactoFilter === 'clientes' ? ['cliente', 'clientes'] : ['ficha', 'fichas'];
 
+  // «Pegar datos», el aviso de ficha repetida y el código postal que
+  // rellena la provincia y el municipio.
+  const [pegandoDatos, setPegandoDatos] = useState(false);
+  const [crearIgualmente, setCrearIgualmente] = useState(false);
+  const avisoRepetida = useRef<HTMLDivElement>(null);
+  const rellenoLugar = useRellenoPorCp(useCallback((c: Partial<CasillasLugar>) => {
+    setForm(prev => ({
+      ...prev,
+      ...(c.provincia !== undefined ? { province: c.provincia } : {}),
+      ...(c.municipio !== undefined ? { city: c.municipio } : {}),
+    }));
+  }, []));
+  const parecidas = useMemo(
+    () => (showModal && !editingClient && !crearIgualmente
+      ? fichasParecidas({ nif: form.nif, nombre: form.businessName, nombreComercial: form.tradeName }, clients)
+      : []),
+    [showModal, editingClient, crearIgualmente, form.nif, form.businessName, form.tradeName, clients],
+  );
+
+  const cambiarCp = (cp: string) => {
+    updateForm('postalCode', cp);
+    if (form.country === 'ES') rellenoLugar.alCambiarCp(cp, { provincia: form.province, municipio: form.city });
+  };
+
+  const aplicarPegado = (datos: Partial<Record<CampoFicha, string>>) => {
+    setForm(prev => {
+      const siguiente = { ...prev };
+      for (const [campo, valor] of Object.entries(datos) as [CampoFicha, string][]) {
+        siguiente[CASILLA_DE[campo]] = campo === 'nif' ? valor.toUpperCase() : valor;
+      }
+      return siguiente;
+    });
+    setPegandoDatos(false);
+  };
+
   const openCreateModal = () => {
     setEditingClient(null);
+    setCrearIgualmente(false);
+    rellenoLugar.reiniciar();
     setForm({
       businessName: '', tradeName: '', nif: '', vatNumber: '', email: '', phone: '',
       contactPerson: '', address: '', city: '', postalCode: '', province: '', country: 'ES',
@@ -265,6 +314,8 @@ function ClientesPageContenido() {
 
   const openEditModal = (client: Client) => {
     setEditingClient(client);
+    setCrearIgualmente(false);
+    rellenoLugar.reiniciar();
     setForm({
       businessName: client.businessName, tradeName: client.tradeName, nif: client.nif,
       vatNumber: client.vatNumber || '',
@@ -288,8 +339,13 @@ function ClientesPageContenido() {
     setShowModal(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (forzar = false) => {
     if (!form.businessName || !form.nif) return;
+    // Una ficha que ya existe: primero se ve el aviso; «Crear igualmente» guarda.
+    if (!forzar && parecidas.length > 0) {
+      avisoRepetida.current?.focus();
+      return;
+    }
     // Un NIF mal puesto aquí acaba en una factura que ya no se puede
     // corregir: con errores claros (formato, control, DNI con nombre de
     // sociedad…) no se guarda. Los avisos sí dejan guardar.
@@ -670,6 +726,19 @@ function ClientesPageContenido() {
               <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Cerrar"><X size={18} /></button>
             </div>
             <div className="modal-body">
+              <div className="pegar-datos-fila">
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPegandoDatos(true)}>
+                  <ClipboardPaste size={13} aria-hidden /> Pegar datos
+                </button>
+                <span className="form-hint">La firma de un correo o un WhatsApp con los datos: se rellena solo.</span>
+              </div>
+              {pegandoDatos && (
+                <PegarDatosFicha
+                  actual={Object.fromEntries((Object.keys(CASILLA_DE) as CampoFicha[]).map(c => [c, String(form[CASILLA_DE[c]] ?? '')]))}
+                  onAplicar={aplicarPegado}
+                  onCerrar={() => setPegandoDatos(false)}
+                />
+              )}
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label required">Razón social / nombre fiscal</label>
@@ -700,6 +769,12 @@ function ClientesPageContenido() {
                   <input className="form-input" type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="facturacion@acme.es" />
                 </div>
               </div>
+              <AvisoFichaRepetida
+                ref={avisoRepetida}
+                parecidas={parecidas}
+                href={f => `/clientes/${f.id}`}
+                onCrearIgualmente={() => { setCrearIgualmente(true); void handleSave(true); }}
+              />
               <ComprobacionIdentidad
                 nif={form.nif}
                 nombre={form.businessName}
@@ -727,7 +802,7 @@ function ClientesPageContenido() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Código postal</label>
-                  <input className="form-input mono" value={form.postalCode} onChange={e => updateForm('postalCode', e.target.value)} placeholder="28001" />
+                  <input className="form-input mono" inputMode="numeric" value={form.postalCode} onChange={e => cambiarCp(e.target.value)} placeholder="35500" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">País</label>
@@ -763,6 +838,10 @@ function ClientesPageContenido() {
                   </div>
                 )}
               </div>
+
+              {form.country === 'ES' && (
+                <MunicipiosParaElegir municipios={rellenoLugar.elegir} onElegir={rellenoLugar.elegirMunicipio} />
+              )}
 
               {!form.esProveedor && (
                 <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
@@ -889,7 +968,7 @@ function ClientesPageContenido() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
+              <button className="btn btn-primary" onClick={() => void handleSave()}>Guardar</button>
             </div>
           </div>
         </div>

@@ -127,11 +127,6 @@
 }
 .asesor-hoja-cabeza { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-3); }
 .asesor-hoja-cabeza > div { flex: 1; min-width: 0; }
-.asesor-hoja-icono {
-  width: 30px; height: 30px; border-radius: var(--radius-md); flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--accent-50); color: var(--accent-500);
-}
 .asesor-hoja-titulo { margin: 0; font-size: var(--text-md); font-weight: 650; color: var(--text-primary); text-transform: none; }
 .asesor-hoja-sub { margin: 2px 0 0; font-size: var(--text-xs); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 
@@ -241,9 +236,13 @@
 @media (max-width: 640px) {
   .tarjeta-cobro, .asesor-hoja, .prevision { padding-left: var(--space-4); padding-right: var(--space-4); }
   .deudores-hoy { padding-left: var(--hoja-pad, var(--space-4)); }
-  .deudores-hoy-fila, .clientes-frios-fila { flex-wrap: wrap; }
-  .clientes-frios-texto { flex: 1 1 100%; }
-  .clientes-frios-acciones { margin-left: auto; }
+  /* Las acciones se quedan a la derecha de su cliente, en la misma
+     fila: partirla en dos doblaba el alto de la lista. El detalle sí
+     puede bajar de línea; el botón de factura se queda en su icono. */
+  .deudores-hoy-fila, .clientes-frios-fila { align-items: flex-start; }
+  .clientes-frios-texto, .deudores-hoy-quien { flex: 1; }
+  .clientes-frios-etiqueta { display: none; }
+  .clientes-frios-acciones .btn-secondary { padding-inline: 8px; }
   .reclamar-acciones > .btn { flex: 1 1 auto; }
 }
 

@@ -35,6 +35,8 @@ import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 import SubidaPrecios from '@/components/productos/SubidaPrecios';
 import AvisoReposicion from '@/components/productos/AvisoReposicion';
 import ConsejoProducto from '@/components/productos/ConsejoProducto';
+import SugerenciasFicha from '@/components/productos/SugerenciasFicha';
+import { sugerenciasFicha, type CampoSugerido, type SugerenciaFicha } from '@/lib/fichaProducto';
 import { conPrecioSubido, conPreciosDeAntes, type Subida } from '@/lib/subidaPrecios';
 import { programarBorrado, ESPERA_DESHACER_MS } from '@/lib/borradoDiferido';
 import { recordarFicha, olvidarFicha, alternarFijada, estaFijada } from '@/lib/memoriaFichas';
@@ -147,6 +149,11 @@ function ProductosPageContenido() {
     costeUltimaCompra: Number(form.costeUltimaCompra) || 0,
     purchasePrice: Number(form.purchasePrice) || 0,
   }, [editing, form.unitPrice, form.costePmp, form.costeUltimaCompra, form.purchasePrice]);
+
+  // Los campos de la ficha nueva que se han escrito a mano: de ésos no se
+  // sugiere nada (lib/fichaProducto).
+  const [tocados, setTocados] = useState<Set<CampoSugerido>>(() => new Set());
+  const tocar = (campo: CampoSugerido) => setTocados(prev => (prev.has(campo) ? prev : new Set(prev).add(campo)));
 
   const updateForm = (field: string, value: unknown) => {
     setForm(prev => ({
@@ -308,6 +315,7 @@ function ProductosPageContenido() {
   // Product CRUD
   const openCreateProduct = () => {
     setEditing(null);
+    setTocados(new Set());
     const defaultCat = categories.length > 0 ? categories[0].value : 'otros';
     setForm({
       ref: `PRD-${String(products.length + 1).padStart(3, '0')}`,
@@ -594,6 +602,38 @@ function ProductosPageContenido() {
 
   const getCategoryInfo = (catValue: string) => {
     return categories.find(c => c.value === catValue) || { label: catValue, icon: 'Package' };
+  };
+
+  // Lo que la ficha nueva propone a partir del nombre y de los parecidos.
+  // Sólo al dar de alta: una ficha que ya existe se edita, no se adivina.
+  const sugerencias = useMemo(() => {
+    if (!showModal || editing) return [];
+    return sugerenciasFicha({
+      name: form.name,
+      category: form.category,
+      defaultTaxRate: Number(form.defaultTaxRate),
+      unitPrice: Number(form.unitPrice) || 0,
+      unitsPerPackage: form.unitsPerPackage,
+      coste: Number(form.purchasePrice) || Number(form.costePmp) || 0,
+    }, products, {
+      tocados,
+      nombreCategoria: id => categories.find(c => c.value === id)?.label ?? id,
+    });
+  }, [showModal, editing, form.name, form.category, form.defaultTaxRate, form.unitPrice, form.unitsPerPackage, form.purchasePrice, form.costePmp, products, tocados, categories]);
+
+  const aceptarSugerencias = (lista: SugerenciaFicha[]) => {
+    setForm(prev => {
+      const sig = { ...prev };
+      for (const s of lista) {
+        if (s.campo === 'unitsPerPackage') sig.unitsPerPackage = String(s.valor);
+        else if (s.campo === 'category') sig.category = String(s.valor);
+        else if (s.campo === 'defaultTaxRate') sig.defaultTaxRate = Number(s.valor) as TaxRate;
+        else sig.unitPrice = Number(s.valor);
+      }
+      return sig;
+    });
+    // Aceptada es como escrita: ya no se vuelve a proponer encima.
+    setTocados(prev => { const n = new Set(prev); for (const s of lista) n.add(s.campo); return n; });
   };
 
   // Datos de la analítica, con su vista en tabla
@@ -1145,20 +1185,23 @@ function ProductosPageContenido() {
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group" style={{ flex: '2 1 240px' }}>
                   <label className="form-label required">Nombre del producto</label>
-                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Aceite de oliva 1 L" />
+                  <input className="form-input" value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ej: Agua mineral 6x1,5L" />
                 </div>
                 <div className="form-group" style={{ flex: '1 1 140px' }}>
                   <label className="form-label">Categoría</label>
-                  <select className="form-select" value={form.category} onChange={e => updateForm('category', e.target.value)}>
+                  <select className="form-select" value={form.category} onChange={e => { tocar('category'); updateForm('category', e.target.value); }}>
                     {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
               </div>
 
+              {/* Lo que dice el nombre y lo que hacen los parecidos (lib/fichaProducto). */}
+              <SugerenciasFicha sugerencias={sugerencias} onAceptar={aceptarSugerencias} />
+
               <div className="form-row" style={{ marginTop: 'var(--space-4)' }}>
                 <div className="form-group">
                   <label className="form-label">Precio de venta (€)</label>
-                  <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => updateForm('unitPrice', e.target.value)} />
+                  <input className="form-input" type="number" step="0.01" value={form.unitPrice} onChange={e => { tocar('unitPrice'); updateForm('unitPrice', e.target.value); }} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unidad de medida</label>
@@ -1177,7 +1220,7 @@ function ProductosPageContenido() {
                     step="1"
                     placeholder="—"
                     value={form.unitsPerPackage}
-                    onChange={e => updateForm('unitsPerPackage', e.target.value)}
+                    onChange={e => { tocar('unitsPerPackage'); updateForm('unitsPerPackage', e.target.value); }}
                   />
                   <p className="form-hint">
                     Cuántas unidades sueltas trae cada caja. Déjalo vacío si lo vendes por unidades.
@@ -1190,7 +1233,7 @@ function ProductosPageContenido() {
                   <TaxRateSlider
                     label={`Impuesto de venta (${getTaxLabel(settings)})`}
                     value={form.defaultTaxRate}
-                    onChange={v => setForm(prev => ({ ...prev, defaultTaxRate: v }))}
+                    onChange={v => { tocar('defaultTaxRate'); setForm(prev => ({ ...prev, defaultTaxRate: v })); }}
                   />
                 </div>
               </div>

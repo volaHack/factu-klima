@@ -56,7 +56,7 @@ export const nombreRol = (rol: RolPerfil) => ROLES.find(r => r.id === rol)?.nomb
 const VEDADO_EMPLEADO = [
   '/ajustes', '/equipo', '/admin', '/importar', '/plantillas', '/gestoria', '/verifactu', '/factura-electronica',
   '/informes', '/contabilidad', '/listados-fiscales', '/tesoreria', '/conciliacion', '/recordatorios', '/comisiones', '/sii',
-  '/historico',
+  '/historico', '/cierre',
 ];
 
 /** Lo único que ve un cajero. */

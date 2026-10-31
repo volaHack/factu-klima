@@ -7,13 +7,17 @@
  * cajas si va por cajas), y lo que lleva meses parado en el almacén. La
  * cuenta está en lib/reposicion; aquí solo se enseña. Cada fila abre la
  * ficha del artículo. Si no hay nada que decir, no se pinta.
+ *
+ * Desde aquí también se preparan los pedidos de compra de lo que hay que
+ * reponer, uno por proveedor y en borrador (PedidosDeCompra).
  */
 
 import { useMemo, useState } from 'react';
-import { PackageSearch, Hourglass, ChevronDown } from 'lucide-react';
+import { PackageSearch, Hourglass, ChevronDown, ShoppingCart } from 'lucide-react';
 import type { Invoice, Product } from '@/lib/types';
 import { calcularReposicion, sinMovimiento } from '@/lib/reposicion';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import PedidosDeCompra from './PedidosDeCompra';
 
 const CUANTOS = 5;
 const PLAZOS = [15, 30, 60] as const;
@@ -29,6 +33,7 @@ export default function AvisoReposicion({ productos, documentos, pendientes, onA
   const [vista, setVista] = useState<'reponer' | 'parado'>('reponer');
   const [cubrir, setCubrir] = useState<(typeof PLAZOS)[number]>(30);
   const [todos, setTodos] = useState(false);
+  const [preparando, setPreparando] = useState(false);
 
   const reponer = useMemo(() => calcularReposicion(productos, documentos, { cubrirDias: cubrir, pendientes }), [productos, documentos, cubrir, pendientes]);
   const parados = useMemo(() => sinMovimiento(productos, documentos), [productos, documentos]);
@@ -60,6 +65,11 @@ export default function AvisoReposicion({ productos, documentos, pendientes, onA
                 {d} días
               </button>
             ))}
+            {reponer.some(r => r.sugerido > 0) && (
+              <button type="button" className="btn btn-primary btn-sm aviso-stock-pedidos" onClick={() => setPreparando(true)}>
+                <ShoppingCart size={14} /> Preparar pedidos de compra
+              </button>
+            )}
           </div>
         ) : (
           <p className="aviso-stock-resumen">Más de 90 días sin venderse: <strong className="mono">{formatCurrency(valorParado)}</strong> parados en el almacén.</p>
@@ -116,6 +126,10 @@ export default function AvisoReposicion({ productos, documentos, pendientes, onA
         <button type="button" className="btn btn-ghost btn-sm aviso-stock-mas" aria-expanded={todos} onClick={() => setTodos(t => !t)}>
           <ChevronDown size={14} /> {todos ? 'Ver menos' : `Ver los ${filas.length}`}
         </button>
+      )}
+
+      {preparando && (
+        <PedidosDeCompra reponer={reponer} productos={productos} documentos={documentos} onCerrar={() => setPreparando(false)} />
       )}
     </section>
   );

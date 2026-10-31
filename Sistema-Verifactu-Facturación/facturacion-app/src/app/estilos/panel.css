@@ -178,22 +178,10 @@
 .accesos-personalizar:hover svg { transform: rotate(60deg); }
 
 /* --- Tarjetas de gráficas y listas del panel ---
-   No se pulsan, así que ni suben ni cambian de borde (prometerían un
-   clic). Sólo se despegan un poco con una sombra del acento, para que
-   se note cuál se está leyendo. Sólo con ratón. */
-.panel .chart-card { transition: box-shadow 360ms var(--ease-settle); }
-@media (hover: hover) and (pointer: fine) {
-  .panel .chart-card:hover {
-    box-shadow:
-      0 14px 34px -18px color-mix(in srgb, var(--accent-500) 30%, transparent),
-      0 2px 8px -4px rgba(16, 24, 40, 0.08);
-  }
-  :root[data-theme="dark"] .panel .chart-card:hover {
-    box-shadow:
-      0 14px 34px -18px color-mix(in srgb, var(--accent-500) 22%, transparent),
-      0 0 0 1px color-mix(in srgb, var(--accent-500) 10%, transparent);
-  }
-}
+   No se pulsan, así que ni suben ni brillan al pasar el ratón: la sombra
+   del acento que llevaban prometía un clic que no lleva a ningún sitio.
+   Lo que sí responde (filas, enlaces, botones) tiene su propio estado;
+   ver «Foco y paso del ratón» más abajo. */
 
 /* ============================================================
    MENÚ LATERAL
@@ -357,3 +345,334 @@
 }
 .notif-panel .notif-fila-icono { transition: transform 260ms var(--ease-settle); }
 .notif-panel .notif-fila:hover .notif-fila-icono { transform: scale(1.08); }
+
+/* ============================================================
+   EL PANEL COMO PRODUCTO: SECCIONES, CABECERAS Y CIFRAS
+   ------------------------------------------------------------
+   El panel había crecido a base de fichas sueltas: cada una con su
+   tamaño de título, su forma de enlace («Ver todas» fantasma, «Tabla»
+   con borde), su manera de escribir un +12 % y su recuadro punteado
+   cuando no había datos. Aquí se pone orden, con los tokens de siempre:
+     · secciones con cabecera (Hoy, Seguimiento, Análisis, Avisos) y una
+       barra pegada arriba que lleva a cada una;
+     · una sola cabecera de tarjeta: título de 14 px, subtítulo de 12 px
+       y las acciones a la derecha, todas del mismo alto;
+     · cifras con números de ancho fijo y alineadas a la derecha;
+     · variaciones con la misma píldora en todo el panel;
+     · vacíos que dicen si es buena noticia o si faltan datos;
+     · un esqueleto con la forma del panel y una versión para papel.
+   ============================================================ */
+
+.panel {
+  /* Lo que mide la barra de secciones: la usan los anclajes y la
+     columna de atajos para no quedarse debajo de ella. */
+  --panel-secciones-alto: 44px;
+  --panel-pegado: calc(var(--header-height) + var(--panel-secciones-alto));
+}
+
+/* --- Barra de secciones --- */
+.panel-secciones {
+  position: sticky; top: var(--header-height); z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+  height: var(--panel-secciones-alto);
+  margin: 0 0 var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+.panel-secciones-nav { min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; }
+.panel-secciones-nav::-webkit-scrollbar { display: none; }
+.panel-secciones-nav ul { display: flex; gap: var(--space-5); height: 100%; margin: 0; padding: 0; list-style: none; }
+.panel-secciones-nav li { display: flex; }
+.panel-secciones-enlace {
+  position: relative; display: flex; align-items: center;
+  font-size: var(--text-sm); font-weight: 550; white-space: nowrap;
+  color: var(--text-tertiary); text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.panel-secciones-enlace:hover { color: var(--text-primary); }
+/* La sección que se está leyendo: tinta plena y una raya de 2 px que se
+   apoya en el filete de la barra, como una pestaña. */
+.panel-secciones-enlace[aria-current] { color: var(--text-primary); }
+.panel-secciones-enlace::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  border-radius: 2px 2px 0 0; background: var(--accent-500);
+  transform: scaleX(0); transition: transform 240ms var(--ease-settle);
+}
+.panel-secciones-enlace[aria-current]::after { transform: scaleX(1); }
+.panel-secciones-enlace:focus-visible { outline: 2px solid var(--accent-500); outline-offset: -2px; border-radius: var(--radius-sm); }
+.panel-secciones-acciones { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
+.panel-secciones-hora {
+  margin-right: var(--space-2);
+  font-size: var(--text-xs); color: var(--text-tertiary); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.panel-secciones-boton {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-tertiary); cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.panel-secciones-boton:hover { background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary); }
+.panel-secciones-boton:disabled { cursor: progress; }
+.panel-secciones-boton:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+
+/* Los anclajes paran justo bajo la barra, y la columna de atajos se
+   pega también por debajo de ella. */
+.panel-cuerpo, .panel-seccion, .panel-seccion-cabeza { scroll-margin-top: calc(var(--panel-pegado) + var(--space-4)); }
+.panel-cuerpo > .accesos { top: calc(var(--panel-pegado) + var(--space-4)); }
+/* Al saltar a una sección el foco va a ella: no lleva anillo, el
+   salto ya dice dónde se está. */
+.panel [tabindex="-1"]:focus { outline: none; }
+
+/* --- Cabecera de sección ---
+   Un filete fino separa cada parte del panel; el título dice qué hay
+   debajo y el subtítulo de dónde sale. Más aire encima que debajo: el
+   título pertenece a lo que sigue, no a lo que acaba. */
+.panel-seccion-cabeza,
+.panel-cuerpo > .panel-seccion-cabeza {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--space-3) var(--space-4);
+  margin: var(--space-6) 0 var(--space-4);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-color);
+}
+.panel-seccion-cabeza > div:first-child { min-width: 0; }
+.panel-seccion-titulo {
+  display: block; margin: 0;
+  font-size: var(--text-lg); font-weight: 650; line-height: 1.25;
+  letter-spacing: -0.015em; color: var(--text-primary);
+}
+.panel-seccion-sub { margin: 4px 0 0; font-size: var(--text-sm); line-height: 1.45; color: var(--text-tertiary); }
+/* Las secciones que ya tenían su envoltorio no suman margen propio. */
+.panel .analisis, .panel .tendencias-section { margin-top: 0; }
+.panel .tendencias-chips { align-self: flex-end; }
+
+/* Las cuatro cifras del análisis, como la tira de arriba: una hoja
+   partida por filetes y no cuatro cajas sueltas. */
+.panel .analisis-cifras {
+  gap: 1px; background: var(--border-color);
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden;
+}
+.panel .analisis-cifra { border: 0; border-radius: 0; }
+.panel .analisis-cifra dt { font-size: var(--text-xs); color: var(--text-secondary); }
+
+/* --- Una sola cabecera de tarjeta --- */
+.panel .chart-header,
+.panel .asesor-hoja-cabeza {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--space-3); margin-bottom: var(--space-4);
+}
+.panel .chart-heading, .panel .asesor-hoja-cabeza > div:first-child { flex: 1; min-width: 0; }
+.panel .chart-title,
+.panel .asesor-hoja-titulo,
+.panel .para-hoy-titulo,
+.panel .resumen-correo-titulo {
+  margin: 0;
+  font-size: var(--text-base); font-weight: 600; line-height: 1.35;
+  letter-spacing: -0.01em; color: var(--text-primary);
+}
+.panel .chart-subtitle,
+.panel .asesor-hoja-sub {
+  margin: 2px 0 0;
+  font-size: var(--text-xs); line-height: 1.45; color: var(--text-tertiary);
+}
+.panel .chart-actions { gap: var(--space-2); }
+
+/* «Ver todas», «Modelos», «Gestionar», «Elegir fichas» y el botón de
+   «Tabla»: la misma pieza, del mismo alto, en todas las tarjetas. */
+.chart-enlace,
+.panel .chart-toggle {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 28px; padding: 0 10px;
+  font-family: inherit; font-size: var(--text-xs); font-weight: 600; line-height: 1;
+  color: var(--text-secondary); white-space: nowrap; text-decoration: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.chart-enlace svg, .panel .chart-toggle svg { color: var(--text-tertiary); flex-shrink: 0; transition: transform var(--transition-fast); }
+.chart-enlace:hover, .panel .chart-toggle:hover {
+  color: var(--text-primary); background: var(--bg-card-hover); border-color: var(--border-color-hover);
+}
+.chart-enlace:hover svg:last-child:not(:first-child) { transform: translateX(2px); }
+.panel .chart-toggle[aria-pressed="true"] {
+  color: var(--text-primary); background: var(--bg-tertiary); border-color: var(--border-color-hover);
+}
+.chart-enlace:focus-visible, .panel .chart-toggle:focus-visible {
+  outline: 2px solid var(--accent-500); outline-offset: 2px; box-shadow: none;
+}
+
+/* Las hojas del asesor (objetivo y clientes que se enfrían), con el
+   mismo relleno que las demás tarjetas. */
+.panel .asesor-hoja { padding: var(--hoja-pad); }
+.panel .clientes-frios { padding-bottom: 0; overflow: hidden; }
+.panel .clientes-frios-lista { margin: 0 calc(-1 * var(--hoja-pad)); }
+.panel .clientes-frios-fila { padding: 10px var(--hoja-pad); }
+
+/* «Últimas facturas»: la tabla llega a los bordes de la tarjeta, sin una
+   segunda caja dentro, y sus columnas arrancan donde el título. */
+.panel .chart-card:has(> .table-container) { padding-bottom: 0; overflow: hidden; }
+.panel .chart-card > .table-container {
+  margin: 0 calc(-1 * var(--hoja-pad));
+  border: 0; border-radius: 0; box-shadow: none; background: transparent;
+}
+.panel .chart-card > .table-container .table th:first-child,
+.panel .chart-card > .table-container .table td:first-child { padding-left: var(--hoja-pad); }
+.panel .chart-card > .table-container .table th:last-child,
+.panel .chart-card > .table-container .table td:last-child { padding-right: var(--hoja-pad); }
+.panel .chart-card > .table-container .table tbody tr:last-child td { border-bottom: 0; }
+
+/* --- Números: de ancho fijo y alineados ---
+   Las cifras se comparan en columna; con dígitos proporcionales un 1
+   ocupa menos que un 8 y los importes bailan. También en los ejes de
+   las gráficas, que Nivo escribe como texto SVG. */
+.panel :is(
+  .table td, .chart-table td, .lista-reglada-valor, .lista-reglada-detalle,
+  .stats-item-value, .stats-item-detail, .day-stat-detail, .chart-legend-value,
+  .accesos-fila-dato, .para-hoy-importe, .para-hoy-fila-detalle, .analisis-cifra dd,
+  .clientes-frios-detalle, .deudores-hoy-detalle, .ultimas-movil-abajo, .objetivo-texto,
+  .chart-subtitle, .asesor-hoja-sub
+),
+.panel .chart-plot svg text { font-variant-numeric: tabular-nums; }
+.panel .table .num { text-align: right; }
+.panel .stats-item-cifras { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.panel .stats-item-detail.is-peligro { color: var(--color-danger); }
+/* «Productos en movimiento»: al alza y a la baja una debajo de otra. En
+   dos columnas de media tarjeta los nombres se partían en tres renglones
+   para dejar sitio a la píldora. */
+.panel .trend-columns { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+
+/* --- Variaciones: la misma píldora en todo el panel (ver Delta.tsx) --- */
+.delta {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 1px 6px 1px 4px; border-radius: var(--radius-sm);
+  font-size: var(--text-xs); font-weight: 600; line-height: 18px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.delta:not(:has(svg)) { padding-left: 6px; }
+.delta.is-bien { color: var(--color-success); background: var(--color-success-bg); }
+.delta.is-mal { color: var(--color-danger); background: var(--color-danger-bg); }
+.cuentas-cambio { gap: 6px; font-weight: 400; }
+.cuentas-cambio-texto { color: var(--text-tertiary); }
+
+/* --- Vacíos ---
+   Sin recuadro punteado (parecía un hueco para soltar un archivo): un
+   icono en su círculo, una frase que dice qué pasa y, debajo, qué hacer.
+   Si «vacío» es buena noticia, el círculo va en verde. */
+.panel .chart-empty {
+  gap: 4px; padding: var(--space-8) var(--space-4);
+  border: 0; border-radius: 0; background: transparent;
+}
+.panel .chart-empty > svg {
+  box-sizing: content-box; width: 20px; height: 20px; padding: 10px; margin-bottom: var(--space-2);
+  border-radius: 50%; background: var(--bg-tertiary); color: var(--text-tertiary);
+}
+.panel .chart-empty.es-bueno > svg { background: var(--color-success-bg); color: var(--color-success); }
+.panel .chart-empty-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+.panel .chart-empty-hint { font-size: var(--text-xs); line-height: 1.5; color: var(--text-tertiary); max-width: 40ch; }
+.panel .ficha-lista .ficha-vacia {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: 0 calc(-1 * var(--hoja-pad)) calc(-1 * var(--hoja-pad));
+  padding: 14px var(--hoja-pad);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.panel .ficha-vacia > svg { flex-shrink: 0; color: var(--text-tertiary); }
+.panel .ficha-vacia.es-bueno > svg { color: var(--color-success); }
+.panel .ficha-lista:has(> .ficha-vacia) { overflow: hidden; }
+
+/* --- Foco y paso del ratón ---
+   Un solo anillo para todo lo que se pulsa: el acento, a 2 px. Con
+   :where() pesa poco y las filas que llegan al borde (Para hoy, listas
+   regladas) conservan su anillo hacia dentro. */
+.panel :where(a:focus-visible, button:focus-visible, [role="tab"]:focus-visible, summary:focus-visible) {
+  outline: 2px solid var(--accent-500); outline-offset: 2px;
+}
+
+/* --- El esqueleto de carga (EsqueletoPanel.tsx) --- */
+.esq-linea { display: block; flex-shrink: 0; max-width: 100%; }
+.esq-pila { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.esq-crece { flex: 1; }
+.esq-secciones {
+  display: flex; align-items: center; gap: var(--space-5);
+  height: var(--panel-secciones-alto); margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+.esq-panel .cuentas { margin-bottom: var(--space-4); }
+.esq-panel .cuentas-cifra { gap: var(--space-3); min-height: 132px; }
+.esq-fila {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 14px var(--hoja-pad); border-top: 1px solid var(--border-subtle);
+}
+.esq-hoja { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); }
+.esq-celda { display: flex; align-items: center; min-height: 44px; padding: 0 var(--space-4); background: var(--bg-card); }
+.esq-analisis .panel-seccion-cabeza { align-items: center; }
+.esq-analisis .analisis-cifra { min-height: 92px; }
+.esq-analisis-tarjetas {
+  display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-4); margin-top: var(--space-4);
+}
+.esq-analisis-tarjetas > .skeleton { display: block; height: 380px; border-radius: var(--radius-lg); }
+
+/* --- Móvil: más denso, sin perder aire --- */
+@media (max-width: 640px) {
+  .panel { --panel-secciones-alto: 42px; }
+  .panel-secciones { gap: var(--space-2); }
+  .panel-secciones-nav ul { gap: var(--space-4); }
+  .panel-secciones-hora { margin-right: 0; }
+  .panel-secciones-hora-largo { display: none; }
+  .panel-seccion-cabeza,
+  .panel-cuerpo > .panel-seccion-cabeza { margin-top: var(--space-4); padding-top: var(--space-5); }
+  .panel-seccion-titulo { font-size: var(--text-md); }
+  .panel-seccion-sub { font-size: var(--text-xs); }
+  .panel .chart-header, .panel .asesor-hoja-cabeza { margin-bottom: var(--space-3); }
+  .panel .chart-empty { padding: var(--space-6) var(--space-3); }
+  .esq-analisis-tarjetas { grid-template-columns: minmax(0, 1fr); }
+  .esq-analisis-tarjetas > .skeleton { height: 260px; }
+
+  /* Últimas facturas: filas regladas a todo el ancho, no tarjetas
+     grises dentro de la tarjeta. */
+  .panel .ultimas-movil { gap: 0; margin: 0 calc(-1 * var(--hoja-pad)); }
+  .panel .ultimas-movil > li { border-top: 1px solid var(--border-subtle); }
+  .panel .ultimas-movil-fila {
+    padding: 12px var(--hoja-pad); gap: 2px;
+    border: 0; border-radius: 0; background: transparent;
+  }
+  .panel .ultimas-movil-fila:active { background: var(--bg-card-hover); }
+  .panel .chart-card:has(> .ultimas-movil) { padding-bottom: 0; overflow: hidden; }
+}
+
+/* --- En papel ---
+   «Imprimir» (en la barra de secciones) saca lo que se lee: cifras,
+   Para hoy, las fichas y el análisis abierto. Fuera los botones, los
+   atajos, la barra pegada, el aviso del plan y la luz del marco; las
+   tarjetas no se parten entre hojas y cada título viaja con lo suyo. */
+@media print {
+  .panel-secciones, .panel-cabeza-cta, .plan-aviso, .panel-cuerpo > .accesos,
+  .resumen-correo, .chart-actions, .chart-enlace, .para-hoy-accion,
+  .deudores-hoy .btn, .deudores-hoy-mas, .clientes-frios-acciones, .objetivo-editar,
+  .objetivo-propuesta-acciones, .analisis-pestanas, .ultimas-movil,
+  .ultimas-tabla th:last-child, .ultimas-tabla td:last-child { display: none !important; }
+  .ultimas-tabla { display: block !important; }
+  /* En A4 la hoja entra en el ancho de móvil y el velo gris del menú
+     lateral se pintaba encima de la primera página del panel. */
+  body:has(.panel) .sidebar-overlay { display: none !important; }
+  /* La regla general de impresión quita todo `transform` para que nada
+     salga a medio animar; en las gráficas eso borraba también el
+     atributo `transform` con el que Nivo coloca ejes y etiquetas, y
+     todas se apilaban en la esquina. Aquí se devuelve. */
+  .chart-plot svg * { transform: revert-layer !important; }
+  .panel-cuerpo { display: block; }
+  .panel-cuerpo > * { margin-bottom: 4mm; }
+  .panel .neon::before, .panel .neon::after { display: none !important; }
+  .cuentas-cifra.es-principal { background: #fff; }
+  .panel .chart-card, .para-hoy, .asesor-hoja, .cuentas-marco, .analisis-cifras, .panel .stats-item, .lista-reglada > li {
+    break-inside: avoid;
+  }
+  .panel-seccion-cabeza, .analisis-cabecera, .chart-header { break-after: avoid; }
+  .panel-seccion-cabeza, .panel-cuerpo > .panel-seccion-cabeza { margin-top: 6mm; padding-top: 4mm; }
+  .panel .charts-grid--even, .asesor-pareja, .tendencias-grid { grid-template-columns: 1fr 1fr; }
+}

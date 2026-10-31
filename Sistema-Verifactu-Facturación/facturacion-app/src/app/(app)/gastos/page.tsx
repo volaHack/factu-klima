@@ -3,18 +3,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Receipt, Car, Plus, Trash2, Edit2, X, AlertTriangle, Layers, PieChart as PieChartIcon,
-  TrendingDown, Building, Truck, ChevronUp, ChevronDown, Camera, Loader2, Inbox,
+  TrendingDown, Building, Truck, ChevronUp, ChevronDown, Camera, Loader2, Inbox, History,
 } from 'lucide-react';
 import Link from 'next/link';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import {
   getGastos, saveGasto, deleteGasto, getVehiculos, saveVehiculo, deleteVehiculo,
-  getProveedores, getCompanySettings, getObras,
+  getProveedores, getCompanySettings, getObras, getInvoices,
 } from '@/lib/storage';
 import { calcularGasto, totalGastos, costeDeVehiculos, gastoVacio, CATEGORIAS_GASTO } from '@/lib/gastos';
+import { habitoProveedor, propuestasGasto, avisoImporte, type CampoGasto, type PropuestaGasto } from '@/lib/gastoHabitual';
 import { tieneModulo, modulosDe } from '@/lib/modulos';
-import { Gasto, GastoCategoria, Vehiculo, Client, Obra, PaymentMethod } from '@/lib/types';
+import { Gasto, GastoCategoria, Vehiculo, Client, Obra, PaymentMethod, Invoice } from '@/lib/types';
 import { generateId, formatCurrency, formatDate, getToday, fotoParaLeer } from '@/lib/utils';
 import type { DatosTicket } from '@/lib/ia/ticket';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -34,6 +35,8 @@ export default function GastosPage() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [proveedores, setProveedores] = useState<Client[]>([]);
+  // Las facturas de compra: también dicen cómo se le paga a cada proveedor.
+  const [compras, setCompras] = useState<Invoice[]>([]);
   const [obras, setObras] = useState<Obra[]>([]);
   const [modoVehiculos, setModoVehiculos] = useState(false);
   const [modoObras, setModoObras] = useState(false);
@@ -70,6 +73,11 @@ export default function GastosPage() {
   const entradaFoto = useRef<HTMLInputElement>(null);
   const [editandoGasto, setEditandoGasto] = useState<Gasto | null>(null);
   const [gastoForm, setGastoForm] = useState(gastoVacio(getToday()));
+  // Lo que se ha elegido a mano en el formulario: eso no se rellena solo
+  // al elegir proveedor (lib/gastoHabitual), sólo se sugiere.
+  const [tocadosGasto, setTocadosGasto] = useState<Set<CampoGasto>>(() => new Set());
+  const [rellenado, setRellenado] = useState<string | null>(null);
+  const tocarGasto = (campo: CampoGasto) => setTocadosGasto(prev => (prev.has(campo) ? prev : new Set(prev).add(campo)));
 
   const [showVehiculoModal, setShowVehiculoModal] = useState(false);
   const [editandoVehiculo, setEditandoVehiculo] = useState<Vehiculo | null>(null);
@@ -83,11 +91,12 @@ export default function GastosPage() {
   // componente que ya no está en pantalla si la petición tarda y la persona
   // se ha ido a otra página mientras tanto.
   const leer = () => Promise.all([
-    getGastos(), getVehiculos(), getProveedores(), getObras(), getCompanySettings(),
+    getGastos(), getVehiculos(), getProveedores(), getObras(), getCompanySettings(), getInvoices(),
   ]);
 
   const cargar = async () => {
-    const [g, v, p, o, settings] = await leer();
+    const [g, v, p, o, settings, docs] = await leer();
+    setCompras(docs.filter(d => d.sentido === 'compra'));
     setGastos(g);
     setVehiculos(v);
     setProveedores(p);
@@ -99,8 +108,9 @@ export default function GastosPage() {
   useEffect(() => {
     let vivo = true;
     void (async () => {
-      const [g, v, p, o, settings] = await leer();
+      const [g, v, p, o, settings, docs] = await leer();
       if (!vivo) return;
+      setCompras(docs.filter(d => d.sentido === 'compra'));
       setGastos(g);
       setVehiculos(v);
       setProveedores(p);
@@ -152,6 +162,8 @@ export default function GastosPage() {
   const abrirNuevoGasto = () => {
     setEditandoGasto(null);
     setTicket(null);
+    setTocadosGasto(new Set());
+    setRellenado(null);
     setGastoForm(gastoVacio(getToday()));
     setShowGastoModal(true);
   };
@@ -172,7 +184,7 @@ export default function GastosPage() {
       const prov = proveedores.find(p => (t.nif && p.nif?.toUpperCase() === t.nif))
         ?? (nombre ? proveedores.find(p => p.businessName.toLowerCase() === nombre || (p.tradeName ?? '').toLowerCase() === nombre) : undefined);
       setEditandoGasto(null);
-      setGastoForm({
+      const leido = {
         ...gastoVacio(t.fecha ?? getToday()),
         concepto: t.concepto || t.proveedor || '',
         categoria: t.categoria,
@@ -183,8 +195,14 @@ export default function GastosPage() {
         proveedorId: prov?.id,
         proveedorNombre: prov?.businessName ?? t.proveedor,
         notas: t.nif && !prov ? `NIF del proveedor: ${t.nif}` : undefined,
-      });
+      };
       setTicket({ foto, avisos: t.avisos });
+      // La categoría y el tipo los dice el ticket; la forma de pago, no: ésa
+      // sí puede salir de lo de siempre con el proveedor.
+      const tocados = new Set<CampoGasto>(['categoria', 'taxRate']);
+      setTocadosGasto(tocados);
+      setRellenado(null);
+      setGastoForm(prov ? conLoDeSiempre(leido, prov.id, prov.businessName, tocados, null) : leido);
       setShowGastoModal(true);
     } catch (err) {
       toastError('No se ha podido leer el ticket', err instanceof Error ? err.message : '');
@@ -195,10 +213,54 @@ export default function GastosPage() {
 
   const abrirEditarGasto = (g: Gasto) => {
     setTicket(null);
+    // Un gasto ya guardado no se rellena solo: sólo se sugiere.
+    setTocadosGasto(new Set<CampoGasto>(['categoria', 'taxRate', 'paymentMethod']));
+    setRellenado(null);
     setEditandoGasto(g);
     setGastoForm(g);
     setShowGastoModal(true);
   };
+
+  /** Pone en el formulario lo propuesto (recalculando la cuota si cambia el tipo). */
+  const aplicar = (f: typeof gastoForm, propuestas: PropuestaGasto[]): typeof gastoForm => {
+    let sig = { ...f };
+    for (const p of propuestas) {
+      if (p.campo === 'categoria') sig.categoria = p.valor as GastoCategoria;
+      else if (p.campo === 'paymentMethod') sig.paymentMethod = p.valor as PaymentMethod;
+      else sig = { ...sig, taxRate: Number(p.valor), ...calcularGasto(sig.baseImponible, Number(p.valor)) };
+    }
+    return sig;
+  };
+
+  /**
+   * Elegido el proveedor, lo de la última vez con él va solo a los campos
+   * que nadie ha tocado. Lo tocado se queda y, si difiere, se sugiere.
+   */
+  const conLoDeSiempre = (f: typeof gastoForm, id: string | undefined, nombre: string | undefined, tocados: ReadonlySet<CampoGasto>, excluir: string | null) => {
+    const h = habitoProveedor({ id, nombre }, gastos, compras, excluir ?? undefined);
+    const base = { ...f, proveedorId: id, proveedorNombre: nombre };
+    if (!h) { setRellenado(null); return base; }
+    const { aplicarSolas } = propuestasGasto(h, base, tocados);
+    setRellenado(aplicarSolas.length ? `Como la última vez con ${nombre ?? 'este proveedor'} (${formatDate(h.ultimaFecha)}).` : null);
+    return aplicar(base, aplicarSolas);
+  };
+
+  const elegirProveedor = (id: string | undefined, nombre: string | undefined) => {
+    setGastoForm(conLoDeSiempre(gastoForm, id, nombre, tocadosGasto, editandoGasto?.id ?? null));
+  };
+
+  // Lo de siempre con el proveedor elegido: lo que se sugiere sobre lo
+  // tocado a mano y el aviso si el importe se sale de lo habitual.
+  const habito = useMemo(
+    () => (showGastoModal ? habitoProveedor({ id: gastoForm.proveedorId, nombre: gastoForm.proveedorNombre }, gastos, compras, editandoGasto?.id) : null),
+    [showGastoModal, gastoForm.proveedorId, gastoForm.proveedorNombre, gastos, compras, editandoGasto],
+  );
+  const sugeridasGasto = habito ? propuestasGasto(habito, gastoForm, tocadosGasto).sugeridas : [];
+  const avisoDeImporte = habito ? avisoImporte(gastoForm.baseImponible, habito.bases, gastoForm.proveedorNombre) : null;
+  const textoPropuesta = (p: PropuestaGasto) =>
+    p.campo === 'categoria' ? CATEGORIAS_GASTO.find(c => c.value === p.valor)?.label ?? String(p.valor)
+      : p.campo === 'taxRate' ? `${igic ? 'IGIC' : 'IVA'} ${String(p.valor).replace('.', ',')} %`
+        : PAYMENT_METHODS.find(m => m.value === p.valor)?.label ?? String(p.valor);
 
   const actualizarBase = (baseImponible: number, taxRate: number) => {
     const { taxAmount, total: t } = calcularGasto(baseImponible, taxRate);
@@ -561,7 +623,7 @@ export default function GastosPage() {
                     <select
                       className="form-select"
                       value={gastoForm.categoria}
-                      onChange={e => setGastoForm({ ...gastoForm, categoria: e.target.value as GastoCategoria })}
+                      onChange={e => { tocarGasto('categoria'); setGastoForm({ ...gastoForm, categoria: e.target.value as GastoCategoria }); }}
                     >
                       {CATEGORIAS_GASTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
@@ -586,11 +648,11 @@ export default function GastosPage() {
                       value={gastoForm.proveedorId ?? ''}
                       onSelect={id => {
                         const prov = proveedores.find(p => p.id === id);
-                        setGastoForm({ ...gastoForm, proveedorId: prov?.id, proveedorNombre: prov?.businessName });
+                        elegirProveedor(prov?.id, prov?.businessName);
                       }}
                       placeholder={!gastoForm.proveedorId && gastoForm.proveedorNombre ? `${gastoForm.proveedorNombre} (sin ficha) · buscar proveedor` : 'Sin proveedor · buscar por nombre o NIF'}
                       esProveedor
-                      alCrear={c => { setProveedores(prev => [...prev, c]); setGastoForm({ ...gastoForm, proveedorId: c.id, proveedorNombre: c.businessName }); }}
+                      alCrear={c => { setProveedores(prev => [...prev, c]); elegirProveedor(c.id, c.businessName); }}
                     />
                   </div>
                   {modoVehiculos && (
@@ -607,6 +669,32 @@ export default function GastosPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Lo de siempre con este proveedor (lib/gastoHabitual). */}
+                {(rellenado || sugeridasGasto.length > 0) && (
+                  <div className="gasto-habitual" role="status">
+                    <History size={15} aria-hidden="true" />
+                    <div>
+                      {rellenado && <p>{rellenado} Cámbialo si esta vez es distinto.</p>}
+                      {sugeridasGasto.length > 0 && (
+                        <div className="gasto-habitual-chips">
+                          <span>La última vez:</span>
+                          {sugeridasGasto.map(p => (
+                            <button
+                              key={p.campo}
+                              type="button"
+                              className="filter-chip"
+                              onClick={() => setGastoForm(f => aplicar(f, [p]))}
+                              aria-label={`Usar lo de la última vez: ${textoPropuesta(p)}`}
+                            >
+                              {textoPropuesta(p)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {modoObras && (
                   <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
@@ -636,7 +724,7 @@ export default function GastosPage() {
                     <input
                       type="number" min={0} max={100} step={0.5} className="form-input"
                       value={gastoForm.taxRate}
-                      onChange={e => actualizarBase(gastoForm.baseImponible, parseFloat(e.target.value) || 0)}
+                      onChange={e => { tocarGasto('taxRate'); actualizarBase(gastoForm.baseImponible, parseFloat(e.target.value) || 0); }}
                     />
                   </div>
                   <div className="form-group">
@@ -644,13 +732,18 @@ export default function GastosPage() {
                     <input type="text" className="form-input" readOnly value={formatCurrency(gastoForm.total)} />
                   </div>
                 </div>
+                {avisoDeImporte && (
+                  <p className="gasto-aviso-importe" role="status">
+                    <AlertTriangle size={14} aria-hidden="true" /> {avisoDeImporte.texto}
+                  </p>
+                )}
 
                 <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
                   <label className="form-label">Forma de pago</label>
                   <select
                     className="form-select"
                     value={gastoForm.paymentMethod}
-                    onChange={e => setGastoForm({ ...gastoForm, paymentMethod: e.target.value as PaymentMethod })}
+                    onChange={e => { tocarGasto('paymentMethod'); setGastoForm({ ...gastoForm, paymentMethod: e.target.value as PaymentMethod }); }}
                   >
                     {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
