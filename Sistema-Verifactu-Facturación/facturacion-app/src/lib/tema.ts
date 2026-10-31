@@ -47,7 +47,9 @@ export function aplicarTema(tema: Tema): void {
   document.documentElement.dataset.theme = efectivo === 'oscuro' ? 'dark' : 'light';
 
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', efectivo === 'oscuro' ? '#0f1012' : '#f3f4f6');
+  // El de la cabecera, para que la barra del sistema y la de la app se
+  // lean como una sola franja.
+  if (meta) meta.setAttribute('content', efectivo === 'oscuro' ? '#17181b' : '#ffffff');
 }
 
 /** Guarda la elección y la aplica. */

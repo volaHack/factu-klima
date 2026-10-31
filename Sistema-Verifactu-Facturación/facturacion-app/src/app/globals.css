@@ -14735,6 +14735,12 @@ body:has(.app-content > .pantalla > .asis) {
   }
 }
 .header-contador { top: -5px; right: -6px; }
+/* En el móvil, dentro del botón y no asomando por encima: pegado al borde
+   de arriba de la pantalla caía en la franja que el navegador del teléfono
+   difumina bajo la barra de estado, y el «99+» se veía borroso. */
+@media (max-width: 768px) {
+  .header-contador { top: 3px; right: 1px; }
+}
 
 /* Teléfonos de 360 px o menos: se ganan ~30 px para el título de la
    pantalla (a 320 px quedaban 76). Los botones bajan a 36 px, holgados
