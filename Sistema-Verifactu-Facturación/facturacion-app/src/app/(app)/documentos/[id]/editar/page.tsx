@@ -10,6 +10,9 @@ import {
   getAlmacenes, getClientById, getInvoices, expedirAlbaranCompra, expedirAlbaranVenta,
 } from '@/lib/storage';
 import { excesosSobrePedido, pasoAlTerminar, rotuloAlTerminar, textoDeExcesos } from '@/lib/flujoVenta';
+import { esFacturaRecibida, sePuedeEditar } from '@/lib/fichaDocumento';
+import { CLAVE_FECHA_REGISTRO, conDatosDelProveedor, numeroDelProveedor, problemasFacturaRecibida } from '@/lib/compras';
+import CamposFacturaProveedor from '../_componentes/CamposFacturaProveedor';
 import { impuestoDeFactura } from '@/lib/impuesto';
 import {
   Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, CompanySettings,
@@ -48,6 +51,9 @@ export default function EditarDocumentoPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  // La factura recibida: el número del proveedor y la fecha de registro.
+  const [numeroProveedor, setNumeroProveedor] = useState('');
+  const [fechaRegistro, setFechaRegistro] = useState('');
 
   const { success, error: toastError } = useToast();
 
@@ -67,12 +73,12 @@ export default function EditarDocumentoPage() {
           router.push('/documentos');
           return;
         }
-        // Sólo se edita lo que está en borrador, sea del tipo que sea. Antes
-        // valía cualquier documento no sellado: un albarán ya expedido o un
-        // pedido emitido se abrían aquí (escribiendo la dirección a mano) y
-        // «Guardar» los devolvía a borrador, con el stock del albarán
-        // devuelto al almacén sin que nadie lo pidiera.
-        if (doc.status !== InvoiceStatus.BORRADOR || isSealed(doc)) {
+        // Sólo se edita lo que está en borrador, sea del tipo que sea y de
+        // venta o de compra (sePuedeEditar). Antes valía cualquier documento
+        // no sellado: un albarán ya expedido, recibido o facturado se abría
+        // aquí (escribiendo la dirección a mano) y «Guardar» lo devolvía a
+        // borrador, con el stock que movió devuelto sin que nadie lo pidiera.
+        if (!sePuedeEditar(doc) || isSealed(doc)) {
           toastError('Este documento no se puede editar', 'Sólo se editan los borradores.');
           router.push(`/documentos/${doc.id}`);
           return;
@@ -99,6 +105,8 @@ export default function EditarDocumentoPage() {
         setPaymentMethod(doc.paymentMethod || PaymentMethod.TRANSFERENCIA);
         setNotes(doc.notes || '');
         setLineItems(doc.lineItems || []);
+        setNumeroProveedor(numeroDelProveedor(doc));
+        setFechaRegistro(doc.datosExtras?.[CLAVE_FECHA_REGISTRO] || doc.issueDate);
       } catch {
         toastError('Error al cargar documento');
       } finally {
@@ -121,6 +129,16 @@ export default function EditarDocumentoPage() {
     [documento, lineItems, documentos],
   );
 
+  // La factura recibida, con lo que se está escribiendo: número repetido de
+  // ese proveedor o registro anterior a la factura paran el guardado.
+  const recibida = documento ? esFacturaRecibida(documento) : false;
+  const problemas = useMemo(
+    () => (documento && recibida
+      ? problemasFacturaRecibida(conDatosDelProveedor({ ...documento, issueDate }, { numero: numeroProveedor, fechaRegistro }), documentos)
+      : []),
+    [documento, recibida, issueDate, numeroProveedor, fechaRegistro, documentos],
+  );
+
   // `terminar`: el segundo botón (emitir, expedir o pasar a Facturas para
   // emitir, según el tipo: ver pasoAlTerminar).
   const handleSave = async (terminar = false) => {
@@ -137,7 +155,12 @@ export default function EditarDocumentoPage() {
       toastError('Añade al menos una línea');
       return;
     }
-    if (excesos.length && !window.confirm(`Esto sirve más de lo pedido en ${documento.documentoOrigenNumber}:\n\n${textoDeExcesos(excesos)}\n\n¿Guardarlo igualmente?`)) {
+    const errorRecibida = problemas.find(p => p.gravedad === 'error');
+    if (errorRecibida) {
+      toastError('Revisa la factura del proveedor', errorRecibida.texto);
+      return;
+    }
+    if (sentidoDoc === 'venta' && excesos.length && !window.confirm(`Esto sirve más de lo pedido en ${documento.documentoOrigenNumber}:\n\n${textoDeExcesos(excesos)}\n\n¿Guardarlo igualmente?`)) {
       return;
     }
 
@@ -175,7 +198,7 @@ export default function EditarDocumentoPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      const guardado = await saveDocumento(updated);
+      const guardado = await saveDocumento(recibida ? conDatosDelProveedor(updated, { numero: numeroProveedor, fechaRegistro }) : updated);
       if (terminar && paso === 'facturas') {
         success(`Guardada en borrador: ${guardado.number}`, 'Revísala y emítela: la huella y el registro Veri*Factu los pone el servidor al emitir.');
         router.push(`/facturas/${guardado.id}`);
@@ -184,9 +207,9 @@ export default function EditarDocumentoPage() {
       if (terminar && paso === 'expedir') {
         try {
           const expedido = sentidoDoc === 'compra' ? await expedirAlbaranCompra(guardado.id) : await expedirAlbaranVenta(guardado.id);
-          success(`Albarán ${expedido.number} expedido`, sentidoDoc === 'compra' ? 'Stock aumentado.' : 'Stock descontado.');
+          success(`Albarán ${expedido.number} ${sentidoDoc === 'compra' ? 'recibido' : 'expedido'}`, sentidoDoc === 'compra' ? 'Stock aumentado.' : 'Stock descontado.');
         } catch (e) {
-          toastError(`Guardado en borrador: ${guardado.number}`, `No se ha expedido: ${e instanceof Error ? e.message : 'error desconocido'}`);
+          toastError(`Guardado en borrador: ${guardado.number}`, `No se ha ${sentidoDoc === 'compra' ? 'recibido' : 'expedido'}: ${e instanceof Error ? e.message : 'error desconocido'}`);
         }
       } else {
         success(`${etiquetaTipo(tipoDoc)} ${guardado.number} actualizado`);
@@ -315,6 +338,13 @@ export default function EditarDocumentoPage() {
               />
             </div>
           </div>
+
+          {recibida && (
+            <CamposFacturaProveedor
+              numero={numeroProveedor} fechaRegistro={fechaRegistro} problemas={problemas}
+              onNumero={setNumeroProveedor} onFechaRegistro={setFechaRegistro}
+            />
+          )}
 
           <div className="form-row">
             <div className="form-group" style={{ flex: 1 }}>

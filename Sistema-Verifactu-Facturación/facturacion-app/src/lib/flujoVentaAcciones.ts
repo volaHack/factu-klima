@@ -19,10 +19,12 @@
 
 import {
   getInvoices, getInvoiceById, getCompanySettings, saveDocumento, getApprovalByInvoiceId, getApprovalItems,
-  soltarAlbaranesDeFactura,
+  soltarAlbaranesDeFactura, recibirPedidoCompra, facturarAlbaranesCompra,
 } from './storage';
 import { actualizarContadorSerie, isFactura, serieParaCliente } from './documentos';
 import { avisoAlAnular, convertirDocumento, type LineaAprobada } from './flujoVenta';
+import { conDatosDelProveedor, convertirCompra, problemasFacturaRecibida } from './compras';
+import { porQueNoSeAnula } from './anulacion';
 import { InvoiceStatus, type Invoice, type TipoDocumento } from './types';
 
 const enCurso = new Set<string>();
@@ -50,6 +52,15 @@ export async function convertirYGuardar(id: string, destino: TipoDocumento): Pro
   try {
     const [{ doc, documentos }, settings] = await Promise.all([documentosDeAhora(id), getCompanySettings()]);
     const sentido = doc.sentido ?? 'venta';
+
+    // En compras, la cadena es la de compras.ts. La recepción de un pedido
+    // propone sólo lo que falta por llegar (la segunda recepción ya no
+    // vuelve a pedir todo); la factura recibida necesita antes el número y
+    // las fechas del papel del proveedor: va por registrarFacturaProveedor.
+    if (sentido === 'compra') {
+      if (doc.tipo === 'pedido' && destino === 'albaran') return await recibirPedidoCompra(doc.id);
+      if (destino === 'factura') throw new Error('Para registrar la factura hacen falta el número y la fecha de la factura del proveedor.');
+    }
     const [aprobacion, serie] = await Promise.all([
       aprobacionDe(doc),
       serieParaCliente(doc.clientId, destino, sentido).catch(() => null),
@@ -70,17 +81,65 @@ export async function convertirYGuardar(id: string, destino: TipoDocumento): Pro
   }
 }
 
+export interface DatosFacturaProveedor {
+  /** El número que el proveedor puso a su factura. */
+  numero?: string;
+  /** La fecha de su factura. */
+  fechaExpedicion?: string;
+  /** Cuándo la registramos: decide el trimestre en que se deduce el impuesto. */
+  fechaRegistro?: string;
+}
+
 /**
- * Anula un documento que no es una factura emitida (ésas se anulan desde
- * Facturas, con su motivo y la comunicación a Veri*Factu). Lo que impide
- * anularlo (un albarán ya facturado) se comprueba otra vez aquí, con los
- * documentos de ahora.
+ * La factura del proveedor de un albarán recibido o de un pedido de compra
+ * (sin albarán: lo que quede por llegar), con su número y sus fechas. Queda
+ * en borrador para repasarla contra el papel. Una factura ya registrada con
+ * el mismo número del mismo proveedor no se registra otra vez.
  */
-export async function anularDocumento(id: string): Promise<Invoice> {
+export async function registrarFacturaProveedor(id: string, datos: DatosFacturaProveedor): Promise<Invoice> {
+  if (enCurso.has(id)) throw new Error('Ya se está registrando esta factura.');
+  enCurso.add(id);
+  try {
+    const [{ doc, documentos }, settings] = await Promise.all([documentosDeAhora(id), getCompanySettings()]);
+    if (doc.sentido !== 'compra') throw new Error('Sólo las compras llevan la factura del proveedor.');
+    if (doc.tipo === 'albaran') return await facturarAlbaranesCompra([doc.id], datos);
+    const factura = conDatosDelProveedor(convertirCompra(doc, 'factura', settings, documentos), datos);
+    const error = problemasFacturaRecibida(factura, documentos).find(p => p.gravedad === 'error');
+    if (error) throw new Error(error.texto);
+    const guardada = await saveDocumento(factura);
+    await actualizarContadorSerie(settings, 'factura_compra', guardada.number);
+    return guardada;
+  } finally {
+    enCurso.delete(id);
+  }
+}
+
+/**
+ * Lo que impide anular un documento: lo de la venta (flujoVenta: un
+ * albarán facturado) y lo de la compra y las rectificativas (anulacion.ts:
+ * un pedido recibido entero, una factura con rectificativa).
+ */
+function antesDeAnular(doc: Invoice, documentos: readonly Invoice[]): { bloquea: boolean; texto: string } | null {
+  const impide = porQueNoSeAnula(doc, documentos);
+  if (impide) return { bloquea: true, texto: impide };
+  return avisoAlAnular(doc, documentos);
+}
+
+/**
+ * Anula un documento que no es una factura emitida de venta (ésas se
+ * anulan desde Facturas, con su motivo y la comunicación a Veri*Factu).
+ * Siempre con motivo, que queda guardado en el documento. Lo que impide
+ * anularlo se comprueba otra vez aquí, con los documentos de ahora.
+ */
+export async function anularDocumento(id: string, motivo: string): Promise<Invoice> {
+  const razon = (motivo ?? '').trim();
+  if (!razon) throw new Error('Indica el motivo de la anulación: queda guardado en el documento.');
   const { doc, documentos } = await documentosDeAhora(id);
-  const aviso = avisoAlAnular(doc, documentos);
+  const aviso = antesDeAnular(doc, documentos);
   if (aviso?.bloquea) throw new Error(aviso.texto);
-  const anulado = await saveDocumento({ ...doc, status: InvoiceStatus.ANULADA, updatedAt: new Date().toISOString() });
+  // saveDocumento con ANULADA delega en el anularDocumento de storage, que
+  // guarda el motivo y devuelve a «recibido» los albaranes de una factura de compra.
+  const anulado = await saveDocumento({ ...doc, status: InvoiceStatus.ANULADA, cancelReason: razon, updatedAt: new Date().toISOString() });
   // Una factura que recogía albaranes los suelta: la entrega se hizo y
   // hay que poder facturarla otra vez (igual que al anular desde Facturas).
   if (isFactura(doc)) {
@@ -92,5 +151,5 @@ export async function anularDocumento(id: string): Promise<Invoice> {
 /** Lo que se le enseña a quien va a anular: lo mismo que decide `anularDocumento`. */
 export async function avisoAntesDeAnular(id: string): Promise<{ bloquea: boolean; texto: string } | null> {
   const { doc, documentos } = await documentosDeAhora(id);
-  return avisoAlAnular(doc, documentos);
+  return antesDeAnular(doc, documentos);
 }

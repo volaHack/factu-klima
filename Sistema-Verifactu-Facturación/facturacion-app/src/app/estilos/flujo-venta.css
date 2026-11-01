@@ -97,6 +97,22 @@ a.traza-enlace:focus-visible { outline: 2px solid var(--color-primary); outline-
 .almacen-tarjeta--marcada { outline: 2px solid var(--color-primary); outline-offset: -1px; }
 .almacen-cuenta-marcados { font-variant-numeric: tabular-nums; }
 
+/* Las ventanas de la ficha: la factura del proveedor y el motivo de anular. */
+.dialogo-proveedor-intro { margin: 0 0 var(--space-3); color: var(--text-muted); font-size: var(--text-sm); }
+.dialogo-proveedor-avisos { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.dialogo-proveedor-aviso { display: flex; gap: var(--space-2); align-items: flex-start; font-size: var(--text-sm); }
+.dialogo-proveedor-aviso svg { flex-shrink: 0; margin-top: 2px; }
+.dialogo-proveedor-aviso--aviso { color: var(--color-warning); }
+.dialogo-proveedor-aviso--error { color: var(--color-danger); }
+.dialogo-anular-aviso {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm);
+}
+
 @media (max-width: 640px) {
   .traza-tipo { min-width: 0; }
   .traza-importe { margin-left: 0; }

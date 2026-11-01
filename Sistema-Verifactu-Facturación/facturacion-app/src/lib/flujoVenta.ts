@@ -62,7 +62,7 @@ const orden = (a: Invoice, b: Invoice) => (a.createdAt || a.issueDate || '').loc
  * conoce los de las facturas: un albarán expedido o facturado salía como
  * «Borrador» (el primero de su lista), y un pedido, «Emitida».
  */
-export function etiquetaEstado(doc: Pick<Invoice, 'status' | 'tipo'>): string {
+export function etiquetaEstado(doc: Pick<Invoice, 'status' | 'tipo'> & { sentido?: Invoice['sentido'] }): string {
   const masculino = doc.tipo === 'presupuesto' || doc.tipo === 'pedido' || doc.tipo === 'albaran';
   switch (doc.status) {
     case InvoiceStatus.BORRADOR: return 'Borrador';
@@ -71,7 +71,8 @@ export function etiquetaEstado(doc: Pick<Invoice, 'status' | 'tipo'>): string {
     case InvoiceStatus.APROBADO_PARCIAL: return 'Aprobado en parte';
     case InvoiceStatus.RECHAZADO: return 'Rechazado';
     case InvoiceStatus.EMITIDA: return masculino ? 'Emitido' : 'Emitida';
-    case InvoiceStatus.EXPEDIDO: return 'Expedido';
+    // En compras el albarán no sale del almacén: entra.
+    case InvoiceStatus.EXPEDIDO: return doc.sentido === 'compra' ? 'Recibido' : 'Expedido';
     case InvoiceStatus.FACTURADO: return 'Facturado';
     case InvoiceStatus.PENDIENTE: return 'Pendiente';
     case InvoiceStatus.PARCIAL: return 'Cobro parcial';
@@ -344,7 +345,9 @@ export function pasoAlTerminar(tipo: TipoDocumento, sentido: 'venta' | 'compra')
 export function rotuloAlTerminar(tipo: TipoDocumento, sentido: 'venta' | 'compra'): string {
   const paso = pasoAlTerminar(tipo, sentido);
   if (paso === 'facturas') return 'Guardar y revisar para emitir';
-  if (paso === 'expedir') return 'Guardar y expedir';
+  // En compras el albarán no sale: entra. Y la factura no se emite: se registra.
+  if (paso === 'expedir') return sentido === 'compra' ? 'Guardar y recibir' : 'Guardar y expedir';
+  if (sentido === 'compra' && (tipo === 'factura' || tipo === 'rectificativa')) return 'Registrar factura';
   return `Emitir ${etiquetaTipo(tipo).toLowerCase()}`;
 }
 

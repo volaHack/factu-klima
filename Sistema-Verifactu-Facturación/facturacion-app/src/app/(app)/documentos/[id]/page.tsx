@@ -12,7 +12,7 @@ import {
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf from '@/components/plantillas/BotonDescargarPdf';
 import {
-  getInvoiceById, getInvoices, getCompanySettings, saveDocumento, isSealed, esSellable,
+  getInvoiceById, getInvoices, getCompanySettings, esSellable, crearRectificativa,
   expedirAlbaranCompra, expedirAlbaranVenta, createOrderApproval, getApprovalByInvoiceId,
 } from '@/lib/storage';
 import {
@@ -20,23 +20,20 @@ import {
 } from '@/lib/types';
 import { formatCurrency, formatDate, desgloseDescuentos } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import { etiquetaTipo, unidadesTotales, descuentoEfectivo } from '@/lib/documentos';
+import { etiquetaEstado, excesosSobrePedido, servicioDePedido, textoDeExcesos, trazaDe } from '@/lib/flujoVenta';
 import {
-  etiquetaTipo, rectificar, actualizarContadorSerie, unidadesTotales, descuentoEfectivo,
-} from '@/lib/documentos';
-import { DESTINOS, etiquetaEstado, excesosSobrePedido, motivoParaNoConvertir, servicioDePedido, textoDeExcesos, trazaDe } from '@/lib/flujoVenta';
-import { anularDocumento, avisoAntesDeAnular, convertirYGuardar } from '@/lib/flujoVentaAcciones';
+  anularDocumento, avisoAntesDeAnular, convertirYGuardar, registrarFacturaProveedor, type DatosFacturaProveedor,
+} from '@/lib/flujoVentaAcciones';
+import { conversionesDeFicha, puedeAnularAqui, puedeRectificarAqui, rotuloRecepcion } from '@/lib/fichaDocumento';
+import { numeroDelProveedor, fechaDeRegistro } from '@/lib/compras';
 import { impuestoDeFactura } from '@/lib/impuesto';
 import { importeRetencion, totalAPagar } from '@/lib/retenciones';
 import { vocabularioDe, conPlural } from '@/lib/vocabulario';
 import { useToast } from '@/hooks/useToast';
 import TrazaDocumento from './_componentes/TrazaDocumento';
-
-/** Lo que dice el botón de cada conversión, según de dónde sale. */
-function rotuloConversion(origen: TipoDocumento, destino: TipoDocumento): string {
-  if (destino === 'factura') return origen === 'albaran' ? 'Facturar albarán' : 'Facturar';
-  if (destino === 'pedido') return 'Pasar a pedido';
-  return origen === 'pedido' ? 'Convertir en albarán' : 'Pasar a albarán';
-}
+import DialogoFacturaProveedor from './_componentes/DialogoFacturaProveedor';
+import DialogoAnular from './_componentes/DialogoAnular';
 
 const iconoConversion = { pedido: ArrowRight, albaran: PackageCheck, factura: FileSignature } as const;
 
@@ -51,6 +48,9 @@ export default function DocumentoDetallePage() {
   const [aprobacion, setAprobacion] = useState<OrderApproval | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  // Las dos ventanas: los datos de la factura del proveedor y el motivo de anular.
+  const [pidiendoFactura, setPidiendoFactura] = useState(false);
+  const [anulando, setAnulando] = useState<{ aviso: string | null } | null>(null);
   // El estado tarda un repintado en desactivar los botones: un doble clic
   // rápido llegaba dos veces. La marca síncrona para el segundo.
   const ocupado = useRef(false);
@@ -118,7 +118,6 @@ export default function DocumentoDetallePage() {
   // el repaso de antes de sellar, la confirmación del servidor y el motivo
   // de anulación que exige Veri*Factu. Aquí sólo se enlaza.
   const facturaDeVenta = esSellable(documento);
-  const sellada = isSealed(documento);
   const etiquetaImpuesto = impuestoDeFactura(documento, settings);
   const retencion = documento.retencionPct ? importeRetencion(documento.subtotal, documento.retencionPct) : 0;
   const formaDePago = PAYMENT_METHODS.find(p => p.value === documento.paymentMethod)?.label ?? documento.paymentMethod;
@@ -131,9 +130,8 @@ export default function DocumentoDetallePage() {
   const muestraUnidades = voz.usaBultos
     && documento.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0 || (l.cajas ?? 0) > 0);
 
-  const conversiones = anulado ? [] : DESTINOS[tipo].map(destino => ({
-    destino, motivo: motivoParaNoConvertir(documento, destino, documentos),
-  }));
+  // Qué se puede convertir y por qué no, en venta y en compra (fichaDocumento.ts).
+  const conversiones = conversionesDeFicha(documento, documentos);
 
   /** Una acción a la vez, aunque lleguen dos clics antes del repintado. */
   const enUnaVez = async (accion: () => Promise<void>) => {
@@ -150,53 +148,71 @@ export default function DocumentoDetallePage() {
 
   const sinConexion = () => typeof navigator !== 'undefined' && !navigator.onLine;
 
-  const handleConvertir = (nuevoTipo: TipoDocumento) => enUnaVez(async () => {
+  const alCrear = (guardado: Invoice, nuevoTipo: TipoDocumento) => {
+    const detalle = [
+      nuevoTipo === 'factura' && !esCompra ? 'Queda en borrador: revísala y emítela desde Facturas.'
+        : nuevoTipo === 'albaran' && esCompra ? 'Repásalo con lo que ha llegado y pulsa «Recibir mercancía».'
+          : 'Queda en borrador.',
+      sinConexion() ? 'Sin conexión: se ha guardado en este equipo y subirá al volver la red.' : '',
+    ].filter(Boolean).join(' ');
+    success(`Creado: ${etiquetaTipo(nuevoTipo)} ${guardado.number}`, detalle);
+    router.push(`/documentos/${guardado.id}`);
+  };
+
+  const handleConvertir = (nuevoTipo: TipoDocumento, datosProveedor: boolean) => {
+    // La factura recibida pide antes los datos del papel del proveedor.
+    if (datosProveedor) { setPidiendoFactura(true); return; }
+    return enUnaVez(async () => {
+      try {
+        alCrear(await convertirYGuardar(documento.id, nuevoTipo), nuevoTipo);
+      } catch (e) {
+        toastError('No se ha convertido', e instanceof Error ? e.message : 'Error al convertir el documento');
+        void cargar();
+      }
+    });
+  };
+
+  const handleFacturaProveedor = (datos: DatosFacturaProveedor) => enUnaVez(async () => {
     try {
-      const guardado = await convertirYGuardar(documento.id, nuevoTipo);
-      const nombre = `${etiquetaTipo(nuevoTipo)} ${guardado.number}`;
-      const detalle = [
-        nuevoTipo === 'factura' && !esCompra ? 'Queda en borrador: revísala y emítela desde Facturas.' : 'Queda en borrador.',
-        sinConexion() ? 'Sin conexión: se ha guardado en este equipo y subirá al volver la red.' : '',
-      ].filter(Boolean).join(' ');
-      success(`Creado: ${nombre}`, detalle);
-      router.push(`/documentos/${guardado.id}`);
+      const guardada = await registrarFacturaProveedor(documento.id, datos);
+      setPidiendoFactura(false);
+      alCrear(guardada, 'factura');
     } catch (e) {
-      toastError('No se ha convertido', e instanceof Error ? e.message : 'Error al convertir el documento');
+      toastError('No se ha registrado la factura', e instanceof Error ? e.message : 'Error al registrar la factura');
       void cargar();
     }
   });
 
-  // Expedición de albaranes: es lo que mueve el stock (la base de datos, al
-  // dejar de ser borrador). Si sirve más de lo que pidió el cliente, se avisa.
+  // Expedición (o recepción, en compras) de albaranes: es lo que mueve el
+  // stock (la base de datos, al dejar de ser borrador). Si sirve más de lo
+  // que pidió el cliente, se avisa.
   const handleExpedir = () => enUnaVez(async () => {
     const excesos = excesosSobrePedido(documento, documentos);
-    if (excesos.length && !window.confirm(`Este albarán sirve más de lo pedido en ${documento.documentoOrigenNumber}:\n\n${textoDeExcesos(excesos)}\n\n¿Expedirlo igualmente?`)) return;
+    if (!esCompra && excesos.length && !window.confirm(`Este albarán sirve más de lo pedido en ${documento.documentoOrigenNumber}:\n\n${textoDeExcesos(excesos)}\n\n¿Expedirlo igualmente?`)) return;
     try {
       const actualizado = esCompra ? await expedirAlbaranCompra(documento.id) : await expedirAlbaranVenta(documento.id);
-      success(`Albarán ${actualizado.number} expedido`, esCompra ? 'Stock aumentado.' : 'Stock descontado.');
+      success(esCompra ? `Albarán ${actualizado.number} recibido` : `Albarán ${actualizado.number} expedido`, esCompra ? 'Stock aumentado.' : 'Stock descontado.');
       setDocumento(actualizado);
       void cargar();
     } catch (e) {
-      toastError('No se ha expedido', e instanceof Error ? e.message : 'Error al expedir el albarán');
+      toastError(esCompra ? 'No se ha recibido' : 'No se ha expedido', e instanceof Error ? e.message : 'Error con el albarán');
     }
   });
 
-  // Rectificación de factura
+  // Rectificación de factura: lo que queda por rectificar (rectificativas.ts).
   const handleRectificar = () => enUnaVez(async () => {
     if (!window.confirm(`¿Crear factura rectificativa para ${documento.number}?`)) return;
     try {
-      const rect = rectificar(documento, settings);
-      const guardado = await saveDocumento(rect);
-      await actualizarContadorSerie(settings, `rectificativa_${sentido}`, guardado.number);
-      success(`Factura rectificativa ${guardado.number} creada.`);
+      const guardado = await crearRectificativa(documento.id);
+      success(`Factura rectificativa ${guardado.number} creada.`, 'Queda en borrador.');
       router.push(`/documentos/${guardado.id}`);
     } catch (e) {
-      toastError(e instanceof Error ? e.message : 'Error al rectificar factura');
+      toastError('No se ha rectificado', e instanceof Error ? e.message : 'Error al rectificar la factura');
     }
   });
 
-  // Anulación: lo que salió de él sigue como está; lo que lo impide (un
-  // albarán ya facturado) se dice antes de preguntar.
+  // Anulación: lo que la impide se dice antes de abrir la ventana; si de él
+  // ya salió algo, se avisa dentro. El motivo es obligatorio y se guarda.
   const handleAnular = () => enUnaVez(async () => {
     try {
       const aviso = await avisoAntesDeAnular(documento.id);
@@ -204,10 +220,18 @@ export default function DocumentoDetallePage() {
         toastError('No se puede anular', aviso.texto);
         return;
       }
-      if (!window.confirm(`¿Anular ${etiquetaTipo(tipo).toLowerCase()} ${documento.number}?${aviso ? `\n\n${aviso.texto}` : ''}`)) return;
-      const actualizado = await anularDocumento(documento.id);
+      setAnulando({ aviso: aviso?.texto ?? null });
+    } catch (e) {
+      toastError('No se ha anulado', e instanceof Error ? e.message : 'Error al anular el documento');
+    }
+  });
+
+  const confirmarAnular = (motivo: string) => enUnaVez(async () => {
+    try {
+      const actualizado = await anularDocumento(documento.id, motivo);
+      setAnulando(null);
       setDocumento(actualizado);
-      success(`Anulado: ${documento.number}`);
+      success(`Anulado: ${documento.number}`, motivo);
       void cargar();
     } catch (e) {
       toastError('No se ha anulado', e instanceof Error ? e.message : 'Error al anular el documento');
@@ -279,12 +303,12 @@ export default function DocumentoDetallePage() {
 
           {tipo === 'albaran' && borrador && (
             <button type="button" className="btn btn-primary btn-sm" onClick={handleExpedir} disabled={processing}>
-              <CheckCircle size={14} /> Expedir albarán ({esCompra ? '+stock' : '−stock'})
+              <CheckCircle size={14} /> {rotuloRecepcion(documento)}
             </button>
           )}
 
-          {/* Convertir: el botón se ve aunque no se pueda, y dice por qué */}
-          {conversiones.map(({ destino, motivo }, i) => {
+          {/* Convertir: lo bloqueado se ve y dice por qué; lo que no toca, no sale */}
+          {conversiones.map(({ destino, motivo, rotulo, datosProveedor }, i) => {
             const Icono = iconoConversion[destino as keyof typeof iconoConversion] ?? ArrowRight;
             const principal = i === 0 && !(tipo === 'albaran' && borrador);
             return (
@@ -292,30 +316,31 @@ export default function DocumentoDetallePage() {
                 key={destino}
                 type="button"
                 className={`btn btn-sm ${principal ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => handleConvertir(destino)}
+                onClick={() => handleConvertir(destino, datosProveedor)}
                 disabled={processing || Boolean(motivo)}
                 title={motivo ?? undefined}
                 aria-describedby={motivo ? `motivo-${destino}` : undefined}
               >
-                <Icono size={14} /> {rotuloConversion(tipo, destino)}
+                <Icono size={14} /> {rotulo}
               </button>
             );
           })}
 
-          {(tipo === 'factura' || tipo === 'rectificativa') && !anulado && !borrador && (
-            <>
-              {(documento.total - (documento.paidAmount || 0)) > 0.01 && (
-                <Link href="/tesoreria" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <WalletCards size={14} /> Registrar {esCompra ? 'pago' : 'cobro'}
-                </Link>
-              )}
-              <button type="button" className="btn btn-outline btn-sm" onClick={handleRectificar} disabled={processing}>
-                <RotateCcw size={14} /> Rectificar
-              </button>
-            </>
+          {(tipo === 'factura' || tipo === 'rectificativa') && !anulado && !borrador
+            && (documento.total - (documento.paidAmount || 0)) > 0.01 && (
+            <Link href="/tesoreria" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <WalletCards size={14} /> Registrar {esCompra ? 'pago' : 'cobro'}
+            </Link>
           )}
 
-          {!anulado && !sellada && (
+          {/* Sólo donde rectificativas.ts lo deja: nunca un borrador */}
+          {puedeRectificarAqui(documento, documentos) && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={handleRectificar} disabled={processing}>
+              <RotateCcw size={14} /> Rectificar
+            </button>
+          )}
+
+          {puedeAnularAqui(documento) && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={handleAnular} disabled={processing} style={{ color: 'var(--color-danger)' }}>
               <Ban size={14} /> Anular
             </button>
@@ -363,6 +388,13 @@ export default function DocumentoDetallePage() {
           <h3 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Condiciones y fechas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <div><strong>Fecha:</strong> {formatDate(documento.issueDate)}</div>
+            {esCompra && tipo === 'factura' && (
+              <>
+                <div><strong>Nº factura del proveedor:</strong> {numeroDelProveedor(documento) || <span style={{ color: 'var(--color-warning)' }}>sin anotar</span>}</div>
+                <div><strong>Fecha de registro:</strong> {formatDate(fechaDeRegistro(documento))}</div>
+              </>
+            )}
+            {anulado && documento.cancelReason && <div><strong>Motivo de la anulación:</strong> {documento.cancelReason}</div>}
             {documento.dueDate && <div><strong>Vencimiento:</strong> {formatDate(documento.dueDate)}</div>}
             {formaDePago && <div><strong>Forma de pago:</strong> {formaDePago}</div>}
             {!!documento.retencionPct && <div><strong>Retención:</strong> {documento.retencionPct}%</div>}
@@ -503,6 +535,19 @@ export default function DocumentoDetallePage() {
           </div>
         </div>
       </div>
+
+      {pidiendoFactura && (
+        <DialogoFacturaProveedor
+          origen={documento} documentos={documentos} ocupado={processing}
+          onCerrar={() => setPidiendoFactura(false)} onAceptar={handleFacturaProveedor}
+        />
+      )}
+      {anulando && (
+        <DialogoAnular
+          nombre={`${etiquetaTipo(tipo).toLowerCase()} ${documento.number}`} aviso={anulando.aviso} ocupado={processing}
+          onCerrar={() => setAnulando(null)} onAceptar={confirmarAnular}
+        />
+      )}
     </div>
   );
 }

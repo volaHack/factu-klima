@@ -328,6 +328,9 @@ describe('etiquetaEstado', () => {
     expect(etiquetaEstado({ tipo: 'albaran', status: InvoiceStatus.EXPEDIDO })).toBe('Expedido');
     expect(etiquetaEstado({ tipo: 'albaran', status: InvoiceStatus.FACTURADO })).toBe('Facturado');
   });
+  it('en compras el albarán se recibe', () => {
+    expect(etiquetaEstado({ tipo: 'albaran', sentido: 'compra', status: InvoiceStatus.EXPEDIDO })).toBe('Recibido');
+  });
   it('concuerda con el documento', () => {
     expect(etiquetaEstado({ tipo: 'pedido', status: InvoiceStatus.EMITIDA })).toBe('Emitido');
     expect(etiquetaEstado({ tipo: 'factura', status: InvoiceStatus.ANULADA })).toBe('Anulada');
@@ -341,7 +344,9 @@ describe('el botón de al lado de «Guardar»', () => {
   });
   it('un albarán se expide (no hay albaranes «emitidos»)', () => {
     expect(pasoAlTerminar('albaran', 'venta')).toBe('expedir');
-    expect(rotuloAlTerminar('albaran', 'compra')).toBe('Guardar y expedir');
+    expect(rotuloAlTerminar('albaran', 'venta')).toBe('Guardar y expedir');
+    expect(rotuloAlTerminar('albaran', 'compra')).toBe('Guardar y recibir');
+    expect(rotuloAlTerminar('factura', 'compra')).toBe('Registrar factura');
   });
   it('presupuestos y pedidos se emiten', () => {
     expect(pasoAlTerminar('pedido', 'venta')).toBe('emitir');
