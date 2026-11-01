@@ -3,13 +3,20 @@
  *
  * El comercial toma el pedido en el móvil, delante del cliente. En el
  * almacén alguien tiene que enterarse, sacar el género de las estanterías,
- * dejarlo listo en el muelle y cargarlo en la furgoneta de su ruta. Esta
- * pieza decide, sin tocar la base de datos para poder probarla entera:
+ * dejarlo listo en el muelle y cargarlo en la furgoneta. Esta pieza
+ * decide, sin tocar la base de datos para poder probarla entera:
  *
- *   · qué hay que preparar o entregar (la cola);
+ *   · qué hay que preparar o entregar (la cola: una sola lista);
  *   · cuántas cajas y cuántas sueltas son cada línea, que es como se coge
  *     del palé (CAJ. y U/C de cajas.ts);
- *   · qué hay que subir a la furgoneta de una ruta, sumado por artículo.
+ *   · qué hay que subir a la furgoneta para unos pedidos (los marcados o
+ *     los que se ven), sumado por artículo, y a qué clientes se lleva.
+ *
+ * SIN RUTAS
+ *
+ * La cola se agrupaba por ruta de reparto. En el almacén de Rogar no hay
+ * rutas: quien carga sabe dónde está cada tienda. La cola es una lista,
+ * por fecha o por llegada, y la hoja de carga sale de lo que se elige.
  *
  * QUÉ ENTRA EN LA COLA
  *
@@ -38,7 +45,7 @@
  */
 
 import {
-  InvoiceStatus, type Albaran, type Client, type CompanySettings, type Invoice, type InvoiceLineItem, type RutaReparto,
+  InvoiceStatus, type Albaran, type Client, type CompanySettings, type Invoice, type InvoiceLineItem,
 } from './types';
 import { desgloseLinea, vaPorUnidades, conUnidades } from './cajas';
 import { articuloDeLinea, claveServido, servidoPorPedido, recalcularLinea, documentoConvertido } from './documentos';
@@ -111,7 +118,6 @@ export interface PedidoEnCola {
   fecha: string;
   /** Cuándo entró (ISO): el orden de llegada. */
   creado: string;
-  ruta: { id: string; nombre: string } | null;
   lineas: LineaAPreparar[];
   preparado: MarcaPreparado | null;
   notas: string;
@@ -189,27 +195,31 @@ export interface FuentesCola {
   documentos: readonly Invoice[];
   /** Los albaranes de entrega (pantalla «Albaranes»). */
   albaranes?: readonly Albaran[];
+  /** Las fichas, para el nombre y la dirección que el documento no traiga. */
   clientes: readonly Client[];
-  rutas: readonly RutaReparto[];
+}
+
+/**
+ * La dirección de la ficha, para el documento que no la lleva (un pedido
+ * del móvil escrito deprisa): sin ella la parada de la hoja de carga
+ * quedaba en blanco.
+ */
+function direccionDe(c: Pick<Client, 'address' | 'city'> | undefined): string {
+  return [c?.address, c?.city].map(s => (s ?? '').trim()).filter(Boolean).join(', ');
 }
 
 /** Todo lo que el almacén tiene pendiente de preparar o de entregar, por orden de fecha. */
-export function colaDeAlmacen({ documentos, albaranes = [], clientes, rutas }: FuentesCola): PedidoEnCola[] {
+export function colaDeAlmacen({ documentos, albaranes = [], clientes }: FuentesCola): PedidoEnCola[] {
   const porCliente = new Map(clientes.map(c => [c.id, c]));
-  const porRuta = new Map(rutas.map(r => [r.id, r]));
-  const rutaDe = (clienteId: string) => {
-    const r = porRuta.get(porCliente.get(clienteId)?.rutaId ?? '');
-    return r ? { id: r.id, nombre: r.nombre } : null;
-  };
   const servido = servidoPorPedido(documentos);
   const cola: PedidoEnCola[] = [];
 
   const base = (d: Invoice | Albaran, origen: PedidoEnCola['origen'], tipo: PedidoEnCola['tipo'], lineas: LineaAPreparar[]): PedidoEnCola => ({
     origen, id: d.id, tipo, numero: d.number,
     clienteId: d.clientId, cliente: d.clientName || porCliente.get(d.clientId)?.businessName || 'Sin cliente',
-    direccion: d.clientAddress || '',
+    direccion: d.clientAddress || direccionDe(porCliente.get(d.clientId)),
     fecha: d.issueDate, creado: d.createdAt || d.issueDate,
-    ruta: rutaDe(d.clientId), lineas, preparado: marcaPreparado(d.datosExtras), notas: d.notes || '',
+    lineas, preparado: marcaPreparado(d.datosExtras), notas: d.notes || '',
   });
 
   for (const d of documentos) {
@@ -240,28 +250,6 @@ export type OrdenCola = 'fecha' | 'llegada';
 export function ordenarCola(cola: readonly PedidoEnCola[], orden: OrdenCola): PedidoEnCola[] {
   const clave = (p: PedidoEnCola) => (orden === 'fecha' ? `${p.fecha}|${p.creado}` : `${p.creado}|${p.fecha}`);
   return [...cola].sort((a, b) => clave(a).localeCompare(clave(b)) || a.numero.localeCompare(b.numero));
-}
-
-export interface GrupoDeRuta {
-  /** null: los clientes que no tienen ruta. */
-  ruta: { id: string; nombre: string } | null;
-  pedidos: PedidoEnCola[];
-}
-
-/** La cola partida por rutas, por orden alfabético y «Sin ruta» al final. */
-export function agruparPorRuta(cola: readonly PedidoEnCola[]): GrupoDeRuta[] {
-  const grupos = new Map<string, GrupoDeRuta>();
-  for (const p of cola) {
-    const k = p.ruta?.id ?? '';
-    const g = grupos.get(k) ?? { ruta: p.ruta, pedidos: [] };
-    g.pedidos.push(p);
-    grupos.set(k, g);
-  }
-  return [...grupos.values()].sort((a, b) => {
-    if (!a.ruta) return 1;
-    if (!b.ruta) return -1;
-    return a.ruta.nombre.localeCompare(b.ruta.nombre, 'es');
-  });
 }
 
 export const numeroDeLineas = (n: number) => conPlural(n, ['línea', 'líneas']);

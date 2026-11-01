@@ -141,7 +141,7 @@ describe('lo servido de un pedido', () => {
     const ped = doc({ id: 'ped', tipo: 'pedido', lineItems: [linea({ quantity: 10 }), portes] });
     const alb = doc({ tipo: 'albaran', documentoOrigenId: 'ped', lineItems: [linea({ quantity: 10 }), { ...portes, id: 'otra' }] });
     expect(lineasPendientesDePedido(ped, [ped, alb])).toEqual([]);
-    expect(colaDeAlmacen({ documentos: [ped, alb], clientes: [], rutas: [] }).map(p => p.id)).not.toContain('ped');
+    expect(colaDeAlmacen({ documentos: [ped, alb], clientes: [] }).map(p => p.id)).not.toContain('ped');
   });
 
   it('parcial y completo, línea a línea', () => {
@@ -172,7 +172,7 @@ describe('lo servido de un pedido', () => {
     const ped = doc({ id: 'ped', tipo: 'pedido', lineItems: [linea({ quantity: 30 }), linea({ productId: 'gofio', quantity: 7 })] });
     const alb = doc({ tipo: 'albaran', status: InvoiceStatus.EXPEDIDO, documentoOrigenId: 'ped', lineItems: [linea({ quantity: 12 })] });
     const docs = [ped, alb];
-    const [enCola] = colaDeAlmacen({ documentos: docs, clientes: [], rutas: [] }).filter(p => p.id === 'ped');
+    const [enCola] = colaDeAlmacen({ documentos: docs, clientes: [] }).filter(p => p.id === 'ped');
     const servicio = servicioDePedido(ped, docs);
     for (const l of enCola.lineas) {
       expect(pendientesPorProducto(docs).get(l.productId)?.pendienteEntregar).toBe(l.unidades);

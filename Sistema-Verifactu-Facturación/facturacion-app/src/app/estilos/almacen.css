@@ -48,7 +48,6 @@
   gap: var(--space-2);
   white-space: normal; text-align: center; line-height: 1.2;
 }
-.almacen-boton-sm { min-height: 44px; padding: 0 var(--space-4); font-size: var(--text-sm); font-weight: 600; gap: var(--space-2); }
 .almacen-interruptor { min-height: 56px; font-size: var(--text-sm); font-weight: 600; gap: var(--space-2); }
 .almacen-interruptor[aria-pressed="false"] { color: var(--text-muted); }
 
@@ -56,16 +55,7 @@
 .almacen-barra .segmentos { overflow-x: auto; }
 .almacen-barra .segmentos > .btn { min-height: 44px; padding: 0 var(--space-4); font-size: var(--text-base); white-space: nowrap; }
 
-/* --- Un grupo por ruta --- */
-.almacen-grupo { margin-top: var(--space-6); }
-.almacen-grupo-cabeza {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-3); margin-bottom: var(--space-3);
-  border-bottom: 2px solid var(--border-color);
-}
-.almacen-grupo-cabeza h2 { margin: 0; font-size: var(--text-xl); font-weight: 800; letter-spacing: var(--tracking-tight); color: var(--text-primary); }
-.almacen-grupo-titulo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-3); min-width: 0; margin-right: auto; }
-.almacen-grupo-titulo > span { color: var(--text-muted); font-size: var(--text-base); font-variant-numeric: tabular-nums; }
+/* --- La cola: una sola lista --- */
 
 .almacen-lista {
   list-style: none; margin: 0; padding: 0;
@@ -177,9 +167,6 @@
   .almacen-cabecera-acciones { width: 100%; }
   .almacen-cabecera-acciones > .almacen-boton { flex: 1 1 100%; }
   .almacen-cabecera-acciones > .almacen-interruptor { flex: 1 1 0; }
-  /* Los dos botones de la ruta, juntos en su fila y a partes iguales. */
-  .almacen-grupo-titulo { flex: 1 1 100%; }
-  .almacen-grupo-cabeza > .btn { flex: 1 1 0; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .almacen-lineas summary::after { transition: none; }
@@ -200,7 +187,7 @@
 
   /* Sin hoja (imprimir la pantalla tal cual): la cola, sin botones. */
   .almacen-cabecera-acciones, .almacen-barra, .almacen-tarjeta-acciones,
-  .almacen .caja-busqueda, .almacen-grupo-cabeza .btn { display: none !important; }
+  .almacen .caja-busqueda, .almacen-marca { display: none !important; }
   .almacen-tarjeta { box-shadow: none; background: #fff; break-inside: avoid; }
   .almacen-lineas[open] summary, .almacen-lineas summary { min-height: 0; }
 

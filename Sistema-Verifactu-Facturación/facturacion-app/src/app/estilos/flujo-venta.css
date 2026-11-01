@@ -78,6 +78,25 @@ a.traza-enlace:focus-visible { outline: 2px solid var(--color-primary); outline-
 .traza-tabla td, .traza-tabla th { font-variant-numeric: tabular-nums; }
 .traza-exceso { color: var(--color-warning); font-weight: 600; }
 
+/*
+ * Preparar pedidos: la marca de cada tarjeta para las hojas (sin rutas, la
+ * hoja de carga sale de lo marcado). Grande, para el dedo o el guante.
+ */
+.almacen-lista { margin-top: var(--space-5); }
+.almacen-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 -6px -8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.almacen-marca input { width: 24px; height: 24px; accent-color: var(--color-primary); cursor: pointer; }
+.almacen-tarjeta--marcada { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.almacen-cuenta-marcados { font-variant-numeric: tabular-nums; }
+
 @media (max-width: 640px) {
   .traza-tipo { min-width: 0; }
   .traza-importe { margin-left: 0; }

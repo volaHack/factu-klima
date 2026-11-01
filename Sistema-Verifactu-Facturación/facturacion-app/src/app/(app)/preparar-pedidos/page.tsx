@@ -12,8 +12,12 @@
  * Qué entra en la cola, qué significa cada botón y por qué «Preparado» no
  * es un estado: en lib/prepararPedidos.ts y lib/prepararPedidosAcciones.ts.
  *
- * Las hojas (preparación por pedido y carga por ruta) se imprimen con el
- * diálogo del navegador; almacen.css deja en el papel sólo la hoja.
+ * La cola es una sola lista, por fecha o por llegada: en el almacén no hay
+ * rutas de reparto (quien carga sabe dónde está cada tienda). Las hojas
+ * (preparación por pedido y carga de varios) salen de los pedidos marcados
+ * o, si no se marca ninguno, de los que se ven con el filtro y el buscador.
+ * Se imprimen con el diálogo del navegador; almacen.css deja en el papel
+ * sólo la hoja.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -30,8 +34,8 @@ import { formatDate } from '@/lib/utils';
 import { haceCuanto } from '@/lib/perfiles';
 import { posAudio } from '@/lib/posAudio';
 import {
-  agruparPorRuta, ordenarCola, totalesDePedido, nombreDe, numeroDeLineas,
-  type OrdenCola, type PedidoEnCola, type GrupoDeRuta,
+  ordenarCola, totalesDePedido, nombreDe, numeroDeLineas,
+  type OrdenCola, type PedidoEnCola,
 } from '@/lib/prepararPedidos';
 import { marcarPreparado, marcarEntregado } from '@/lib/prepararPedidosAcciones';
 import {
@@ -44,13 +48,13 @@ type Papel = { tipo: 'preparacion'; pedidos: PedidoEnCola[] } | { tipo: 'carga';
 
 const CLAVE_VISTA = 'klima-almacen-vista';
 
-/** La vista elegida (agrupar, ordenar) se recuerda en este equipo. */
-function leerVista(): { porRuta: boolean; orden: OrdenCola } {
+/** El orden elegido se recuerda en este equipo. */
+function leerVista(): { orden: OrdenCola } {
   try {
     const v = JSON.parse(localStorage.getItem(CLAVE_VISTA) ?? 'null');
-    return { porRuta: v?.porRuta !== false, orden: v?.orden === 'llegada' ? 'llegada' : 'fecha' };
+    return { orden: v?.orden === 'llegada' ? 'llegada' : 'fecha' };
   } catch {
-    return { porRuta: true, orden: 'fecha' };
+    return { orden: 'fecha' };
   }
 }
 
@@ -63,7 +67,9 @@ export default function PrepararPedidosPage() {
   const [empresa, setEmpresa] = useState('');
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('pendientes');
-  const [vista, setVista] = useState<{ porRuta: boolean; orden: OrdenCola }>({ porRuta: true, orden: 'fecha' });
+  const [vista, setVista] = useState<{ orden: OrdenCola }>({ orden: 'fecha' });
+  // Los pedidos marcados para las hojas (de carga y de preparación).
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [pref, setPref] = useState<PreferenciasAviso>({ avisos: true, sonido: true });
   const [ocupado, setOcupado] = useState<string | null>(null);
   // «Entregado» mueve el stock y no se deshace con otro toque: el primero
@@ -131,13 +137,21 @@ export default function PrepararPedidosPage() {
   const visibles = useMemo(() => ordenarCola(cola, vista.orden).filter(p => {
     if (filtro === 'pendientes' && p.preparado) return false;
     if (filtro === 'preparados' && !p.preparado) return false;
-    return casaTexto(busca, p.cliente, p.numero, p.ruta?.nombre, ...p.lineas.map(l => `${l.nombre} ${l.ref}`));
+    return casaTexto(busca, p.cliente, p.numero, p.direccion, ...p.lineas.map(l => `${l.nombre} ${l.ref}`));
   }), [cola, vista.orden, filtro, busca]);
 
-  const grupos: GrupoDeRuta[] = useMemo(
-    () => (vista.porRuta ? agruparPorRuta(visibles) : [{ ruta: null, pedidos: visibles }]),
-    [visibles, vista.porRuta],
-  );
+  // Lo marcado que sigue en la cola (lo entregado sale solo de ella). Las
+  // hojas salen de los marcados o, sin marcar ninguno, de lo que se ve.
+  const elegidos = useMemo(() => ordenarCola(cola, vista.orden).filter(p => marcados.has(p.id)), [cola, vista.orden, marcados]);
+  const paraHojas = elegidos.length > 0 ? elegidos : visibles;
+  const tituloHojas = elegidos.length > 0
+    ? (elegidos.length === 1 ? '1 pedido marcado' : `${elegidos.length} pedidos marcados`)
+    : tituloDeCarga(filtro, busca);
+  const marcar = (id: string) => setMarcados(prev => {
+    const sigue = new Set(prev);
+    if (!sigue.delete(id)) sigue.add(id);
+    return sigue;
+  });
 
   const alPreparar = async (p: PedidoEnCola) => {
     setOcupado(p.id);
@@ -205,10 +219,18 @@ export default function PrepararPedidosPage() {
               {pref.sonido ? <Volume2 size={18} /> : <VolumeX size={18} />} Sonido {pref.sonido ? 'sí' : 'no'}
             </button>
             <button
-              type="button" className="btn btn-primary almacen-boton" disabled={visibles.length === 0}
-              onClick={() => setPapel({ tipo: 'carga', pedidos: visibles, titulo: tituloDeCarga(filtro, busca) })}
+              type="button" className="btn btn-outline almacen-boton" disabled={paraHojas.length === 0}
+              onClick={() => setPapel({ tipo: 'preparacion', pedidos: paraHojas })}
+              title={elegidos.length ? 'Una hoja por cada pedido marcado' : 'Una hoja por cada pedido que se ve'}
             >
-              <Truck size={20} /> Hoja de carga
+              <Printer size={20} /> Hojas de preparación
+            </button>
+            <button
+              type="button" className="btn btn-primary almacen-boton" disabled={paraHojas.length === 0}
+              onClick={() => setPapel({ tipo: 'carga', pedidos: paraHojas, titulo: tituloHojas })}
+              title={elegidos.length ? 'Lo de los pedidos marcados, sumado por artículo' : 'Lo de los pedidos que se ven, sumado por artículo'}
+            >
+              <Truck size={20} /> Hoja de carga{elegidos.length > 0 && <span className="almacen-cuenta-marcados"> · {elegidos.length}</span>}
             </button>
           </div>
         </div>
@@ -219,17 +241,18 @@ export default function PrepararPedidosPage() {
               <button key={id} type="button" className="btn btn-sm" aria-pressed={filtro === id} onClick={() => setFiltro(id)}>{texto}</button>
             ))}
           </div>
-          <div className="segmentos" role="group" aria-label="Cómo agrupar">
-            <button type="button" className="btn btn-sm" aria-pressed={vista.porRuta} onClick={() => cambiarVista({ porRuta: true })}>Por ruta</button>
-            <button type="button" className="btn btn-sm" aria-pressed={!vista.porRuta} onClick={() => cambiarVista({ porRuta: false })}>Todo junto</button>
-          </div>
           <div className="segmentos" role="group" aria-label="Orden">
             <button type="button" className="btn btn-sm" aria-pressed={vista.orden === 'fecha'} onClick={() => cambiarVista({ orden: 'fecha' })}>Por fecha</button>
             <button type="button" className="btn btn-sm" aria-pressed={vista.orden === 'llegada'} onClick={() => cambiarVista({ orden: 'llegada' })}>Por llegada</button>
           </div>
+          {elegidos.length > 0 && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMarcados(new Set())}>
+              Quitar las marcas ({elegidos.length})
+            </button>
+          )}
         </div>
 
-        <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar cliente, número, ruta o artículo" total={cola.length} visibles={visibles.length} />
+        <CajaBusqueda value={busca} onChange={setBusca} placeholder="Buscar cliente, dirección, número o artículo" total={cola.length} visibles={visibles.length} />
 
         {visibles.length === 0 ? (
           <div className="almacen-vacio">
@@ -239,34 +262,19 @@ export default function PrepararPedidosPage() {
               ? 'Cuando entre un pedido o un albarán nuevo, aparece aquí y suena un aviso.'
               : 'Prueba con «Todo» o borra la búsqueda.'}</p>
           </div>
-        ) : grupos.map(g => (
-          <section key={g.ruta?.id ?? 'sin-ruta'} className="almacen-grupo" aria-label={g.ruta?.nombre ?? 'Sin ruta'}>
-            {vista.porRuta && (
-              <header className="almacen-grupo-cabeza">
-                <div className="almacen-grupo-titulo">
-                  <h2>{g.ruta?.nombre ?? 'Sin ruta'}</h2>
-                  <span>{g.pedidos.length === 1 ? '1 pedido' : `${g.pedidos.length} pedidos`}</span>
-                </div>
-                <button type="button" className="btn btn-outline almacen-boton-sm" onClick={() => setPapel({ tipo: 'carga', pedidos: g.pedidos, titulo: g.ruta?.nombre ?? 'Sin ruta' })}>
-                  <Truck size={18} /> Hoja de carga
-                </button>
-                <button type="button" className="btn btn-ghost almacen-boton-sm" onClick={() => setPapel({ tipo: 'preparacion', pedidos: g.pedidos })}>
-                  <Printer size={18} /> Todas las hojas
-                </button>
-              </header>
-            )}
-            <ul className="almacen-lista">
-              {g.pedidos.map(p => (
-                <Tarjeta
-                  key={p.id} p={p} nuevo={nuevos.has(p.id)} mostrarRuta={!vista.porRuta}
-                  ocupado={ocupado === p.id} armado={armado === p.id}
-                  alPreparar={() => alPreparar(p)} alEntregar={() => alEntregar(p)}
-                  alImprimir={() => setPapel({ tipo: 'preparacion', pedidos: [p] })}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
+        ) : (
+          <ul className="almacen-lista">
+            {visibles.map(p => (
+              <Tarjeta
+                key={p.id} p={p} nuevo={nuevos.has(p.id)} marcado={marcados.has(p.id)}
+                ocupado={ocupado === p.id} armado={armado === p.id}
+                alMarcar={() => marcar(p.id)}
+                alPreparar={() => alPreparar(p)} alEntregar={() => alEntregar(p)}
+                alImprimir={() => setPapel({ tipo: 'preparacion', pedidos: [p] })}
+              />
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Sólo existe mientras se imprime: almacen.css la enseña en el papel
@@ -287,15 +295,18 @@ function tituloDeCarga(filtro: Filtro, busca: string): string {
   return busca.trim() ? `${base} · «${busca.trim()}»` : base;
 }
 
-function Tarjeta({ p, nuevo, mostrarRuta, ocupado, armado, alPreparar, alEntregar, alImprimir }: {
-  p: PedidoEnCola; nuevo: boolean; mostrarRuta: boolean; ocupado: boolean; armado: boolean;
-  alPreparar: () => void; alEntregar: () => void; alImprimir: () => void;
+function Tarjeta({ p, nuevo, marcado, ocupado, armado, alMarcar, alPreparar, alEntregar, alImprimir }: {
+  p: PedidoEnCola; nuevo: boolean; marcado: boolean; ocupado: boolean; armado: boolean;
+  alMarcar: () => void; alPreparar: () => void; alEntregar: () => void; alImprimir: () => void;
 }) {
   const t = totalesDePedido(p);
   const enlace = p.origen === 'documento' ? `/documentos/${p.id}` : `/albaranes/${p.id}`;
   return (
-    <li className={`almacen-tarjeta${p.preparado ? ' almacen-tarjeta--lista' : ''}${nuevo ? ' almacen-tarjeta--nueva' : ''}`}>
+    <li className={`almacen-tarjeta${p.preparado ? ' almacen-tarjeta--lista' : ''}${nuevo ? ' almacen-tarjeta--nueva' : ''}${marcado ? ' almacen-tarjeta--marcada' : ''}`}>
       <div className="almacen-tarjeta-cabeza">
+        <label className="almacen-marca" title="Marcar para la hoja de carga">
+          <input type="checkbox" checked={marcado} onChange={alMarcar} aria-label={`Marcar ${nombreDe(p)} de ${p.cliente} para las hojas`} />
+        </label>
         <h3>{p.cliente}</h3>
         {nuevo && <span className="almacen-etiqueta almacen-etiqueta--nuevo">Nuevo</span>}
         {p.preparado && <span className="almacen-etiqueta almacen-etiqueta--lista"><CheckCircle2 size={14} aria-hidden /> Preparado</span>}
@@ -303,7 +314,7 @@ function Tarjeta({ p, nuevo, mostrarRuta, ocupado, armado, alPreparar, alEntrega
       <p className="almacen-tarjeta-datos">
         <Link href={enlace} className="mono">{nombreDe(p)} <ExternalLink size={12} aria-hidden /></Link>
         <span>{formatDate(p.fecha)}</span>
-        {mostrarRuta && <span>{p.ruta?.nombre ?? 'Sin ruta'}</span>}
+        {p.direccion && <span>{p.direccion}</span>}
       </p>
       <p className="almacen-tarjeta-cuenta">
         <strong>{numeroDeLineas(p.lineas.length)}</strong>

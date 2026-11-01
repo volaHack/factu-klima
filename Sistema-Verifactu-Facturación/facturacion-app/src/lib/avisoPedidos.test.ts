@@ -7,7 +7,7 @@ import type { PedidoEnCola } from './prepararPedidos';
 
 const pedido = (id: string, extra: Partial<PedidoEnCola> = {}): PedidoEnCola => ({
   origen: 'documento', id, tipo: 'pedido', numero: `PED-${id}`, clienteId: id, cliente: `Cliente ${id}`, direccion: '',
-  fecha: '2026-10-31', creado: `2026-10-31T08:0${id}:00Z`, ruta: null,
+  fecha: '2026-10-31', creado: `2026-10-31T08:0${id}:00Z`,
   lineas: [{ id: 'l', productId: 'p', nombre: 'x', ref: '', unidad: 'ud', unidades: 1, udsCaja: null, cajas: 0, sueltas: 1 }],
   preparado: null, notas: '', ...extra,
 });

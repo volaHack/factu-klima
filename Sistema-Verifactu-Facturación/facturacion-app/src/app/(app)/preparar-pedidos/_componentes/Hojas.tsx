@@ -4,9 +4,10 @@
  *   · La hoja de preparación: una por pedido, con una casilla por línea
  *     para ir tachando lo que ya está en el muelle, y cada línea en cajas
  *     y sueltas, que es como se coge del palé.
- *   · La hoja de carga: lo de varios pedidos (una ruta, o lo marcado)
- *     sumado por artículo, para subirlo a la furgoneta de una vez, y la
- *     lista de paradas para repartirlo.
+ *   · La hoja de carga: lo de varios pedidos (los marcados o, sin marcar
+ *     ninguno, los que se ven) sumado por artículo, para subirlo a la
+ *     furgoneta de una vez, y la lista de paradas por cliente, con su
+ *     dirección, para repartirlo.
  *
  * Están siempre montadas y escondidas en pantalla: al imprimir, almacen.css
  * esconde la cola y deja sólo esto. Los números salen de prepararPedidos.ts.
@@ -36,7 +37,6 @@ export function HojaPreparacion({ pedido, empresa }: { pedido: PedidoEnCola; emp
         <dl className="almacen-hoja-datos">
           <div><dt>Cliente</dt><dd>{pedido.cliente}</dd></div>
           {pedido.direccion && <div><dt>Dirección</dt><dd>{pedido.direccion}</dd></div>}
-          <div><dt>Ruta</dt><dd>{pedido.ruta?.nombre ?? 'Sin ruta'}</dd></div>
         </dl>
       </header>
       {pedido.notas && <p className="almacen-hoja-nota">{pedido.notas}</p>}

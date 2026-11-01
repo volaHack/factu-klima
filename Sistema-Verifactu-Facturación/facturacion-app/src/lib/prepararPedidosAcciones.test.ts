@@ -31,7 +31,7 @@ const albaranDeEntrega: Albaran = {
   issueDate: '2026-10-30', status: 'borrador', lineItems: [linea], subtotal: 0, totalDiscount: 0, taxBreakdown: [],
   totalTax: 0, total: 0, notes: '', createdAt: '', updatedAt: '',
 };
-const enCola = (documentos: Invoice[], albaranes: Albaran[] = []) => colaDeAlmacen({ documentos, albaranes, clientes: [], rutas: [] });
+const enCola = (documentos: Invoice[], albaranes: Albaran[] = []) => colaDeAlmacen({ documentos, albaranes, clientes: [] });
 
 beforeEach(() => vi.clearAllMocks());
 
