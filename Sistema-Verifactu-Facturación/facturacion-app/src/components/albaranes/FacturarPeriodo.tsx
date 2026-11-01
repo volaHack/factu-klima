@@ -15,6 +15,7 @@ import { CalendarRange, FileText, Loader2 } from 'lucide-react';
 import type { Albaran, Invoice } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { agruparPendientes, periodoDelMes } from '@/lib/albaranes/facturacionPeriodo';
+import { ErrorAlFacturar, desdeAlbaran, planDeFacturas } from '@/lib/albaranes/aFactura';
 import { facturarAlbaranesDelPeriodo } from '@/lib/storage';
 
 function mesDe(fecha: string): string {
@@ -39,7 +40,8 @@ export default function FacturarPeriodo({
   onFacturado,
 }: {
   albaranes: Albaran[];
-  onFacturado: (facturas: Invoice[]) => void | Promise<void>;
+  /** Lo creado; con `error`, lo que se creó antes de fallar a mitad. */
+  onFacturado: (facturas: Invoice[], error?: string) => void | Promise<void>;
 }) {
   const [mes, setMes] = useState(() => mesPropuesto(albaranes));
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
@@ -48,8 +50,17 @@ export default function FacturarPeriodo({
 
   const periodo = useMemo(() => periodoDelMes(mes), [mes]);
   const grupos = useMemo(() => agruparPendientes(albaranes, periodo), [albaranes, periodo]);
-  const elegidos = grupos.filter(g => !excluidos.has(g.clave));
-  const totalElegido = elegidos.reduce((s, g) => s + g.total, 0);
+  const elegidos = useMemo(() => grupos.filter(g => !excluidos.has(g.clave)), [grupos, excluidos]);
+  // El total de las facturas que van a salir, con su redondeo (no la suma
+  // de los totales de los albaranes, que puede bailar un céntimo).
+  const totalElegido = useMemo(
+    () => planDeFacturas(elegidos.flatMap(g => g.albaranes.map(a => desdeAlbaran(a)))).total,
+    [elegidos],
+  );
+  // Lo que va a ser la factura de cada cliente (con su redondeo por tipo).
+  const totalDe = useMemo(() => new Map(grupos.map(g => [
+    g.clave, planDeFacturas(g.albaranes.map(a => desdeAlbaran(a))).total,
+  ])), [grupos]);
   const otrosMeses = albaranes.filter(a => a.status === 'expedido' && mesDe(a.issueDate) !== mes).length;
 
   const alternar = (clave: string) => setExcluidos(prev => {
@@ -74,7 +85,9 @@ export default function FacturarPeriodo({
       setExcluidos(new Set());
       await onFacturado(facturas);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se han podido crear las facturas.');
+      const mensaje = e instanceof Error ? e.message : 'No se han podido crear las facturas.';
+      if (e instanceof ErrorAlFacturar && e.creadas.length > 0) await onFacturado(e.creadas, mensaje);
+      else setError(mensaje);
     } finally {
       setTrabajando(false);
     }
@@ -126,7 +139,7 @@ export default function FacturarPeriodo({
                           : `${formatDate(g.primeraEntrega)} – ${formatDate(g.ultimaEntrega)}`}
                       </span>
                     </span>
-                    <span className="facturar-periodo-importe">{formatCurrency(g.total)}</span>
+                    <span className="facturar-periodo-importe">{formatCurrency(totalDe.get(g.clave) ?? g.total)}</span>
                   </label>
                 </li>
               );

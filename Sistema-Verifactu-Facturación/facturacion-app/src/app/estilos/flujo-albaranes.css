@@ -1,0 +1,78 @@
+/* ============================================================
+   FACTURAR LOS ALBARANES MARCADOS
+   La barra de la selección (Albaranes y Documentos), la ventana que
+   enseña qué facturas van a salir y la de las que han salido.
+   Ver components/albaranes/FacturarSeleccion.tsx.
+   ============================================================ */
+
+/* El aviso de los que no se pueden facturar va debajo, a lo ancho. */
+.facturar-seleccion-aviso {
+  flex-basis: 100%;
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin: 0; padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.facturar-seleccion-aviso > svg { color: var(--color-warning); flex-shrink: 0; }
+.facturar-seleccion-aviso > span { flex: 1 1 240px; min-width: 0; }
+
+.facturar-ventana { max-width: 620px; }
+.facturar-ventana-resumen {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base); font-weight: 650; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.facturar-ventana-resumen svg { color: var(--color-success); }
+.facturar-ventana-lista {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 46vh; overflow-y: auto;
+}
+.facturar-ventana-lista li {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+.facturar-ventana-cliente { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.facturar-ventana-cliente strong { font-size: var(--text-sm); color: var(--text-primary); overflow-wrap: anywhere; }
+.facturar-ventana-cliente span { font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.facturar-ventana-importe { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.facturar-ventana-nota {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs); line-height: 1.55; color: var(--text-secondary);
+}
+.facturar-ventana-nota strong { color: var(--text-primary); }
+.facturar-ventana-nota--sinred { display: flex; align-items: flex-start; gap: 6px; color: var(--color-warning); }
+.facturar-ventana-nota--sinred svg { flex-shrink: 0; margin-top: 2px; }
+.facturar-ventana-error {
+  margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-bg); color: var(--color-danger);
+  font-size: var(--text-sm); line-height: 1.5;
+}
+
+/* Casilla de una fila que no se puede facturar: se ve, pero apagada. */
+.table-checkbox input:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* La fila marcada se distingue de las demás sin tener que buscar la casilla. */
+.pantalla-lista .table tbody tr.is-selected td { background: var(--color-info-bg); }
+@media screen and (max-width: 1023px) {
+  .pantalla-lista .tabla-tarjetas tbody tr.is-selected { background: var(--color-info-bg); }
+  .pantalla-lista .tabla-tarjetas tbody tr.is-selected td { background: transparent; }
+}
+
+/* El número de la factura que recoge al albarán, debajo de su estado. */
+.albaran-factura {
+  display: block; margin-top: 3px;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+}
+
+@media (max-width: 520px) {
+  .facturar-ventana-lista li .btn { width: 100%; justify-content: center; }
+  .facturar-ventana .modal-footer { flex-wrap: wrap; }
+  .facturar-ventana .modal-footer .btn { flex: 1 1 auto; justify-content: center; }
+}

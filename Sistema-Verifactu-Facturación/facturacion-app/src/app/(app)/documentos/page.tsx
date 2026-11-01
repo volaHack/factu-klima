@@ -9,9 +9,12 @@ import {
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
-import { getInvoices, deleteInvoice } from '@/lib/storage';
+import { getInvoices, deleteInvoice, convertirDocumentosAlbaranAFactura } from '@/lib/storage';
+import { BarraFacturarSeleccion, VentanaFacturasCreadas } from '@/components/albaranes/FacturarSeleccion';
+import { desdeDocumento, motivoNoFacturable } from '@/lib/albaranes/aFactura';
 import { Invoice, InvoiceStatus, TipoDocumento, SentidoDocumento } from '@/lib/types';
 import { formatCurrency, formatDate, getStatusInfo } from '@/lib/utils';
+import { ALBARAN_STATUSES } from '@/lib/constants';
 import { etiquetaTipo, numeroOrigen } from '@/lib/documentos';
 import {
   NOMBRE_ORIGEN, estadoDeHistorico, listarHistorico, mezclarOrdenadas, origenDelHistorico,
@@ -110,6 +113,13 @@ function DocumentosContent() {
 
   const { success, error: toastError } = useToast();
 
+  // Facturar albaranes marcados: sólo con la lista en «Albaranes» (y no en
+  // compras), que es donde tiene sentido marcar varios y pasarlos a factura.
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [confirmando, setConfirmando] = useState(false);
+  const [creadas, setCreadas] = useState<{ facturas: Invoice[]; error?: string } | null>(null);
+  const modoFacturar = tipoFiltro === 'albaran' && sentidoFiltro !== 'compra';
+
   const handleSort = (field: DocumentoSortField) => {
     if (sortField === field) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -131,6 +141,7 @@ function DocumentosContent() {
     try {
       const all = await getInvoices();
       setDocumentos(all);
+      setMarcados(prev => new Set([...prev].filter(id => all.some(d => d.id === id))));
     } catch {
       toastError('Error al cargar los documentos');
     } finally {
@@ -147,7 +158,20 @@ function DocumentosContent() {
       .catch(() => toastError('Error al cargar los documentos'))
       .finally(() => { if (vivo) setLoading(false); });
     origenDelHistorico().then(setOrigenHistorico);
-    return () => { vivo = false; };
+    // La lista se repinta sola cuando cambian los documentos (al facturar
+    // albaranes, al sincronizar, desde otra pestaña).
+    const alCambiar = () => {
+      getInvoices().then(all => {
+        if (!vivo) return;
+        setDocumentos(all);
+        setMarcados(prev => {
+          const siguen = new Set([...prev].filter(id => all.some(d => d.id === id)));
+          return siguen.size === prev.size ? prev : siguen;
+        });
+      }).catch(() => {});
+    };
+    window.addEventListener('klima-invoices-updated', alCambiar);
+    return () => { vivo = false; window.removeEventListener('klima-invoices-updated', alCambiar); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al entrar
   }, []);
 
@@ -176,6 +200,26 @@ function DocumentosContent() {
       return true;
     }).sort((a, b) => compararFilas({ de: 'klima', doc: a }, { de: 'klima', doc: b }, sortField, sortDir));
   }, [documentos, tipoFiltro, sentidoFiltro, estadoFiltro, search, sortField, sortDir, origenFiltro]);
+
+  // Cada albarán de venta, en la forma con la que se decide si se puede facturar.
+  const paraFacturar = useMemo(() => new Map(
+    documentos.filter(d => d.tipo === 'albaran').map(d => [d.id, desdeDocumento(d, documentos)]),
+  ), [documentos]);
+  const seleccion = useMemo(
+    () => [...marcados].map(id => paraFacturar.get(id)).filter(a => a !== undefined),
+    [marcados, paraFacturar],
+  );
+  // «Todos» son los que se pueden facturar de lo filtrado (todas las páginas).
+  const facturablesVistos = useMemo(() => (modoFacturar
+    ? filtrados.filter(d => { const p = paraFacturar.get(d.id); return p && !motivoNoFacturable(p); })
+    : []), [modoFacturar, filtrados, paraFacturar]);
+  const todosMarcados = facturablesVistos.length > 0 && facturablesVistos.every(d => marcados.has(d.id));
+  const alternarMarca = (id: string) => setMarcados(prev => {
+    const nuevo = new Set(prev);
+    if (nuevo.has(id)) nuevo.delete(id); else nuevo.add(id);
+    return nuevo;
+  });
+  const columnas = modoFacturar ? 10 : 9;
 
   const pideHistorial = Boolean(origenHistorico) && origenFiltro !== 'klima';
   const filtroHist = useMemo(
@@ -362,11 +406,48 @@ function DocumentosContent() {
         </div>
       </div>
 
+      {modoFacturar && (
+        <BarraFacturarSeleccion
+          seleccion={seleccion}
+          facturar={convertirDocumentosAlbaranAFactura}
+          confirmando={confirmando}
+          onConfirmando={setConfirmando}
+          onQuitar={ids => setMarcados(prev => new Set([...prev].filter(id => !ids.includes(id))))}
+          onLimpiar={() => setMarcados(new Set())}
+          onCreadas={(hechas, error) => {
+            setMarcados(new Set());
+            void cargar();
+            setCreadas({ facturas: hechas, error });
+            if (!error) success(hechas.length === 1 ? 'Factura borrador creada' : `${hechas.length} facturas borrador creadas`);
+          }}
+        />
+      )}
+      {modoFacturar && marcados.size === 0 && facturablesVistos.length > 0 && (
+        <p className="page-subtitle" style={{ marginBottom: 'var(--space-3)' }}>
+          Marca los albaranes expedidos que quieras facturar: sale una factura por cliente, con cada albarán citado.
+        </p>
+      )}
+      {creadas && (
+        <VentanaFacturasCreadas facturas={creadas.facturas} error={creadas.error} onCerrar={() => setCreadas(null)} />
+      )}
+
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
           <table className="table table--sortable tabla-tarjetas">
             <thead>
               <tr>
+                {modoFacturar && (
+                  <th className="table-checkbox">
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar los ${facturablesVistos.length} albaranes que se pueden facturar`}
+                      title={facturablesVistos.length > 0 ? `Seleccionar los ${facturablesVistos.length} que se pueden facturar` : 'No hay ninguno que se pueda facturar'}
+                      checked={todosMarcados}
+                      disabled={facturablesVistos.length === 0}
+                      onChange={() => setMarcados(todosMarcados ? new Set() : new Set(facturablesVistos.map(d => d.id)))}
+                    />
+                  </th>
+                )}
                 <th
                   className={sortField === 'number' ? 'sorted' : ''}
                   aria-sort={sortField === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -437,10 +518,10 @@ function DocumentosContent() {
             </thead>
             <tbody className={histMostrado && !histActual ? 'tabla-atenuada' : undefined} aria-busy={histCargando || undefined}>
               {visibles.length === 0 && (histCargando || faltanDelHistorial) ? (
-                <tr><td colSpan={9} className="tabla-cargando">Cargando los documentos…</td></tr>
+                <tr><td colSpan={columnas} className="tabla-cargando">Cargando los documentos…</td></tr>
               ) : visibles.length === 0 ? (
                 <TableEmpty
-                  colSpan={9}
+                  colSpan={columnas}
                   icon={FileText}
                   title="No hay documentos"
                   hint={search ? 'No se encontraron documentos con los filtros aplicados' : 'Crea tu primer presupuesto o pedido para comenzar'}
@@ -457,6 +538,7 @@ function DocumentosContent() {
                     const verlo = `/documentos/historico/${d.id}`;
                     return (
                       <tr key={`h-${d.id}`}>
+                        {modoFacturar && <td className="table-checkbox" data-m="oculto" />}
                         <td style={{ fontWeight: 600 }} data-m="titulo">
                           <Link href={verlo} style={{ color: 'var(--color-primary)' }}>
                             {d.numero}
@@ -494,10 +576,29 @@ function DocumentosContent() {
                   const doc = fila.doc;
                   const tipo = doc.tipo ?? 'factura';
                   const sentido = doc.sentido ?? 'venta';
-                  const statusInfo = getStatusInfo(doc.status);
+                  // Los estados propios del albarán (expedido, facturado) no
+                  // están entre los de factura: salían todos como «Borrador»,
+                  // y no había forma de ver cuáles se podían facturar.
+                  const statusInfo = (tipo === 'albaran' && ALBARAN_STATUSES.find(s => s.value === doc.status)) || getStatusInfo(doc.status);
+                  const aFacturar = modoFacturar ? paraFacturar.get(doc.id) : undefined;
+                  const motivo = aFacturar ? motivoNoFacturable(aFacturar) : null;
 
                   return (
-                    <tr key={doc.id}>
+                    <tr key={doc.id} className={marcados.has(doc.id) ? 'is-selected' : undefined}>
+                      {modoFacturar && (
+                        <td className="table-checkbox" data-m={aFacturar ? 'check' : 'oculto'}>
+                          {aFacturar && (
+                            <input
+                              type="checkbox"
+                              aria-label={motivo ? `${doc.number}: ${motivo}` : `Seleccionar ${doc.number} para facturar`}
+                              title={motivo ? `No se puede facturar: ${motivo}` : 'Seleccionar para facturar'}
+                              checked={marcados.has(doc.id)}
+                              disabled={!!motivo && !marcados.has(doc.id)}
+                              onChange={() => alternarMarca(doc.id)}
+                            />
+                          )}
+                        </td>
+                      )}
                       <td style={{ fontWeight: 600 }} data-m="titulo">
                         <Link href={`/documentos/${doc.id}`} style={{ color: 'var(--color-primary)' }}>
                           {doc.number}
@@ -532,6 +633,11 @@ function DocumentosContent() {
                         <span className={`badge badge-${doc.status}`}>
                           {statusInfo.label}
                         </span>
+                        {aFacturar?.factura && (
+                          <Link href={`/facturas/${aFacturar.factura.id}`} className="cell-link albaran-factura">
+                            {aFacturar.factura.number || 'Ver la factura'}
+                          </Link>
+                        )}
                       </td>
                       <td style={{ textAlign: 'right' }} data-m="acciones">
                         <div style={{ display: 'inline-flex', gap: 'var(--space-1)' }}>
