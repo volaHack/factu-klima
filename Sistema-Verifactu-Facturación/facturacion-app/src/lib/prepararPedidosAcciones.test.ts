@@ -8,6 +8,8 @@ const storage = vi.hoisted(() => ({
   expedirAlbaranVenta: vi.fn(async (id: string) => ({ id, number: `ALB-${id}` })),
   expedirAlbaran: vi.fn(async (id: string) => ({ id, number: `AE-${id}` })),
   getCompanySettings: vi.fn(async () => ({ seriesDocumentos: {} })),
+  // Lo que hay guardado ahora en este equipo (vacío: se usa lo de la pantalla).
+  getInvoices: vi.fn(async (): Promise<unknown[]> => []),
 }));
 vi.mock('./storage', () => ({ ...storage, serieDeTipo: () => ({ serie: 'ALB', nextNumber: 7 }) }));
 const contador = vi.hoisted(() => vi.fn(async () => {}));
@@ -72,6 +74,15 @@ describe('«Entregado»', () => {
     expect(contador).toHaveBeenCalledWith(expect.anything(), 'albaran_venta', alb.number);
     expect(storage.expedirAlbaranVenta).toHaveBeenCalledWith(alb.id);
     expect(storage.saveDocumento).toHaveBeenCalledTimes(1);
+  });
+
+  it('cuenta lo servido con lo guardado ahora, no con la foto de la pantalla: un segundo toque no saca otro albarán', async () => {
+    const d = doc({});
+    const yaSalio = doc({ id: 'alb-ya', number: 'ALB-9', tipo: 'albaran', status: InvoiceStatus.EXPEDIDO, documentoOrigenId: 'd1' });
+    storage.getInvoices.mockResolvedValueOnce([d, yaSalio]);
+    await expect(marcarEntregado(enCola([d])[0], { documentos: [d], albaranes: [] })).rejects.toThrow('ya no le queda nada por servir');
+    expect(storage.saveDocumento).not.toHaveBeenCalled();
+    expect(storage.expedirAlbaranVenta).not.toHaveBeenCalled();
   });
 
   it('si ya no está en los datos cargados, lo dice en vez de guardar a ciegas', async () => {

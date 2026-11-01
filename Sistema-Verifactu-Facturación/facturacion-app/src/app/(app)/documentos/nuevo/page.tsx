@@ -7,8 +7,10 @@ import { ArrowLeft, Save, Send, Plus, Wand2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
-  getAlmacenes, getVendedores, getObras, getLotes,
+  getAlmacenes, getVendedores, getObras, getLotes, expedirAlbaranCompra, expedirAlbaranVenta,
 } from '@/lib/storage';
+import { pasoAlTerminar, rotuloAlTerminar } from '@/lib/flujoVenta';
+import { impuestoDeEmpresa } from '@/lib/impuesto';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
@@ -191,8 +193,12 @@ function NuevoDocumentoContent() {
     [lineItems, globalDiscounts],
   );
 
-  const handleSave = async (statusToSet: InvoiceStatus = InvoiceStatus.BORRADOR) => {
+  // `terminar`: el segundo botón (emitir, expedir o pasar a Facturas para
+  // emitir, según el tipo: ver pasoAlTerminar).
+  const handleSave = async (terminar = false) => {
     if (!settings) return;
+    const paso = pasoAlTerminar(tipo, sentido);
+    const statusToSet = terminar && paso === 'emitir' ? InvoiceStatus.EMITIDA : InvoiceStatus.BORRADOR;
     if (!clientName.trim()) {
       toastError(sentido === 'compra' ? 'Indica el proveedor' : 'Indica el cliente');
       return;
@@ -255,6 +261,21 @@ function NuevoDocumentoContent() {
       const guardado = await saveDocumento(doc);
       await actualizarContadorSerie(settings, `${tipo}_${sentido}`, guardado.number);
 
+      if (terminar && paso === 'facturas') {
+        success(`Guardada en borrador: ${guardado.number}`, 'Revísala y emítela: la huella y el registro Veri*Factu los pone el servidor al emitir.');
+        router.push(`/facturas/${guardado.id}`);
+        return;
+      }
+      if (terminar && paso === 'expedir') {
+        try {
+          const expedido = sentido === 'compra' ? await expedirAlbaranCompra(guardado.id) : await expedirAlbaranVenta(guardado.id);
+          success(`Albarán ${expedido.number} expedido`, sentido === 'compra' ? 'Stock aumentado.' : 'Stock descontado.');
+        } catch (e) {
+          toastError(`Guardado en borrador: ${guardado.number}`, `No se ha expedido: ${e instanceof Error ? e.message : 'error desconocido'}`);
+        }
+        router.push(`/documentos/${guardado.id}`);
+        return;
+      }
       success(`Guardado: ${etiquetaTipo(tipo)} ${guardado.number}`);
       router.push(`/documentos/${guardado.id}`);
     } catch (e) {
@@ -286,7 +307,7 @@ function NuevoDocumentoContent() {
           <button
             type="button"
             className="btn btn-outline"
-            onClick={() => handleSave(InvoiceStatus.BORRADOR)}
+            onClick={() => handleSave(false)}
             disabled={saving}
           >
             <Save size={16} /> Guardar Borrador
@@ -294,10 +315,10 @@ function NuevoDocumentoContent() {
           <button
             type="button"
             className="btn btn-primary neon neon--al-pasar"
-            onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+            onClick={() => handleSave(true)}
             disabled={saving}
           >
-            <Send size={16} /> Emitir {etiquetaTipo(tipo)}
+            <Send size={16} /> {rotuloAlTerminar(tipo, sentido)}
           </button>
         </div>
       </div>
@@ -529,7 +550,7 @@ function NuevoDocumentoContent() {
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
           destacado
-          etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
+          etiquetaImpuesto={impuestoDeEmpresa(settings)}
         >
           {modoRetenciones && (tipo === 'factura' || tipo === 'rectificativa') && (
             <div className="doc-retencion">

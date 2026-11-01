@@ -41,7 +41,7 @@ import {
   InvoiceStatus, type Albaran, type Client, type CompanySettings, type Invoice, type InvoiceLineItem, type RutaReparto,
 } from './types';
 import { desgloseLinea, vaPorUnidades, conUnidades } from './cajas';
-import { claveServido, servidoPorPedido, recalcularLinea, documentoConvertido } from './documentos';
+import { articuloDeLinea, claveServido, servidoPorPedido, recalcularLinea, documentoConvertido } from './documentos';
 import { conPlural } from './vocabulario';
 
 // ------------------------------------------------------------
@@ -158,8 +158,8 @@ export function lineasPendientesDePedido(pedido: Invoice, documentos: readonly I
   for (const li of pedido.lineItems) {
     const cantidad = Number(li.quantity) || 0;
     if (cantidad <= 0 || !tieneArticulo(li)) continue;
-    if (!li.productId) { salida.push(li); continue; }
-    const k = claveServido(pedido.id, li.productId);
+    // Las líneas sin artículo (portes, un servicio) se cuentan por su texto.
+    const k = claveServido(pedido.id, articuloDeLinea(li));
     const yaServido = queda.get(k) ?? servido.get(k) ?? 0;
     const usado = Math.min(yaServido, cantidad);
     queda.set(k, redondear(yaServido - usado));
@@ -178,17 +178,11 @@ export function lineasPendientesDePedido(pedido: Invoice, documentos: readonly I
  * de siempre (documentoConvertido, la del botón «Convertir en Albarán»),
  * pero sólo con lo que falta por servir y con la fecha de hoy, que es la
  * de la entrega. Queda enganchado a ESTE pedido aunque el pedido viniera de
- * un presupuesto: es lo que hace que el pedido cuente como servido.
+ * un presupuesto (la conversión siempre apunta al documento del que sale):
+ * es lo que hace que el pedido cuente como servido.
  */
 export function albaranDeEntrega(pedido: Invoice, documentos: readonly Invoice[], settings: CompanySettings, hoy: string): Invoice {
-  const albaran = documentoConvertido(pedido, 'albaran', settings);
-  return {
-    ...albaran,
-    issueDate: hoy,
-    documentoOrigenId: pedido.id,
-    documentoOrigenNumber: pedido.number,
-    lineItems: lineasPendientesDePedido(pedido, documentos).map(li => ({ ...li, id: crypto.randomUUID() })),
-  };
+  return documentoConvertido(pedido, 'albaran', settings, { hoy, lineItems: lineasPendientesDePedido(pedido, documentos) });
 }
 
 export interface FuentesCola {

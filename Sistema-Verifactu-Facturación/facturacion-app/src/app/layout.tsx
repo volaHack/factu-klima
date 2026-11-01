@@ -10,6 +10,7 @@ import './estilos/automatizar.css';
 import './estilos/gestion.css';
 import './estilos/almacen.css';
 import './estilos/flujo-albaranes.css';
+import './estilos/flujo-venta.css';
 import type { Metadata, Viewport } from 'next';
 import RegistroErrores from '@/components/RegistroErrores';
 import AuthWrapper from '@/components/AuthWrapper';

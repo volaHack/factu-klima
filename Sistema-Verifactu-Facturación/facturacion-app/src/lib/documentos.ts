@@ -3,7 +3,7 @@ import {
   Invoice, InvoiceLineItem, InvoiceStatus, UnitOfMeasure, CompanySettings, TipoDocumento, SentidoDocumento, Client, Product,
 } from './types';
 import { descuentoFamiliaDe, precioEspecialDe } from './preciosCliente';
-import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax } from './utils';
+import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax, calculateInvoiceTotals, getToday, addDays } from './utils';
 import { getDefaultTaxRate } from './constants';
 import { vocabularioDe } from './vocabulario';
 import { serieDeTipo } from './storage';
@@ -223,10 +223,27 @@ export function calcularPendientesProducto(
 export const claveServido = (pedidoId: string, productId: string) => `${pedidoId}|${productId}`;
 
 /**
+ * Lo que identifica una línea al contar lo servido: su artículo y, si no
+ * tiene (los portes, un servicio, una línea escrita a mano), su texto.
+ * Antes las líneas sin artículo no se contaban nunca como servidas, y un
+ * pedido con una línea de portes se quedaba en la cola del almacén para
+ * siempre aunque se hubiera entregado entero. Vacía: la línea no cuenta.
+ */
+export function articuloDeLinea(li: Pick<InvoiceLineItem, 'productId' | 'productName'>): string {
+  if (li.productId) return li.productId;
+  const texto = (li.productName ?? '').trim().toLowerCase();
+  return texto ? `~${texto}` : '';
+}
+
+/**
  * Lo ya servido de cada pedido, por producto: lo que suman los albaranes y
  * facturas que salieron de él (documentoOrigenId) y no se anularon. Lo usan
  * lo pendiente de cada artículo y la cola del almacén (prepararPedidos.ts),
  * para que los dos digan lo mismo de un pedido servido a medias.
+ *
+ * Sólo cuenta lo que sale DIRECTAMENTE del pedido: la factura de un albarán
+ * apunta al albarán (ver documentoConvertido), así que la mercancía de un
+ * albarán ya facturado no se cuenta dos veces.
  */
 export function servidoPorPedido(invoices: readonly Invoice[]): Map<string, number> {
   const servido = new Map<string, number>();
@@ -234,8 +251,9 @@ export function servidoPorPedido(invoices: readonly Invoice[]): Map<string, numb
     if (!inv.documentoOrigenId || inv.tipo === 'pedido' || inv.tipo === 'presupuesto') continue;
     if (inv.status === InvoiceStatus.ANULADA) continue;
     for (const li of inv.lineItems) {
-      if (!li.productId) continue;
-      const k = claveServido(inv.documentoOrigenId, li.productId);
+      const articulo = articuloDeLinea(li);
+      if (!articulo) continue;
+      const k = claveServido(inv.documentoOrigenId, articulo);
       servido.set(k, (servido.get(k) ?? 0) + Number(li.quantity || 0));
     }
   }
@@ -354,11 +372,41 @@ export function fichasFrecuentes(docs: readonly Invoice[], max = 8, hoy = new Da
   return [...veces.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([id]) => id);
 }
 
+/**
+ * El contador de un tipo de documento: su serie y el siguiente número.
+ *
+ * Las facturas y los albaranes de venta tienen, además del contador de los
+ * documentos (`seriesDocumentos`), el de siempre: la serie y el número de
+ * Ajustes (`invoiceSeries`), que usan «Nueva factura», las recurrentes y la
+ * facturación de albaranes, y el de la pantalla «Albaranes»
+ * (`albaranSeries`). Eran dos contadores para lo mismo: la factura sacada
+ * de un albarán cogía el FAC-2026-0027 de uno mientras «Nueva factura» iba
+ * por el F-2026-1200 del otro (y, con la misma serie, los dos acababan
+ * dando el mismo número). Manda el de siempre, que es el que se ve y se
+ * cambia en Ajustes; si el de documentos iba por delante en la misma
+ * serie, el mayor, para no repetir ninguno.
+ */
+export function contadorDeTipo(
+  settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento,
+): { serie: string; nextNumber: number } {
+  const propio = serieDeTipo(settings, tipo, sentido);
+  const deSiempre = sentido !== 'venta' ? null
+    : tipo === 'factura' ? { serie: settings.invoiceSeries, nextNumber: settings.nextInvoiceNumber }
+    : tipo === 'albaran' ? { serie: settings.albaranSeries, nextNumber: settings.nextAlbaranNumber }
+    : null;
+  if (!deSiempre?.serie) return propio;
+  const mismaSerie = propio.serie === deSiempre.serie;
+  return {
+    serie: deSiempre.serie,
+    nextNumber: Math.max(Number(deSiempre.nextNumber) || 1, mismaSerie ? Number(propio.nextNumber) || 1 : 1),
+  };
+}
+
 /** Número y serie para un documento nuevo de un tipo/sentido. */
 export function numeroDeDocumento(
   settings: CompanySettings, tipo: TipoDocumento, sentido: SentidoDocumento,
 ): { series: string; number: string; nextNumber: number } {
-  const { serie, nextNumber } = serieDeTipo(settings, tipo, sentido);
+  const { serie, nextNumber } = contadorDeTipo(settings, tipo, sentido);
   return { series: serie, number: generateInvoiceNumber(serie, nextNumber), nextNumber };
 }
 
@@ -379,19 +427,84 @@ export function etiquetaTipo(tipo: TipoDocumento): string {
   return etiquetas[tipo];
 }
 
-export function numeroOrigen(doc: { tipo?: TipoDocumento; documentoOrigenNumber?: string }): string {
+/**
+ * «Albarán ALB-2026-0030»: el documento de origen con SU tipo. Antes se
+ * ponía el tipo del documento que se miraba («Factura ALB-2026-0030»). Sin
+ * el origen a mano, el número a secas: mejor que un tipo inventado.
+ */
+export function numeroOrigen(
+  doc: { documentoOrigenId?: string; documentoOrigenNumber?: string },
+  documentos: readonly Pick<Invoice, 'id' | 'tipo'>[] = [],
+): string {
   if (!doc.documentoOrigenNumber) return '';
-  return `${etiquetaTipo(doc.tipo ?? 'factura')} ${doc.documentoOrigenNumber}`;
+  const origen = doc.documentoOrigenId ? documentos.find(d => d.id === doc.documentoOrigenId) : undefined;
+  return origen ? `${etiquetaTipo(origen.tipo ?? 'factura')} ${doc.documentoOrigenNumber}` : doc.documentoOrigenNumber;
 }
 
-/** Genera un nuevo documento convertido a partir de uno original (presupuesto -> pedido -> albarán -> factura). */
+export interface OpcionesConversion {
+  /** Las líneas que lleva, si no son todas las del original (lo que falta por servir de un pedido). */
+  lineItems?: InvoiceLineItem[];
+  /** La serie del vendedor del cliente, si tiene una propia (serieParaCliente). */
+  serie?: { serie: string; nextNumber: number } | null;
+  /** La fecha del documento nuevo (AAAA-MM-DD). Por defecto, hoy. */
+  hoy?: string;
+}
+
+const diasEntre = (desde?: string, hasta?: string): number | null => {
+  const a = Date.parse(desde ?? '');
+  const b = Date.parse(hasta ?? '');
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / 86_400_000) : null;
+};
+
+/**
+ * Genera un nuevo documento convertido a partir de uno original
+ * (presupuesto → pedido → albarán → factura).
+ *
+ * Se copia todo lo que es del acuerdo con el cliente: sus datos fiscales,
+ * las líneas con sus precios, descuentos en cascada e impuesto, el
+ * descuento al pie, la retención, las notas, la forma de pago, el vendedor,
+ * la tarifa, el almacén y la obra. Los totales salen otra vez de las
+ * líneas, igual que al guardar: con las mismas líneas, los mismos al
+ * céntimo.
+ *
+ * Lo que NO se copia es cómo le fue al original: cobros, sello, anulación,
+ * envío al SII, tipo fiscal (se decide al emitir) o si su número era
+ * provisional.
+ *
+ * EL ORIGEN ES EL DOCUMENTO DEL QUE SALE
+ *
+ * No el primero de la cadena. Antes se arrastraba el primero, y la factura
+ * de un albarán que venía de un pedido quedaba colgada del pedido. Con eso:
+ *   · la base de datos no la veía como factura de un albarán y descontaba
+ *     el stock otra vez (ya lo había descontado el albarán, migración 074);
+ *   · el pedido contaba como servida la misma mercancía dos veces (albarán
+ *     y factura), y uno servido a medias parecía servido del todo.
+ * La cadena entera se sigue de eslabón en eslabón (flujoVenta.trazaDe).
+ *
+ * LA FECHA, LA DE HOY
+ *
+ * La factura de un albarán del lunes que se hace el viernes es del
+ * viernes; con la fecha de un presupuesto de hace un mes saldría
+ * desordenada en su serie. El vencimiento conserva el plazo del original.
+ */
 export function documentoConvertido(
   original: Invoice,
   nuevoTipo: TipoDocumento,
   settings: CompanySettings,
+  opciones: OpcionesConversion = {},
 ): Invoice {
-  const { series, number } = numeroDeDocumento(settings, nuevoTipo, original.sentido ?? 'venta');
+  const hoy = opciones.hoy ?? getToday();
+  const { series, number } = opciones.serie
+    ? { series: opciones.serie.serie, number: generateInvoiceNumber(opciones.serie.serie, opciones.serie.nextNumber, Number(hoy.slice(0, 4))) }
+    : numeroDeDocumento(settings, nuevoTipo, original.sentido ?? 'venta');
+  const plazo = diasEntre(original.issueDate, original.dueDate);
   const now = new Date().toISOString();
+  const lineItems = (opciones.lineItems ?? original.lineItems ?? []).map(li => ({ ...li, id: crypto.randomUUID() }));
+  const totales = calculateInvoiceTotals(lineItems, [
+    original.globalDiscountPercent1 ?? 0,
+    original.globalDiscountPercent2 ?? 0,
+    original.globalDiscountPercent3 ?? 0,
+  ]);
   return {
     ...original,
     id: crypto.randomUUID(),
@@ -399,40 +512,70 @@ export function documentoConvertido(
     number,
     series,
     status: InvoiceStatus.BORRADOR,
-    documentoOrigenId: original.documentoOrigenId ?? original.id,
-    documentoOrigenNumber: original.documentoOrigenNumber ?? original.number,
-    lineItems: (original.lineItems || []).map(li => ({
-      ...li,
-      id: crypto.randomUUID(),
-    })),
+    issueDate: hoy,
+    dueDate: plazo !== null && plazo >= 0 ? addDays(hoy, plazo) : hoy,
+    documentoOrigenId: original.id,
+    documentoOrigenNumber: original.number,
+    lineItems,
+    subtotal: totales.subtotal,
+    totalDiscount: totales.totalDiscount,
+    totalTax: totales.totalTax,
+    total: totales.total,
+    taxBreakdown: totales.taxBreakdown,
     paidDate: undefined,
     paidAmount: 0,
     paymentRecordIds: [],
     verifactu: undefined,
+    cancelReason: undefined,
+    cancelledAt: undefined,
+    siiStatus: undefined,
+    tipoFacturaFiscal: undefined,
+    numberTemporary: false,
+    posSessionId: undefined,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-/** Actualiza el contador de la serie tras crear un documento nuevo. */
+/**
+ * Actualiza el contador de la serie tras crear un documento nuevo.
+ *
+ * Sobre los ajustes recién leídos, no sobre los que la pantalla cargó al
+ * abrirse: guardar aquella copia entera pisaba cualquier ajuste cambiado
+ * entre medias (otro contador, otra pestaña).
+ *
+ * Un número de OTRA serie (la del vendedor del cliente) no toca el
+ * contador de la empresa: antes el PED-2026-0009 saltaba al 51 porque el
+ * vendedor iba por su V1-2026-0050. La serie del vendedor cuenta sola, por
+ * los documentos que ya tiene (serieParaCliente).
+ *
+ * En facturas y albaranes de venta sube también el contador de siempre
+ * (ver contadorDeTipo), que es el que usan las demás pantallas.
+ */
 export async function actualizarContadorSerie(
   settings: CompanySettings,
   clave: string,
   numeroUsado: string,
 ): Promise<void> {
   const { sequenceFromNumber } = await import('./utils');
-  const { saveCompanySettings } = await import('./storage');
-  const seq = sequenceFromNumber(numeroUsado);
-  const seriesDoc = { ...(settings.seriesDocumentos ?? {}) };
-  const prev = seriesDoc[clave] ?? { serie: clave.split('_')[0].toUpperCase(), nextNumber: 1 };
-  seriesDoc[clave] = {
-    ...prev,
-    nextNumber: Math.max(prev.nextNumber, seq + 1),
-  };
-  await saveCompanySettings({
-    ...settings,
-    seriesDocumentos: seriesDoc,
-  });
+  const { saveCompanySettings, getCompanySettings } = await import('./storage');
+  const actuales = (await getCompanySettings().catch(() => null)) ?? settings;
+  const [tipo, sentido] = clave.split('_') as [TipoDocumento, SentidoDocumento];
+  const { serie } = contadorDeTipo(actuales, tipo, sentido);
+  if (!numeroUsado.startsWith(`${serie}-`)) return;
+
+  const siguiente = sequenceFromNumber(numeroUsado) + 1;
+  const seriesDoc = { ...(actuales.seriesDocumentos ?? {}) };
+  const prev = seriesDoc[clave];
+  seriesDoc[clave] = { ...prev, serie, nextNumber: Math.max(prev?.serie === serie ? prev.nextNumber : 1, siguiente) };
+  const deSiempre: Partial<CompanySettings> = {};
+  if (clave === 'factura_venta' && actuales.invoiceSeries === serie) {
+    deSiempre.nextInvoiceNumber = Math.max(actuales.nextInvoiceNumber || 1, siguiente);
+  }
+  if (clave === 'albaran_venta' && actuales.albaranSeries === serie) {
+    deSiempre.nextAlbaranNumber = Math.max(actuales.nextAlbaranNumber || 1, siguiente);
+  }
+  await saveCompanySettings({ ...actuales, ...deSiempre, seriesDocumentos: seriesDoc });
 }
 
 /** Crea una factura rectificativa con importes negativos a partir de una factura emitida. */

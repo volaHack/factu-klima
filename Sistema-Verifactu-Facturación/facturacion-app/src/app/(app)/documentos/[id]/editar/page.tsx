@@ -3,12 +3,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Send } from 'lucide-react';
+import { ArrowLeft, Save, Send, AlertTriangle } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getInvoiceById, getProducts, getCompanySettings, saveDocumento, isSealed,
-  getAlmacenes, getClientById,
+  getAlmacenes, getClientById, getInvoices, expedirAlbaranCompra, expedirAlbaranVenta,
 } from '@/lib/storage';
+import { excesosSobrePedido, pasoAlTerminar, rotuloAlTerminar, textoDeExcesos } from '@/lib/flujoVenta';
+import { impuestoDeFactura } from '@/lib/impuesto';
 import {
   Invoice, InvoiceLineItem, InvoiceStatus, PaymentMethod, CompanySettings,
   Product, Almacen, Client,
@@ -26,6 +28,7 @@ export default function EditarDocumentoPage() {
   const id = params.id as string;
 
   const [documento, setDocumento] = useState<Invoice | null>(null);
+  const [documentos, setDocumentos] = useState<Invoice[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -51,19 +54,26 @@ export default function EditarDocumentoPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [doc, prodList, st, loadedAlmacenes] = await Promise.all([
+        const [doc, prodList, st, loadedAlmacenes, todos] = await Promise.all([
           getInvoiceById(id),
           getProducts(),
           getCompanySettings(),
           getAlmacenes(),
+          getInvoices().catch(() => [] as Invoice[]),
         ]);
+        setDocumentos(todos);
         if (!doc) {
           toastError('Documento no encontrado');
           router.push('/documentos');
           return;
         }
-        if (doc.status !== InvoiceStatus.BORRADOR && isSealed(doc)) {
-          toastError('Este documento no se puede editar');
+        // Sólo se edita lo que está en borrador, sea del tipo que sea. Antes
+        // valía cualquier documento no sellado: un albarán ya expedido o un
+        // pedido emitido se abrían aquí (escribiendo la dirección a mano) y
+        // «Guardar» los devolvía a borrador, con el stock del albarán
+        // devuelto al almacén sin que nadie lo pidiera.
+        if (doc.status !== InvoiceStatus.BORRADOR || isSealed(doc)) {
+          toastError('Este documento no se puede editar', 'Sólo se editan los borradores.');
           router.push(`/documentos/${doc.id}`);
           return;
         }
@@ -103,14 +113,31 @@ export default function EditarDocumentoPage() {
     [lineItems, globalDiscounts],
   );
 
-  const handleSave = async (statusToSet: InvoiceStatus = InvoiceStatus.BORRADOR) => {
+  // Un albarán (o factura) sacado de un pedido que, con lo que ya salió,
+  // sirve más de lo pedido: se puede, pero se ve mientras se escribe y se
+  // pregunta antes de guardar.
+  const excesos = useMemo(
+    () => (documento ? excesosSobrePedido({ ...documento, lineItems }, documentos) : []),
+    [documento, lineItems, documentos],
+  );
+
+  // `terminar`: el segundo botón (emitir, expedir o pasar a Facturas para
+  // emitir, según el tipo: ver pasoAlTerminar).
+  const handleSave = async (terminar = false) => {
     if (!documento || !settings) return;
+    const tipoDoc = documento.tipo ?? 'factura';
+    const sentidoDoc = documento.sentido ?? 'venta';
+    const paso = pasoAlTerminar(tipoDoc, sentidoDoc);
+    const statusToSet = terminar && paso === 'emitir' ? InvoiceStatus.EMITIDA : InvoiceStatus.BORRADOR;
     if (!clientName.trim()) {
       toastError('El nombre es obligatorio');
       return;
     }
     if (lineItems.length === 0) {
       toastError('Añade al menos una línea');
+      return;
+    }
+    if (excesos.length && !window.confirm(`Esto sirve más de lo pedido en ${documento.documentoOrigenNumber}:\n\n${textoDeExcesos(excesos)}\n\n¿Guardarlo igualmente?`)) {
       return;
     }
 
@@ -148,8 +175,22 @@ export default function EditarDocumentoPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      await saveDocumento(updated);
-      success(`${etiquetaTipo(documento.tipo ?? 'factura')} ${documento.number} actualizado`);
+      const guardado = await saveDocumento(updated);
+      if (terminar && paso === 'facturas') {
+        success(`Guardada en borrador: ${guardado.number}`, 'Revísala y emítela: la huella y el registro Veri*Factu los pone el servidor al emitir.');
+        router.push(`/facturas/${guardado.id}`);
+        return;
+      }
+      if (terminar && paso === 'expedir') {
+        try {
+          const expedido = sentidoDoc === 'compra' ? await expedirAlbaranCompra(guardado.id) : await expedirAlbaranVenta(guardado.id);
+          success(`Albarán ${expedido.number} expedido`, sentidoDoc === 'compra' ? 'Stock aumentado.' : 'Stock descontado.');
+        } catch (e) {
+          toastError(`Guardado en borrador: ${guardado.number}`, `No se ha expedido: ${e instanceof Error ? e.message : 'error desconocido'}`);
+        }
+      } else {
+        success(`${etiquetaTipo(tipoDoc)} ${guardado.number} actualizado`);
+      }
       router.push(`/documentos/${documento.id}`);
     } catch (e) {
       toastError(e instanceof Error ? e.message : 'Error al guardar');
@@ -180,7 +221,7 @@ export default function EditarDocumentoPage() {
           <button
             type="button"
             className="btn btn-outline"
-            onClick={() => handleSave(InvoiceStatus.BORRADOR)}
+            onClick={() => handleSave(false)}
             disabled={saving}
           >
             <Save size={16} /> Guardar
@@ -188,13 +229,29 @@ export default function EditarDocumentoPage() {
           <button
             type="button"
             className="btn btn-primary neon neon--al-pasar"
-            onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+            onClick={() => handleSave(true)}
             disabled={saving}
           >
-            <Send size={16} /> Emitir {etiquetaTipo(tipo)}
+            <Send size={16} /> {rotuloAlTerminar(tipo, esCompra ? 'compra' : 'venta')}
           </button>
         </div>
       </div>
+
+      {excesos.length > 0 && (
+        <div className="flujo-exceso" role="alert">
+          <AlertTriangle size={16} aria-hidden />
+          <div>
+            <strong>Sirve más de lo pedido en {documento.documentoOrigenNumber}.</strong>
+            <ul>
+              {excesos.map(e => (
+                <li key={e.nombre}>
+                  {e.nombre}: {e.pedido === 0 ? 'no estaba en el pedido' : `pedido ${e.pedido}, ya servido ${e.otros}, aquí ${e.este}`} ({e.exceso} de más)
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
         {/* Datos de contraparte */}
@@ -330,7 +387,7 @@ export default function EditarDocumentoPage() {
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
           destacado
-          etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
+          etiquetaImpuesto={impuestoDeFactura(documento, settings)}
         />
       </div>
     </div>
