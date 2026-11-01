@@ -12,7 +12,7 @@ import {
   ArrowLeft, Edit, Copy, Ban, CheckCircle, Printer,
   Calendar, Building2, CreditCard, ShieldCheck, Check,
   Send, Link2, MessageSquare, Clock, CheckCircle2, XCircle, AlertTriangle,
-  Fingerprint, FileWarning, Loader2, Trash2,
+  Fingerprint, FileWarning, Loader2, Trash2, FileDiff,
 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import BotonDescargarPdf, { BotonVistaPreviaPdf, AvisoSinPlantilla } from '@/components/plantillas/BotonDescargarPdf';
@@ -23,8 +23,10 @@ import DeleteInvoiceModal from '@/components/facturas/DeleteInvoiceModal';
 import BotonRepetir from '@/components/facturas/BotonRepetir';
 import {
   getInvoiceById, saveInvoice, getCompanySettings, createOrderApproval,
-  getApprovalByInvoiceId, getApprovalItems, issueInvoice, isSealed, getOnboardingStatus,
+  getApprovalByInvoiceId, getApprovalItems, issueInvoice, isSealed, getOnboardingStatus, getInvoices,
 } from '@/lib/storage';
+import { porQueNoSeRectifica, rectificativasDe } from '@/lib/rectificativas';
+import RectificarModal from './RectificarModal';
 import { Invoice, InvoiceStatus, CompanySettings, OrderApproval, OrderApprovalItem } from '@/lib/types';
 import { formatCurrency, formatDate, generateId, getStatusInfo, desgloseDescuentos } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
@@ -51,6 +53,10 @@ export default function InvoiceDetailPage() {
   const [sendingApproval, setSendingApproval] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  // Todos los documentos: hacen falta para saber qué rectificativas tiene
+  // esta factura y cuánto queda por rectificar.
+  const [documentos, setDocumentos] = useState<Invoice[]>([]);
+  const [rectificando, setRectificando] = useState(false);
   /**
    * Se acaba de emitir aquí mismo. El sello entra entonces como un
    * cuño que cae sobre el papel, una vez: es la confirmación de que ya
@@ -62,9 +68,10 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     (async () => {
       const id = params.id as string;
-      const [inv, settings] = await Promise.all([getInvoiceById(id), getCompanySettings()]);
+      const [inv, settings, docs] = await Promise.all([getInvoiceById(id), getCompanySettings(), getInvoices()]);
       setInvoice(inv || null);
       setCompanySettings(settings);
+      setDocumentos(docs);
       setMounted(true);
 
       // Load approval if exists
@@ -151,6 +158,18 @@ export default function InvoiceDetailPage() {
     }
     success('Factura anulada', mensaje);
     setInvoice(await getInvoiceById(invoice.id) || null);
+    setDocumentos(await getInvoices());
+  };
+
+  /** Rectificar: si no se puede, se dice por qué en vez de abrir la ventana. */
+  const handleRectificar = () => {
+    if (!invoice) return;
+    const motivo = porQueNoSeRectifica(invoice, documentos);
+    if (motivo) {
+      toastError('No se puede rectificar', motivo);
+      return;
+    }
+    setRectificando(true);
   };
 
   const handleDuplicate = async () => {
@@ -278,6 +297,12 @@ export default function InvoiceDetailPage() {
   const rechazo = invoice
     ? rejections.find(r => r.table === 'invoices' && r.id === invoice.id)
     : undefined;
+  // Lo que la une a otras facturas: la que rectifica, o las que la rectifican.
+  const rectificativas = invoice.tipo === 'rectificativa' ? [] : rectificativasDe(invoice, documentos);
+  const rectificada = invoice.tipo === 'rectificativa' && invoice.documentoOrigenId
+    ? documentos.find(d => d.id === invoice.documentoOrigenId)
+    : undefined;
+  const puedeRectificar = sealed && (invoice.tipo ?? 'factura') === 'factura' && invoice.status !== InvoiceStatus.ANULADA;
 
   return (
     <div className="animate-fade-in">
@@ -353,6 +378,13 @@ export default function InvoiceDetailPage() {
               ella, y eso lo resuelve el modal — un borrador se borra de
               verdad; una emitida se anula dejando el motivo, porque romper
               la cadena sellada es justo lo que Veri*Factu impide. */}
+          {/* Rectificar es como se corrige una factura emitida: la original
+              no se toca. Antes solo se podía desde Documentos. */}
+          {puedeRectificar && (
+            <button className="btn btn-secondary" onClick={handleRectificar}>
+              <FileDiff size={16} /> Rectificar
+            </button>
+          )}
           {invoice.status !== InvoiceStatus.ANULADA && invoice.status !== InvoiceStatus.PAGADA && (
             <button className="btn btn-danger" onClick={() => setBorrando(true)}>
               {sealed ? <><Ban size={16} /> Anular</> : <><Trash2 size={16} /> Eliminar borrador</>}
@@ -378,6 +410,32 @@ export default function InvoiceDetailPage() {
           no se leía en ninguna parte: quien anulaba una factura no podía
           volver a ver más tarde por qué lo hizo, que es justo lo que
           pregunta una inspección. */}
+      {(rectificada || invoice.documentoOrigenNumber && invoice.tipo === 'rectificativa' || rectificativas.length > 0) && (
+        <div className="callout callout-info factura-relacionadas">
+          <FileDiff size={16} />
+          {invoice.tipo === 'rectificativa' ? (
+            <span>
+              Rectifica la factura{' '}
+              {rectificada
+                ? <Link href={`/facturas/${rectificada.id}`} className="mono">{rectificada.number}</Link>
+                : <span className="mono">{invoice.documentoOrigenNumber}</span>}
+              {invoice.tipoFacturaFiscal && <> · {invoice.tipoFacturaFiscal}</>}
+            </span>
+          ) : (
+            <span>
+              Rectificada por{' '}
+              {rectificativas.map((r, i) => (
+                <span key={r.id}>
+                  {i > 0 && ', '}
+                  <Link href={`/facturas/${r.id}`} className="mono">{r.number}</Link>
+                  {r.status === InvoiceStatus.BORRADOR && ' (borrador)'}
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
+      )}
+
       {invoice.status === InvoiceStatus.ANULADA && (
         <div className="status-panel status-panel--danger" style={{ marginBottom: 'var(--space-5)' }}>
           <span className="status-panel-icon"><Ban size={18} /></span>
@@ -831,6 +889,20 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      {rectificando && companySettings && (
+        <RectificarModal
+          factura={invoice}
+          docs={documentos}
+          settings={companySettings}
+          onClose={() => setRectificando(false)}
+          onCreada={rect => {
+            setRectificando(false);
+            success('Rectificativa creada en borrador', `${rect.number}: revísala y emítela.`);
+            router.push(`/facturas/${rect.id}`);
+          }}
+        />
+      )}
 
       {borrando && (
         <DeleteInvoiceModal

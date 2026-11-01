@@ -27,6 +27,11 @@ import {
   Gasto, GastoCategoria, Vehiculo, Obra, OrdenTrabajo, Lote, RappelConfig, GrupoCliente, RutaReparto, NumeroSerie, Escandallo,
 } from './types';
 import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
+import {
+  albaranesDeFacturaCompra, conDatosDelProveedor, convertirCompra, facturaDeAlbaranesCompra, problemasFacturaRecibida,
+} from './compras';
+import { albaranesQueVuelven, anulacionVaPorLaFicha, porQueNoSeAnula } from './anulacion';
+import { cantidadesARectificar, importeConImpuesto, origenesDevolvibles, problemasDevolucion } from './devoluciones';
 import { problemasParaEmitir, resumenDeErrores } from './validation/identidad';
 import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
 import { agruparPendientes, type Periodo } from './albaranes/facturacionPeriodo';
@@ -461,10 +466,18 @@ async function nextFreeInvoiceNumber(
 
 /** Guarda cualquier documento no fiscal (presupuesto, pedido, albarán) o una factura/rectificativa borrador. */
 export async function saveDocumento(doc: Invoice): Promise<Invoice> {
+  // Pasar a anulado no es un guardado más: hay que mirar antes lo que salió
+  // del documento (ver anularDocumento).
+  if (doc.status === InvoiceStatus.ANULADA) {
+    const previa = await getInvoiceById(doc.id);
+    if (previa && previa.status !== InvoiceStatus.ANULADA) return anularDocumento(doc.id, doc.cancelReason);
+  }
   if (esSellable(doc) && isSealed(doc)) {
     throw new Error(`El documento ${doc.number} ya está sellado. No se puede modificar.`);
   }
-  return saveInvoice(doc);
+  const guardado = await saveInvoice(doc);
+  if (guardado.sentido === 'compra' && guardado.tipo === 'factura') await marcarAlbaranesCompraFacturados(guardado);
+  return guardado;
 }
 
 /**
@@ -620,6 +633,9 @@ export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
     es_intracomunitaria: inv.esIntracomunitaria ?? false,
     tipo_operacion_349: inv.tipoOperacion349 || null,
     client_vat_number: inv.clientVatNumber || null,
+    // Solo si lo trae: guardar sin él no debe borrar el motivo de una anulación.
+    ...(inv.cancelReason ? { cancel_reason: inv.cancelReason } : {}),
+    ...(inv.cancelledAt ? { cancelled_at: inv.cancelledAt } : {}),
   });
 
   const lineRows = current.lineItems.map((li, idx) => ({
@@ -851,6 +867,12 @@ export async function cancelInvoice(id: string, reason: string): Promise<void> {
   if (!navigator.onLine) {
     throw new Error('La anulación de una factura requiere conexión.');
   }
+  // Con una rectificativa viva, anular la original deja la rectificativa
+  // corrigiendo una factura que ya no existe.
+  const docs = await getInvoices();
+  const factura = docs.find(d => d.id === id);
+  const impide = factura ? porQueNoSeAnula(factura, docs) : null;
+  if (impide) throw new Error(impide);
 
   const { error } = await supabase()
     .from('invoices')
@@ -893,6 +915,9 @@ export async function deleteInvoice(id: string): Promise<void> {
   if (recoge) {
     await soltarAlbaranesDeFactura(id, { borrada: true, recoge }).catch(err => console.warn('[albaranes] No se pudieron soltar los albaranes', err));
   }
+
+  // El borrador de una factura recibida devuelve sus albaranes a «por facturar».
+  if (invoice) await devolverAlbaranesCompra(invoice);
 
   notifyDataUpdate('invoices');
   refrescarStock();
@@ -1277,6 +1302,106 @@ export async function expedirAlbaranCompra(id: string): Promise<Invoice> {
   // La entrada en stock, el precio medio y el de la última entrada los
   // apunta la base de datos al pasar a expedido (migración 074).
   return saveDocumento({ ...doc, status: InvoiceStatus.EXPEDIDO });
+}
+
+/**
+ * Recibe (en borrador) lo que falta por llegar de un pedido de compra.
+ * Se repasa, se corrige lo que de verdad ha llegado y se pulsa «Recibir»
+ * (expedirAlbaranCompra), que es cuando entra en el almacén.
+ */
+export async function recibirPedidoCompra(pedidoId: string): Promise<Invoice> {
+  const [docs, settings] = await Promise.all([getInvoices(), getCompanySettings()]);
+  const pedido = docs.find(d => d.id === pedidoId) ?? await getInvoiceById(pedidoId);
+  if (!pedido || pedido.sentido !== 'compra' || pedido.tipo !== 'pedido') throw new Error('No es un pedido de compra.');
+  const albaran = await saveDocumento(convertirCompra(pedido, 'albaran', settings, docs));
+  const { actualizarContadorSerie } = await import('./documentos');
+  await actualizarContadorSerie(settings, 'albaran_compra', albaran.number);
+  return albaran;
+}
+
+/**
+ * La factura del proveedor de uno o varios albaranes ya recibidos, con su
+ * número y sus fechas. Queda en borrador para repasarla contra el papel.
+ */
+export async function facturarAlbaranesCompra(
+  albaranIds: string[],
+  proveedor: { numero?: string; fechaExpedicion?: string; fechaRegistro?: string } = {},
+): Promise<Invoice> {
+  const [docs, settings] = await Promise.all([getInvoices(), getCompanySettings()]);
+  const albaranes = albaranIds.map(id => docs.find(d => d.id === id)).filter((d): d is Invoice => Boolean(d));
+  if (albaranes.length !== albaranIds.length) throw new Error('No se encuentra alguno de los albaranes.');
+  const factura = conDatosDelProveedor(facturaDeAlbaranesCompra(albaranes, settings, docs), proveedor);
+  const error = problemasFacturaRecibida(factura, docs).find(p => p.gravedad === 'error');
+  if (error) throw new Error(error.texto);
+  const guardada = await saveDocumento(factura);
+  const { actualizarContadorSerie } = await import('./documentos');
+  await actualizarContadorSerie(settings, 'factura_compra', guardada.number);
+  return guardada;
+}
+
+/**
+ * Una factura recibida que sale de albaranes los deja facturados: así no
+ * se factura dos veces el mismo albarán, aunque se llegue a él desde otra
+ * pantalla. Anulada o borrada, vuelven a quedar por facturar.
+ */
+async function marcarAlbaranesCompraFacturados(factura: Invoice): Promise<void> {
+  const docs = await getInvoices();
+  for (const a of albaranesDeFacturaCompra(factura, docs)) {
+    if (a.status === InvoiceStatus.EXPEDIDO || a.status === InvoiceStatus.EMITIDA) {
+      await saveInvoice({ ...a, status: InvoiceStatus.FACTURADO });
+    }
+  }
+}
+
+async function devolverAlbaranesCompra(factura: Invoice): Promise<void> {
+  if (factura.sentido !== 'compra' || factura.tipo !== 'factura') return;
+  const docs = await getInvoices();
+  for (const a of albaranesQueVuelven(factura, docs)) await saveInvoice({ ...a, status: InvoiceStatus.EXPEDIDO });
+}
+
+/**
+ * Crea la rectificativa de una factura emitida, en borrador, mirando antes
+ * lo que ya se ha rectificado (rectificativas.ts). Se prepara también sin
+ * conexión; emitirla, no (issueInvoice).
+ */
+export async function crearRectificativa(
+  facturaId: string,
+  opciones: Omit<import('./rectificativas').OpcionesRectificativa, 'docs'> = {},
+): Promise<Invoice> {
+  const [docs, settings] = await Promise.all([getInvoices(), getCompanySettings()]);
+  const original = docs.find(d => d.id === facturaId) ?? await getInvoiceById(facturaId);
+  if (!original) throw new Error('Factura no encontrada.');
+  const { rectificar, actualizarContadorSerie } = await import('./documentos');
+  const rect = await saveDocumento(rectificar(original, settings, { ...opciones, docs }));
+  await actualizarContadorSerie(settings, `rectificativa_${original.sentido ?? 'venta'}`, rect.number);
+  return rect;
+}
+
+/**
+ * Anula un documento que no es una factura emitida de venta (esas van por
+ * cancelInvoice, con motivo y conexión). Antes mira lo que salió de él: un
+ * albarán facturado o un pedido servido entero no se anulan (ver
+ * anulacion.ts). Funciona sin conexión: sube con la cola.
+ */
+export async function anularDocumento(id: string, motivo?: string): Promise<Invoice> {
+  const doc = await getInvoiceById(id);
+  if (!doc) throw new Error('Documento no encontrado.');
+  const porFicha = anulacionVaPorLaFicha(doc);
+  if (porFicha) throw new Error(porFicha);
+  if (esSellable(doc) && doc.status === InvoiceStatus.BORRADOR) {
+    throw new Error(`${doc.number} es un borrador: no se anula, se elimina.`);
+  }
+  const docs = await getInvoices();
+  const impide = porQueNoSeAnula(doc, docs);
+  if (impide) throw new Error(impide);
+  const anulado = await saveInvoice({
+    ...doc,
+    status: InvoiceStatus.ANULADA,
+    cancelReason: motivo?.trim() || doc.cancelReason,
+    cancelledAt: new Date().toISOString(),
+  });
+  await devolverAlbaranesCompra(doc);
+  return anulado;
 }
 
 export async function expedirAlbaranVenta(id: string): Promise<Invoice> {
@@ -2894,28 +3019,72 @@ export async function deleteDevolucion(id: string): Promise<void> {
 }
 
 /**
- * Registra una devolución: opcionalmente repone el stock de las líneas
- * marcadas para re-stock y genera un abono (nota de crédito) a favor del
- * cliente por el importe total devuelto.
+ * Registra una devolución: repone el stock de las líneas marcadas y, si se
+ * pide, genera un abono (nota de crédito) o la factura rectificativa de la
+ * factura de origen.
+ *
+ * Antes se reponía el stock ANTES de guardar la devolución: si el guardado
+ * fallaba, el stock quedaba repuesto sin devolución que lo explicara y, al
+ * reintentar, se reponía otra vez. Ahora la devolución se guarda primero.
+ *
+ * Se comprueba contra el documento de origen: no se devuelve más de lo que
+ * se vendió ni dos veces lo mismo (devoluciones.ts).
+ *
+ * Sin conexión no se repone stock: el ajuste se encolaría como un número de
+ * stock ya calculado en este equipo y, al subir, pisaría lo que hubieran
+ * movido mientras tanto los documentos de otros equipos.
+ *
+ * El abono lleva el impuesto: es lo que pagó el cliente. La rectificativa
+ * queda en borrador y se emite desde su ficha (emitir exige conexión).
  */
 export async function createDevolucion(
   devolucion: Devolucion,
-  opts: { restock?: boolean; generateAbono?: boolean } = {},
-): Promise<Devolucion> {
+  opts: { restock?: boolean; generateAbono?: boolean; generarRectificativa?: boolean } = {},
+): Promise<Devolucion & { rectificativa?: Invoice }> {
   const restock = opts.restock ?? true;
-  const generateAbono = opts.generateAbono ?? false;
+  const aReponer = restock ? devolucion.lineItems.filter(li => li.productId && li.quantity > 0 && li.restock) : [];
+  if (aReponer.length && !navigator.onLine) {
+    throw new Error('Sin conexión no se puede reponer el stock. Desmarca «Reponer el stock» o regístrala cuando vuelva la conexión.');
+  }
+  if (opts.generateAbono && opts.generarRectificativa) {
+    throw new Error('Elige abono o rectificativa: las dos a la vez devolverían el dinero dos veces.');
+  }
 
-  // Reposición de stock antes de persistir: si algo falla no queda media devolución.
-  if (restock) {
-    for (const li of devolucion.lineItems) {
-      if (!li.productId || li.quantity <= 0 || !li.restock) continue;
-      await adjustStock(li.productId, li.quantity);
-    }
+  const [docs, previas, antiguos] = await Promise.all([getInvoices(), getDevoluciones(), getAlbaranes()]);
+  const origenDoc = devolucion.originId ? docs.find(d => d.id === devolucion.originId) : undefined;
+  if (devolucion.origin !== 'manual') {
+    const { albaranes, facturas } = origenesDevolvibles(docs, antiguos, previas.filter(p => p.id !== devolucion.id));
+    const origen = [...albaranes, ...facturas].find(o => o.id === devolucion.originId);
+    const problemas = problemasDevolucion(devolucion, origen);
+    if (problemas.length) throw new Error(problemas.join(' '));
   }
 
   let final: Devolucion = devolucion;
+  await saveDevolucion(final);
 
-  if (generateAbono) {
+  for (const li of aReponer) await adjustStock(li.productId, li.quantity, origenDoc?.almacenId);
+
+  let rectificativa: Invoice | undefined;
+  if (opts.generarRectificativa) {
+    if (!origenDoc || (origenDoc.tipo ?? 'factura') !== 'factura') throw new Error('La rectificativa sale de una factura: elige la factura de origen.');
+    const settings = await getCompanySettings();
+    const { rectificar, actualizarContadorSerie } = await import('./documentos');
+    const borrador = rectificar(origenDoc, settings, {
+      docs,
+      cantidades: cantidadesARectificar(origenDoc, devolucion.lineItems),
+      motivo: `Devolución ${devolucion.number}${devolucion.reasonNote ? `: ${devolucion.reasonNote}` : ''}`,
+    });
+    rectificativa = await saveDocumento(borrador);
+    await actualizarContadorSerie(settings, `rectificativa_${origenDoc.sentido ?? 'venta'}`, rectificativa.number);
+    final = {
+      ...final,
+      notes: [final.notes, `Rectificativa ${rectificativa.number}.`].filter(Boolean).join(' '),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveDevolucion(final);
+  }
+
+  if (opts.generateAbono) {
     const settings = await getCompanySettings();
     const abono: Abono = {
       id: generateId(),
@@ -2925,11 +3094,11 @@ export async function createDevolucion(
       clientName: devolucion.clientName,
       clientNif: devolucion.clientNif,
       issueDate: devolucion.issueDate,
-      total: Number(devolucion.total.toFixed(2)),
+      total: importeConImpuesto(devolucion.lineItems),
       usedAmount: 0,
       status: 'emitido',
       devolucionId: devolucion.id,
-      reason: `Abono de la devolución ${devolucion.number}`,
+      reason: `Abono de la devolución ${devolucion.number}${devolucion.originNumber ? ` (${devolucion.originNumber})` : ''}`,
       notes: devolucion.notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -2938,16 +3107,11 @@ export async function createDevolucion(
     settings.nextAbonoNumber = (settings.nextAbonoNumber || 1) + 1;
     await saveCompanySettings(settings);
 
-    final = {
-      ...devolucion,
-      status: 'abonada',
-      abonoId: abono.id,
-      updatedAt: new Date().toISOString(),
-    };
+    final = { ...final, status: 'abonada', abonoId: abono.id, updatedAt: new Date().toISOString() };
+    await saveDevolucion(final);
   }
 
-  await saveDevolucion(final);
-  return final;
+  return { ...final, rectificativa };
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -5013,6 +5177,9 @@ export async function regularizarCostes(
     tipo: d.tipo,
     sentido: d.sentido,
     status: d.status,
+    globalDiscountPercent1: d.globalDiscountPercent1,
+    globalDiscountPercent2: d.globalDiscountPercent2,
+    globalDiscountPercent3: d.globalDiscountPercent3,
     lineItems: (d.lineItems ?? []).map(li => ({
       id: li.id,
       productId: li.productId,

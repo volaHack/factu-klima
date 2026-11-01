@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, X, RotateCcw } from 'lucide-react';
 import {
-  getAlbaranes, getInvoices, createDevolucion, getCompanySettings, saveCompanySettings
+  getAlbaranes, getInvoices, getDevoluciones, createDevolucion, getCompanySettings, saveCompanySettings
 } from '@/lib/storage';
 import {
-  Client, Product, Albaran, Invoice, Devolucion, DevolucionLineItem, DevolucionReason, DevolucionOrigin,
-  UnitOfMeasure, TaxRate, InvoiceStatus
+  Client, Product, Devolucion, DevolucionLineItem, DevolucionReason, DevolucionOrigin,
+  UnitOfMeasure, TaxRate,
 } from '@/lib/types';
 import { generateId, generateInvoiceNumber, getToday, formatCurrency } from '@/lib/utils';
+import {
+  baseDevuelta, importeConImpuesto, origenesDevolvibles, problemasDevolucion, type OrigenDevolucion,
+} from '@/lib/devoluciones';
 import { DEVOLUCION_REASONS } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
 import BuscadorProducto from '@/components/productos/BuscadorProducto';
@@ -20,8 +23,12 @@ interface DevolucionFormModalProps {
   products: Product[];
   defaultOrigin?: DevolucionOrigin;
   onClose: () => void;
-  onCreated: (message: string) => void;
+  /** La rectificativa, si se generó: la pantalla ofrece abrirla para emitirla. */
+  onCreated: (message: string, rectificativa?: { id: string; number: string }) => void;
 }
+
+/** Qué se le devuelve al cliente, además de la mercancía. */
+type Compensacion = 'nada' | 'abono' | 'rectificativa';
 
 function createEmptyLine(): DevolucionLineItem {
   return {
@@ -43,8 +50,8 @@ export default function DevolucionFormModal({
 }: DevolucionFormModalProps) {
   const { error: toastError } = useToast();
   const [origin, setOrigin] = useState<DevolucionOrigin>(defaultOrigin);
-  const [albaranes, setAlbaranes] = useState<Albaran[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [albaranes, setAlbaranes] = useState<OrigenDevolucion[]>([]);
+  const [invoices, setInvoices] = useState<OrigenDevolucion[]>([]);
   const [originDocId, setOriginDocId] = useState('');
   const [clientId, setClientId] = useState('');
   const [issueDate, setIssueDate] = useState(getToday());
@@ -53,30 +60,26 @@ export default function DevolucionFormModal({
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<DevolucionLineItem[]>([createEmptyLine()]);
   const [restock, setRestock] = useState(true);
-  const [generateAbono, setGenerateAbono] = useState(false);
+  const [compensacion, setCompensacion] = useState<Compensacion>('nada');
   const [saving, setSaving] = useState(false);
+  const [problemas, setProblemas] = useState<string[]>([]);
+  const sinConexion = typeof navigator !== 'undefined' && !navigator.onLine;
 
+  // Solo lo que salió de verdad hacia un cliente y aún tiene algo por
+  // devolver: facturas de venta emitidas y albaranes de venta servidos (los
+  // de ahora y los de la pantalla antigua). Ver lib/devoluciones.ts.
   useEffect(() => {
     (async () => {
-      const [a, i] = await Promise.all([getAlbaranes(), getInvoices()]);
-      setAlbaranes(a.filter(x => x.status === 'expedido' || x.status === 'facturado'));
-      setInvoices(i.filter(x => x.status !== InvoiceStatus.ANULADA && x.status !== InvoiceStatus.BORRADOR));
+      const [a, i, d] = await Promise.all([getAlbaranes(), getInvoices(), getDevoluciones()]);
+      const o = origenesDevolvibles(i, a, d);
+      setAlbaranes(o.albaranes);
+      setInvoices(o.facturas);
     })();
   }, []);
 
-  const applyDocLines = (doc: Albaran | Invoice) => {
-    setLineItems(doc.lineItems.map(li => ({
-      id: generateId(),
-      productId: li.productId,
-      productName: li.productName,
-      productRef: li.productRef,
-      quantity: li.quantity,
-      unitPrice: li.unitPrice,
-      unit: li.unit,
-      taxRate: li.taxRate,
-      total: li.subtotal,
-      restock: true,
-    })));
+  // Las líneas al precio que se cobró y con lo que queda por devolver.
+  const applyDocLines = (doc: OrigenDevolucion) => {
+    setLineItems(doc.lineas.map(li => ({ ...li, id: generateId() })));
   };
 
   const handleOriginDocChange = (id: string) => {
@@ -131,31 +134,31 @@ export default function DevolucionFormModal({
     setLineItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const total = lineItems.reduce((sum, li) => sum + li.total, 0);
+  const total = baseDevuelta(lineItems);
+  const totalConImpuesto = importeConImpuesto(lineItems);
+  const origenElegido = (origin === 'albaran' ? albaranes : invoices).find(d => d.id === originDocId);
 
   const handleSave = async () => {
     if (origin !== 'manual' && !originDocId) {
-      toastError('Error', `Selecciona el ${origin === 'albaran' ? 'albarán' : 'albarán o factura'} de origen.`);
+      toastError('Falta el origen', `Selecciona ${origin === 'albaran' ? 'el albarán' : 'la factura'} de la que vuelve la mercancía.`);
       return;
     }
     if (!clientId) {
-      toastError('Error', 'Selecciona un cliente.');
+      toastError('Falta el cliente', 'Selecciona a quién se le recoge la mercancía.');
       return;
     }
     const validLines = lineItems.filter(l => l.productId && l.quantity > 0);
-    if (validLines.length === 0) {
-      toastError('Error', 'Añade al menos un producto a devolver.');
-      return;
-    }
+    const fallos = problemasDevolucion({ origin, originId: originDocId, lineItems: validLines }, origenElegido);
+    setProblemas(fallos);
+    if (fallos.length) return;
 
     const client = clients.find(c => c.id === clientId);
-    if (!client) return;
+    if (!client) {
+      toastError('Cliente no disponible', 'La ficha del cliente de ese documento no está activa: actívala en Clientes para registrar la devolución.');
+      return;
+    }
     const settings = await getCompanySettings();
     const number = generateInvoiceNumber(settings.devolucionSeries || 'DEV', settings.nextDevolucionNumber || 1);
-
-    const doc = origin === 'albaran'
-      ? albaranes.find(a => a.id === originDocId)
-      : invoices.find(i => i.id === originDocId);
 
     const devolucion: Devolucion = {
       id: generateId(),
@@ -163,7 +166,7 @@ export default function DevolucionFormModal({
       series: settings.devolucionSeries || 'DEV',
       origin,
       originId: origin === 'manual' ? undefined : originDocId,
-      originNumber: origin === 'manual' ? undefined : (doc as Albaran | Invoice | undefined)?.number,
+      originNumber: origin === 'manual' ? undefined : origenElegido?.number,
       clientId: client.id,
       clientName: client.tradeName || client.businessName,
       clientNif: client.nif,
@@ -180,11 +183,18 @@ export default function DevolucionFormModal({
 
     setSaving(true);
     try {
-      const final = await createDevolucion(devolucion, { restock, generateAbono });
+      const final = await createDevolucion(devolucion, {
+        restock,
+        generateAbono: compensacion === 'abono',
+        generarRectificativa: compensacion === 'rectificativa',
+      });
       settings.nextDevolucionNumber = (settings.nextDevolucionNumber || 1) + 1;
       await saveCompanySettings(settings);
+      const r = final.rectificativa;
       onCreated(
         `Devolución ${final.number} registrada${final.status === 'abonada' ? ' con abono generado' : ''}`
+          + (r ? `. La rectificativa ${r.number} queda en borrador: emítela desde su ficha.` : ''),
+        r ? { id: r.id, number: r.number } : undefined,
       );
       onClose();
     } catch (err) {
@@ -213,6 +223,11 @@ export default function DevolucionFormModal({
         </div>
 
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+          {problemas.length > 0 && (
+            <div className="callout callout-danger devolucion-problemas" role="alert">
+              <ul>{problemas.map(p => <li key={p}>{p}</li>)}</ul>
+            </div>
+          )}
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Origen</label>
@@ -222,6 +237,8 @@ export default function DevolucionFormModal({
                 onChange={e => {
                   setOrigin(e.target.value as DevolucionOrigin);
                   setOriginDocId('');
+                  setProblemas([]);
+                  if (e.target.value !== 'factura' && compensacion === 'rectificativa') setCompensacion('nada');
                   if (e.target.value === 'manual') setLineItems([createEmptyLine()]);
                 }}
               >
@@ -240,7 +257,7 @@ export default function DevolucionFormModal({
                 >
                   <option value="">-- Seleccionar --</option>
                   {(origin === 'albaran' ? albaranes : invoices).map(d => (
-                    <option key={d.id} value={d.id}>{d.number} · {d.clientName}</option>
+                    <option key={d.id} value={d.id}>{d.number} · {d.clientName} · {d.issueDate.split('-').reverse().join('/')}</option>
                   ))}
                 </select>
               </div>
@@ -355,10 +372,34 @@ export default function DevolucionFormModal({
               <input type="checkbox" checked={restock} onChange={e => setRestock(e.target.checked)} />
               Reponer el stock de las líneas marcadas
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={generateAbono} onChange={e => setGenerateAbono(e.target.checked)} />
-              Generar abono (nota de crédito) por {formatCurrency(Number(total.toFixed(2)))} a favor del cliente
-            </label>
+            {sinConexion && restock && (
+              <p className="devolucion-aviso" role="status">
+                Sin conexión no se repone el stock: desmarca «Reponer» o regístrala cuando vuelva la conexión.
+              </p>
+            )}
+            <fieldset className="devolucion-compensa">
+              <legend>Qué se le devuelve al cliente</legend>
+              <label>
+                <input type="radio" name="compensacion" checked={compensacion === 'nada'} onChange={() => setCompensacion('nada')} />
+                <span>Solo la mercancía</span>
+              </label>
+              {origin === 'factura' && (
+                <label>
+                  <input type="radio" name="compensacion" checked={compensacion === 'rectificativa'} onChange={() => setCompensacion('rectificativa')} />
+                  <span>
+                    Factura rectificativa por −{formatCurrency(totalConImpuesto)}
+                    <small>Lo que corresponde si la factura ya está emitida: corrige la base y el impuesto. Queda en borrador para emitirla.</small>
+                  </span>
+                </label>
+              )}
+              <label>
+                <input type="radio" name="compensacion" checked={compensacion === 'abono'} onChange={() => setCompensacion('abono')} />
+                <span>
+                  Abono (nota de crédito) por {formatCurrency(totalConImpuesto)}
+                  <small>Saldo a favor del cliente para compensar otras facturas. No corrige el impuesto ya declarado.</small>
+                </span>
+              </label>
+            </fieldset>
           </div>
 
           <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
@@ -380,7 +421,8 @@ export default function DevolucionFormModal({
         }}>
           <div style={{ fontSize: 'var(--text-sm)' }}>
             <span style={{ color: 'var(--text-tertiary)' }}>Total devuelto: </span>
-            <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatCurrency(Number(total.toFixed(2)))}</strong>
+            <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatCurrency(total)}</strong>
+            <span style={{ color: 'var(--text-tertiary)' }}> · con impuesto {formatCurrency(totalConImpuesto)}</span>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>

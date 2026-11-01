@@ -228,7 +228,10 @@ export function registroAltaDesdeFila(ctx: ContextoAlta): RegistroAlta {
       ? [{
           idEmisor: registro.id_emisor,
           numSerie: factura.documento_origen_number,
-          fecha: factura.issue_date,
+          // La fecha de la factura rectificada (rectificativas.ts la guarda
+          // al crear la rectificativa). Las de antes copiaban la fecha de la
+          // original en la suya, así que para ellas vale la propia.
+          fecha: String(factura.datos_extras?.fechaFacturaRectificada ?? '') || factura.issue_date,
         }]
       : undefined,
     descripcionOperacion: descripcionDeOperacion(ctx.lineas, factura.notes),

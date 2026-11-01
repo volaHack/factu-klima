@@ -7,6 +7,8 @@ import { generateInvoiceNumber, calculateLineSubtotal, calculateLineTax, calcula
 import { getDefaultTaxRate } from './constants';
 import { vocabularioDe } from './vocabulario';
 import { serieDeTipo } from './storage';
+import { convertirCompra } from './compras';
+import { construirRectificativa, type OpcionesRectificativa } from './rectificativas';
 
 export interface TotalesDocumento { subtotal: number; totalDiscount: number; totalTax: number; total: number; }
 
@@ -493,6 +495,9 @@ export function documentoConvertido(
   settings: CompanySettings,
   opciones: OpcionesConversion = {},
 ): Invoice {
+  // Las compras tienen su cadena (pedido → recepción → factura recibida):
+  // cada documento cuelga del anterior y no se factura sin recibir.
+  if (original.sentido === 'compra') return convertirCompra(original, nuevoTipo, settings);
   const hoy = opciones.hoy ?? getToday();
   const { series, number } = opciones.serie
     ? { series: opciones.serie.serie, number: generateInvoiceNumber(opciones.serie.serie, opciones.serie.nextNumber, Number(hoy.slice(0, 4))) }
@@ -578,28 +583,14 @@ export async function actualizarContadorSerie(
   await saveCompanySettings({ ...actuales, ...deSiempre, seriesDocumentos: seriesDoc });
 }
 
-/** Crea una factura rectificativa con importes negativos a partir de una factura emitida. */
-export function rectificar(original: Invoice, settings: CompanySettings): Invoice {
-  const { series, number } = numeroDeDocumento(settings, 'rectificativa', original.sentido ?? 'venta');
-  const now = new Date().toISOString();
-  const lineItems = original.lineItems.map((li: InvoiceLineItem) => ({
-    ...li,
-    id: crypto.randomUUID(),
-    quantity: -Math.abs(li.quantity),
-  }));
-  return {
-    ...original,
-    id: crypto.randomUUID(),
-    tipo: 'rectificativa',
-    number,
-    series,
-    status: InvoiceStatus.BORRADOR,
-    documentoOrigenId: original.id,
-    documentoOrigenNumber: original.number,
-    lineItems,
-    createdAt: now,
-    updatedAt: now,
-  };
+/**
+ * Crea la factura rectificativa (por diferencias, en borrador) de una
+ * factura emitida. Lo que comprueba y lo que copia está en
+ * rectificativas.ts; con `opciones.docs` sabe además qué se ha rectificado
+ * ya y no deja rectificar dos veces lo mismo.
+ */
+export function rectificar(original: Invoice, settings: CompanySettings, opciones: OpcionesRectificativa = {}): Invoice {
+  return construirRectificativa(original, settings, opciones);
 }
 
 /** Resuelve la serie asignada al vendedor del cliente, si existe. */

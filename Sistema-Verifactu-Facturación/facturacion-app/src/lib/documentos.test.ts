@@ -119,9 +119,11 @@ describe('rectificar', () => {
       number: 'FAC-2026-0099',
       tipo: 'factura',
       sentido: 'venta',
+      status: InvoiceStatus.EMITIDA,
+      issueDate: '2026-01-10',
       lineItems: [
-        { id: 'li-1', quantity: 2, unitPrice: 50 },
-        { id: 'li-2', quantity: -1, unitPrice: 20 },
+        { id: 'li-1', quantity: 2, unitPrice: 50, taxRate: 7, discountPercent: 0 },
+        { id: 'li-2', quantity: -1, unitPrice: 20, taxRate: 7, discountPercent: 0 },
       ],
     } as any;
     const rect = rectificar(factura, settings);
@@ -129,7 +131,9 @@ describe('rectificar', () => {
     expect(rect.documentoOrigenId).toBe('fac-999');
     expect(rect.documentoOrigenNumber).toBe('FAC-2026-0099');
     expect(rect.lineItems[0].quantity).toBe(-2);
-    expect(rect.lineItems[1].quantity).toBe(-1);
+    // La línea que ya era negativa se deshace en positivo: la rectificativa
+    // entera resta lo que sumó la original (80 €), no 120.
+    expect(rect.lineItems[1].quantity).toBe(1);
     expect(rect.number).toMatch(/^FCR-\d{4}-\d{4}$/);
   });
 });

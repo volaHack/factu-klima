@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { Plus, Search, RotateCcw, ReceiptText, Ban, CreditCard, SearchX, FileWarning, X } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
@@ -36,6 +37,9 @@ export default function DevolucionesAbonosPage() {
   const [showDevolucionForm, setShowDevolucionForm] = useState(false);
   const [showAbonoForm, setShowAbonoForm] = useState(false);
   const [applyAbono, setApplyAbono] = useState<Abono | null>(null);
+  // La rectificativa que acaba de salir de una devolución: queda en
+  // borrador y hay que emitirla desde su ficha, así que se ofrece abrirla.
+  const [rectificativa, setRectificativa] = useState<{ id: string; number: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -140,6 +144,18 @@ export default function DevolucionesAbonosPage() {
         </div>
       </div>
 
+      {rectificativa && (
+        <div className="callout callout-warning devolucion-rectificativa" role="status">
+          <FileWarning size={16} />
+          <div>
+            <strong>La rectificativa {rectificativa.number} está en borrador</strong>
+            <p>Revísala y emítela desde su ficha: hasta entonces no corrige la factura. Emitir necesita conexión.</p>
+          </div>
+          <Link href={`/facturas/${rectificativa.id}`} className="btn btn-primary btn-sm">Abrir la rectificativa</Link>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => setRectificativa(null)} aria-label="Cerrar el aviso"><X size={14} /></button>
+        </div>
+      )}
+
       {/* Pestañas: los mismos segmentos que Clientes y Productos. Antes
           la pestaña elegida era un botón de acento y competía con
           «Registrar devolución», que es lo que de verdad hace algo. */}
@@ -186,6 +202,7 @@ export default function DevolucionesAbonosPage() {
                 <th>Nº Devolución</th>
                 <th>Cliente</th>
                 <th>Fecha</th>
+                <th>Origen</th>
                 <th>Motivo</th>
                 <th>Estado</th>
                 <th style={{ textAlign: 'right' }}>Total</th>
@@ -197,6 +214,7 @@ export default function DevolucionesAbonosPage() {
                   <td className="mono primary">{d.number}</td>
                   <td className="primary">{d.clientName}</td>
                   <td>{formatDate(d.issueDate)}</td>
+                  <td className="mono">{d.originNumber ?? 'Sin documento'}</td>
                   <td>
                     <span className="badge badge-neutral">
                       <span className="badge-dot" />
@@ -214,7 +232,7 @@ export default function DevolucionesAbonosPage() {
               ))}
               {devFiltradas.length === 0 && (
                 <TableEmpty
-                  colSpan={6}
+                  colSpan={7}
                   icon={search ? SearchX : RotateCcw}
                   title={search ? 'Ninguna devolución coincide con la búsqueda' : 'Todavía no hay devoluciones'}
                   hint={
@@ -332,7 +350,7 @@ export default function DevolucionesAbonosPage() {
           clients={clients}
           products={products}
           onClose={() => setShowDevolucionForm(false)}
-          onCreated={msg => { success('Operación realizada', msg); reload(); }}
+          onCreated={(msg, rect) => { success('Devolución registrada', msg); setRectificativa(rect ?? null); reload(); }}
         />
       )}
 

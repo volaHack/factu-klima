@@ -14,6 +14,7 @@
 import { getInvoices, getClients, getGastos, getCompanySettings } from '../storage';
 import type { Invoice, Gasto, Client, CompanySettings } from '../types';
 import { isFactura } from '../documentos';
+import { fechaDeRegistro } from '../compras';
 
 export interface DatosFiscales {
   facturas: Invoice[];
@@ -37,12 +38,25 @@ export async function cargarDatosFiscales(ejercicio: number): Promise<DatosFisca
     getCompanySettings(),
   ]);
 
+  // Las facturas recibidas (de compra) también: `isFactura` es solo para
+  // las de venta, y sin las de compra el 420 y el 303 de esta pantalla
+  // salían sin el impuesto soportado de los proveedores. Una recibida
+  // entra por su fecha o por la de registro: la de diciembre registrada en
+  // enero se deduce en el ejercicio siguiente.
+  const delEjercicio = (fecha?: string) => fecha?.slice(0, 4) === String(ejercicio);
   return {
-    facturas: facturas.filter(f => f.issueDate?.slice(0, 4) === String(ejercicio) && isFactura(f)),
+    facturas: facturas.filter(f => esRecibida(f)
+      ? delEjercicio(f.issueDate) || delEjercicio(fechaDeRegistro(f))
+      : delEjercicio(f.issueDate) && isFactura(f)),
     gastos: gastos.filter(g => g.fecha?.slice(0, 4) === String(ejercicio)),
     clientes,
     empresa,
   };
+}
+
+/** Una factura recibida: factura o rectificativa de compra. */
+export function esRecibida(f: Pick<Invoice, 'sentido' | 'tipo'>): boolean {
+  return f.sentido === 'compra' && (f.tipo === 'factura' || f.tipo === 'rectificativa');
 }
 
 /**

@@ -171,6 +171,10 @@ export interface DocumentoParaCostes {
   tipo?: string;
   sentido?: string;
   status: string;
+  /** Los descuentos al pie: también abaratan lo comprado. */
+  globalDiscountPercent1?: number;
+  globalDiscountPercent2?: number;
+  globalDiscountPercent3?: number;
   lineItems: {
     id: string;
     productId: string;
@@ -191,26 +195,32 @@ export interface AjusteParaCostes {
 }
 
 /**
- * Qué documentos mueven existencias de verdad.
+ * Qué documentos mueven existencias de verdad: los mismos que mueven el
+ * stock en la base de datos (fn_stock_signo_documento, migración 074). Si
+ * aquí se contara otra cosa, el precio medio reconstruido y el stock de la
+ * ficha contarían historias distintas.
  *
- * Un presupuesto y un pedido no: son intenciones, y hasta que no sale el
- * género del almacén no hay nada que costear. Un albarán sí, en cuanto se
- * expide, que es cuando la mercancía se mueve físicamente.
+ * Un presupuesto y un pedido no: son intenciones. Un albarán sí, en cuanto
+ * deja de ser borrador (recibido, expedido o ya facturado: facturarlo no
+ * devuelve el género). Una rectificativa no: las devoluciones reponen el
+ * stock aparte, y contarla aquí, con la cantidad en positivo, la convertía
+ * en otra venta.
  *
- * Las facturas NO cuentan aquí a propósito, aunque lleven las mismas líneas:
- * casi siempre nacen de un albarán ya expedido y contarlas dos veces
- * duplicaría las salidas. Una factura directa sin albarán sí cuenta, porque
- * entonces es ella la que saca el género.
+ * Las facturas que nacen de un albarán NO cuentan, aunque lleven las mismas
+ * líneas: el género lo movió el albarán. Eso lo decide `movimientosDeProducto`
+ * con `vieneDeAlbaran`. Una factura directa sin albarán sí cuenta.
  */
+const NO_MUEVEN: readonly string[] = ['borrador', 'pre_aprobacion', 'rechazado', 'anulada'];
+
 export function moviemientosDeDocumento(doc: DocumentoParaCostes, productId: string): MovimientoCoste[] {
   const tipo = doc.tipo ?? 'factura';
   const esCompra = (doc.sentido ?? 'venta') === 'compra';
 
-  if (tipo === 'presupuesto' || tipo === 'pedido') return [];
-  if (tipo === 'albaran' && doc.status !== 'expedido') return [];
-  if (tipo === 'factura' || tipo === 'rectificativa') {
-    if (doc.status === 'borrador' || doc.status === 'anulada') return [];
-  }
+  if (tipo !== 'albaran' && tipo !== 'factura') return [];
+  if (NO_MUEVEN.includes(doc.status)) return [];
+  const pie = (1 - (doc.globalDiscountPercent1 || 0) / 100)
+    * (1 - (doc.globalDiscountPercent2 || 0) / 100)
+    * (1 - (doc.globalDiscountPercent3 || 0) / 100);
 
   return doc.lineItems
     .filter(li => li.productId === productId && li.quantity !== 0)
@@ -218,7 +228,7 @@ export function moviemientosDeDocumento(doc: DocumentoParaCostes, productId: str
       fecha: doc.issueDate,
       tipo: esCompra ? ('compra' as const) : ('venta' as const),
       cantidad: Math.abs(li.quantity),
-      precio: esCompra ? precioNeto(li) : undefined,
+      precio: esCompra ? precioNeto(li) * pie : undefined,
       referencia: `${doc.number}#${li.id}`,
     }));
 }

@@ -286,7 +286,9 @@ describe('Devoluciones', () => {
     expect(final.abonoId).toBeDefined();
     expect(store.abonos).toHaveLength(1);
     expect(store.abonos[0].number).toBe(`ABO-${year}-0001`);
-    expect(store.abonos[0].total).toBe(30);
+    // Con su impuesto: 30 € de base al 21 %. El abono es lo que pagó el
+    // cliente por lo que devuelve, no solo la base (ver lib/devoluciones.ts).
+    expect(store.abonos[0].total).toBe(36.3);
     expect(store.abonos[0].devolucion_id).toBe('dev-1');
     expect(store.devoluciones[0].status).toBe('abonada');
     expect(store.company_settings[0].next_abono_number).toBe(2);

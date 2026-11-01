@@ -30,6 +30,7 @@ import type { Invoice, Gasto, CompanySettings } from '../../types';
 import type { ErrorValidacion, PeriodoFiscal, ResultadoValidacion } from '../tipos';
 import {
   desglosarPorTipo,
+  comprasDelPeriodo,
   enPeriodo,
   facturaCuenta,
   redondear,
@@ -111,9 +112,10 @@ export function calcularModelo420(datos: DatosModelo420, periodo: PeriodoFiscal)
   const totalRepercutido = redondear(repercutido.reduce((s, d) => s + d.cuota, 0));
 
   // Soportado por tipo: los gastos guardan un solo tipo por gasto; las
-  // facturas de compra traen su desglose (antes no se contaban).
+  // facturas de compra traen su desglose (antes no se contaban), y entran
+  // en el trimestre en que se registraron (ver comprasDelPeriodo).
   const porTipo = new Map<number, LineaIgicSoportado>();
-  const compras = datos.facturas.filter(f => f.sentido === 'compra' && facturaCuenta(f) && enPeriodo(f.issueDate, periodo));
+  const compras = comprasDelPeriodo(datos.facturas, periodo);
   for (const d of desglosarPorTipo(compras)) {
     const linea = porTipo.get(d.tipo) || { tipo: d.tipo, base: 0, cuotaSoportada: 0, cuotaDeducible: 0 };
     linea.base = redondear(linea.base + d.base);

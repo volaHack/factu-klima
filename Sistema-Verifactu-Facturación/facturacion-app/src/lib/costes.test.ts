@@ -193,3 +193,41 @@ describe('qué documentos mueven existencias', () => {
     expect(movs[0].precio).toBeUndefined();
   });
 });
+
+describe('lo mismo que mueve la base de datos (074)', () => {
+  const doc = (extra: Partial<DocumentoParaCostes>): DocumentoParaCostes => ({
+    id: 'd1', number: 'X-1', issueDate: '2026-01-10', status: 'expedido',
+    lineItems: [{ id: 'l1', productId: 'p1', quantity: 10, unitPrice: 3 }],
+    ...extra,
+  });
+
+  it('un albarán de compra ya facturado sigue contando como entrada', () => {
+    // Antes solo contaba «expedido»: al facturarlo, la compra desaparecía
+    // del histórico (y su factura tampoco cuenta, porque viene del albarán).
+    expect(moviemientosDeDocumento(doc({ tipo: 'albaran', sentido: 'compra', status: 'facturado' }), 'p1')).toHaveLength(1);
+    expect(moviemientosDeDocumento(doc({ tipo: 'albaran', sentido: 'compra', status: 'emitida' }), 'p1')).toHaveLength(1);
+  });
+
+  it('un albarán anulado no cuenta', () => {
+    expect(moviemientosDeDocumento(doc({ tipo: 'albaran', status: 'anulada' }), 'p1')).toEqual([]);
+  });
+
+  it('una rectificativa no mueve existencias (las devoluciones reponen aparte)', () => {
+    // Antes contaba como otra venta con la cantidad en positivo: una
+    // devolución SACABA género en el histórico.
+    const rect = doc({ tipo: 'rectificativa', status: 'emitida', lineItems: [{ id: 'l1', productId: 'p1', quantity: -2, unitPrice: 3 }] });
+    expect(moviemientosDeDocumento(rect, 'p1')).toEqual([]);
+  });
+
+  it('ni una factura en pre-aprobación o rechazada', () => {
+    expect(moviemientosDeDocumento(doc({ tipo: 'factura', status: 'pre_aprobacion' }), 'p1')).toEqual([]);
+    expect(moviemientosDeDocumento(doc({ tipo: 'factura', status: 'rechazado' }), 'p1')).toEqual([]);
+  });
+
+  it('el coste de compra lleva también los descuentos al pie', () => {
+    // Un 5 % de pronto pago en la factura del proveedor abarata lo comprado.
+    const compra = doc({ sentido: 'compra', tipo: 'albaran', globalDiscountPercent1: 5,
+      lineItems: [{ id: 'l1', productId: 'p1', quantity: 10, unitPrice: 10, discountPercent: 10 }] });
+    expect(moviemientosDeDocumento(compra, 'p1')[0].precio).toBeCloseTo(8.55, 4);
+  });
+});
