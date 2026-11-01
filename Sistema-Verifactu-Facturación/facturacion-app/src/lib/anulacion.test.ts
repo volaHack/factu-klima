@@ -17,6 +17,16 @@ function doc(over: Partial<Invoice>): Invoice {
   };
 }
 
+describe('el estado que se ve', () => {
+  it('un albarán recibido o facturado no sale como «Borrador»', async () => {
+    // getStatusInfo caía en el primero de la lista (Borrador) con los dos
+    // estados de albarán, y tras recibir o facturar parecía sin hacer.
+    const { getStatusInfo } = await import('./utils');
+    expect(getStatusInfo(InvoiceStatus.EXPEDIDO).label).toBe('Expedido');
+    expect(getStatusInfo(InvoiceStatus.FACTURADO).label).toBe('Facturado');
+  });
+});
+
 describe('anular un albarán', () => {
   const alb = doc({ id: 'alb', number: 'ALB-7' });
   it('ya facturado, no: primero la factura (si no, el stock vuelve y la factura sigue)', () => {

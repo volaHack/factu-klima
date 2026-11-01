@@ -36,6 +36,15 @@
   line-height: 1.5;
 }
 
+/* Las líneas de la devolución tienen seis columnas, no las siete de una
+   factura: con la rejilla de factura el artículo quedaba sin sitio y no se
+   leía qué se devolvía. */
+.devolucion-lineas .line-items-header,
+.devolucion-lineas .line-item-row {
+  grid-template-columns: minmax(0, 1fr) 80px 100px 100px 64px 36px;
+}
+.devolucion-producto { min-width: 0; }
+
 .devolucion-aviso {
   margin: 0;
   font-size: var(--text-xs);
@@ -94,6 +103,8 @@
 }
 
 @media (max-width: 640px) {
+  .devolucion-lineas .line-item-row { grid-template-columns: 1fr 1fr; }
+  .devolucion-lineas .devolucion-producto { grid-column: 1 / -1; }
   .rectificar-lineas th:nth-child(2),
   .rectificar-lineas td:nth-child(2) { display: none; }
   .rectificar-lineas input { width: 4.5rem; }

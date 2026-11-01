@@ -313,7 +313,7 @@ export default function DevolucionFormModal({
 
           <div style={{ marginTop: 'var(--space-4)' }}>
             <label className="form-label required">Líneas devueltas</label>
-            <div className="line-items">
+            <div className="line-items devolucion-lineas">
               <div className="line-items-header">
                 <span>Producto</span>
                 <span>Cantidad</span>
@@ -324,13 +324,15 @@ export default function DevolucionFormModal({
               </div>
               {lineItems.map((line, index) => (
                 <div className="line-item-row" key={line.id}>
-                  <BuscadorProducto
-                    products={products}
-                    value={line.productId}
-                    onSelect={id => handleProductSelect(index, id)}
-                    ariaLabel={`Producto de la línea ${index + 1}`}
-                    placeholder="Buscar producto"
-                  />
+                  <div className="devolucion-producto">
+                    <BuscadorProducto
+                      products={products}
+                      value={line.productId}
+                      onSelect={id => handleProductSelect(index, id)}
+                      ariaLabel={`Producto de la línea ${index + 1}`}
+                      placeholder="Buscar producto"
+                    />
+                  </div>
                   <input
                     type="number"
                     min={0}
