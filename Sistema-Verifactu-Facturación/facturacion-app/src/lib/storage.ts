@@ -29,11 +29,15 @@ import {
 import { tipoFiscalAlEmitir } from './verifactu/tipoAlEmitir';
 import { problemasParaEmitir, resumenDeErrores } from './validation/identidad';
 import { escribirQuitandoColumnasQueFaltan } from './columnasQueFaltan';
+import { agruparPendientes, type Periodo } from './albaranes/facturacionPeriodo';
 import {
-  agruparPendientes, lineasDelGrupo, notaDelGrupo, type GrupoAFacturar, type Periodo,
-} from './albaranes/facturacionPeriodo';
+  ErrorAlFacturar, albaranesDeLaFactura, desdeAlbaran, desdeDocumento, explicarRechazados, facturaDelGrupo,
+  facturaQueRecoge, impuestoQueNoCasa, planDeFacturas, revisarSeleccion, siguienteNumeroDeFactura,
+  type AlbaranParaFacturar, type GrupoFactura,
+} from './albaranes/aFactura';
+import { impuestoDeEmpresa } from './impuesto';
 import { DEFAULT_APPROVAL_EXPIRY_HOURS, DEFAULT_COMPANY_SETTINGS, DEFAULT_IGIC_RATES, DEFAULT_IVA_RATES, DEFAULT_SERIES_DOCUMENTOS, SECTOR_DEFAULT_CATEGORIES, defaultTpvModeForSector } from './constants';
-import { addDays, calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
+import { calculateInvoiceTotals, formatCurrency, generateId, generateInvoiceNumber, sequenceFromNumber } from './utils';
 import { expectedCashForSession } from './tpvOffline';
 import { lineasConCustomCols } from './plantillas/datos';
 import { registrarActividad } from './perfilesCliente';
@@ -855,6 +859,8 @@ export async function cancelInvoice(id: string, reason: string): Promise<void> {
 
   if (error) throw new Error(translateDbError(error));
   void import('./facturaElectronica/almacen').then(m => m.comunicarAnulacion(id, reason.trim())).catch(() => {});
+  // Si recogía albaranes, vuelven a poder facturarse (ver soltarAlbaranesDeFactura).
+  await soltarAlbaranesDeFactura(id).catch(err => console.warn('[albaranes] No se pudieron soltar los albaranes', err));
   await refreshInvoicesFromSupabase();
   notifyDataUpdate('invoices');
   refrescarStock();
@@ -876,11 +882,16 @@ export async function deleteInvoice(id: string): Promise<void> {
     throw new Error('Eliminar un borrador requiere conexión.');
   }
 
+  // Los albaranes que recogía, antes de borrarla: después ya no se sabe.
+  const recoge = await albaranesQueRecoge(id).catch(() => undefined);
   const { error } = await supabase().from('invoices').delete().eq('id', id);
   if (error) throw new Error(translateDbError(error));
 
   if (await isOfflineDbAvailable()) {
     await removeFromDb('invoices', id);
+  }
+  if (recoge) {
+    await soltarAlbaranesDeFactura(id, { borrada: true, recoge }).catch(err => console.warn('[albaranes] No se pudieron soltar los albaranes', err));
   }
 
   notifyDataUpdate('invoices');
@@ -2356,23 +2367,65 @@ export async function anularAlbaran(id: string, motivo?: string): Promise<Albara
   notifyDataUpdate('albaranes');
   return updated;
 }
+// ============================================================
+// FACTURAR ALBARANES
+// ============================================================
+//
+// Los dos caminos —la pantalla Albaranes (tabla `albaranes`) y los
+// albaranes de venta de Documentos (`invoices` con tipo 'albaran')— pasan
+// por `facturarAlbaranes`. Qué factura sale lo decide albaranes/aFactura.ts;
+// aquí está lo que toca la base de datos:
+//
+//   · un cerrojo por albarán: un doble clic (o dos pestañas del mismo
+//     equipo) no hace dos facturas de lo mismo;
+//   · con conexión, el estado se lee del servidor y no de la copia de este
+//     equipo, y cada albarán se «reserva» con una escritura condicionada
+//     (sólo si sigue expedido y sin factura). Si otro equipo se lo llevó
+//     entre medias, la factura recién creada se quita y no queda nada a
+//     medias;
+//   · sin conexión, la copia de este equipo y la cola, como cualquier otro
+//     borrador;
+//   · las facturas nacen BORRADOR. Emitir es otro paso, con el servidor
+//     delante (emitirFactura), y se hace desde cada factura.
+
+const albaranesFacturandose = new Set<string>();
+
+async function conCerrojo<T>(ids: string[], trabajo: () => Promise<T>): Promise<T> {
+  if (ids.some(id => albaranesFacturandose.has(id))) {
+    throw new ErrorAlFacturar('Esos albaranes ya se están facturando. Espera a que termine.');
+  }
+  ids.forEach(id => albaranesFacturandose.add(id));
+  try {
+    return await trabajo();
+  } finally {
+    ids.forEach(id => albaranesFacturandose.delete(id));
+  }
+}
+
 /**
- * Convierte albaranes EXPEDIDOS en facturas borrador.
- * - Si todos los albaranes son del mismo cliente, genera una única factura.
- * - Si hay varios clientes, genera una factura por cliente (facturación
- *   agrupada: todos los albaranes del mes de un cliente van a una factura).
- * Cada albarán queda con estado 'facturado' y enlazado a su factura.
+ * Factura albaranes de la pantalla Albaranes: una factura borrador por
+ * cliente. Si alguno de los elegidos no se puede facturar, no se factura
+ * ninguno y el error dice cuál y por qué.
  */
 export async function convertirAlbaranesAFactura(albaranIds: string[]): Promise<Invoice[]> {
-  if (albaranIds.length === 0) return [];
+  const ids = [...new Set(albaranIds)];
+  if (ids.length === 0) return [];
+  return conCerrojo(ids, async () => {
+    const [albaranes, facturas] = await Promise.all([getAlbaranes(), getInvoices()]);
+    const elegidos = albaranes.filter(a => ids.includes(a.id)).map(a => desdeAlbaran(a, facturas));
+    return facturarAlbaranes(ids, elegidos, facturas);
+  });
+}
 
-  const all = await getAlbaranes();
-  const grupos = agruparPendientes(all.filter(a => albaranIds.includes(a.id)));
-
-  if (grupos.length === 0) {
-    throw new Error('No hay albaranes expedidos en la selección.');
-  }
-  return facturarGruposDeAlbaranes(grupos);
+/** Lo mismo con los albaranes de venta de Documentos. */
+export async function convertirDocumentosAlbaranAFactura(documentoIds: string[]): Promise<Invoice[]> {
+  const ids = [...new Set(documentoIds)];
+  if (ids.length === 0) return [];
+  return conCerrojo(ids, async () => {
+    const documentos = await getInvoices();
+    const elegidos = documentos.filter(d => ids.includes(d.id)).map(d => desdeDocumento(d, documentos));
+    return facturarAlbaranes(ids, elegidos, documentos);
+  });
 }
 
 /**
@@ -2385,57 +2438,282 @@ export async function facturarAlbaranesDelPeriodo(periodo: Periodo, claves?: str
   if (grupos.length === 0) {
     throw new Error('No hay albaranes expedidos pendientes de facturar en esas fechas.');
   }
-  return facturarGruposDeAlbaranes(grupos);
+  return convertirAlbaranesAFactura(grupos.flatMap(g => g.albaranes.map(a => a.id)));
 }
 
-async function facturarGruposDeAlbaranes(grupos: GrupoAFacturar[]): Promise<Invoice[]> {
+function hoyLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function facturarAlbaranes(
+  pedidos: string[],
+  elegidos: AlbaranParaFacturar[],
+  conocidas: Invoice[],
+): Promise<Invoice[]> {
+  const faltan = pedidos.length - elegidos.length;
+  if (faltan > 0) {
+    throw new ErrorAlFacturar(`No se ${faltan === 1 ? 'encuentra uno' : `encuentran ${faltan}`} de los albaranes elegidos. Recarga la lista y vuelve a probar.`);
+  }
+
+  const frescos = navigator.onLine ? await conEstadoDelServidor(elegidos, conocidas) : elegidos;
+  const { facturables, rechazados } = revisarSeleccion(frescos);
+  if (rechazados.length > 0) {
+    throw new ErrorAlFacturar(`No se ha facturado nada: ${explicarRechazados(rechazados)}. Quítalos de la selección y vuelve a probar.`);
+  }
+
+  const plan = planDeFacturas(facturables);
   const settings = await getCompanySettings();
-  const invoices: Invoice[] = [];
+  const noCasa = impuestoQueNoCasa(plan.grupos, impuestoDeEmpresa(settings));
+  if (noCasa) throw new ErrorAlFacturar(noCasa);
 
-  for (const grupo of grupos) {
-    const numero = generateInvoiceNumber(settings.invoiceSeries, settings.nextInvoiceNumber);
-    const lineItems = lineasDelGrupo(grupo, generateId);
-    const totals = calculateInvoiceTotals(lineItems);
-    const issueDate = new Date().toISOString().split('T')[0];
-    const now = new Date().toISOString();
+  const { serieParaCliente, actualizarContadorSerie } = await import('./documentos');
+  const hoy = hoyLocal();
+  const anio = Number(hoy.slice(0, 4));
+  const ahora = new Date().toISOString();
+  const yaNumeradas: Invoice[] = [...conocidas];
+  const creadas: Invoice[] = [];
 
-    const invoice: Invoice = {
-      id: generateId(),
-      number: numero,
-      series: settings.invoiceSeries,
-      clientId: grupo.clientId,
-      clientName: grupo.clientName,
-      clientNif: grupo.clientNif,
-      clientAddress: grupo.clientAddress,
-      issueDate,
-      dueDate: addDays(issueDate, settings.defaultPaymentDays),
-      status: InvoiceStatus.BORRADOR,
-      lineItems,
-      ...totals,
-      paymentMethod: settings.defaultPaymentMethod,
-      notes: notaDelGrupo(grupo),
-      createdAt: now,
-      updatedAt: now,
-    };
+  for (const grupo of plan.grupos) {
+    try {
+      const cliente = grupo.clientId ? await getClientById(grupo.clientId).catch(() => undefined) : undefined;
+      // La serie del comercial del cliente manda, como en Documentos.
+      const deVendedor = grupo.clientId
+        ? await serieParaCliente(grupo.clientId, 'factura', 'venta').catch(() => null)
+        : null;
+      const { serie, numero } = deVendedor
+        ? { serie: deVendedor.serie, numero: generateInvoiceNumber(deVendedor.serie, deVendedor.nextNumber, anio) }
+        : siguienteNumeroDeFactura(settings, yaNumeradas, anio);
 
-    const savedInvoice = await saveInvoice(invoice);
-    settings.nextInvoiceNumber = sequenceFromNumber(savedInvoice.number) + 1;
-    invoices.push(savedInvoice);
+      const factura = facturaDelGrupo(grupo, { cliente, ajustes: settings, serie, numero, hoy, ahora, nuevoId: generateId });
+      const guardada = await saveInvoice(factura);
+      try {
+        await marcarFacturados(grupo, guardada);
+      } catch (err) {
+        await quitarFacturaAMedias(guardada.id);
+        throw err;
+      }
+      creadas.push(guardada);
+      yaNumeradas.push(guardada);
 
-    for (const a of grupo.albaranes) {
-      await saveAlbaran({
-        ...a,
-        status: 'facturado',
-        invoiceId: savedInvoice.id,
-        updatedAt: now,
-      });
+      // Los dos contadores de la serie de facturas, al número que de verdad
+      // se guardó (saveInvoice lo cambia si el previsto ya estaba usado).
+      if (!deVendedor) {
+        const siguiente = sequenceFromNumber(guardada.number) + 1;
+        if (guardada.series === settings.invoiceSeries) {
+          settings.nextInvoiceNumber = Math.max(settings.nextInvoiceNumber || 1, siguiente);
+        }
+        const fv = settings.seriesDocumentos?.factura_venta;
+        if (fv?.serie === guardada.series) {
+          await actualizarContadorSerie(settings, 'factura_venta', guardada.number);
+          settings.seriesDocumentos = { ...settings.seriesDocumentos, factura_venta: { ...fv, nextNumber: Math.max(fv.nextNumber, siguiente) } };
+        } else {
+          await saveCompanySettings(settings);
+        }
+      }
+    } catch (err) {
+      const motivo = err instanceof Error ? err.message : String(err);
+      notifyDataUpdate('albaranes');
+      notifyDataUpdate('invoices');
+      throw new ErrorAlFacturar(
+        creadas.length > 0
+          ? `${motivo} Las ${creadas.length === 1 ? 'factura anterior sí se ha' : `${creadas.length} facturas anteriores sí se han`} creado.`
+          : motivo,
+        creadas,
+      );
     }
   }
 
-  await saveCompanySettings(settings);
   notifyDataUpdate('albaranes');
   notifyDataUpdate('invoices');
-  return invoices;
+  return creadas;
+}
+
+const ESTADO_EN_SERVIDOR: Record<string, AlbaranParaFacturar['estado']> = {
+  borrador: 'borrador', expedido: 'expedido', facturado: 'facturado', anulado: 'anulado', anulada: 'anulado',
+};
+
+/**
+ * Con conexión manda lo que dice el servidor: la copia de este equipo
+ * puede ir por detrás (otro equipo lo facturó hace un rato y aquí aún no
+ * ha llegado). Si el servidor no contesta, se sigue con la copia: la
+ * reserva de después vuelve a comprobarlo.
+ */
+async function conEstadoDelServidor(lista: AlbaranParaFacturar[], conocidas: Invoice[]): Promise<AlbaranParaFacturar[]> {
+  try {
+    const deTabla = lista.filter(a => a.origen === 'albaran').map(a => a.id);
+    const deDocumentos = lista.filter(a => a.origen === 'documento').map(a => a.id);
+    const estado = new Map<string, { status: string; invoice_id?: string | null }>();
+    const recogidos = new Map<string, { id: string; number: string }>();
+
+    if (deTabla.length > 0) {
+      const { data, error } = await porTrozos(deTabla, trozo => supabase().from('albaranes').select('id, status, invoice_id').in('id', trozo));
+      if (error) throw error;
+      for (const r of (data ?? []) as Array<{ id: string; status: string; invoice_id: string | null }>) estado.set(r.id, r);
+    }
+    if (deDocumentos.length > 0) {
+      const { data, error } = await porTrozos(deDocumentos, trozo => supabase().from('invoices').select('id, status').in('id', trozo));
+      if (error) throw error;
+      for (const r of (data ?? []) as Array<{ id: string; status: string }>) estado.set(r.id, r);
+      // La factura que se hizo desde la ficha del albarán lo apunta como origen.
+      const { data: facturas } = await porTrozos(deDocumentos, trozo => supabase().from('invoices')
+        .select('id, number, documento_origen_id').in('documento_origen_id', trozo).eq('tipo', 'factura').neq('status', InvoiceStatus.ANULADA));
+      for (const f of (facturas ?? []) as Array<{ id: string; number: string; documento_origen_id: string }>) {
+        recogidos.set(f.documento_origen_id, { id: f.id, number: f.number });
+      }
+    }
+
+    return lista.map(a => {
+      const s = estado.get(a.id);
+      if (!s) return a;
+      let nuevo = ESTADO_EN_SERVIDOR[s.status] ?? 'otro';
+      let factura = a.factura;
+      if (a.origen === 'albaran' && s.invoice_id) {
+        factura = { id: s.invoice_id, number: conocidas.find(f => f.id === s.invoice_id)?.number ?? '' };
+      }
+      const recoge = recogidos.get(a.id);
+      if (a.origen === 'documento' && recoge) factura = recoge;
+      if (nuevo === 'expedido' && a.factura && a.origen === 'documento') nuevo = 'facturado';
+      if (nuevo === 'expedido' && recoge) nuevo = 'facturado';
+      return { ...a, estado: nuevo, factura };
+    });
+  } catch {
+    return lista;
+  }
+}
+
+/**
+ * Marca los albaranes del grupo como facturados por `factura`.
+ *
+ * Con conexión, con una escritura condicionada: sólo los que siguen
+ * expedidos (y, en la tabla, sin factura). Si alguno ya no lo estaba, otro
+ * equipo se lo ha llevado; los que sí se marcaron se devuelven y se avisa.
+ */
+async function marcarFacturados(grupo: GrupoFactura, factura: Invoice): Promise<void> {
+  const ids = grupo.albaranes.map(a => a.id);
+  const deTabla = grupo.origen === 'albaran';
+
+  if (!navigator.onLine) {
+    for (const a of grupo.albaranes) {
+      if (deTabla) {
+        await saveAlbaran({ ...(a.fuente as Albaran), status: 'facturado', invoiceId: factura.id, updatedAt: factura.updatedAt });
+      } else {
+        await saveDocumento({ ...(a.fuente as Invoice), status: InvoiceStatus.FACTURADO, updatedAt: factura.updatedAt });
+      }
+    }
+    return;
+  }
+
+  const tabla = deTabla ? 'albaranes' : 'invoices';
+  const cambio = deTabla ? { status: 'facturado', invoice_id: factura.id } : { status: InvoiceStatus.FACTURADO };
+  const consulta = supabase().from(tabla).update(cambio).in('id', ids).eq('status', 'expedido');
+  const { data, error } = await (deTabla ? consulta.is('invoice_id', null) : consulta.eq('tipo', 'albaran')).select('id');
+  if (error) throw new Error(translateDbError(error));
+
+  const reservados = ((data ?? []) as Array<{ id: string }>).map(r => r.id);
+  if (reservados.length < ids.length) {
+    if (reservados.length > 0) {
+      const devolver = supabase().from(tabla)
+        .update(deTabla ? { status: 'expedido', invoice_id: null } : { status: InvoiceStatus.EXPEDIDO })
+        .in('id', reservados);
+      await (deTabla ? devolver.eq('invoice_id', factura.id) : devolver.eq('status', InvoiceStatus.FACTURADO));
+    }
+    const otros = grupo.albaranes.filter(a => !reservados.includes(a.id)).map(a => a.number);
+    throw new Error(`Mientras tanto, otro equipo ha facturado ${otros.join(', ')}. No se ha creado la factura de ${grupo.clientName || 'ese cliente'}: recarga la lista.`);
+  }
+
+  // La copia de este equipo, igual que el servidor.
+  if (await isOfflineDbAvailable()) {
+    for (const id of ids) {
+      const fila = await getById<Record<string, unknown>>(tabla, id);
+      if (fila) await put(tabla, { ...fila, ...cambio });
+    }
+  }
+}
+
+/**
+ * Quita la factura borrador recién creada cuando sus albaranes no se han
+ * podido marcar. Va directo, sin `deleteInvoice`: aquél devuelve a
+ * «expedido» los albaranes de la factura, y éstos los tiene otro equipo.
+ */
+async function quitarFacturaAMedias(id: string): Promise<void> {
+  try {
+    if (navigator.onLine) {
+      await supabase().from('invoices').delete().eq('id', id);
+    } else {
+      await enqueueSyncAction('delete', 'invoices', { id });
+    }
+    if (await isOfflineDbAvailable()) await removeFromDb('invoices', id);
+  } catch (err) {
+    console.warn('[albaranes] No se pudo quitar la factura a medias', id, err);
+  }
+}
+
+/** Los albaranes que recoge una factura: los que ella apunta y los que la apuntan a ella. */
+async function albaranesQueRecoge(facturaId: string): Promise<{ tabla: string[]; documentos: string[] }> {
+  const factura = await getInvoiceById(facturaId).catch(() => undefined);
+  const refs = factura ? albaranesDeLaFactura(factura) : [];
+  const tabla = new Set(refs.filter(r => r.origen === 'albaran').map(r => r.id));
+  const documentos = new Set(refs.filter(r => r.origen === 'documento').map(r => r.id));
+  // Las facturas de antes no apuntan sus albaranes: el enlace está en el albarán.
+  if (navigator.onLine) {
+    const { data } = await supabase().from('albaranes').select('id').eq('invoice_id', facturaId);
+    for (const r of (data ?? []) as Array<{ id: string }>) tabla.add(r.id);
+  }
+  return { tabla: [...tabla], documentos: [...documentos] };
+}
+
+/**
+ * Cuando una factura de albaranes deja de valer, sus albaranes vuelven a
+ * «expedido» y se pueden facturar otra vez.
+ *
+ *   · Anulada: la factura no debió emitirse (Veri*Factu registra la
+ *     anulación), pero la mercancía se entregó y hay que facturarla. Sin
+ *     esto, esas entregas se quedaban «facturadas» por una factura que ya
+ *     no existe a efectos fiscales y no había forma de volver a cobrarlas.
+ *   · Borrada (un borrador): igual. La base de datos ya dejaba el enlace
+ *     vacío al borrarla, pero el albarán seguía «facturado».
+ *   · Rectificada: NO. La factura original sigue valiendo; la
+ *     rectificativa corrige importes (o devuelve mercancía), y la entrega
+ *     sigue facturada en la original.
+ *
+ * El stock no cambia: el albarán lo movió al expedirse y lo sigue
+ * teniendo movido.
+ */
+export async function soltarAlbaranesDeFactura(
+  facturaId: string,
+  opciones: { borrada?: boolean; recoge?: { tabla: string[]; documentos: string[] } } = {},
+): Promise<void> {
+  if (!navigator.onLine) return;
+  const { tabla, documentos } = opciones.recoge ?? await albaranesQueRecoge(facturaId);
+  const offlineAvail = await isOfflineDbAvailable();
+  const alDia = async (t: string, filas: unknown, cambio: Record<string, unknown>) => {
+    if (!offlineAvail) return;
+    for (const { id } of (filas ?? []) as Array<{ id: string }>) {
+      const fila = await getById<Record<string, unknown>>(t, id);
+      if (fila) await put(t, { ...fila, ...cambio });
+    }
+  };
+
+  if (tabla.length > 0) {
+    const cambio = { status: 'expedido', invoice_id: null };
+    const q = supabase().from('albaranes').update(cambio).in('id', tabla).eq('status', 'facturado');
+    const { data } = await (opciones.borrada ? q.is('invoice_id', null) : q.eq('invoice_id', facturaId)).select('id');
+    await alDia('albaranes', data, cambio);
+  }
+  if (documentos.length > 0) {
+    // Sólo los que ninguna otra factura viva recoge.
+    const otras = (await getInvoices()).filter(f => f.id !== facturaId);
+    const libres = documentos.filter(id => !facturaQueRecoge(id, otras));
+    if (libres.length > 0) {
+      const cambio = { status: InvoiceStatus.EXPEDIDO };
+      const { data } = await supabase().from('invoices').update(cambio)
+        .in('id', libres).eq('tipo', 'albaran').eq('status', InvoiceStatus.FACTURADO).select('id');
+      await alDia('invoices', data, cambio);
+    }
+  }
+  notifyDataUpdate('albaranes');
+  notifyDataUpdate('invoices');
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -3447,7 +3725,8 @@ export function mapClientFromDb(c: any): Client {
     postalCode: c.postal_code || '',
     province: c.province || '',
     country: c.country || 'España',
-    paymentDays: c.payment_days || 30,
+    // `??` y no `||`: 0 días es «al contado», no «sin poner».
+    paymentDays: c.payment_days ?? 30,
     defaultPaymentMethod: c.default_payment_method || 'transferencia',
     notes: c.notes || '',
     active: c.active ?? true,

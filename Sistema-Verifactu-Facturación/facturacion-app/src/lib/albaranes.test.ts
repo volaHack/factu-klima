@@ -18,8 +18,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 import { createClient } from '@/lib/supabase/client';
 import { saveAlbaran, convertirAlbaranesAFactura, expedirAlbaran, createDevolucion, applyAbonoToInvoice } from './storage';
-import { DEFAULT_COMPANY_SETTINGS } from './constants';
-import { Albaran, Devolucion, DevolucionReason, InvoiceStatus, TaxRate, UnitOfMeasure } from './types';
+import { Albaran, Devolucion, DevolucionReason, TaxRate, UnitOfMeasure } from './types';
 
 type Row = Record<string, unknown>;
 type Store = Record<string, Row[]>;
@@ -254,44 +253,9 @@ describe('Albaranes', () => {
     expect(saved.number).toBe(`ALB-${year}-0001`);
   });
 
-  it('agrupa albaranes expedidos por cliente en facturas borrador', async () => {
-    const store: Store = {
-      albaranes: [
-        albaranRow('a1', 'c1'),
-        albaranRow('a2', 'c1'),
-        albaranRow('a3', 'c2'),
-      ],
-      albaran_line_items: [
-        lineRow('a1', 1),
-        lineRow('a2', 1),
-        lineRow('a3', 1),
-      ],
-    };
-    (createClient as Mock).mockReturnValue(makeSupabase(store));
-
-    const invoices = await convertirAlbaranesAFactura(['a1', 'a2', 'a3']);
-
-    expect(invoices).toHaveLength(2);
-    expect(new Set(invoices.map(i => i.clientId))).toEqual(new Set(['c1', 'c2']));
-    expect(invoices.every(i => i.status === InvoiceStatus.BORRADOR)).toBe(true);
-
-    const facturas = store.invoices;
-    expect(facturas).toHaveLength(2);
-    const base = DEFAULT_COMPANY_SETTINGS.nextInvoiceNumber;
-    expect(facturas.map(f => f.number)).toEqual([`FAC-${year}-${String(base).padStart(4, '0')}`, `FAC-${year}-${String(base + 1).padStart(4, '0')}`]);
-
-    const a1 = store.albaranes.find(a => a.id === 'a1')!;
-    const a2 = store.albaranes.find(a => a.id === 'a2')!;
-    const a3 = store.albaranes.find(a => a.id === 'a3')!;
-    expect(a1.status).toBe('facturado');
-    expect(a2.status).toBe('facturado');
-    expect(a3.status).toBe('facturado');
-    expect(a1.invoice_id).toBe(a2.invoice_id);
-    expect(a3.invoice_id).not.toBe(a1.invoice_id);
-
-    const settings = store.company_settings[0];
-    expect(settings.next_invoice_number).toBe(base + 2);
-  });
+  // La conversión a factura (agrupar por cliente, numerar, enlazar, no
+  // facturar dos veces…) se prueba en albaranes/aFactura.flujo.test.ts, con
+  // una base de datos de mentira que sí respeta los filtros de cada consulta.
 
   it('rechaza convertir cuando no hay albaranes expedidos en la selección', async () => {
     const store: Store = {
@@ -300,7 +264,7 @@ describe('Albaranes', () => {
     };
     (createClient as Mock).mockReturnValue(makeSupabase(store));
 
-    await expect(convertirAlbaranesAFactura(['a1'])).rejects.toThrow(/expedidos/);
+    await expect(convertirAlbaranesAFactura(['a1'])).rejects.toThrow(/aún no se ha expedido/);
   });
 });
 

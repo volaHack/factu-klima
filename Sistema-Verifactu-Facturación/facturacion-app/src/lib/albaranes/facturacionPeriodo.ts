@@ -13,13 +13,14 @@
  *   - de quién es cada uno —la ficha del cliente, y si no hay ficha, su
  *     NIF o su nombre—, porque agrupar sólo por la ficha metía en UNA
  *     factura a todos los clientes sin ficha;
- *   - en qué orden van las líneas (por fecha de entrega);
- *   - qué se escribe en la factura para que el cliente cuadre cada
- *     albarán con lo que se le cobra, y la fecha de las operaciones, que
- *     el Reglamento exige cuando no coincide con la de la factura.
+ *   - en qué orden van (por fecha de entrega).
+ *
+ * La factura que sale de cada grupo —líneas, nota con cada albarán,
+ * cliente, número— la monta `aFactura.ts`, la misma pieza que factura una
+ * selección suelta de albaranes.
  */
 
-import type { Albaran, InvoiceLineItem } from '@/lib/types';
+import type { Albaran } from '@/lib/types';
 
 export interface Periodo {
   /** AAAA-MM-DD, incluido. */
@@ -97,39 +98,4 @@ export function agruparPendientes(albaranes: readonly Albaran[], periodo?: Perio
       };
     })
     .sort((a, b) => b.total - a.total || a.clientName.localeCompare(b.clientName));
-}
-
-/** Las líneas de la factura: las de cada albarán, en orden de entrega. */
-export function lineasDelGrupo(grupo: GrupoAFacturar, nuevoId: () => string): InvoiceLineItem[] {
-  return grupo.albaranes.flatMap(a => (a.lineItems || []).map(li => ({
-    ...li,
-    id: nuevoId(),
-    // Los tres descuentos, no sólo el primero: copiando a mano se quedaban
-    // por el camino y la factura que salía del albarán cobraba de más.
-    discountPercent: li.discountPercent,
-    discountPercent2: li.discountPercent2 ?? 0,
-    discountPercent3: li.discountPercent3 ?? 0,
-  })));
-}
-
-const fechaEs = (iso: string) => {
-  const [a, m, d] = iso.split('-');
-  return `${d}/${m}/${a}`;
-};
-
-const euros = (n: number) =>
-  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
-
-/**
- * La nota de la factura: qué albaranes recoge, cuánto era cada uno, y la
- * fecha de las operaciones.
- */
-export function notaDelGrupo(grupo: GrupoAFacturar): string {
-  const operaciones = grupo.primeraEntrega === grupo.ultimaEntrega
-    ? `Fecha de la operación: ${fechaEs(grupo.primeraEntrega)}.`
-    : `Operaciones realizadas del ${fechaEs(grupo.primeraEntrega)} al ${fechaEs(grupo.ultimaEntrega)}.`;
-  const lista = grupo.albaranes
-    .map(a => `${a.number} (${fechaEs(a.issueDate)}, ${euros(a.total || 0)})`)
-    .join('; ');
-  return `${operaciones}\nFactura de ${grupo.albaranes.length === 1 ? 'el albarán' : `los ${grupo.albaranes.length} albaranes`}: ${lista}.`;
 }
