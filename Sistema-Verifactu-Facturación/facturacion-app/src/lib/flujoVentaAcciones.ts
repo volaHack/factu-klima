@@ -19,8 +19,9 @@
 
 import {
   getInvoices, getInvoiceById, getCompanySettings, saveDocumento, getApprovalByInvoiceId, getApprovalItems,
+  soltarAlbaranesDeFactura,
 } from './storage';
-import { actualizarContadorSerie, serieParaCliente } from './documentos';
+import { actualizarContadorSerie, isFactura, serieParaCliente } from './documentos';
 import { avisoAlAnular, convertirDocumento, type LineaAprobada } from './flujoVenta';
 import { InvoiceStatus, type Invoice, type TipoDocumento } from './types';
 
@@ -79,7 +80,13 @@ export async function anularDocumento(id: string): Promise<Invoice> {
   const { doc, documentos } = await documentosDeAhora(id);
   const aviso = avisoAlAnular(doc, documentos);
   if (aviso?.bloquea) throw new Error(aviso.texto);
-  return saveDocumento({ ...doc, status: InvoiceStatus.ANULADA, updatedAt: new Date().toISOString() });
+  const anulado = await saveDocumento({ ...doc, status: InvoiceStatus.ANULADA, updatedAt: new Date().toISOString() });
+  // Una factura que recogía albaranes los suelta: la entrega se hizo y
+  // hay que poder facturarla otra vez (igual que al anular desde Facturas).
+  if (isFactura(doc)) {
+    await soltarAlbaranesDeFactura(doc.id).catch(err => console.warn('[albaranes] No se pudieron soltar los albaranes', err));
+  }
+  return anulado;
 }
 
 /** Lo que se le enseña a quien va a anular: lo mismo que decide `anularDocumento`. */
