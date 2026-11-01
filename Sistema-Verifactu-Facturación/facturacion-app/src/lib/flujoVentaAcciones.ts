@@ -56,6 +56,13 @@ export async function convertirYGuardar(id: string, destino: TipoDocumento): Pro
     const nuevo = convertirDocumento(doc, destino, documentos, settings, { aprobacion, serie });
     const guardado = await saveDocumento(nuevo);
     await actualizarContadorSerie(settings, `${destino}_${sentido}`, guardado.number);
+    // El albarán facturado queda «facturado», como los de la pantalla
+    // Albaranes: las listas y los informes lo dejan de contar como pendiente
+    // de facturar. El stock no cambia (la base de datos lo trata igual que
+    // expedido) y la factura, que cuelga de él, no lo vuelve a mover.
+    if (doc.tipo === 'albaran' && destino === 'factura') {
+      await saveDocumento({ ...doc, status: InvoiceStatus.FACTURADO, updatedAt: new Date().toISOString() });
+    }
     return guardado;
   } finally {
     enCurso.delete(id);

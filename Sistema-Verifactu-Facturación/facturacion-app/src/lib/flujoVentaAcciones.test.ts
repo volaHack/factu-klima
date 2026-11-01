@@ -39,6 +39,20 @@ describe('convertirYGuardar', () => {
     expect(contador).toHaveBeenCalledWith(expect.anything(), 'factura_venta', fac.number);
   });
 
+  it('facturar un albarán que viene de un pedido: la factura cuelga del albarán y el albarán queda facturado', async () => {
+    guardados.docs = [
+      doc({}),
+      doc({ id: 'alb', number: 'ALB-2026-0030', tipo: 'albaran', status: InvoiceStatus.EXPEDIDO, documentoOrigenId: 'd1', documentoOrigenNumber: 'PED-2026-0001' }),
+    ];
+    const fac = await convertirYGuardar('alb', 'factura');
+    expect([fac.documentoOrigenId, fac.documentoOrigenNumber]).toEqual(['alb', 'ALB-2026-0030']);
+    const albaran = storage.saveDocumento.mock.calls.map(c => c[0] as unknown as Invoice).find(d => d.id === 'alb');
+    expect(albaran?.status).toBe(InvoiceStatus.FACTURADO);
+    // Y no se factura otra vez.
+    guardados.docs = guardados.docs.map(d => (d.id === 'alb' ? albaran! : d));
+    await expect(convertirYGuardar('alb', 'factura')).rejects.toThrow(/facturado/);
+  });
+
   it('la segunda vez (otro clic, volver atrás) ve lo que ya salió y no crea nada', async () => {
     guardados.docs = [doc({})];
     await convertirYGuardar('d1', 'albaran');
