@@ -17,7 +17,7 @@
  */
 
 import {
-  saveDocumento, saveAlbaran, expedirAlbaranVenta, expedirAlbaran, getCompanySettings,
+  saveDocumento, saveAlbaran, expedirAlbaranVenta, expedirAlbaran, getCompanySettings, getInvoices,
 } from './storage';
 import { actualizarContadorSerie } from './documentos';
 import { albaranDeEntrega, conMarcaPreparado, type MarcaPreparado, type PedidoEnCola } from './prepararPedidos';
@@ -51,8 +51,14 @@ export async function marcarEntregado(p: PedidoEnCola, datos: DatosDeLaCola): Pr
   if (p.origen === 'albaran') return (await expedirAlbaran(d.id)).number;
   if (p.tipo === 'albaran') return (await expedirAlbaranVenta(d.id)).number;
 
-  const settings = await getCompanySettings();
-  const albaran = albaranDeEntrega(d as Invoice, datos.documentos, settings, getToday());
+  // Lo servido, con los documentos de ahora y no con los que la pantalla
+  // cargó: si el pedido acaba de salir con su albarán (otro toque, otro
+  // equipo) y la cola aún no se ha repintado, con la foto vieja saldría un
+  // segundo albarán con lo mismo y el stock se descontaría dos veces.
+  const [settings, ahora] = await Promise.all([getCompanySettings(), getInvoices().catch(() => [] as Invoice[])]);
+  const documentos = ahora.length ? ahora : datos.documentos;
+  const pedido = (documentos.find(x => x.id === d.id) ?? d) as Invoice;
+  const albaran = albaranDeEntrega(pedido, documentos, settings, getToday());
   if (albaran.lineItems.length === 0) throw new Error(`Al pedido ${p.numero} ya no le queda nada por servir.`);
   const guardado = await saveDocumento(albaran);
   await actualizarContadorSerie(settings, 'albaran_venta', guardado.number);

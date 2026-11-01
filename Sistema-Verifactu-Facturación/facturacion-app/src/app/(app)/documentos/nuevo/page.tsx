@@ -7,8 +7,13 @@ import { ArrowLeft, Save, Send, Plus, Wand2 } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import {
   getClients, getProducts, getCompanySettings, saveDocumento, getProveedores,
-  getAlmacenes, getVendedores, getObras, getLotes,
+  getAlmacenes, getVendedores, getObras, getLotes, expedirAlbaranCompra, expedirAlbaranVenta, getInvoices,
 } from '@/lib/storage';
+import { pasoAlTerminar, rotuloAlTerminar } from '@/lib/flujoVenta';
+import { esFacturaRecibida } from '@/lib/fichaDocumento';
+import { conDatosDelProveedor, problemasFacturaRecibida } from '@/lib/compras';
+import CamposFacturaProveedor from '../[id]/_componentes/CamposFacturaProveedor';
+import { impuestoDeEmpresa } from '@/lib/impuesto';
 import {
   Client, Product, Invoice, InvoiceLineItem, InvoiceStatus,
   PaymentMethod, CompanySettings, TipoDocumento, SentidoDocumento,
@@ -70,6 +75,11 @@ function NuevoDocumentoContent() {
   const [dueDate, setDueDate] = useState(addDays(getToday(), 30));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.TRANSFERENCIA);
   const [notes, setNotes] = useState('');
+  // La factura recibida: el número del proveedor y la fecha de registro, y
+  // los documentos para ver si ese número ya está registrado.
+  const [numeroProveedor, setNumeroProveedor] = useState('');
+  const [fechaRegistro, setFechaRegistro] = useState(getToday());
+  const [documentos, setDocumentos] = useState<Invoice[]>([]);
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
@@ -191,14 +201,40 @@ function NuevoDocumentoContent() {
     [lineItems, globalDiscounts],
   );
 
-  const handleSave = async (statusToSet: InvoiceStatus = InvoiceStatus.BORRADOR) => {
+  // La factura recibida pide los datos del papel del proveedor; lo que no
+  // cuadra se ve mientras se escribe y, si es un error, para el guardado.
+  const recibida = esFacturaRecibida({ tipo, sentido });
+  useEffect(() => {
+    if (!recibida) return;
+    let vivo = true;
+    getInvoices().then(d => { if (vivo) setDocumentos(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [recibida]);
+  const problemas = useMemo(() => {
+    if (!recibida) return [];
+    const prueba = {
+      id: '__nueva', tipo, sentido, clientId, clientName, clientNif, issueDate, status: InvoiceStatus.BORRADOR,
+    } as Invoice;
+    return problemasFacturaRecibida(conDatosDelProveedor(prueba, { numero: numeroProveedor, fechaRegistro }), documentos);
+  }, [recibida, tipo, sentido, clientId, clientName, clientNif, issueDate, numeroProveedor, fechaRegistro, documentos]);
+
+  // `terminar`: el segundo botón (emitir, expedir o pasar a Facturas para
+  // emitir, según el tipo: ver pasoAlTerminar).
+  const handleSave = async (terminar = false) => {
     if (!settings) return;
+    const paso = pasoAlTerminar(tipo, sentido);
+    const statusToSet = terminar && paso === 'emitir' ? InvoiceStatus.EMITIDA : InvoiceStatus.BORRADOR;
     if (!clientName.trim()) {
       toastError(sentido === 'compra' ? 'Indica el proveedor' : 'Indica el cliente');
       return;
     }
     if (lineItems.length === 0 || lineItems.every(l => !l.productName && !l.productId)) {
       toastError('Añade al menos una línea con producto');
+      return;
+    }
+    const errorRecibida = problemas.find(p => p.gravedad === 'error');
+    if (errorRecibida) {
+      toastError('Revisa la factura del proveedor', errorRecibida.texto);
       return;
     }
 
@@ -252,9 +288,24 @@ function NuevoDocumentoContent() {
         updatedAt: now,
       };
 
-      const guardado = await saveDocumento(doc);
+      const guardado = await saveDocumento(recibida ? conDatosDelProveedor(doc, { numero: numeroProveedor, fechaRegistro }) : doc);
       await actualizarContadorSerie(settings, `${tipo}_${sentido}`, guardado.number);
 
+      if (terminar && paso === 'facturas') {
+        success(`Guardada en borrador: ${guardado.number}`, 'Revísala y emítela: la huella y el registro Veri*Factu los pone el servidor al emitir.');
+        router.push(`/facturas/${guardado.id}`);
+        return;
+      }
+      if (terminar && paso === 'expedir') {
+        try {
+          const expedido = sentido === 'compra' ? await expedirAlbaranCompra(guardado.id) : await expedirAlbaranVenta(guardado.id);
+          success(`Albarán ${expedido.number} ${sentido === 'compra' ? 'recibido' : 'expedido'}`, sentido === 'compra' ? 'Stock aumentado.' : 'Stock descontado.');
+        } catch (e) {
+          toastError(`Guardado en borrador: ${guardado.number}`, `No se ha ${sentido === 'compra' ? 'recibido' : 'expedido'}: ${e instanceof Error ? e.message : 'error desconocido'}`);
+        }
+        router.push(`/documentos/${guardado.id}`);
+        return;
+      }
       success(`Guardado: ${etiquetaTipo(tipo)} ${guardado.number}`);
       router.push(`/documentos/${guardado.id}`);
     } catch (e) {
@@ -286,7 +337,7 @@ function NuevoDocumentoContent() {
           <button
             type="button"
             className="btn btn-outline"
-            onClick={() => handleSave(InvoiceStatus.BORRADOR)}
+            onClick={() => handleSave(false)}
             disabled={saving}
           >
             <Save size={16} /> Guardar Borrador
@@ -294,10 +345,10 @@ function NuevoDocumentoContent() {
           <button
             type="button"
             className="btn btn-primary neon neon--al-pasar"
-            onClick={() => handleSave(InvoiceStatus.EMITIDA)}
+            onClick={() => handleSave(true)}
             disabled={saving}
           >
-            <Send size={16} /> Emitir {etiquetaTipo(tipo)}
+            <Send size={16} /> {rotuloAlTerminar(tipo, sentido)}
           </button>
         </div>
       </div>
@@ -418,6 +469,13 @@ function NuevoDocumentoContent() {
             )}
           </div>
 
+          {recibida && (
+            <CamposFacturaProveedor
+              numero={numeroProveedor} fechaRegistro={fechaRegistro} problemas={problemas}
+              onNumero={setNumeroProveedor} onFechaRegistro={setFechaRegistro}
+            />
+          )}
+
           {/* Lo que se ha rellenado solo, dicho en voz alta.
               Un formulario que decide por su cuenta y no lo cuenta da más
               miedo que uno que no decide nada, sobre todo si lo que decide
@@ -529,7 +587,7 @@ function NuevoDocumentoContent() {
           globalDiscounts={globalDiscounts}
           onGlobalDiscountsChange={setGlobalDiscounts}
           destacado
-          etiquetaImpuesto={settings.igicEnabled ? 'IGIC' : 'IVA'}
+          etiquetaImpuesto={impuestoDeEmpresa(settings)}
         >
           {modoRetenciones && (tipo === 'factura' || tipo === 'rectificativa') && (
             <div className="doc-retencion">

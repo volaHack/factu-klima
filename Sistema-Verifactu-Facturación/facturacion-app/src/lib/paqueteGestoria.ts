@@ -29,6 +29,7 @@ import { enPeriodo, facturaCuenta } from './fiscal/FiscalCalculationService';
 import type { PeriodoFiscal, Trimestre } from './fiscal/tipos';
 import { calcularModelo420, exportarCsv420 } from './fiscal/atc/modelo420';
 import { calcularModelo303 } from './fiscal/aeat/modelo303';
+import { fechaDeRegistro, numeroDelProveedor } from './compras';
 
 /** Lo que queda de la forma jurídica al final del nombre, y sobra en un fichero. */
 const FORMA_JURIDICA = /\b(s\.?\s?l\.?\s?u\.?|s\.?\s?l\.?\s?l\.?|s\.?\s?l\.?|s\.?\s?a\.?\s?u\.?|s\.?\s?a\.?|s\.?\s?c\.?\s?p\.?|c\.?\s?b\.?|s\.?\s?coop\.?)$/i;
@@ -54,16 +55,22 @@ export function trimestrePropuesto(hoy = new Date()): { ejercicio: number; trime
   return { ejercicio: hoy.getFullYear(), trimestre: t as Trimestre };
 }
 
-/** Las facturas recibidas (de compra) que cuentan: ni borradores ni anuladas. */
+/**
+ * Las facturas recibidas (de compra) que cuentan: ni borradores ni anuladas.
+ *
+ * El libro pide el número que puso el PROVEEDOR, no el nuestro (el nuestro
+ * hace de número de registro), y separa la fecha de la factura de la de
+ * registro, que es la que manda para deducir. Van en orden de registro.
+ */
 export function libroDeRecibidas(facturas: readonly Invoice[], impuesto: NombreImpuesto = 'IVA'): string {
   const recibidas = facturas
     .filter(f => f.sentido === 'compra' && facturaCuenta(f))
     .slice()
-    .sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.number.localeCompare(b.number));
+    .sort((a, b) => fechaDeRegistro(a).localeCompare(fechaDeRegistro(b)) || a.number.localeCompare(b.number));
   return construirCsv(
-    ['Número', 'Fecha', 'Proveedor', 'NIF', 'Base imponible', impuesto, 'Total', 'Estado', 'Forma de pago', 'Tipo'],
+    ['Número', 'Nº factura del proveedor', 'Fecha', 'Fecha de registro', 'Proveedor', 'NIF', 'Base imponible', impuesto, 'Total', 'Estado', 'Forma de pago', 'Tipo'],
     recibidas.map(f => [
-      f.number, f.issueDate, f.clientName, f.clientNif ?? '', importeCsv(f.subtotal), importeCsv(f.totalTax),
+      f.number, numeroDelProveedor(f), f.issueDate, fechaDeRegistro(f), f.clientName, f.clientNif ?? '', importeCsv(f.subtotal), importeCsv(f.totalTax),
       importeCsv(f.total), f.status, f.paymentMethod ?? '', f.tipo ?? 'factura',
     ]),
   );
@@ -120,7 +127,8 @@ export function prepararPaquete(datos: DatosPaquete, periodo: { ejercicio: numbe
   const prefijo = `${nombreParaFicheros(datos.empresa)}_${periodo.trimestre}T${periodo.ejercicio}`;
   const enElTrimestre = (fecha?: string) => enPeriodo(fecha, periodo);
 
-  const facturas = datos.facturas.filter(f => enElTrimestre(f.issueDate));
+  // Las recibidas, por la fecha en que se registraron (la que manda para deducir).
+  const facturas = datos.facturas.filter(f => enElTrimestre(f.sentido === 'compra' ? fechaDeRegistro(f) : f.issueDate));
   const gastos = datos.gastos.filter(g => enElTrimestre(g.fecha));
   const cobros = datos.cobros.filter(c => c.tipo === 'cobro' && enElTrimestre(c.fecha));
   // Las de venta, como en el libro: emitidas o anuladas, nunca borradores ni albaranes.

@@ -391,6 +391,10 @@ export const INVOICE_STATUSES = [
   { value: InvoiceStatus.PAGADA, label: 'Pagada', color: 'var(--color-success)' },
   { value: InvoiceStatus.VENCIDA, label: 'Vencida', color: 'var(--color-danger)' },
   { value: InvoiceStatus.ANULADA, label: 'Anulada', color: 'var(--color-neutral)' },
+  // Los de los albaranes. Sin ellos, uno recibido o facturado se enseñaba
+  // como «Borrador» (getStatusInfo cae en el primero de la lista).
+  { value: InvoiceStatus.EXPEDIDO, label: 'Expedido', color: 'var(--color-info)' },
+  { value: InvoiceStatus.FACTURADO, label: 'Facturado', color: 'var(--color-success)' },
 ];
 
 // --- Albaranes (documento de entrega) ---

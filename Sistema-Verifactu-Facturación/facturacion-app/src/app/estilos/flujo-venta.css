@@ -1,0 +1,119 @@
+/*
+ * La cadena de venta en la ficha del documento: de dónde viene, a qué ha
+ * dado lugar, lo servido de un pedido y por qué un botón no se puede pulsar.
+ */
+
+.flujo-motivos {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 13px);
+  color: var(--text-primary);
+}
+.flujo-motivos li + li { margin-top: var(--space-1); }
+
+.flujo-aprobacion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+  color: var(--color-warning);
+}
+.flujo-aprobacion span { color: var(--text-primary); }
+
+.flujo-exceso {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-primary);
+}
+.flujo-exceso svg { color: var(--color-warning); flex-shrink: 0; margin-top: 2px; }
+.flujo-exceso ul { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+
+.traza { margin-bottom: var(--space-4); }
+.traza-titulo { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.traza-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.traza-fila { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.traza-rama { color: var(--text-muted); flex-shrink: 0; }
+.traza-enlace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm, 6px);
+  color: inherit;
+  text-decoration: none;
+}
+a.traza-enlace:hover { background: var(--bg-tertiary); }
+a.traza-enlace:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.traza-fila--actual .traza-enlace { background: var(--bg-tertiary); }
+.traza-tipo { color: var(--text-muted); font-size: var(--text-sm, 13px); min-width: 7.5em; }
+.traza-numero { font-variant-numeric: tabular-nums; }
+.traza-dato { color: var(--text-muted); font-size: var(--text-sm, 13px); font-variant-numeric: tabular-nums; }
+.traza-importe { margin-left: auto; color: var(--text-primary); }
+.traza-aqui {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+}
+.traza-fila--anulada .traza-numero { text-decoration: line-through; color: var(--text-muted); }
+.traza-fila--perdida .traza-numero { color: var(--text-muted); }
+.traza-nota { margin: var(--space-2) 0 0; color: var(--text-muted); font-size: var(--text-sm, 13px); }
+
+.traza-servicio { margin-top: var(--space-4); border-top: 1px solid var(--border-color); padding-top: var(--space-3); }
+.traza-subtitulo { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.traza-tabla td, .traza-tabla th { font-variant-numeric: tabular-nums; }
+.traza-exceso { color: var(--color-warning); font-weight: 600; }
+
+/*
+ * Preparar pedidos: la marca de cada tarjeta para las hojas (sin rutas, la
+ * hoja de carga sale de lo marcado). Grande, para el dedo o el guante.
+ */
+.almacen-lista { margin-top: var(--space-5); }
+.almacen-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 -6px -8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.almacen-marca input { width: 24px; height: 24px; accent-color: var(--color-primary); cursor: pointer; }
+.almacen-tarjeta--marcada { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.almacen-cuenta-marcados { font-variant-numeric: tabular-nums; }
+
+/* Las ventanas de la ficha: la factura del proveedor y el motivo de anular. */
+.dialogo-proveedor-intro { margin: 0 0 var(--space-3); color: var(--text-muted); font-size: var(--text-sm); }
+.dialogo-proveedor-avisos { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.dialogo-proveedor-aviso { display: flex; gap: var(--space-2); align-items: flex-start; font-size: var(--text-sm); }
+.dialogo-proveedor-aviso svg { flex-shrink: 0; margin-top: 2px; }
+.dialogo-proveedor-aviso--aviso { color: var(--color-warning); }
+.dialogo-proveedor-aviso--error { color: var(--color-danger); }
+.dialogo-anular-aviso {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  .traza-tipo { min-width: 0; }
+  .traza-importe { margin-left: 0; }
+}

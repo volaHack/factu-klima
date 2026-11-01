@@ -9,6 +9,7 @@
 
 import type { Invoice, Gasto } from '../types';
 import type { PeriodoFiscal, Trimestre } from './tipos';
+import { fechaDeRegistro } from '../compras';
 
 export function redondear(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -62,9 +63,18 @@ export interface BaseYCuota { base: number; cuota: number }
  * compras como factura de proveedor no se deducía ese IVA y pagaba de más.
  * Las ordinarias van a interiores corrientes; las rectificativas de compra,
  * a «rectificación de deducciones».
+ *
+ * Van al período en que se REGISTRAN, no al de la fecha que les puso el
+ * proveedor: el soportado se deduce cuando se tiene la factura, y la del
+ * 29 de marzo que llega el 3 de abril ya no cabe en un primer trimestre
+ * que quizá esté presentado.
  */
+export function comprasDelPeriodo(facturas: readonly Invoice[], periodo: PeriodoFiscal): Invoice[] {
+  return facturas.filter(f => f.sentido === 'compra' && facturaCuenta(f) && enPeriodo(fechaDeRegistro(f), periodo));
+}
+
 export function impuestoDeCompras(facturas: Invoice[], periodo: PeriodoFiscal): { ordinarias: BaseYCuota; rectificativas: BaseYCuota; numFacturas: number } {
-  const compras = facturas.filter(f => f.sentido === 'compra' && facturaCuenta(f) && enPeriodo(f.issueDate, periodo));
+  const compras = comprasDelPeriodo(facturas, periodo);
   const suma = (lista: Invoice[]) => lista.reduce<BaseYCuota>((t, f) => ({
     base: redondear(t.base + (f.subtotal || 0)),
     cuota: redondear(t.cuota + (f.totalTax || 0)),

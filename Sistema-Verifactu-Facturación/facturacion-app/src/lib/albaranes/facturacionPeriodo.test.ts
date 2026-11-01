@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { agruparPendientes, claveCliente, lineasDelGrupo, notaDelGrupo, periodoDelMes } from './facturacionPeriodo';
+import { agruparPendientes, claveCliente, periodoDelMes } from './facturacionPeriodo';
+import { desdeAlbaran, notaDeFactura, planDeFacturas } from './aFactura';
 import type { Albaran } from '@/lib/types';
 
 function albaran(p: Partial<Albaran> & { number: string; issueDate: string }): Albaran {
@@ -61,16 +62,16 @@ describe('qué entra en la factura del mes', () => {
 
   it('las líneas van en orden de entrega y conservan los tres descuentos', () => {
     const [, rivas] = agruparPendientes(lista, periodoDelMes('2026-03'));
-    let n = 0;
-    const lineas = lineasDelGrupo(rivas, () => `n${++n}`);
-    expect(lineas.map(l => l.id)).toEqual(['n1', 'n2']);
-    expect(lineas[0]).toMatchObject({ discountPercent: 10, discountPercent2: 5, discountPercent3: 0 });
+    const [grupo] = planDeFacturas(rivas.albaranes.map(a => desdeAlbaran(a))).grupos;
+    expect(grupo.albaranes.map(a => a.number)).toEqual(['ALB-1', 'ALB-3']);
+    expect(grupo.lineas[0]).toMatchObject({ discountPercent: 10, discountPercent2: 5, discountPercent3: 0 });
   });
 
-  it('la nota cita cada albarán con fecha e importe, y el periodo de las operaciones', () => {
+  it('la nota cita cada albarán con fecha, líneas e importe, y el periodo de las operaciones', () => {
     const [, rivas] = agruparPendientes(lista, periodoDelMes('2026-03'));
-    const nota = notaDelGrupo(rivas);
+    const [grupo] = planDeFacturas(rivas.albaranes.map(a => desdeAlbaran(a))).grupos;
+    const nota = notaDeFactura(grupo);
     expect(nota).toContain('Operaciones realizadas del 02/03/2026 al 20/03/2026.');
-    expect(nota).toMatch(/ALB-1 \(02\/03\/2026, 100,00\s€\); ALB-3 \(20\/03\/2026, 200,00\s€\)/);
+    expect(nota).toMatch(/ALB-1 del 02\/03\/2026 \(línea 1, 100,00\s€\); ALB-3 del 20\/03\/2026 \(línea 2, 200,00\s€\)/);
   });
 });

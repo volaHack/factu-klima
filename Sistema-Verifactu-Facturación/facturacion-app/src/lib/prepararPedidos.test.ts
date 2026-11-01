@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CLAVE_PREPARADO, agruparPorRuta, albaranDeEntrega, colaDeAlmacen, conMarcaPreparado, enCajas,
+  CLAVE_PREPARADO, albaranDeEntrega, colaDeAlmacen, conMarcaPreparado, enCajas,
   hojaDeCarga, lineasPendientesDePedido, marcaPreparado, ordenarCola, paradasDe, totalesDePedido,
   type PedidoEnCola,
 } from './prepararPedidos';
 import { calcularPendientesProducto } from './documentos';
-import { InvoiceStatus, UnitOfMeasure, type Albaran, type Client, type CompanySettings, type Invoice, type InvoiceLineItem, type RutaReparto } from './types';
+import { InvoiceStatus, UnitOfMeasure, type Albaran, type Client, type CompanySettings, type Invoice, type InvoiceLineItem } from './types';
 
 const linea = (extra: Partial<InvoiceLineItem> = {}): InvoiceLineItem => ({
   id: crypto.randomUUID(), productId: 'p1', productName: 'Cerveza lata 33cl', productRef: 'R1',
@@ -26,17 +26,15 @@ const doc = (extra: Partial<Invoice> = {}): Invoice => ({
   ...extra,
 });
 
-const cliente = (id: string, rutaId?: string): Client => ({
+const cliente = (id: string, extra: Partial<Client> = {}): Client => ({
   id, nif: '', businessName: `Cliente ${id}`, tradeName: '', email: '', phone: '', contactPerson: '',
   address: '', city: '', postalCode: '', province: '', country: 'España', paymentDays: 0,
   defaultPaymentMethod: 'transferencia' as never, notes: '', active: true,
-  createdAt: '', updatedAt: '', rutaId,
+  createdAt: '', updatedAt: '', ...extra,
 });
 
-const ruta = (id: string, nombre: string): RutaReparto => ({ id, nombre, createdAt: '', updatedAt: '' });
-
-const cola = (documentos: Invoice[], extra: { albaranes?: Albaran[]; clientes?: Client[]; rutas?: RutaReparto[] } = {}) =>
-  colaDeAlmacen({ documentos, albaranes: extra.albaranes, clientes: extra.clientes ?? [cliente('c1')], rutas: extra.rutas ?? [] });
+const cola = (documentos: Invoice[], extra: { albaranes?: Albaran[]; clientes?: Client[] } = {}) =>
+  colaDeAlmacen({ documentos, albaranes: extra.albaranes, clientes: extra.clientes ?? [cliente('c1')] });
 
 describe('la marca de preparado', () => {
   it('va y vuelve por datosExtras sin tocar lo demás', () => {
@@ -125,15 +123,17 @@ describe('qué entra en la cola', () => {
     expect(totalesDePedido(c)).toEqual({ cajas: 5, unidades: 92 });
   });
 
-  it('lleva el cliente, su ruta, el número de líneas y la marca de preparado', () => {
-    const [p] = cola(
-      [doc({ lineItems: [linea(), linea({ productId: 'p2' })], datosExtras: conMarcaPreparado({}, { en: '2026-10-31T10:00:00Z' }) })],
-      { clientes: [cliente('c1', 'r1')], rutas: [ruta('r1', 'Norte')] },
-    );
+  it('lleva el cliente, su dirección, el número de líneas y la marca de preparado', () => {
+    const [p] = cola([doc({ lineItems: [linea(), linea({ productId: 'p2' })], datosExtras: conMarcaPreparado({}, { en: '2026-10-31T10:00:00Z' }) })]);
     expect(p.cliente).toBe('Bar Pepe');
-    expect(p.ruta).toEqual({ id: 'r1', nombre: 'Norte' });
+    expect(p.direccion).toBe('C/ Real 1');
     expect(p.lineas).toHaveLength(2);
     expect(p.preparado?.en).toBe('2026-10-31T10:00:00Z');
+  });
+
+  it('sin dirección en el documento, la de la ficha del cliente (la parada no queda en blanco)', () => {
+    const [p] = cola([doc({ clientAddress: '' })], { clientes: [cliente('c1', { address: 'Av. Mancomunidad 3', city: 'Arrecife' })] });
+    expect(p.direccion).toBe('Av. Mancomunidad 3, Arrecife');
   });
 });
 
@@ -171,10 +171,10 @@ describe('albaranDeEntrega', () => {
   });
 });
 
-describe('ordenar y agrupar', () => {
-  const p = (id: string, fecha: string, creado: string, rutaNombre?: string): PedidoEnCola => ({
+describe('ordenar', () => {
+  const p = (id: string, fecha: string, creado: string): PedidoEnCola => ({
     origen: 'documento', id, tipo: 'pedido', numero: id, clienteId: id, cliente: id, direccion: '',
-    fecha, creado, ruta: rutaNombre ? { id: rutaNombre, nombre: rutaNombre } : null, lineas: [], preparado: null, notas: '',
+    fecha, creado, lineas: [], preparado: null, notas: '',
   });
 
   it('por fecha (y a igual fecha, el que llegó antes) o por orden de llegada', () => {
@@ -183,11 +183,9 @@ describe('ordenar y agrupar', () => {
     expect(ordenarCola(lista, 'llegada').map(x => x.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('por ruta en orden alfabético, y los que no tienen ruta al final', () => {
-    const grupos = agruparPorRuta([p('1', '', '', 'Sur'), p('2', '', ''), p('3', '', '', 'Norte'), p('4', '', '', 'Sur')]);
-    expect(grupos.map(g => [g.ruta?.nombre ?? null, g.pedidos.map(x => x.id)])).toEqual([
-      ['Norte', ['3']], ['Sur', ['1', '4']], [null, ['2']],
-    ]);
+  it('la cola es una sola lista: nada de rutas', () => {
+    const [q] = cola([doc({})]);
+    expect('ruta' in q).toBe(false);
   });
 });
 
@@ -216,6 +214,6 @@ describe('hojaDeCarga', () => {
 
   it('las paradas juntan los documentos de cada cliente', () => {
     const c = cola([doc({ number: 'PED-1' }), doc({ number: 'PED-2' }), doc({ number: 'PED-3', clientId: 'c2', clientName: 'Hotel Sol' })], { clientes: [cliente('c1'), cliente('c2')] });
-    expect(paradasDe(c).map(x => [x.cliente, x.numeros])).toEqual([['Bar Pepe', ['PED-1', 'PED-2']], ['Hotel Sol', ['PED-3']]]);
+    expect(paradasDe(c).map(x => [x.cliente, x.direccion, x.numeros])).toEqual([['Bar Pepe', 'C/ Real 1', ['PED-1', 'PED-2']], ['Hotel Sol', 'C/ Real 1', ['PED-3']]]);
   });
 });

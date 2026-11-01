@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  getInvoices, getAlbaranes, getClients, getRutasReparto,
+  getInvoices, getAlbaranes, getClients,
   revisarFacturas, revisarAlbaranes, firmaDePendientesDeAlmacen, EVENTO_GUARDADO_AQUI,
 } from '@/lib/storage';
 import type { Albaran, Invoice } from '@/lib/types';
@@ -40,10 +40,8 @@ export function useColaAlmacen(activo = true): {
   );
 
   const recargar = useCallback(async () => {
-    const [documentos, albaranes, clientes, rutas] = await Promise.all([
-      getInvoices(), getAlbaranes(), getClients(), getRutasReparto(),
-    ]);
-    setEstado({ cola: colaDeAlmacen({ documentos, albaranes, clientes, rutas }), documentos, albaranes, cargando: false });
+    const [documentos, albaranes, clientes] = await Promise.all([getInvoices(), getAlbaranes(), getClients()]);
+    setEstado({ cola: colaDeAlmacen({ documentos, albaranes, clientes }), documentos, albaranes, cargando: false });
   }, []);
 
   useEffect(() => {

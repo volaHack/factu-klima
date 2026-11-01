@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Filter, ChevronUp, ChevronDown, X, ClipboardList, SearchX,
   Eye, Trash2, MoreHorizontal, Truck, FileText, Ban, CheckCircle2, Edit
@@ -11,10 +10,12 @@ import {
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import TableEmpty from '@/components/ui/TableEmpty';
 import FacturarPeriodo from '@/components/albaranes/FacturarPeriodo';
+import { BarraFacturarSeleccion, VentanaFacturasCreadas } from '@/components/albaranes/FacturarSeleccion';
 import {
-  getAlbaranes, expedirAlbaran, anularAlbaran, deleteAlbaran, convertirAlbaranesAFactura
+  getAlbaranes, getInvoices, expedirAlbaran, anularAlbaran, deleteAlbaran, convertirAlbaranesAFactura
 } from '@/lib/storage';
-import { Albaran, AlbaranStatus } from '@/lib/types';
+import { Albaran, AlbaranStatus, Invoice } from '@/lib/types';
+import { desdeAlbaran, motivoNoFacturable } from '@/lib/albaranes/aFactura';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ALBARAN_STATUSES } from '@/lib/constants';
 import { useToast } from '@/hooks/useToast';
@@ -27,9 +28,10 @@ import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 type SortField = 'number' | 'clientName' | 'issueDate' | 'total' | 'status';
 
 export default function AlbaranesPage() {
-  const router = useRouter();
   const { success, error: toastError } = useToast();
   const [albaranes, setAlbaranes] = useState<Albaran[]>([]);
+  // Las facturas, para decir en qué factura está cada albarán facturado.
+  const [facturas, setFacturas] = useState<Invoice[]>([]);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AlbaranStatus[]>([]);
@@ -38,12 +40,35 @@ export default function AlbaranesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const [converting, setConverting] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [creadas, setCreadas] = useState<{ facturas: Invoice[]; error?: string } | null>(null);
+
+  // Al volver a leer, la selección se queda con lo que sigue existiendo:
+  // si un albarán marcado cambió de estado en otro equipo, la barra lo dice.
+  const leer = useCallback(() => Promise.all([
+    getAlbaranes(), getInvoices().catch(() => [] as Invoice[]),
+  ]).then(([a, f]) => {
+    setAlbaranes(a);
+    setFacturas(f);
+    setSelectedIds(prev => {
+      const siguen = new Set([...prev].filter(id => a.some(x => x.id === id)));
+      return siguen.size === prev.size ? prev : siguen;
+    });
+    setMounted(true);
+  }), []);
 
   useEffect(() => {
-    const load = async () => { setAlbaranes(await getAlbaranes()); setMounted(true); };
-    load();
-  }, []);
+    // Primera lectura y, después, cada vez que algo cambie albaranes o
+    // facturas (en esta pantalla, en otra pestaña o al sincronizar).
+    void leer();
+    const alCambiar = () => { void leer(); };
+    window.addEventListener('klima-albaranes-updated', alCambiar);
+    window.addEventListener('klima-invoices-updated', alCambiar);
+    return () => {
+      window.removeEventListener('klima-albaranes-updated', alCambiar);
+      window.removeEventListener('klima-invoices-updated', alCambiar);
+    };
+  }, [leer]);
 
   useEffect(() => {
     if (!actionMenuId) return;
@@ -59,7 +84,17 @@ export default function AlbaranesPage() {
     };
   }, [actionMenuId]);
 
-  const reload = async () => { setAlbaranes(await getAlbaranes()); setSelectedIds(new Set()); };
+  const reload = leer;
+
+  // Cada albarán, en la forma con la que se decide si se puede facturar.
+  const paraFacturar = useMemo(
+    () => new Map(albaranes.map(a => [a.id, desdeAlbaran(a, facturas)])),
+    [albaranes, facturas],
+  );
+  const seleccion = useMemo(
+    () => [...selectedIds].map(id => paraFacturar.get(id)).filter(a => a !== undefined),
+    [selectedIds, paraFacturar],
+  );
 
   const filtered = useMemo(() => {
     let result = [...albaranes];
@@ -120,9 +155,16 @@ export default function AlbaranesPage() {
     });
   };
 
+  // «Todos» son los que se pueden facturar de lo que se ve con los filtros
+  // de ahora (todas las páginas): un borrador o uno ya facturado no tiene
+  // nada que hacer en un lote de facturación.
+  const facturablesVistos = useMemo(
+    () => filtered.filter(a => { const p = paraFacturar.get(a.id); return p && !motivoNoFacturable(p); }),
+    [filtered, paraFacturar],
+  );
+  const todosMarcados = facturablesVistos.length > 0 && facturablesVistos.every(a => selectedIds.has(a.id));
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginated.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(paginated.map(a => a.id)));
+    setSelectedIds(todosMarcados ? new Set() : new Set(facturablesVistos.map(a => a.id)));
   };
 
   const sortIcon = (field: SortField) => {
@@ -188,37 +230,12 @@ export default function AlbaranesPage() {
     }
   };
 
-  const handleConvert = async (ids: string[]) => {
-    const seleccionados = albaranes.filter(a => ids.includes(a.id));
-    const expedidos = seleccionados.filter(a => a.status === 'expedido');
-    if (expedidos.length === 0) {
-      toastError('Nada que facturar', 'Sólo los albaranes expedidos se pueden convertir en factura.');
-      return;
-    }
-    const clientes = new Set(expedidos.map(a => a.clientId));
-    const desc = clientes.size === 1
-      ? `Se generará 1 factura borrador con los ${expedidos.length} albaranes seleccionados.`
-      : `Se generarán ${clientes.size} facturas borrador: los albaranes se agrupan por cliente.`;
-    const ok = confirm(
-      `Convertir ${expedidos.length} albarán(es) a factura.\n\n` +
-      `${desc}\nLos albaranes quedarán marcados como "Facturados".\n\n` +
-      'Las facturas nacen como borradores: revísalas antes de emitirlas.'
-    );
-    if (!ok) return;
-
-    setConverting(true);
-    try {
-      const invoices = await convertirAlbaranesAFactura(expedidos.map(a => a.id));
-      await reload();
-      success('Albaranes convertidos', `${invoices.length} ${invoices.length === 1 ? 'factura creada' : 'facturas creadas'}`);
-      if (invoices.length === 1) {
-        router.push(`/facturas/${invoices[0].id}`);
-      }
-    } catch (err) {
-      toastError('No se pudo convertir', err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setConverting(false);
-    }
+  // Desde el menú de una fila: se marca ese albarán solo y se abre la
+  // misma ventana que con varios.
+  const handleConvert = (id: string) => {
+    setActionMenuId(null);
+    setSelectedIds(new Set([id]));
+    setConfirmando(true);
   };
 
   const statusLabel = (s: AlbaranStatus) => ALBARAN_STATUSES.find(x => x.value === s)?.label ?? s;
@@ -269,10 +286,9 @@ export default function AlbaranesPage() {
       {counts.porFacturar > 0 && (
         <FacturarPeriodo
           albaranes={albaranes}
-          onFacturado={async (facturas) => {
+          onFacturado={async (hechas, error) => {
             await reload();
-            success('Facturas creadas', `${facturas.length} ${facturas.length === 1 ? 'factura borrador' : 'facturas borrador'}: revísalas y emítelas.`);
-            router.push(facturas.length === 1 ? `/facturas/${facturas[0].id}` : '/facturas');
+            setCreadas({ facturas: hechas, error });
           }}
         />
       )}
@@ -315,24 +331,23 @@ export default function AlbaranesPage() {
         </div>
       </div>
 
-      {/* Bulk Actions */}
-      {selectedIds.size > 0 && (
-        <div className="bulk-bar" role="region" aria-label="Acciones sobre la selección">
-          <span className="bulk-bar-count">
-            {selectedIds.size} {selectedIds.size === 1 ? 'albarán seleccionado' : 'albaranes seleccionados'}
-          </span>
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={() => handleConvert([...selectedIds])}
-            disabled={converting}
-          >
-            <FileText size={14} /> {converting ? 'Convirtiendo…' : 'Convertir a factura'}
-          </button>
-          <span className="bulk-bar-spacer" />
-          <button className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())}>
-            Deseleccionar
-          </button>
-        </div>
+      {/* Facturar lo marcado */}
+      <BarraFacturarSeleccion
+        seleccion={seleccion}
+        facturar={convertirAlbaranesAFactura}
+        confirmando={confirmando}
+        onConfirmando={setConfirmando}
+        onQuitar={ids => setSelectedIds(prev => new Set([...prev].filter(id => !ids.includes(id))))}
+        onLimpiar={() => setSelectedIds(new Set())}
+        onCreadas={async (hechas, error) => {
+          setSelectedIds(new Set());
+          await reload();
+          setCreadas({ facturas: hechas, error });
+          if (!error) success(hechas.length === 1 ? 'Factura borrador creada' : `${hechas.length} facturas borrador creadas`, 'Revísalas y emítelas.');
+        }}
+      />
+      {creadas && (
+        <VentanaFacturasCreadas facturas={creadas.facturas} error={creadas.error} onCerrar={() => setCreadas(null)} />
       )}
 
       {/* Table */}
@@ -342,9 +357,11 @@ export default function AlbaranesPage() {
             <tr>
               <th className="table-checkbox">
                 <input
-                  aria-label="Seleccionar todas las filas"
+                  aria-label={`Seleccionar los ${facturablesVistos.length} que se pueden facturar`}
+                  title={facturablesVistos.length > 0 ? `Seleccionar los ${facturablesVistos.length} que se pueden facturar` : 'No hay ninguno que se pueda facturar'}
                   type="checkbox"
-                  checked={paginated.length > 0 && selectedIds.size === paginated.length}
+                  checked={todosMarcados}
+                  disabled={facturablesVistos.length === 0}
                   onChange={toggleSelectAll}
                 />
               </th>
@@ -367,13 +384,21 @@ export default function AlbaranesPage() {
             </tr>
           </thead>
           <tbody>
-            {paginated.map(a => (
-              <tr key={a.id}>
+            {paginated.map(a => {
+              const p = paraFacturar.get(a.id);
+              const motivo = p ? motivoNoFacturable(p) : null;
+              const factura = p?.factura;
+              return (
+              <tr key={a.id} className={selectedIds.has(a.id) ? 'is-selected' : undefined}>
                 <td className="table-checkbox" data-m="check">
                   <input
-                    aria-label="Seleccionar esta fila"
+                    aria-label={motivo ? `${a.number}: ${motivo}` : `Seleccionar ${a.number} para facturar`}
+                    title={motivo ? `No se puede facturar: ${motivo}` : 'Seleccionar para facturar'}
                     type="checkbox"
                     checked={selectedIds.has(a.id)}
+                    // Uno que ya no se puede facturar pero sigue marcado se
+                    // puede desmarcar; lo que no se puede es marcarlo.
+                    disabled={!!motivo && !selectedIds.has(a.id)}
                     onChange={() => toggleSelect(a.id)}
                   />
                 </td>
@@ -387,6 +412,11 @@ export default function AlbaranesPage() {
                     <span className="badge-dot" />
                     {statusLabel(a.status)}
                   </span>
+                  {factura && (
+                    <Link href={`/facturas/${factura.id}`} className="cell-link albaran-factura">
+                      {factura.number || 'Ver la factura'}
+                    </Link>
+                  )}
                 </td>
                 <td className="amount" data-m="importe">{formatCurrency(a.total)}</td>
                 <td data-m="menu">
@@ -425,7 +455,7 @@ export default function AlbaranesPage() {
                         </button>
                       )}
                       {a.status === 'expedido' && (
-                        <button className="action-menu-item" role="menuitem" onClick={() => handleConvert([a.id])}>
+                        <button className="action-menu-item" role="menuitem" onClick={() => handleConvert(a.id)}>
                           <FileText /> Convertir a factura
                         </button>
                       )}
@@ -447,7 +477,8 @@ export default function AlbaranesPage() {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
 
             {paginated.length === 0 && hasFilters && (
               <TableEmpty
@@ -488,8 +519,8 @@ export default function AlbaranesPage() {
           <div>
             <strong>{counts.porFacturar} {counts.porFacturar === 1 ? 'albarán pendiente' : 'albaranes pendientes'} de facturar</strong>
             <p>
-              Usa «Facturar el mes» de arriba para hacerlo de una vez, o selecciona albaranes sueltos
-              y pulsa «Convertir a factura». Se agrupan por cliente en una sola factura.
+              Usa «Facturar el mes» de arriba para hacerlo de una vez, o marca albaranes sueltos
+              y pulsa «Facturar…». Sale una factura por cliente, con cada albarán citado.
             </p>
           </div>
         </div>
