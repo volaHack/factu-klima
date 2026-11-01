@@ -530,10 +530,10 @@ export default function InvoiceDetailPage() {
                         <td className="linea-dato" data-label={impuesto}>{line.taxRate}%</td>
                         <td className={`linea-dato${dto > 0 ? '' : ' es-vacio'}`} data-label="Dto." title={
                           (line.discountPercent2 || line.discountPercent3)
-                            ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).join('% + ')}%`
+                            ? `En cascada: ${[line.discountPercent, line.discountPercent2, line.discountPercent3].filter(Boolean).map(n => Number(n).toLocaleString('es-ES')).join(' % + ')} %`
                             : undefined
                         }>
-                          {dto > 0 ? `${dto}%` : '-'}
+                          {dto > 0 ? `${dto.toLocaleString('es-ES', { maximumFractionDigits: 2 })} %` : '-'}
                         </td>
                         <td className="linea-subtotal" style={{ fontWeight: 700, color: '#0f172a' }}>{formatCurrency(line.subtotal)}</td>
                       </tr>
