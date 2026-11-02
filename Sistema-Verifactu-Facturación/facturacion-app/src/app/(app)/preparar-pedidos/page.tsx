@@ -12,6 +12,9 @@
  * Qué entra en la cola, qué significa cada botón y por qué «Preparado» no
  * es un estado: en lib/prepararPedidos.ts y lib/prepararPedidosAcciones.ts.
  *
+ * La impresora de cada tarjeta saca el pedido tal cual, con el diseño de
+ * la empresa (ver _componentes/imprimirPedido.ts).
+ *
  * La cola es una sola lista, por fecha o por llegada: en el almacén no hay
  * rutas de reparto (quien carga sabe dónde está cada tienda). Las hojas
  * (preparación por pedido y carga de varios) salen de los pedidos marcados
@@ -22,7 +25,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Truck, Printer, Bell, BellOff, Volume2, VolumeX, PackageCheck, Undo2, ExternalLink, ClipboardList } from 'lucide-react';
+import { CheckCircle2, Truck, Printer, Loader2, Bell, BellOff, Volume2, VolumeX, PackageCheck, Undo2, ExternalLink, ClipboardList } from 'lucide-react';
 import PageSkeleton from '@/components/ui/PageSkeleton';
 import CajaBusqueda from '@/components/ui/CajaBusqueda';
 import { useToast } from '@/hooks/useToast';
@@ -42,6 +45,7 @@ import {
   leerMemoria, guardarMemoria, marcarVistos, leerPreferencias, guardarPreferencias, type PreferenciasAviso,
 } from '@/lib/avisoPedidos';
 import { HojaPreparacion, HojaCarga } from './_componentes/Hojas';
+import { imprimirPedido } from './_componentes/imprimirPedido';
 
 type Filtro = 'pendientes' | 'preparados' | 'todo';
 type Papel = { tipo: 'preparacion'; pedidos: PedidoEnCola[] } | { tipo: 'carga'; pedidos: PedidoEnCola[]; titulo: string };
@@ -77,6 +81,8 @@ export default function PrepararPedidosPage() {
   const [armado, setArmado] = useState<string | null>(null);
   const [nuevos, setNuevos] = useState<Set<string>>(new Set());
   const [papel, setPapel] = useState<Papel | null>(null);
+  // El pedido que se está preparando para imprimir (montar el PDF tarda).
+  const [imprimiendo, setImprimiendo] = useState<string | null>(null);
   const desarmar = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -113,6 +119,20 @@ export default function PrepararPedidosPage() {
   }, [papel]);
 
   useEffect(() => () => window.clearTimeout(desarmar.current), []);
+
+  // La impresora de cada tarjeta saca el pedido con su diseño, no la hoja
+  // de preparación (ésa está en los botones de arriba).
+  const alImprimir = async (p: PedidoEnCola) => {
+    if (imprimiendo) return;
+    setImprimiendo(p.id);
+    try {
+      await imprimirPedido(p);
+    } catch (e) {
+      toastError('No se ha podido imprimir', e instanceof Error ? e.message : 'Vuelve a intentarlo en un momento.');
+    } finally {
+      setImprimiendo(null);
+    }
+  };
 
   const cambiarVista = (v: Partial<typeof vista>) => {
     const sigue = { ...vista, ...v };
@@ -270,7 +290,8 @@ export default function PrepararPedidosPage() {
                 ocupado={ocupado === p.id} armado={armado === p.id}
                 alMarcar={() => marcar(p.id)}
                 alPreparar={() => alPreparar(p)} alEntregar={() => alEntregar(p)}
-                alImprimir={() => setPapel({ tipo: 'preparacion', pedidos: [p] })}
+                imprimiendo={imprimiendo === p.id}
+                alImprimir={() => alImprimir(p)}
               />
             ))}
           </ul>
@@ -295,8 +316,8 @@ function tituloDeCarga(filtro: Filtro, busca: string): string {
   return busca.trim() ? `${base} · «${busca.trim()}»` : base;
 }
 
-function Tarjeta({ p, nuevo, marcado, ocupado, armado, alMarcar, alPreparar, alEntregar, alImprimir }: {
-  p: PedidoEnCola; nuevo: boolean; marcado: boolean; ocupado: boolean; armado: boolean;
+function Tarjeta({ p, nuevo, marcado, ocupado, armado, imprimiendo, alMarcar, alPreparar, alEntregar, alImprimir }: {
+  p: PedidoEnCola; nuevo: boolean; marcado: boolean; ocupado: boolean; armado: boolean; imprimiendo: boolean;
   alMarcar: () => void; alPreparar: () => void; alEntregar: () => void; alImprimir: () => void;
 }) {
   const t = totalesDePedido(p);
@@ -358,8 +379,13 @@ function Tarjeta({ p, nuevo, marcado, ocupado, armado, alMarcar, alPreparar, alE
         >
           <Truck size={20} /> {armado ? 'Toca otra vez para entregar' : 'Entregado'}
         </button>
-        <button type="button" className="btn btn-outline almacen-boton almacen-boton--icono" onClick={alImprimir} aria-label={`Imprimir la hoja de preparación de ${nombreDe(p)}`} title="Hoja de preparación">
-          <Printer size={22} />
+        <button
+          type="button" className="btn btn-outline almacen-boton almacen-boton--icono"
+          onClick={alImprimir} disabled={imprimiendo} aria-busy={imprimiendo}
+          aria-label={`Imprimir ${nombreDe(p)} de ${p.cliente}`}
+          title={`Imprimir ${p.tipo === 'albaran' ? 'el albarán' : 'el pedido'}`}
+        >
+          {imprimiendo ? <Loader2 size={22} className="spin" /> : <Printer size={22} />}
         </button>
       </div>
     </li>

@@ -13,8 +13,8 @@
  * siempre (`children`), que en ese caso es también lo que se imprime. Si el
  * PDF no se puede montar, lo mismo: la ficha no se queda en blanco.
  *
- * Las páginas se pintan con pdf.js y no con un <iframe>: el visor de PDF del
- * navegador no existe en el móvil y allí el iframe sale vacío o descarga.
+ * Las páginas se pintan como imágenes (lib/plantillas/paginasPdf): el visor
+ * de PDF del navegador no existe en el móvil y allí el iframe sale vacío.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -24,37 +24,6 @@ import type { TipoDocumentoPlantilla } from '@/lib/plantillas/tiposDocumento';
 type Estado =
   | { clave: string; modo: 'pdf'; paginas: string[] }
   | { clave: string; modo: 'html' };
-
-/** Resolución de cada página: unos 180 ppp, nítida en pantalla y al imprimir. */
-const ESCALA = 2.5;
-
-async function pintarPaginas(blob: Blob): Promise<string[]> {
-  const { cargarPdfJs } = await import('@/lib/plantillas/extraccion');
-  const pdfjs = await cargarPdfJs();
-  const carga = pdfjs.getDocument({
-    data: new Uint8Array(await blob.arrayBuffer()),
-    useSystemFonts: true,
-    isEvalSupported: false,
-  });
-  const pdf = await carga.promise;
-  const paginas: string[] = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    const pagina = await pdf.getPage(n);
-    const vista = pagina.getViewport({ scale: ESCALA });
-    const lienzo = document.createElement('canvas');
-    lienzo.width = Math.round(vista.width);
-    lienzo.height = Math.round(vista.height);
-    const ctx = lienzo.getContext('2d');
-    if (!ctx) throw new Error('Sin canvas');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, lienzo.width, lienzo.height);
-    await pagina.render({ canvasContext: ctx, viewport: vista, intent: 'print' }).promise;
-    paginas.push(lienzo.toDataURL('image/png'));
-  }
-  // Suelta el documento y su hilo de trabajo: las páginas ya son imágenes.
-  await carga.destroy();
-  return paginas;
-}
 
 export default function VistaDocumento({ tipo, documento, children }: {
   tipo: TipoDocumentoPlantilla;
@@ -75,7 +44,8 @@ export default function VistaDocumento({ tipo, documento, children }: {
         const hecho = await componerPdf(tipo, documento);
         if (!vivo) return;
         if (!hecho) { setEstado({ clave, modo: 'html' }); return; }
-        const paginas = await pintarPaginas(hecho.blob);
+        const { paginasComoImagen } = await import('@/lib/plantillas/paginasPdf');
+        const paginas = await paginasComoImagen(hecho.blob);
         if (vivo) setEstado({ clave, modo: 'pdf', paginas });
       } catch (error) {
         // Se sigue con la vista de siempre, pero queda constancia del porqué.
