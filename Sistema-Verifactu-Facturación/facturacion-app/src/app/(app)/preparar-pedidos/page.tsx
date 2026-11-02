@@ -45,7 +45,7 @@ import {
   leerMemoria, guardarMemoria, marcarVistos, leerPreferencias, guardarPreferencias, type PreferenciasAviso,
 } from '@/lib/avisoPedidos';
 import { HojaPreparacion, HojaCarga } from './_componentes/Hojas';
-import { imprimirPedido } from './_componentes/imprimirPedido';
+import { imprimirPedido, SinDiseno } from './_componentes/imprimirPedido';
 
 type Filtro = 'pendientes' | 'preparados' | 'todo';
 type Papel = { tipo: 'preparacion'; pedidos: PedidoEnCola[] } | { tipo: 'carga'; pedidos: PedidoEnCola[]; titulo: string };
@@ -128,7 +128,10 @@ export default function PrepararPedidosPage() {
     try {
       await imprimirPedido(p);
     } catch (e) {
-      toastError('No se ha podido imprimir', e instanceof Error ? e.message : 'Vuelve a intentarlo en un momento.');
+      toastError(
+        e instanceof SinDiseno ? 'No hay diseño disponible' : 'No se ha podido imprimir',
+        e instanceof Error ? e.message : 'Vuelve a intentarlo en un momento.',
+      );
     } finally {
       setImprimiendo(null);
     }
