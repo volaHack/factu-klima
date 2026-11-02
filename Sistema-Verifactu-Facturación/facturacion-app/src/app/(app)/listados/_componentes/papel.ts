@@ -77,7 +77,10 @@ export function imprimirHtml(titulo: string, html: string, cssExtra = '', apaisa
   );
   doc.close();
 
-  const lanzar = () => {
+  // Con imágenes (las páginas de un diseño propio, un logo), el diálogo
+  // espera a que estén pintadas: abierto antes, el papel sale en blanco.
+  const lanzar = async () => {
+    await Promise.all(Array.from(doc.images, img => (img.complete ? null : img.decode().catch(() => null))));
     ventana.focus();
     ventana.print();
   };
@@ -87,8 +90,8 @@ export function imprimirHtml(titulo: string, html: string, cssExtra = '', apaisa
   ventana.onafterprint = () => marco.remove();
   window.setTimeout(() => marco.remove(), 60000);
 
-  if (doc.readyState === 'complete') lanzar();
-  else marco.onload = lanzar;
+  if (doc.readyState === 'complete') void lanzar();
+  else marco.onload = () => void lanzar();
 }
 
 /** Bajar un CSV (para Excel). */
