@@ -452,3 +452,9 @@
 @media print {
   .vacio-dibujo { display: none; }
 }
+
+/* Los tres filtros de Documentos: en el teléfono cada uno salía de su
+   ancho y quedaban en escalera. Ahora comparten la fila y, si no caben,
+   bajan ocupando todo el ancho. */
+.documentos-filtros { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.documentos-filtros > .form-select { width: auto; flex: 1 1 10rem; }

@@ -756,3 +756,76 @@
   .invitacion-cargando-placa, .invitacion-cargando-linea { animation: none; }
   .invitacion-brillo, .invitacion-boton::after { display: none; }
 }
+
+/* ============================================================
+   CAMPOS EN EL MÓVIL Y LA TABLETA
+   En el teléfono cada caja medía lo que le salía: 36 px el buscador,
+   38 las de texto, 40 las fechas, 41 la hora, 32 los desplegables
+   pequeños y 30 el de «por página». Con la letra subida a 16 px (para
+   que el iPhone no amplíe al tocar) el texto quedaba apretado contra el
+   borde en unas y suelto en otras, y en el Safari del iPhone las fechas
+   salían centradas y, vacías, se encogían.
+   Aquí todas tienen el mismo alto táctil (44 px; 40 las pequeñas), el
+   mismo relleno arriba y abajo y una altura de línea fija, de modo que el
+   texto cae justo en el centro de la caja en cualquier teléfono o
+   tableta. Lo que no cabe acaba en «…» en vez de cortarse a media letra.
+   ============================================================ */
+@media (hover: none) and (pointer: coarse), (max-width: 768px) {
+  .form-input:not(textarea),
+  .form-select,
+  .search-bar input,
+  .paginacion-tamano select {
+    min-height: 44px;
+    height: auto;
+    padding-top: 11px;
+    padding-bottom: 11px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+  }
+  .form-input-sm:not(textarea),
+  .form-select-sm {
+    min-height: 40px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+  /* El desplegable pequeño empezaba 3 px más a la izquierda que el resto. */
+  .form-select-sm { padding-left: var(--space-3); }
+  .paginacion-tamano select { min-height: 40px; padding-top: 9px; padding-bottom: 9px; }
+
+  /* Las casillas de cada línea del documento (cantidad, precio, dto.,
+     impuesto) van apretadas a propósito, pero 34 px era poco para el
+     dedo y para la letra de 16 px. */
+  .lineas-doc-campo input:not([type="range"]):not([type="checkbox"]),
+  .lineas-doc-campo select {
+    height: 40px;
+    line-height: 1.25;
+  }
+
+  .form-textarea,
+  textarea.form-input {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    line-height: 1.45;
+  }
+
+  /* Fechas y horas: en el iPhone el valor salía centrado y, si la caja
+     estaba vacía, perdía la altura. Se alinean a la izquierda como el
+     resto y conservan su alto; el selector nativo se sigue abriendo. */
+  input.form-input:is([type="date"], [type="time"], [type="month"], [type="week"], [type="datetime-local"]) {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+    text-align: start;
+  }
+  input.form-input::-webkit-date-and-time-value { text-align: start; margin: 0; }
+  input.form-input::-webkit-datetime-edit,
+  input.form-input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+
+  /* La búsqueda del iPhone añade su propio redondeo y un hueco a la
+     izquierda que descentraba el texto. */
+  input[type="search"] { -webkit-appearance: none; appearance: none; }
+  input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
+}

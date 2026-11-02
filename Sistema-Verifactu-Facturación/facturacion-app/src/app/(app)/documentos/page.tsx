@@ -343,12 +343,11 @@ function DocumentosContent() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <div className="documentos-filtros">
             <select
               className="form-select"
               value={tipoFiltro}
               onChange={e => setTipoFiltro(e.target.value)}
-              style={{ width: 'auto' }}
             >
               <option value="todos">Todos los tipos</option>
               <option value="presupuesto">Presupuestos</option>
@@ -362,7 +361,6 @@ function DocumentosContent() {
               className="form-select"
               value={sentidoFiltro}
               onChange={e => setSentidoFiltro(e.target.value)}
-              style={{ width: 'auto' }}
             >
               <option value="todos">Venta y compra</option>
               <option value="venta">Solo Ventas</option>
@@ -373,7 +371,6 @@ function DocumentosContent() {
               className="form-select"
               value={estadoFiltro}
               onChange={e => setEstadoFiltro(e.target.value)}
-              style={{ width: 'auto' }}
             >
               <option value="todos">Todos los estados</option>
               <option value="borrador">Borrador</option>
@@ -390,7 +387,6 @@ function DocumentosContent() {
                 className="form-select"
                 value={origenFiltro}
                 onChange={e => setOrigenFiltro(e.target.value)}
-                style={{ width: 'auto' }}
                 aria-label="Origen"
               >
                 <option value="todos">Todos los orígenes</option>
