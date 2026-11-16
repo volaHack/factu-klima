@@ -25,6 +25,8 @@ import { casaTexto } from '@/lib/casaTexto';
 import { guardarTamano, tamanoGuardado, type Paginado } from '@/hooks/usePaginacion';
 import { paginaValida, rango, totalPaginas, type TamanoPagina } from '@/lib/paginacion';
 import Paginacion from '@/components/ui/Paginacion';
+import { useRolActivo } from '@/lib/perfilesCliente';
+import { esDocumentoDeVendedor, nuevoDeVendedor, tipoParaVendedor } from '@/lib/perfiles';
 
 type DocumentoSortField = CampoDocumentos;
 
@@ -84,8 +86,14 @@ function DocumentosContent() {
   const [documentos, setDocumentos] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState<string>(tipoParam || 'todos');
-  const [sentidoFiltro, setSentidoFiltro] = useState<string>(sentidoParam || 'todos');
+  // El vendedor sólo lleva pedidos y presupuestos de venta: pida lo que
+  // pida la dirección, la lista se queda en eso (y sin el historial del
+  // programa anterior, que trae documentos de todo tipo).
+  const { listo: rolListo, esVendedor } = useRolActivo();
+  const [tipoElegido, setTipoFiltro] = useState<string>(tipoParam || 'todos');
+  const [sentidoElegido, setSentidoFiltro] = useState<string>(sentidoParam || 'todos');
+  const tipoFiltro = esVendedor ? tipoParaVendedor(tipoElegido) : tipoElegido;
+  const sentidoFiltro = esVendedor ? 'venta' : sentidoElegido;
   // Al pasar de una hoja del menú Mantenimientos a otra la página no se
   // vuelve a montar: los filtros siguen a la dirección cuando esta cambia.
   const [paramsVistos, setParamsVistos] = useState(`${tipoParam}|${sentidoParam}`);
@@ -100,9 +108,10 @@ function DocumentosContent() {
 
   // El programa de antes, si lo hubo (undefined: aún no se sabe).
   const [origenHistorico, setOrigenHistorico] = useState<string | null | undefined>(undefined);
-  const [origenFiltro, setOrigenFiltro] = useState<string>(
+  const [origenElegido, setOrigenFiltro] = useState<string>(
     origenParam === 'klima' || origenParam === 'historico' ? origenParam : 'todos',
   );
+  const origenFiltro = esVendedor ? 'klima' : origenElegido;
   const [buscado, setBuscado] = useState('');
   // La página del historial va con los filtros y el orden con que se pidió.
   const [hist, setHist] = useState<{ clave: string; filas: FilaListadoHistorico[]; total: number; error: string } | null>(null);
@@ -187,6 +196,7 @@ function DocumentosContent() {
       const tipo = doc.tipo ?? 'factura';
       const sentido = doc.sentido ?? 'venta';
 
+      if (esVendedor && !esDocumentoDeVendedor(doc)) return false;
       if (tipoFiltro !== 'todos' && tipo !== tipoFiltro) return false;
       if (sentidoFiltro !== 'todos' && sentido !== sentidoFiltro) return false;
       if (estadoFiltro !== 'todos' && doc.status !== estadoFiltro) return false;
@@ -199,7 +209,7 @@ function DocumentosContent() {
       }
       return true;
     }).sort((a, b) => compararFilas({ de: 'klima', doc: a }, { de: 'klima', doc: b }, sortField, sortDir));
-  }, [documentos, tipoFiltro, sentidoFiltro, estadoFiltro, search, sortField, sortDir, origenFiltro]);
+  }, [documentos, tipoFiltro, sentidoFiltro, estadoFiltro, search, sortField, sortDir, origenFiltro, esVendedor]);
 
   // Cada albarán de venta, en la forma con la que se decide si se puede facturar.
   const paraFacturar = useMemo(() => new Map(
@@ -219,7 +229,8 @@ function DocumentosContent() {
     if (nuevo.has(id)) nuevo.delete(id); else nuevo.add(id);
     return nuevo;
   });
-  const columnas = modoFacturar ? 10 : 9;
+  // Para el vendedor todo es de venta: la columna «Sentido» sobra.
+  const columnas = (modoFacturar ? 10 : 9) - (esVendedor ? 1 : 0);
 
   const pideHistorial = Boolean(origenHistorico) && origenFiltro !== 'klima';
   const filtroHist = useMemo(
@@ -294,31 +305,39 @@ function DocumentosContent() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  // Hasta saber quién mira no se pinta: al vendedor no se le enseña ni un
+  // instante la lista entera.
+  if (loading || !rolListo) return <PageSkeleton />;
 
   return (
     <div className="page-container pantalla-lista">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
-          <h1 className="page-title">Documentos</h1>
+          <h1 className="page-title">{esVendedor ? (tipoFiltro === 'presupuesto' ? 'Presupuestos' : 'Pedidos de venta') : 'Documentos'}</h1>
           <p className="page-subtitle">
-            Presupuestos, pedidos, albaranes y facturas de venta y compra
-            {nombreOrigen && <>. Los de {nombreOrigen} son de solo consulta</>}
+            {esVendedor
+              ? (tipoFiltro === 'presupuesto' ? 'Lo presupuestado a los clientes' : 'Lo que han pedido los clientes')
+              : <>Presupuestos, pedidos, albaranes y facturas de venta y compra
+                {nombreOrigen && <>. Los de {nombreOrigen} son de solo consulta</>}</>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <Link href="/documentos/nuevo?tipo=presupuesto&sentido=venta" className="btn btn-secondary btn-sm">
             <Plus size={14} /> Presupuesto
           </Link>
-          <Link href="/documentos/nuevo?tipo=pedido&sentido=venta" className="btn btn-secondary btn-sm">
+          <Link href="/documentos/nuevo?tipo=pedido&sentido=venta" className={`btn btn-sm ${esVendedor ? 'btn-primary' : 'btn-secondary'}`}>
             <Plus size={14} /> Pedido
           </Link>
-          <Link href="/documentos/nuevo?tipo=albaran&sentido=venta" className="btn btn-secondary btn-sm">
-            <Plus size={14} /> Albarán
-          </Link>
-          <Link href="/documentos/nuevo?tipo=pedido&sentido=compra" className="btn btn-outline btn-sm">
-            <Plus size={14} /> Compra
-          </Link>
+          {!esVendedor && (
+            <>
+              <Link href="/documentos/nuevo?tipo=albaran&sentido=venta" className="btn btn-secondary btn-sm">
+                <Plus size={14} /> Albarán
+              </Link>
+              <Link href="/documentos/nuevo?tipo=pedido&sentido=compra" className="btn btn-outline btn-sm">
+                <Plus size={14} /> Compra
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -349,23 +368,29 @@ function DocumentosContent() {
               value={tipoFiltro}
               onChange={e => setTipoFiltro(e.target.value)}
             >
-              <option value="todos">Todos los tipos</option>
+              {!esVendedor && <option value="todos">Todos los tipos</option>}
               <option value="presupuesto">Presupuestos</option>
               <option value="pedido">Pedidos</option>
-              <option value="albaran">Albaranes</option>
-              <option value="factura">Facturas</option>
-              <option value="rectificativa">Rectificativas</option>
+              {!esVendedor && (
+                <>
+                  <option value="albaran">Albaranes</option>
+                  <option value="factura">Facturas</option>
+                  <option value="rectificativa">Rectificativas</option>
+                </>
+              )}
             </select>
 
-            <select
-              className="form-select"
-              value={sentidoFiltro}
-              onChange={e => setSentidoFiltro(e.target.value)}
-            >
-              <option value="todos">Venta y compra</option>
-              <option value="venta">Solo Ventas</option>
-              <option value="compra">Solo Compras</option>
-            </select>
+            {!esVendedor && (
+              <select
+                className="form-select"
+                value={sentidoFiltro}
+                onChange={e => setSentidoFiltro(e.target.value)}
+              >
+                <option value="todos">Venta y compra</option>
+                <option value="venta">Solo Ventas</option>
+                <option value="compra">Solo Compras</option>
+              </select>
+            )}
 
             <select
               className="form-select"
@@ -375,14 +400,19 @@ function DocumentosContent() {
               <option value="todos">Todos los estados</option>
               <option value="borrador">Borrador</option>
               <option value="emitida">Emitida</option>
-              <option value="expedido">Expedido</option>
-              <option value="facturado">Facturado</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="pagada">Pagada</option>
+              {/* Los estados de albarán y de factura no los tiene un pedido. */}
+              {!esVendedor && (
+                <>
+                  <option value="expedido">Expedido</option>
+                  <option value="facturado">Facturado</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pagada">Pagada</option>
+                </>
+              )}
               <option value="anulada">Anulada</option>
             </select>
 
-            {origenHistorico && (
+            {origenHistorico && !esVendedor && (
               <select
                 className="form-select"
                 value={origenFiltro}
@@ -460,14 +490,16 @@ function DocumentosContent() {
                     Tipo {sortIcon('tipo')}
                   </button>
                 </th>
-                <th
-                  className={sortField === 'sentido' ? 'sorted' : ''}
-                  aria-sort={sortField === 'sentido' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                >
-                  <button type="button" className="th-orden" onClick={() => handleSort('sentido')} title="Ordenar por sentido (venta o compra)">
-                    Sentido {sortIcon('sentido')}
-                  </button>
-                </th>
+                {!esVendedor && (
+                  <th
+                    className={sortField === 'sentido' ? 'sorted' : ''}
+                    aria-sort={sortField === 'sentido' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <button type="button" className="th-orden" onClick={() => handleSort('sentido')} title="Ordenar por sentido (venta o compra)">
+                      Sentido {sortIcon('sentido')}
+                    </button>
+                  </th>
+                )}
                 <th
                   className={sortField === 'issueDate' ? 'sorted' : ''}
                   aria-sort={sortField === 'issueDate' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -480,8 +512,8 @@ function DocumentosContent() {
                   className={sortField === 'clientName' ? 'sorted' : ''}
                   aria-sort={sortField === 'clientName' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
-                  <button type="button" className="th-orden" onClick={() => handleSort('clientName')} title="Ordenar por cliente o proveedor">
-                    Cliente / Proveedor {sortIcon('clientName')}
+                  <button type="button" className="th-orden" onClick={() => handleSort('clientName')} title={esVendedor ? 'Ordenar por cliente' : 'Ordenar por cliente o proveedor'}>
+                    {esVendedor ? 'Cliente' : 'Cliente / Proveedor'} {sortIcon('clientName')}
                   </button>
                 </th>
                 <th
@@ -521,11 +553,15 @@ function DocumentosContent() {
                   icon={FileText}
                   title="No hay documentos"
                   hint={search ? 'No se encontraron documentos con los filtros aplicados' : 'Crea tu primer presupuesto o pedido para comenzar'}
-                  action={
+                  action={esVendedor ? (
+                    <Link href={nuevoDeVendedor(tipoParaVendedor(tipoFiltro))} className="btn btn-primary btn-sm">
+                      <Plus size={14} /> {tipoFiltro === 'presupuesto' ? 'Crear presupuesto' : 'Crear pedido'}
+                    </Link>
+                  ) : (
                     <Link href="/documentos/nuevo?tipo=presupuesto" className="btn btn-primary btn-sm">
                       <Plus size={14} /> Crear presupuesto
                     </Link>
-                  }
+                  )}
                 />
               ) : (
                 visibles.map(fila => {
@@ -605,11 +641,13 @@ function DocumentosContent() {
                           {etiquetaTipo(tipo)}
                         </span>
                       </td>
-                      <td data-m="dato">
-                        <span className={`badge ${sentido === 'compra' ? 'badge-warning' : 'badge-neutral'}`}>
-                          {sentido === 'compra' ? 'Compra' : 'Venta'}
-                        </span>
-                      </td>
+                      {!esVendedor && (
+                        <td data-m="dato">
+                          <span className={`badge ${sentido === 'compra' ? 'badge-warning' : 'badge-neutral'}`}>
+                            {sentido === 'compra' ? 'Compra' : 'Venta'}
+                          </span>
+                        </td>
+                      )}
                       <td data-m="dato">{formatDate(doc.issueDate)}</td>
                       <td data-m="sub">
                         <div>{doc.clientName || 'Sin cliente'}</div>

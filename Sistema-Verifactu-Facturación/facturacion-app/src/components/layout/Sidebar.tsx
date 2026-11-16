@@ -14,7 +14,7 @@ import { empresasQueLlevo, invitacionesPendientes } from '@/lib/gestoria';
 import { NOMBRE_ORIGEN, origenDelHistorico } from '@/lib/historico';
 import type { CompanySettings } from '@/lib/types';
 import { usePerfiles } from '@/lib/perfilesCliente';
-import { puedeEntrar } from '@/lib/perfiles';
+import { nuevoDeVendedor, puedeEntrar } from '@/lib/perfiles';
 import { usePedidosNuevos } from '@/hooks/useColaAlmacen';
 
 const PREPARAR = MENU.flatMap(r => r.hojas).find(h => h.lista === '/preparar-pedidos');
@@ -55,8 +55,21 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
     if (h.requiere === 'tpv' && !tpvActive) return false;
     if (h.requiere === 'historico' && !origenHistorico) return false;
     if (h.requiere === 'gestoria' && !tieneGestoria) return false;
-    return !perfilActivo || puedeEntrar(perfilActivo.rol, h.lista.split('?')[0]);
+    // Con sus filtros: al vendedor la misma pantalla le sirve para sus
+    // pedidos de venta y no para las compras (ver lib/perfiles.ts).
+    return !perfilActivo || puedeEntrar(perfilActivo.rol, h.lista);
   }, [modulos, tpvActive, origenHistorico, tieneGestoria, perfilActivo]);
+  // El «+» de cada hoja, sólo si el perfil puede crear eso.
+  const puedeCrear = useCallback(
+    (href: string) => !perfilActivo || puedeEntrar(perfilActivo.rol, href),
+    [perfilActivo],
+  );
+  // El botón grande del menú: la acción principal de quien trabaja. Para
+  // el vendedor es el pedido; para los demás, la factura.
+  const esVendedor = perfilActivo?.rol === 'vendedor';
+  const cta = esVendedor
+    ? { href: nuevoDeVendedor('pedido'), label: 'Nuevo pedido' }
+    : { href: '/facturas/nueva', label: 'Nueva factura' };
 
   // El aviso de pedidos nuevos vive aquí porque el menú está en todas las
   // pantallas: el almacén se entera esté donde esté. Se enciende si sale la
@@ -180,11 +193,14 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           <Suspense fallback={null}>
             <MenuPrincipal
               visible={visible}
+              puedeCrear={puedeCrear}
               onClose={onClose}
               collapsed={collapsed}
               onExpand={onToggleCollapse}
               nombreHistorial={origenHistorico ? (NOMBRE_ORIGEN[origenHistorico] ?? 'anterior') : undefined}
-              antesDelArbol={<FichasRecordadas onClose={onClose} />}
+              // Lo recordado en este equipo es de toda la cuenta (facturas,
+              // proveedores…): al vendedor no se le enseña.
+              antesDelArbol={esVendedor ? null : <FichasRecordadas onClose={onClose} />}
               contadores={contadores}
             />
           </Suspense>
@@ -194,9 +210,9 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             todas las pantallas (ver neon.css); en el móvil la lleva el
             botón redondo de la barra de abajo. */}
         <div className="sidebar-cta">
-          <Link href="/facturas/nueva" className="btn btn-primary neon" onClick={onClose} title={collapsed ? 'Nueva factura' : undefined}>
+          <Link href={cta.href} className="btn btn-primary neon" onClick={onClose} title={collapsed ? cta.label : undefined}>
             <Plus size={16} />
-            <span>Nueva factura</span>
+            <span>{cta.label}</span>
           </Link>
         </div>
       </aside>

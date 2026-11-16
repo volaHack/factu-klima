@@ -34,6 +34,9 @@ import { useToast } from '@/hooks/useToast';
 import TrazaDocumento from './_componentes/TrazaDocumento';
 import DialogoFacturaProveedor from './_componentes/DialogoFacturaProveedor';
 import DialogoAnular from './_componentes/DialogoAnular';
+import { useRolActivo } from '@/lib/perfilesCliente';
+import { esDocumentoDeVendedor, listaDeVendedor, tipoParaVendedor } from '@/lib/perfiles';
+import { SinAcceso } from '@/components/perfiles/ControlPerfiles';
 
 const iconoConversion = { pedido: ArrowRight, albaran: PackageCheck, factura: FileSignature } as const;
 
@@ -56,6 +59,9 @@ export default function DocumentoDetallePage() {
   const ocupado = useRef(false);
 
   const { success, error: toastError, warning } = useToast();
+  // El vendedor abre sus pedidos y presupuestos de venta; cualquier otro
+  // documento (un albarán, una compra, una factura) no es de su perfil.
+  const { listo: rolListo, esVendedor, perfil } = useRolActivo();
 
   const cargar = useCallback(async () => {
     try {
@@ -90,7 +96,8 @@ export default function DocumentoDetallePage() {
     [documento, documentos],
   );
 
-  if (loading) return <PageSkeleton />;
+  if (loading || !rolListo) return <PageSkeleton />;
+  if (esVendedor && documento && !esDocumentoDeVendedor(documento)) return perfil ? <SinAcceso perfil={perfil} /> : null;
   if (!documento || !settings) {
     return (
       <div className="page-container">
@@ -99,7 +106,7 @@ export default function DocumentoDetallePage() {
           <p style={{ color: 'var(--text-muted)', margin: 'var(--space-4) 0' }}>
             El documento solicitado no existe o ha sido eliminado.
           </p>
-          <Link href="/documentos" className="btn btn-primary">
+          <Link href={esVendedor ? listaDeVendedor('pedido') : '/documentos'} className="btn btn-primary">
             Volver al listado
           </Link>
         </div>
@@ -131,7 +138,10 @@ export default function DocumentoDetallePage() {
     && documento.lineItems.some(l => (l.unitsPerPackage ?? 0) > 0 || (l.cajas ?? 0) > 0);
 
   // Qué se puede convertir y por qué no, en venta y en compra (fichaDocumento.ts).
-  const conversiones = conversionesDeFicha(documento, documentos);
+  // El vendedor pasa un presupuesto a pedido; servirlo (albarán) y
+  // facturarlo es cosa del almacén y de la oficina.
+  const conversiones = conversionesDeFicha(documento, documentos)
+    .filter(c => !esVendedor || c.destino === 'pedido');
 
   /** Una acción a la vez, aunque lleguen dos clics antes del repintado. */
   const enUnaVez = async (accion: () => Promise<void>) => {
@@ -261,7 +271,7 @@ export default function DocumentoDetallePage() {
     <div className="page-container">
       <div className={`page-header detalle-cabecera detalle-cabecera--${documento.status}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <Link href="/documentos" className="btn btn-ghost btn-sm">
+          <Link href={esVendedor ? listaDeVendedor(tipoParaVendedor(tipo)) : '/documentos'} className="btn btn-ghost btn-sm">
             <ArrowLeft size={16} /> Volver
           </Link>
           <div>
@@ -369,7 +379,7 @@ export default function DocumentoDetallePage() {
         </div>
       )}
 
-      {traza && <TrazaDocumento documento={documento} traza={traza} servicio={servicio} />}
+      {traza && <TrazaDocumento documento={documento} traza={traza} servicio={servicio} soloDeVendedor={esVendedor} />}
 
       {/* Grid de información */}
       <div className="grid-2-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>

@@ -17,7 +17,8 @@ import { LATIDO_MS, latido } from '@/lib/sesionesPerfiles';
  *  · Si se configuró el bloqueo, tras ese rato sin tocar nada se cierra
  *    el perfil y se vuelve a pedir: el mostrador no se queda abierto a
  *    nombre de quien se fue.
- *  · Un cajero fuera del TPV vuelve al TPV.
+ *  · Un cajero fuera del TPV vuelve al TPV, y un vendedor que cae en el
+ *    panel (adonde lleva el inicio de sesión) va a sus pedidos.
  *
  * Si la cuenta no usa perfiles, no hace nada: la app es la de siempre.
  */
@@ -66,6 +67,8 @@ export default function ControlPerfiles() {
 
   useEffect(() => {
     if (activo?.rol === 'cajero' && !puedeEntrar('cajero', pathname)) router.replace('/tpv');
+    // Tras iniciar sesión se cae en el panel: el del vendedor son sus pedidos.
+    if (activo?.rol === 'vendedor' && pathname === '/dashboard') router.replace(inicioDe('vendedor'));
   }, [activo, pathname, router]);
 
   if (!cargado || !enUso) return null;
@@ -89,7 +92,9 @@ export function SinAcceso({ perfil }: { perfil: Perfil }) {
       <h1>Esta sección no es de tu perfil</h1>
       <p>
         Estás trabajando como <strong>{perfil.nombre}</strong> ({nombreRol(perfil.rol).toLowerCase()}).
-        Los ajustes, los informes y lo fiscal los lleva el titular de la cuenta.
+        {perfil.rol === 'vendedor'
+          ? ' Tu perfil es para los pedidos y presupuestos de venta y para consultar los clientes.'
+          : ' Los ajustes, los informes y lo fiscal los lleva el titular de la cuenta.'}
       </p>
       <div className="perfil-sin-acceso-acciones">
         <button type="button" className="btn btn-primary" onClick={() => router.push(inicioDe(perfil.rol))}>

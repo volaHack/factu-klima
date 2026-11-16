@@ -6,11 +6,22 @@
  * Supabase sigue siendo la del titular. Son lo que ve y hace cada persona
  * sentada delante del equipo, y lo que queda apuntado a su nombre.
  *
- * TRES ROLES, NO UNA MATRIZ DE PERMISOS
+ * CUATRO ROLES, NO UNA MATRIZ DE PERMISOS
  *
  * Un negocio pequeño no quiere configurar cuarenta casillas: quiere decir
- * «esta es la dueña», «este lleva el día a día» y «esta sólo cobra». Cada
- * rol deja ver unas pantallas y no otras; lo demás, igual para todos.
+ * «esta es la dueña», «este lleva el día a día», «este sale a vender» y
+ * «esta sólo cobra». Cada rol deja ver unas pantallas y no otras; lo
+ * demás, igual para todos.
+ *
+ * EL VENDEDOR
+ *
+ * Hace pedidos y presupuestos de venta y consulta la cartera de clientes.
+ * Nada más: ni lo que cuesta el género, ni lo que se compra, ni lo que se
+ * factura o se cobra. Sus reglas miran también los filtros de la dirección
+ * (`/documentos?tipo=pedido&sentido=venta` sí; el mismo listado en
+ * `sentido=compra`, no), y las pantallas que abre le quitan lo que no es
+ * suyo: el margen de cada línea, el total facturado de un cliente, el paso
+ * a albarán o a factura.
  *
  * LO QUE ESTO ES Y LO QUE NO
  *
@@ -20,7 +31,7 @@
  * hasta ahora. Es organización y rastro, no seguridad de acceso.
  */
 
-export type RolPerfil = 'titular' | 'empleado' | 'cajero';
+export type RolPerfil = 'titular' | 'empleado' | 'vendedor' | 'cajero';
 
 export interface Perfil {
   id: string;
@@ -44,6 +55,7 @@ export interface InfoRol {
 export const ROLES: InfoRol[] = [
   { id: 'titular', nombre: 'Titular', explica: 'Todo: ajustes, informes, equipo y dinero.' },
   { id: 'empleado', nombre: 'Empleado', explica: 'El día a día: facturas, clientes, productos, almacén y caja. Sin ajustes ni informes.' },
+  { id: 'vendedor', nombre: 'Vendedor', explica: 'Sólo pedidos y presupuestos de venta, con los clientes a la vista. Sin costes, compras, facturas ni cifras del negocio.' },
   { id: 'cajero', nombre: 'Cajero', explica: 'Sólo el TPV: cobrar, abrir y cerrar la caja.' },
 ];
 
@@ -64,16 +76,89 @@ const PERMITIDO_CAJERO = ['/tpv'];
 
 const coincide = (ruta: string, prefijo: string) => ruta === prefijo || ruta.startsWith(prefijo + '/');
 
-/** ¿Puede este rol abrir esta pantalla? */
+// ------------------------------------------------------------
+// El vendedor
+// ------------------------------------------------------------
+
+/** Los documentos que hace un vendedor: lo de antes de servir, y de venta. */
+export const TIPOS_DE_VENDEDOR = ['pedido', 'presupuesto'] as const;
+export type TipoDeVendedor = typeof TIPOS_DE_VENDEDOR[number];
+
+/** Su lista de pedidos (o de presupuestos) y el documento nuevo. */
+export const listaDeVendedor = (tipo: TipoDeVendedor) => `/documentos?tipo=${tipo}&sentido=venta`;
+export const nuevoDeVendedor = (tipo: TipoDeVendedor) => `/documentos/nuevo?tipo=${tipo}&sentido=venta`;
+
+/** Donde empieza su día: la lista de pedidos de venta. */
+export const INICIO_VENDEDOR = listaDeVendedor('pedido');
+
+const esTipoDeVendedor = (tipo: string | null | undefined): tipo is TipoDeVendedor =>
+  (TIPOS_DE_VENDEDOR as readonly string[]).includes(tipo ?? '');
+
+/**
+ * ¿Es este documento de los que lleva un vendedor? Un documento sin tipo es
+ * una factura de venta (así se guardaban antes de haber tipos): no lo es.
+ */
+export function esDocumentoDeVendedor(doc: { tipo?: string | null; sentido?: string | null }): boolean {
+  return esTipoDeVendedor(doc.tipo) && (doc.sentido ?? 'venta') === 'venta';
+}
+
+/**
+ * El tipo con el que un vendedor abre la lista o un documento nuevo: el
+ * que pide la dirección si es de los suyos y, si no, el pedido.
+ */
+export function tipoParaVendedor(pedido: string | null | undefined): TipoDeVendedor {
+  return esTipoDeVendedor(pedido) ? pedido : 'pedido';
+}
+
+/**
+ * ¿Ve este perfil lo que cuesta el género, los márgenes y las cifras del
+ * negocio? Todos menos el vendedor. Sin perfil (la cuenta no usa perfiles)
+ * se ve todo, como siempre.
+ */
+export function veCifrasDelNegocio(rol: RolPerfil | null | undefined): boolean {
+  return rol !== 'vendedor';
+}
+
+function puedeEntrarVendedor(ruta: string, consulta: URLSearchParams): boolean {
+  // El historial del programa anterior trae documentos de todo tipo.
+  if (coincide(ruta, '/documentos/historico')) return false;
+  if (ruta === '/documentos' || ruta === '/documentos/nuevo') {
+    const tipo = consulta.get('tipo');
+    const sentido = consulta.get('sentido');
+    return (tipo === null || esTipoDeVendedor(tipo)) && (sentido === null || sentido === 'venta');
+  }
+  // La ficha de un documento: se abre, y la pantalla comprueba que sea suyo.
+  if (coincide(ruta, '/documentos')) return true;
+  if (ruta === '/clientes') {
+    // Consulta la cartera; no da de alta desde aquí ni ve proveedores.
+    const tipo = consulta.get('tipo');
+    return (tipo === null || tipo === 'clientes') && !consulta.has('nuevo');
+  }
+  return coincide(ruta, '/clientes');
+}
+
+/**
+ * ¿Puede este rol abrir esta pantalla?
+ *
+ * `ruta` puede traer sus filtros (`/documentos?tipo=pedido&sentido=venta`),
+ * que es como están escritas las hojas del menú. Sólo el vendedor los mira:
+ * la misma pantalla le sirve para sus pedidos y no para las compras. Con la
+ * ruta sola (sin filtros) se responde por la pantalla, y es ella la que se
+ * queda en lo que el vendedor puede ver.
+ */
 export function puedeEntrar(rol: RolPerfil, ruta: string): boolean {
   if (rol === 'titular') return true;
-  if (rol === 'cajero') return PERMITIDO_CAJERO.some(p => coincide(ruta, p));
-  return !VEDADO_EMPLEADO.some(p => coincide(ruta, p));
+  const [camino, consulta = ''] = ruta.split('?');
+  if (rol === 'cajero') return PERMITIDO_CAJERO.some(p => coincide(camino, p));
+  if (rol === 'vendedor') return puedeEntrarVendedor(camino, new URLSearchParams(consulta));
+  return !VEDADO_EMPLEADO.some(p => coincide(camino, p));
 }
 
 /** Adónde se va al elegir el perfil. */
 export function inicioDe(rol: RolPerfil): string {
-  return rol === 'cajero' ? '/tpv' : '/dashboard';
+  if (rol === 'cajero') return '/tpv';
+  if (rol === 'vendedor') return INICIO_VENDEDOR;
+  return '/dashboard';
 }
 
 // ------------------------------------------------------------
@@ -125,7 +210,7 @@ export function iniciales(nombre: string): string {
 
 /** Titulares primero, luego por nombre. */
 export function ordenarPerfiles<T extends Pick<Perfil, 'rol' | 'nombre'>>(perfiles: T[]): T[] {
-  const peso = { titular: 0, empleado: 1, cajero: 2 } as const;
+  const peso = { titular: 0, empleado: 1, vendedor: 2, cajero: 3 } as const;
   return [...perfiles].sort((a, b) => peso[a.rol] - peso[b.rol] || a.nombre.localeCompare(b.nombre, 'es'));
 }
 

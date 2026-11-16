@@ -16,6 +16,10 @@ import { getHistoricoDeFicha, NOMBRE_ORIGEN, resumenHistorico, type DocumentoHis
 import { TarjetaCobroCliente } from '@/components/clientes/CobroCliente';
 import { hoyLocal, perfilDePago, riesgoDeCliente } from '@/lib/perfilPago';
 import { deudorDe } from '@/lib/reclamar';
+import { useRolActivo } from '@/lib/perfilesCliente';
+import { esDocumentoDeVendedor, nuevoDeVendedor } from '@/lib/perfiles';
+import { SinAcceso } from '@/components/perfiles/ControlPerfiles';
+import { etiquetaTipo } from '@/lib/documentos';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -29,6 +33,10 @@ export default function ClientDetailPage() {
   // Con la ficha a la que pertenece: al pasar de una ficha a otra no se ve
   // ni un instante el historial de la anterior.
   const [anterior, setAnterior] = useState<{ id: string; docs: DocumentoHistorico[] } | null>(null);
+  // El vendedor ve de un cliente cómo localizarlo, sus condiciones y los
+  // pedidos y presupuestos que se le han hecho. No lo facturado, lo cobrado
+  // ni lo que debe, ni el historial del programa anterior.
+  const { listo: rolListo, esVendedor, perfil } = useRolActivo();
 
   useEffect(() => {
     (async () => {
@@ -55,14 +63,15 @@ export default function ClientDetailPage() {
   // Lo del programa anterior va aparte: viene del servidor y no tiene por
   // qué esperar a la ficha, ni la ficha a él.
   useEffect(() => {
+    if (!rolListo || esVendedor) return;
     let vivo = true;
     const id = params.id as string;
     getHistoricoDeFicha(id)
       .then(docs => { if (vivo) setAnterior({ id, docs }); })
       .catch(() => { if (vivo) setAnterior({ id, docs: [] }); });
     return () => { vivo = false; };
-  }, [params.id]);
-  const historico = anterior && anterior.id === params.id ? anterior.docs : null;
+  }, [params.id, rolListo, esVendedor]);
+  const historico = !esVendedor && anterior && anterior.id === params.id ? anterior.docs : null;
 
   const resumenAnterior = useMemo(() => {
     if (!historico?.length) return null;
@@ -76,11 +85,12 @@ export default function ClientDetailPage() {
 
   const invoicesFiltradas = useMemo(() => {
     return invoices.filter(inv => {
+      if (esVendedor && !esDocumentoDeVendedor(inv)) return false;
       if (fechaDesde && inv.issueDate < fechaDesde) return false;
       if (fechaHasta && inv.issueDate > fechaHasta) return false;
       return true;
     });
-  }, [invoices, fechaDesde, fechaHasta]);
+  }, [invoices, fechaDesde, fechaHasta, esVendedor]);
 
   const stats = useMemo(() => {
     const valid = invoicesFiltradas.filter(i => i.status !== InvoiceStatus.ANULADA);
@@ -103,7 +113,9 @@ export default function ClientDetailPage() {
     };
   }, [invoices, client]);
 
-  if (!mounted) return <PageSkeleton variant="detail" label="Cargando la ficha del cliente" />;
+  if (!mounted || !rolListo) return <PageSkeleton variant="detail" label="Cargando la ficha del cliente" />;
+  // Los proveedores no son del perfil de vendedor.
+  if (esVendedor && client?.esProveedor) return perfil ? <SinAcceso perfil={perfil} /> : null;
 
   if (!client) {
     return (
@@ -114,7 +126,7 @@ export default function ClientDetailPage() {
           El registro se ha eliminado o el enlace apunta a un identificador que no está en tu cartera.
         </p>
         <div className="empty-state-actions">
-          <Link href="/clientes" className="btn btn-primary"><ArrowLeft size={16} /> Volver a contactos</Link>
+          <Link href={esVendedor ? '/clientes?tipo=clientes' : '/clientes'} className="btn btn-primary"><ArrowLeft size={16} /> Volver a contactos</Link>
         </div>
       </div>
     );
@@ -126,7 +138,7 @@ export default function ClientDetailPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div className="page-header-left">
-          <Link href="/clientes" className="page-back"><ArrowLeft /> Contactos</Link>
+          <Link href={esVendedor ? '/clientes?tipo=clientes' : '/clientes'} className="page-back"><ArrowLeft /> {esVendedor ? 'Clientes' : 'Contactos'}</Link>
           <div className="page-title-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <h1 className="page-title">{client.tradeName || client.businessName}</h1>
             <span className={`badge ${esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
@@ -139,7 +151,11 @@ export default function ClientDetailPage() {
           <p className="page-subtitle">{client.codigo ? `Cód. ${client.codigo} · ` : ''}{client.businessName} · {client.nif}</p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {esProveedor ? (
+          {esVendedor ? (
+            <Link href={`${nuevoDeVendedor('pedido')}&clientId=${client.id}`} className="btn btn-primary">
+              <Plus size={16} /> Hacerle un pedido
+            </Link>
+          ) : esProveedor ? (
             <Link href={`/documentos/nuevo?tipo=albaran&sentido=compra`} className="btn btn-primary">
               <Plus size={16} /> Albarán de compra
             </Link>
@@ -181,7 +197,7 @@ export default function ClientDetailPage() {
             </a>
           )}
 
-          {cobro && (
+          {cobro && !esVendedor && (
             <TarjetaCobroCliente
               {...cobro}
               contacto={{ telefono: client.phone, email: client.email }}
@@ -190,7 +206,7 @@ export default function ClientDetailPage() {
           )}
 
           {/* Stats */}
-          <div className="kpi-grid kpi-grid--tres" style={{ marginBottom: 'var(--space-6)' }}>
+          {!esVendedor && <div className="kpi-grid kpi-grid--tres" style={{ marginBottom: 'var(--space-6)' }}>
             <div className="kpi-card" style={{ '--kpi-color': 'var(--accent-500)', '--kpi-bg': 'var(--color-success-bg)' } as React.CSSProperties}>
               <div className="kpi-card-value">{formatCurrency(stats.total)}</div>
               <div className="kpi-card-label">Total documentos ({stats.count})</div>
@@ -205,14 +221,14 @@ export default function ClientDetailPage() {
                 Pendiente ({stats.pendingCount} {stats.pendingCount === 1 ? 'documento' : 'documentos'})
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* Invoice History & Date Filter */}
           <div className="card">
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
               <div>
-                <h3 className="card-title">Relación de documentos</h3>
-                <p className="card-subtitle">Filtra facturas y documentos entre fechas</p>
+                <h3 className="card-title">{esVendedor ? 'Pedidos y presupuestos' : 'Relación de documentos'}</h3>
+                <p className="card-subtitle">{esVendedor ? 'Lo que se le ha pedido y presupuestado, entre fechas' : 'Filtra facturas y documentos entre fechas'}</p>
               </div>
 
               {/* Filtro entre fechas */}
@@ -264,7 +280,9 @@ export default function ClientDetailPage() {
                   {invoicesFiltradas.sort((a, b) => b.issueDate.localeCompare(a.issueDate)).map(inv => (
                     <tr key={inv.id}>
                       <td className="mono primary">
-                        <Link href={`/facturas/${inv.id}`} className="cell-link">{inv.number}</Link>
+                        {esVendedor
+                          ? <Link href={`/documentos/${inv.id}`} className="cell-link">{etiquetaTipo(inv.tipo ?? 'pedido')} {inv.number}</Link>
+                          : <Link href={`/facturas/${inv.id}`} className="cell-link">{inv.number}</Link>}
                       </td>
                       <td>{formatDate(inv.issueDate)}</td>
                       <td>
@@ -274,7 +292,7 @@ export default function ClientDetailPage() {
                       </td>
                       <td className="amount">{formatCurrency(inv.total)}</td>
                       <td>
-                        <Link href={`/facturas/${inv.id}`} className="btn btn-ghost btn-icon btn-sm" aria-label={`Ver la factura ${inv.number}`}>
+                        <Link href={esVendedor ? `/documentos/${inv.id}` : `/facturas/${inv.id}`} className="btn btn-ghost btn-icon btn-sm" aria-label={esVendedor ? `Ver ${inv.number}` : `Ver la factura ${inv.number}`}>
                           <Eye size={14} />
                         </Link>
                       </td>
@@ -286,11 +304,15 @@ export default function ClientDetailPage() {
                       icon={FileText}
                       title="No hay documentos en este rango de fechas"
                       hint="Modifica los filtros de fecha o crea un nuevo documento."
-                      action={
+                      action={esVendedor ? (
+                        <Link href={`${nuevoDeVendedor('pedido')}&clientId=${client.id}`} className="btn btn-primary btn-sm">
+                          <Plus size={14} /> Hacerle un pedido
+                        </Link>
+                      ) : (
                         <Link href="/facturas/nueva" className="btn btn-primary btn-sm">
                           <Plus size={14} /> Crear documento
                         </Link>
-                      }
+                      )}
                     />
                   )}
                 </tbody>
@@ -300,7 +322,9 @@ export default function ClientDetailPage() {
 
           <HistorialAnterior docs={historico} esProveedor={Boolean(esProveedor)} desde={fechaDesde} hasta={fechaHasta} />
 
-          {!esProveedor && (
+          {/* Precios especiales y descuentos por familia: se editan aquí, y
+              eso no es del vendedor (su resumen sí lo ve, a la derecha). */}
+          {!esProveedor && !esVendedor && (
             <CondicionesEspeciales client={client} settings={settings} onGuardado={setClient} />
           )}
         </div>

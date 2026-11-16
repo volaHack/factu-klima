@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  comprobarPin, hashPin, haceCuanto, iniciales, inicioDe, nuevaSal, ordenarPerfiles, pinValido,
-  problemaAlBorrar, problemaAlGuardar, puedeEntrar, type Perfil,
+  comprobarPin, esDocumentoDeVendedor, hashPin, haceCuanto, iniciales, inicioDe, nuevaSal, ordenarPerfiles, pinValido,
+  problemaAlBorrar, problemaAlGuardar, puedeEntrar, ROLES, tipoParaVendedor, veCifrasDelNegocio, type Perfil,
 } from './perfiles';
 
 const perfil = (extra: Partial<Perfil> = {}): Perfil => ({
@@ -42,6 +42,97 @@ describe('puedeEntrar', () => {
     expect(puedeEntrar('cajero', '/facturas')).toBe(false);
     expect(inicioDe('cajero')).toBe('/tpv');
     expect(inicioDe('empleado')).toBe('/dashboard');
+  });
+});
+
+describe('el vendedor', () => {
+  it('abre sus pedidos y presupuestos de venta, y los hace nuevos', () => {
+    expect(puedeEntrar('vendedor', '/documentos?tipo=pedido&sentido=venta')).toBe(true);
+    expect(puedeEntrar('vendedor', '/documentos?tipo=presupuesto&sentido=venta')).toBe(true);
+    expect(puedeEntrar('vendedor', '/documentos/nuevo?tipo=pedido&sentido=venta')).toBe(true);
+    expect(puedeEntrar('vendedor', '/documentos/nuevo?tipo=presupuesto&sentido=venta')).toBe(true);
+    // La ficha y su edición: la pantalla comprueba que el documento sea suyo.
+    expect(puedeEntrar('vendedor', '/documentos/abc')).toBe(true);
+    expect(puedeEntrar('vendedor', '/documentos/abc/editar')).toBe(true);
+  });
+
+  it('no ve compras, albaranes, facturas ni «todos los documentos»', () => {
+    expect(puedeEntrar('vendedor', '/documentos?tipo=pedido&sentido=compra')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos/nuevo?tipo=pedido&sentido=compra')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos?tipo=albaran&sentido=venta')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos?tipo=factura&sentido=compra')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos?tipo=rectificativa&sentido=venta')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos?tipo=todos')).toBe(false);
+    expect(puedeEntrar('vendedor', '/documentos/historico/123')).toBe(false);
+    expect(puedeEntrar('vendedor', '/facturas')).toBe(false);
+    expect(puedeEntrar('vendedor', '/facturas/nueva')).toBe(false);
+  });
+
+  it('consulta los clientes, no los proveedores, y no da de alta desde la lista', () => {
+    expect(puedeEntrar('vendedor', '/clientes?tipo=clientes')).toBe(true);
+    expect(puedeEntrar('vendedor', '/clientes/abc')).toBe(true);
+    expect(puedeEntrar('vendedor', '/clientes?tipo=proveedores')).toBe(false);
+    expect(puedeEntrar('vendedor', '/clientes?tipo=clientes&nuevo=1')).toBe(false);
+  });
+
+  it('ni el panel, ni el dinero, ni el almacén, ni los ajustes', () => {
+    for (const ruta of [
+      '/dashboard', '/asistencia', '/productos', '/almacenes?tab=existencias', '/preparar-pedidos', '/tpv',
+      '/tesoreria?tab=cobros', '/banco', '/gastos', '/informes', '/contabilidad', '/cierre', '/comisiones',
+      '/listados?tab=listados', '/listados-fiscales', '/ajustes', '/equipo', '/verifactu', '/importar', '/admin',
+    ]) expect(puedeEntrar('vendedor', ruta), ruta).toBe(false);
+  });
+
+  it('con la ruta sola responde por la pantalla: es ella la que se queda en lo suyo', () => {
+    expect(puedeEntrar('vendedor', '/documentos')).toBe(true);
+    expect(puedeEntrar('vendedor', '/documentos/nuevo')).toBe(true);
+    expect(puedeEntrar('vendedor', '/clientes')).toBe(true);
+  });
+
+  it('empieza en sus pedidos', () => {
+    const inicio = inicioDe('vendedor');
+    expect(inicio).toBe('/documentos?tipo=pedido&sentido=venta');
+    expect(puedeEntrar('vendedor', inicio)).toBe(true);
+  });
+
+  it('sus documentos son el pedido y el presupuesto de venta', () => {
+    expect(esDocumentoDeVendedor({ tipo: 'pedido', sentido: 'venta' })).toBe(true);
+    expect(esDocumentoDeVendedor({ tipo: 'presupuesto', sentido: 'venta' })).toBe(true);
+    expect(esDocumentoDeVendedor({ tipo: 'presupuesto' })).toBe(true);
+    expect(esDocumentoDeVendedor({ tipo: 'pedido', sentido: 'compra' })).toBe(false);
+    expect(esDocumentoDeVendedor({ tipo: 'albaran', sentido: 'venta' })).toBe(false);
+    expect(esDocumentoDeVendedor({ tipo: 'factura', sentido: 'venta' })).toBe(false);
+    // Sin tipo es una factura de venta de las de antes.
+    expect(esDocumentoDeVendedor({})).toBe(false);
+  });
+
+  it('si la dirección pide otro tipo, se queda en el pedido', () => {
+    expect(tipoParaVendedor('presupuesto')).toBe('presupuesto');
+    expect(tipoParaVendedor('pedido')).toBe('pedido');
+    expect(tipoParaVendedor('factura')).toBe('pedido');
+    expect(tipoParaVendedor('todos')).toBe('pedido');
+    expect(tipoParaVendedor(null)).toBe('pedido');
+  });
+
+  it('es el único que no ve costes ni cifras del negocio', () => {
+    expect(veCifrasDelNegocio('vendedor')).toBe(false);
+    expect(veCifrasDelNegocio('titular')).toBe(true);
+    expect(veCifrasDelNegocio('empleado')).toBe(true);
+    expect(veCifrasDelNegocio('cajero')).toBe(true);
+    // La cuenta no usa perfiles: la app de siempre.
+    expect(veCifrasDelNegocio(null)).toBe(true);
+    expect(veCifrasDelNegocio(undefined)).toBe(true);
+  });
+
+  it('los demás roles no miran los filtros: nada cambia para ellos', () => {
+    expect(puedeEntrar('empleado', '/documentos?tipo=pedido&sentido=compra')).toBe(true);
+    expect(puedeEntrar('empleado', '/tesoreria?tab=cobros')).toBe(false);
+    expect(puedeEntrar('cajero', '/tpv?caja=1')).toBe(true);
+    expect(puedeEntrar('titular', '/documentos?tipo=todos')).toBe(true);
+  });
+
+  it('está entre los roles que se pueden elegir', () => {
+    expect(ROLES.map(r => r.id)).toEqual(['titular', 'empleado', 'vendedor', 'cajero']);
   });
 });
 

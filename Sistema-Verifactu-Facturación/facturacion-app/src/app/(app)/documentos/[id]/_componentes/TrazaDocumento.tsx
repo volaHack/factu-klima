@@ -14,18 +14,22 @@ import { InvoiceStatus } from '@/lib/types';
 import { etiquetaTipo } from '@/lib/documentos';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { etiquetaEstado, type EstadoServicio, type LineaServida, type Traza } from '@/lib/flujoVenta';
+import { esDocumentoDeVendedor } from '@/lib/perfiles';
 
 const fmt = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
 
-function Fila({ d, nivel, actual }: { d: Invoice; nivel: number; actual?: boolean }) {
+function Fila({ d, nivel, actual, soloDeVendedor }: { d: Invoice; nivel: number; actual?: boolean; soloDeVendedor?: boolean }) {
   const anulado = d.status === InvoiceStatus.ANULADA;
+  // El vendedor ve que su pedido ya tiene albarán o factura (y cuándo), pero
+  // no los abre ni ve su importe: no son documentos de su perfil.
+  const ajeno = Boolean(soloDeVendedor) && !esDocumentoDeVendedor(d);
   const contenido = (
     <>
       <span className="traza-tipo">{etiquetaTipo(d.tipo ?? 'factura')}</span>
       <strong className="traza-numero">{d.number}</strong>
       <span className={`badge badge-${d.status}`}>{etiquetaEstado(d)}</span>
       <span className="traza-dato">{formatDate(d.issueDate)}</span>
-      <span className="traza-dato traza-importe">{formatCurrency(d.total)}</span>
+      {!ajeno && <span className="traza-dato traza-importe">{formatCurrency(d.total)}</span>}
     </>
   );
   return (
@@ -33,15 +37,19 @@ function Fila({ d, nivel, actual }: { d: Invoice; nivel: number; actual?: boolea
       {nivel > 0 && <CornerDownRight size={13} aria-hidden className="traza-rama" />}
       {actual
         ? <span className="traza-enlace" aria-current="page">{contenido}<span className="traza-aqui">Este</span></span>
+        : ajeno
+          ? <span className="traza-enlace">{contenido}</span>
         : <Link href={`/documentos/${d.id}`} className="traza-enlace">{contenido}<ArrowUpRight size={13} aria-hidden /></Link>}
     </li>
   );
 }
 
-export default function TrazaDocumento({ documento, traza, servicio }: {
+export default function TrazaDocumento({ documento, traza, servicio, soloDeVendedor = false }: {
   documento: Invoice;
   traza: Traza;
   servicio: { estado: EstadoServicio; lineas: LineaServida[] } | null;
+  /** Perfil de vendedor: lo que no es pedido o presupuesto de venta se nombra, sin enlace ni importe. */
+  soloDeVendedor?: boolean;
 }) {
   const hay = traza.origenes.length > 0 || traza.derivados.length > 0 || Boolean(documento.documentoOrigenNumber);
   if (!hay && !servicio) return null;
@@ -62,9 +70,9 @@ export default function TrazaDocumento({ documento, traza, servicio }: {
               </span>
             </li>
           )}
-          {traza.origenes.map(o => <Fila key={o.id} d={o} nivel={0} />)}
+          {traza.origenes.map(o => <Fila key={o.id} d={o} nivel={0} soloDeVendedor={soloDeVendedor} />)}
           <Fila d={documento} nivel={0} actual />
-          {traza.derivados.map(({ doc, nivel }) => <Fila key={doc.id} d={doc} nivel={nivel + 1} />)}
+          {traza.derivados.map(({ doc, nivel }) => <Fila key={doc.id} d={doc} nivel={nivel + 1} soloDeVendedor={soloDeVendedor} />)}
         </ol>
       )}
       {!traza.derivados.length && hay && (

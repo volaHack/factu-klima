@@ -270,9 +270,12 @@ export default function AccountMenu({ plan, onTip, esAdmin = false }: { plan?: P
                   </span>
                 </Link>
               )}
-              <button className="account-dropdown-item" onClick={() => setEditing(true)}>
-                <User size={16} /> Editar perfil
-              </button>
+              {/* El nombre y la foto son los de la cuenta: el vendedor no los cambia. */}
+              {perfilActivo?.rol !== 'vendedor' && (
+                <button className="account-dropdown-item" onClick={() => setEditing(true)}>
+                  <User size={16} /> Editar perfil
+                </button>
+              )}
               {esAdmin && esTitular && (
                 <Link href="/admin" className="account-dropdown-item" onClick={() => setOpen(false)}>
                   <Shield size={16} /> Administración

@@ -20,15 +20,40 @@ import { hoyLocal, perfilDePago, riesgoDeCliente } from '@/lib/perfilPago';
 import { LineaCobro } from './CobroCliente';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
-export default function ResumenFichaElegida({ ficha, excluirId }: { ficha: Client | undefined | null; excluirId?: string }) {
+export default function ResumenFichaElegida({ ficha, excluirId, sinCifras = false }: {
+  ficha: Client | undefined | null;
+  excluirId?: string;
+  /**
+   * Sin lo que debe ni lo facturado: sólo las observaciones y el enlace a
+   * la ficha. Es lo que ve el perfil de vendedor (lib/perfiles.ts).
+   */
+  sinCifras?: boolean;
+}) {
   const [docs, setDocs] = useState<Invoice[] | null>(null);
   useEffect(() => {
+    if (sinCifras) return;
     let vivo = true;
     getInvoices().then(d => { if (vivo) setDocs(d); }).catch(() => {});
     return () => { vivo = false; };
-  }, []);
+  }, [sinCifras]);
 
   if (!ficha) return null;
+  if (sinCifras) {
+    return (
+      <div className="resumen-ficha" role="status">
+        <div className="resumen-ficha-datos">
+          {ficha.phone && <span>Tel. <strong>{ficha.phone}</strong></span>}
+          {(ficha.city || ficha.province) && <span>{[ficha.city, ficha.province].filter(Boolean).join(', ')}</span>}
+          <Link href={`/clientes/${ficha.id}`} target="_blank" className="resumen-ficha-enlace">
+            Ver ficha <ExternalLink size={12} aria-hidden />
+          </Link>
+        </div>
+        {ficha.notes?.trim() && (
+          <p className="resumen-ficha-notas"><StickyNote size={13} aria-hidden /> {ficha.notes.trim()}</p>
+        )}
+      </div>
+    );
+  }
   // Las observaciones de la ficha se enseñan ya; las cuentas, cuando lleguen los documentos.
   if (!docs) {
     return ficha.notes?.trim()

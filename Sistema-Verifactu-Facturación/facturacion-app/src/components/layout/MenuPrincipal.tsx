@@ -189,9 +189,11 @@ function leerAbiertas(): string[] | null {
   }
 }
 
-export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, nombreHistorial, antesDelArbol, contadores }: {
+export default function MenuPrincipal({ visible, puedeCrear, onClose, collapsed, onExpand, nombreHistorial, antesDelArbol, contadores }: {
   /** Si la hoja sale: módulos encendidos, perfil de trabajo, TPV… */
   visible: (hoja: Hoja) => boolean;
+  /** Si sale el «+» de una hoja (un vendedor consulta clientes, no los da de alta aquí). Sin esto, siempre. */
+  puedeCrear?: (href: string) => boolean;
   onClose: () => void;
   collapsed: boolean;
   /** Desplegar el menú plegado. */
@@ -314,7 +316,7 @@ export default function MenuPrincipal({ visible, onClose, collapsed, onExpand, n
                             {hoja.label}
                             {n > 0 && <Contador n={n} />}
                           </Link>
-                          {hoja.nuevo && (
+                          {hoja.nuevo && (!puedeCrear || puedeCrear(hoja.nuevo)) && (
                             <Link
                               href={hoja.nuevo}
                               onClick={onClose}
