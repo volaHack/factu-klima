@@ -26,7 +26,7 @@ import { getInvoices, getClients, getProducts, getCompanySettings } from '@/lib/
 import type { Invoice, Client, Product } from '@/lib/types';
 import { modulosPorDefecto, type ModuloId } from '@/lib/modulos';
 import { usePerfiles } from '@/lib/perfilesCliente';
-import { puedeEntrar } from '@/lib/perfiles';
+import { esDocumentoDeVendedor, listaDeVendedor, nuevoDeVendedor, puedeEntrar } from '@/lib/perfiles';
 import type { Hoja } from '@/components/layout/MenuPrincipal';
 import {
   buscarPantallas, quiereCrear, buscarDocumentos, buscarFichas, buscarArticulos, fichaDeResultado,
@@ -116,6 +116,16 @@ const SUGERIDOS: Resultado[] = [
 /** Lo que se puede escribir, enseñado con la caja vacía. */
 const EJEMPLOS = ['fra bar pepe', 'cobrar F-2026-0012', 'presu pepe', 'ir a tesorería', 'vencidas', 'producto nuevo'];
 
+// El vendedor: lo suyo, y nada que lleve a una pantalla que no puede abrir.
+const SUGERIDOS_VENDEDOR: Resultado[] = [
+  { clave: 's:vnp', grupo: 'accion', titulo: 'Nuevo pedido de venta', href: nuevoDeVendedor('pedido') },
+  { clave: 's:vnq', grupo: 'accion', titulo: 'Nuevo presupuesto', href: nuevoDeVendedor('presupuesto') },
+  { clave: 's:vpe', grupo: 'pantalla', titulo: 'Pedidos de venta', href: listaDeVendedor('pedido') },
+  { clave: 's:vpr', grupo: 'pantalla', titulo: 'Presupuestos', href: listaDeVendedor('presupuesto') },
+  { clave: 's:vcl', grupo: 'pantalla', titulo: 'Clientes', href: '/clientes?tipo=clientes' },
+];
+const EJEMPLOS_VENDEDOR = ['ped bar pepe', 'presu pepe', 'pedidos'];
+
 const deResultado = (r: Resultado, Icono: Icono = ICONO[r.grupo]): Fila => ({
   clave: r.clave, titulo: r.titulo, detalle: r.detalle, extra: r.extra, href: r.href, Icono, ficha: fichaDeResultado(r),
 });
@@ -141,6 +151,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const listaRef = useRef<HTMLDivElement>(null);
   const entradaRef = useRef<HTMLInputElement>(null);
   const { activo: perfilActivo, cuenta } = usePerfiles();
+  // El vendedor busca entre sus pedidos y presupuestos y entre los clientes:
+  // ni facturas, ni compras, ni proveedores, ni la ficha de los artículos.
+  const esVendedor = perfilActivo?.rol === 'vendedor';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -154,16 +167,17 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         getInvoices(), getClients(), getProducts(), getCompanySettings().catch(() => null),
       ]);
       if (!vivo) return;
-      setInvoices(inv);
-      setClients(cli);
-      setProducts(pro);
+      setInvoices(esVendedor ? inv.filter(esDocumentoDeVendedor) : inv);
+      setClients(esVendedor ? cli.filter(c => !c.esProveedor) : cli);
+      setProducts(esVendedor ? [] : pro);
       if (ajustes) setModulos(ajustes.modulos ?? modulosPorDefecto(ajustes.sector));
     })();
     return () => { vivo = false; window.removeEventListener(EVENTO_MEMORIA, alCambiar); };
-  }, [isOpen, cuenta]);
+  }, [isOpen, cuenta, esVendedor]);
 
+  // Con sus filtros: el vendedor abre los pedidos de venta y no los de compra.
   const puede = useCallback(
-    (href: string) => !perfilActivo || puedeEntrar(perfilActivo.rol, href.split('?')[0]),
+    (href: string) => !perfilActivo || puedeEntrar(perfilActivo.rol, href),
     [perfilActivo],
   );
   const visible = useCallback((h: Hoja) => {
@@ -176,7 +190,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // El historial del programa anterior está en la base de datos (diecisiete
   // mil documentos): se le pregunta a ella, un momento después de teclear.
   useEffect(() => {
-    if (!isOpen || texto.length < 3) return;
+    // El historial trae documentos de todo tipo: al vendedor no se le busca.
+    if (!isOpen || texto.length < 3 || esVendedor) return;
     let vivo = true;
     const t = setTimeout(() => {
       buscarHistorico({ texto, clientIds: fichasQueCasan(clients, texto) }, 0, 5)
@@ -197,7 +212,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         .catch(() => {});
     }, 300);
     return () => { vivo = false; clearTimeout(t); };
-  }, [isOpen, texto, clients]);
+  }, [isOpen, texto, clients, esVendedor]);
 
   const secciones = useMemo((): { titulo: string; filas: Fila[] }[] => {
     // Lo mismo no sale dos veces: la primera sección que lo trae se lo queda
@@ -211,6 +226,22 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     });
     const montar = (lista: { titulo: string; filas: Fila[] }[]) =>
       lista.map(s => ({ ...s, filas: sinRepetir(s.filas) })).filter(s => s.filas.length);
+
+    if (esVendedor) {
+      // Lo recordado en este equipo es de toda la cuenta: no se le enseña
+      // ni se le deja fijar. Y por si algo se escapa, sólo lo que puede abrir.
+      const suyas = (filas: Fila[]) => filas.filter(f => puede(f.href)).map(f => ({ ...f, ficha: null }));
+      if (!texto) return montar([{ titulo: TITULO_GRUPO.sugerido, filas: suyas(SUGERIDOS_VENDEDOR.map(s => deResultado(s))) }]);
+      const pantallas = buscarPantallas(texto, visible);
+      const acciones = { titulo: TITULO_GRUPO.accion, filas: suyas(pantallas.filter(r => r.grupo === 'accion').slice(0, 4).map(r => deResultado(r))) };
+      const vistasPant = { titulo: TITULO_GRUPO.pantalla, filas: suyas(pantallas.filter(r => r.grupo === 'pantalla').slice(0, 5).map(r => deResultado(r))) };
+      return montar([
+        { titulo: TITULO_GRUPO.orden, filas: suyas(interpretarOrden(texto, { clientes: clients, documentos: invoices, modulos, puede }).map(deOrden)) },
+        ...(quiereCrear(texto) ? [acciones, vistasPant] : [vistasPant, acciones]),
+        { titulo: 'Clientes', filas: suyas(buscarFichas(clients, texto).map(r => deResultado(r))) },
+        { titulo: TITULO_GRUPO.documento, filas: suyas(buscarDocumentos(invoices, texto).map(r => deResultado(r))) },
+      ]);
+    }
 
     if (!texto) {
       return montar([
@@ -232,7 +263,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       { titulo: TITULO_GRUPO.documento, filas: buscarDocumentos(invoices, texto).map(r => deResultado(r)) },
       { titulo: TITULO_GRUPO.historico, filas: (historico?.texto === texto ? historico.filas : []).map(r => deResultado(r)) },
     ]);
-  }, [texto, memoria, visible, puede, modulos, clients, products, invoices, historico]);
+  }, [texto, memoria, visible, puede, modulos, clients, products, invoices, historico, esVendedor]);
 
   const planas = useMemo(() => secciones.flatMap(s => s.filas), [secciones]);
   // Dónde empieza cada sección en la lista plana que recorren las flechas.
@@ -286,7 +317,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
             aria-autocomplete="list"
             aria-label="Buscar o escribir una orden"
             aria-activedescendant={planas[indice] ? `cmd-${indice}` : undefined}
-            placeholder="Busca, o pide: «fra bar pepe», «cobrar F-2026-0012», «vencidas»…"
+            placeholder={esVendedor ? 'Busca un cliente o un pedido, o pide: «ped bar pepe», «presu pepe»…' : 'Busca, o pide: «fra bar pepe», «cobrar F-2026-0012», «vencidas»…'}
             value={query}
             onChange={e => { setQuery(e.target.value); setActivo(0); }}
             onKeyDown={alTeclear}
@@ -362,7 +393,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         {!texto && (
           <div className="cmd-trucos">
             <span>También puedes pedirlo con palabras:</span>
-            {EJEMPLOS.map(ej => (
+            {(esVendedor ? EJEMPLOS_VENDEDOR : EJEMPLOS).map(ej => (
               <button key={ej} type="button" className="cmd-truco-ejemplo" onClick={() => { setQuery(ej); setActivo(0); entradaRef.current?.focus(); }}>
                 {ej}
               </button>
@@ -373,7 +404,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         <div className="cmd-palette-pie">
           <span><kbd>↑</kbd><kbd>↓</kbd> moverse</span>
           <span><kbd><CornerDownLeft size={11} /></kbd> abrir</span>
-          <span><kbd>Ctrl</kbd><kbd>D</kbd> fijar</span>
+          {!esVendedor && <span><kbd>Ctrl</kbd><kbd>D</kbd> fijar</span>}
           <span><kbd>Esc</kbd> cerrar</span>
           <span className="cmd-palette-pie-atajo"><kbd>Ctrl</kbd><kbd>K</kbd> desde cualquier pantalla</span>
         </div>

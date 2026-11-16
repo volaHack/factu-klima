@@ -15,6 +15,7 @@ import AccountMenu from './AccountMenu';
 import BotonTema from './BotonTema';
 import ChipPerfil from '@/components/perfiles/ChipPerfil';
 import NotificationsPopover from './NotificationsPopover';
+import { usePerfiles } from '@/lib/perfilesCliente';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -43,6 +44,9 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
    * hecha aquí una vez para la cabecera y el menú de la cuenta.
    */
   const [esAdmin, setEsAdmin] = useState(false);
+  // El vendedor no ve el plan de la cuenta ni los avisos de la campana
+  // (facturas vencidas, stock): no son cosa suya.
+  const esVendedor = usePerfiles().activo?.rol === 'vendedor';
 
   useEffect(() => {
     let vivo = true;
@@ -96,7 +100,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           </div>
           <input
             type="text"
-            placeholder="Buscar en todo: cliente, artículo, nº, NIF, importe, pantalla…"
+            placeholder={esVendedor ? 'Buscar un cliente o un pedido…' : 'Buscar en todo: cliente, artículo, nº, NIF, importe, pantalla…'}
             aria-label="Buscar en todo"
             onFocus={onSearchClick}
             readOnly
@@ -120,7 +124,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         </button>
 
         {/* Membership Tier Badge */}
-        <Link
+        {!esVendedor && <Link
           href="/precios"
           className="header-plan-badge"
           style={{
@@ -134,7 +138,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
         >
           {!isSubActive ? <Lock size={12} /> : planId === 'sin_limite' ? <Zap size={12} /> : <Crown size={12} />}
           <span className="header-plan-texto">{isSubActive ? planName : 'Sin suscripción'}</span>
-        </Link>
+        </Link>}
 
         {verifactuActive && (
           <div className="verifactu-badge" title="Cada factura emitida se sella con una huella SHA-256 encadenada a la anterior">
@@ -142,7 +146,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           </div>
         )}
 
-        <div style={{ position: 'relative' }}>
+        {!esVendedor && <div style={{ position: 'relative' }}>
           {/* Con avisos, la campana se mece una vez al llegar (no en bucle:
               un aviso que no para de moverse se acaba ignorando). */}
           <button
@@ -165,7 +169,7 @@ export default function Header({ onMenuClick, onSearchClick, menuButtonRef }: He
           {showNotifications && (
             <NotificationsPopover onClose={() => setShowNotifications(false)} />
           )}
-        </div>
+        </div>}
 
         {/* Propina al desarrollo (Stripe), sólo para la administración de la plataforma.
             Además se oculta en el móvil por CSS (.header-tip-btn): entre el

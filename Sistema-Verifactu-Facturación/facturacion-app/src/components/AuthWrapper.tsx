@@ -18,7 +18,7 @@ import { ManagementBar } from '@/components/animate-ui/components/community/mana
 import { isPublicRoute } from '@/lib/publicRoutes';
 import { aplicarAcento } from '@/lib/acento';
 import ControlPerfiles, { SinAcceso } from '@/components/perfiles/ControlPerfiles';
-import { usePerfiles } from '@/lib/perfilesCliente';
+import { perfilActivo as quienTrabaja, usePerfiles } from '@/lib/perfilesCliente';
 import { puedeEntrar } from '@/lib/perfiles';
 import { accionDeEventoDeTeclado, atajoDe, EVENTO_BUSCAR, EVENTO_REFRESCAR } from '@/lib/atajos';
 import { prepararPendientes } from '@/lib/recurrentes';
@@ -52,9 +52,27 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const isPublic = isPublicRoute(pathname);
   // Perfil de trabajo activo en este equipo: si su rol no llega a esta
   // pantalla, se enseña el aviso en su lugar (ver lib/perfiles.ts).
-  const { enUso: perfilesEnUso, activo: perfilActivo } = usePerfiles();
-  const sinAcceso = !isPublic && perfilesEnUso && perfilActivo && !puedeEntrar(perfilActivo.rol, pathname)
-    ? perfilActivo : null;
+  const { cargado: perfilesCargados, enUso: perfilesEnUso, activo: perfilActivo, ultimoRol } = usePerfiles();
+  // Mientras se pregunta quién trabaja (bloqueo por inactividad, cambio de
+  // perfil) vale el rol de la última persona: la pantalla queda detrás del
+  // selector tal como la dejó, con lo que tuviera a medias.
+  const rolDeAqui = perfilesEnUso ? perfilActivo?.rol ?? ultimoRol : null;
+  const vedada = !isPublic && rolDeAqui !== null && !puedeEntrar(rolDeAqui, pathname);
+  // El vendedor que cae en el panel (adonde lleva el inicio de sesión) va
+  // de camino a sus pedidos (ControlPerfiles): mientras, ni el panel ni el
+  // aviso de «no es de tu perfil».
+  const esVendedor = rolDeAqui === 'vendedor';
+  const deCamino = esVendedor && pathname === '/dashboard';
+  const contenido = deCamino ? null
+    : vedada ? (perfilActivo ? <SinAcceso perfil={perfilActivo} /> : null)
+      : children;
+  // En el panel, la pantalla no se pinta hasta saber quién trabaja: ni
+  // mientras se lee la lista de perfiles ni, al entrar, mientras se elige
+  // uno (el selector lo tapa todo, pero detrás no se carga nada). Sin esto,
+  // quien entra con un perfil recortado veía el panel un momento. La
+  // lectura es inmediata con lo guardado en el equipo y tiene un tope de
+  // espera (lib/perfilesCliente.ts), así que nunca se queda en blanco.
+  const contenidoPanel = !perfilesCargados || (perfilesEnUso && rolDeAqui === null) ? null : contenido;
   const isFullScreen = FULLSCREEN_ROUTES.some(r => pathname.startsWith(r));
 
   useEffect(() => {
@@ -124,7 +142,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         fullDownloadToOffline();
         // Las facturas recurrentes que ya tocan, en borrador y con aviso.
         prepararPendientes().then(creadas => {
-          if (!creadas.length) return;
+          // Las facturas no son cosa del vendedor: se preparan igual, sin avisarle.
+          if (!creadas.length || quienTrabaja()?.rol === 'vendedor') return;
           addToast({
             type: 'info',
             title: creadas.length === 1 ? 'Factura recurrente preparada' : `${creadas.length} facturas recurrentes preparadas`,
@@ -160,8 +179,10 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         window.dispatchEvent(new CustomEvent(EVENTO_REFRESCAR));
         return;
       }
+      // Una tecla no lleva a una pantalla que el perfil no puede abrir.
       const destino = atajoDe(accion).href;
-      if (destino) router.push(destino);
+      const quien = quienTrabaja();
+      if (destino && (!quien || puedeEntrar(quien.rol, destino))) router.push(destino);
     };
     const abrirBuscador = () => setCmdOpen(true);
 
@@ -192,7 +213,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   if (isFullScreen) {
     return (
       <>
-        {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
+        {contenido}
         <ControlPerfiles />
       </>
     );
@@ -215,8 +236,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         <main className="app-content">
           {/* Una capa por pantalla: al cambiar de ruta se monta otra y entra
               con su animación (ver .pantalla en globals.css). */}
-          <div key={pathname} className="pantalla">
-            {sinAcceso ? <SinAcceso perfil={sinAcceso} /> : children}
+          {/* Al pasar de un perfil de vendedor a otro que no lo es (o al
+              revés) la pantalla se monta de nuevo: nada de lo que cargó una
+              persona queda en la de la otra. */}
+          <div key={esVendedor ? `${pathname}|vendedor` : pathname} className="pantalla">
+            {contenidoPanel}
           </div>
         </main>
       </div>
@@ -225,7 +249,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       <ControlPerfiles />
-      <ManagementBar />
+      {/* La barra de atajos lleva al panel y a las facturas: no es del vendedor. */}
+      {!esVendedor && <ManagementBar />}
       <Soporte />
       {showOnboarding && settingsForOnboarding && (
         <OnboardingModal

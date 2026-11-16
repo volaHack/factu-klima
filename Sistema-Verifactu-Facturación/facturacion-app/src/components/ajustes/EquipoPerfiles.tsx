@@ -36,7 +36,7 @@ const nuevoPerfil = (rol: RolPerfil, n: number, nombre = ''): Perfil => ({
  * AJUSTES → EQUIPO
  *
  * Quién trabaja en el negocio. El primer perfil es siempre el del
- * titular; después, los empleados y cajeros. Cada uno con su PIN si se
+ * titular; después, los empleados, vendedores y cajeros. Cada uno con su PIN si se
  * quiere que nadie use el perfil de otro.
  */
 export default function EquipoPerfiles() {

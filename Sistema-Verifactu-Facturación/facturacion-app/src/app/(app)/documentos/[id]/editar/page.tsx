@@ -22,6 +22,9 @@ import { calculateInvoiceTotals } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { etiquetaTipo } from '@/lib/documentos';
 import LineasDocumento from '@/components/documentos/LineasDocumento';
+import { useRolActivo } from '@/lib/perfilesCliente';
+import { esDocumentoDeVendedor } from '@/lib/perfiles';
+import { SinAcceso } from '@/components/perfiles/ControlPerfiles';
 import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { useToast } from '@/hooks/useToast';
 
@@ -56,6 +59,8 @@ export default function EditarDocumentoPage() {
   const [fechaRegistro, setFechaRegistro] = useState('');
 
   const { success, error: toastError } = useToast();
+  // El vendedor edita sus pedidos y presupuestos de venta, y nada más.
+  const { listo: rolListo, esVendedor, perfil } = useRolActivo();
 
   useEffect(() => {
     const load = async () => {
@@ -222,7 +227,8 @@ export default function EditarDocumentoPage() {
     }
   };
 
-  if (loading || !documento || !settings) return <PageSkeleton />;
+  if (loading || !rolListo || !documento || !settings) return <PageSkeleton />;
+  if (esVendedor && !esDocumentoDeVendedor(documento)) return perfil ? <SinAcceso perfil={perfil} /> : null;
 
   const tipo = documento.tipo ?? 'factura';
   const esCompra = documento.sentido === 'compra';
@@ -402,6 +408,7 @@ export default function EditarDocumentoPage() {
         sentido={documento.sentido === 'compra' ? 'compra' : 'venta'}
         clienteId={documento.clientId}
         documentoId={documento.id}
+        sinCostes={esVendedor}
       />
 
       {/* Totales */}

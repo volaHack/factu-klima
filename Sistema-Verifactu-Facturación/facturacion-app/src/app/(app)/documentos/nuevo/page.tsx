@@ -34,6 +34,8 @@ import TotalesDocumento from '@/components/documentos/TotalesDocumento';
 import { useToast } from '@/hooks/useToast';
 import BuscadorFicha from '@/components/clientes/BuscadorFicha';
 import ResumenFichaElegida from '@/components/clientes/ResumenFichaElegida';
+import { useRolActivo } from '@/lib/perfilesCliente';
+import { listaDeVendedor, tipoParaVendedor } from '@/lib/perfiles';
 
 function NuevoDocumentoContent() {
   const router = useRouter();
@@ -53,8 +55,13 @@ function NuevoDocumentoContent() {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
 
-  const [tipo, setTipo] = useState<TipoDocumento>(tipoParam);
-  const [sentido, setSentido] = useState<SentidoDocumento>(sentidoParam);
+  // El vendedor hace pedidos y presupuestos de venta: pida lo que pida la
+  // dirección, el documento es uno de esos dos, y de venta.
+  const { listo: rolListo, esVendedor } = useRolActivo();
+  const [tipoElegido, setTipo] = useState<TipoDocumento>(tipoParam);
+  const [sentidoElegido, setSentido] = useState<SentidoDocumento>(sentidoParam);
+  const tipo: TipoDocumento = esVendedor ? tipoParaVendedor(tipoElegido) : tipoElegido;
+  const sentido: SentidoDocumento = esVendedor ? 'venta' : sentidoElegido;
 
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
@@ -93,17 +100,23 @@ function NuevoDocumentoContent() {
   const selectedClient = useMemo(() => clients.find(c => c.id === clientId), [clients, clientId]);
 
   useEffect(() => {
+    // Hasta saber quién trabaja no se carga: al vendedor nunca se le traen
+    // los proveedores, aunque la dirección diga «compra».
+    if (!rolListo) return;
     const load = async () => {
       try {
-        const [loadedSettings, loadedProducts, loadedClients, loadedAlmacenes, loadedVendedores, loadedObras, loadedLotes] = await Promise.all([
+        const [loadedSettings, loadedProducts, todasLasFichas, loadedAlmacenes, loadedVendedores, loadedObras, loadedLotes] = await Promise.all([
           getCompanySettings(),
           getProducts(),
-          sentidoParam === 'compra' ? getProveedores() : getClients(),
+          sentidoParam === 'compra' && !esVendedor ? getProveedores() : getClients(),
           getAlmacenes(),
           getVendedores(),
           getObras(),
           getLotes(),
         ]);
+        // `getClients` trae todas las fichas, proveedores incluidos (en una
+        // venta se puede buscar entre los dos): al vendedor, sólo clientes.
+        const loadedClients = esVendedor ? todasLasFichas.filter(c => !c.esProveedor) : todasLasFichas;
         setSettings(loadedSettings);
         setProducts(loadedProducts);
         setClients(loadedClients);
@@ -147,7 +160,7 @@ function NuevoDocumentoContent() {
       }
     };
     load();
-  }, [sentidoParam]);
+  }, [sentidoParam, rolListo, esVendedor]);
 
   // `nueva`: la ficha recién creada desde el buscador, que aún no está en `clients`.
   const handleClientSelect = (id: string, nueva?: Client) => {
@@ -324,7 +337,7 @@ function NuevoDocumentoContent() {
     <div className="page-container">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <Link href="/documentos" className="btn btn-ghost btn-sm">
+          <Link href={esVendedor ? listaDeVendedor(tipoParaVendedor(tipo)) : '/documentos'} className="btn btn-ghost btn-sm">
             <ArrowLeft size={16} /> Volver
           </Link>
           <div>
@@ -369,7 +382,7 @@ function NuevoDocumentoContent() {
               esProveedor={sentido === 'compra'}
               alCrear={c => { setClients(prev => [...prev, c]); handleClientSelect(c.id, c); }}
             />
-            <ResumenFichaElegida ficha={clients.find(c => c.id === clientId)} />
+            <ResumenFichaElegida ficha={clients.find(c => c.id === clientId)} sinCifras={esVendedor} />
           </div>
 
           <div className="form-group">
@@ -422,22 +435,28 @@ function NuevoDocumentoContent() {
               >
                 <option value="presupuesto">Presupuesto</option>
                 <option value="pedido">Pedido</option>
-                <option value="albaran">Albarán</option>
-                <option value="factura">Factura</option>
-                <option value="rectificativa">Rectificativa</option>
+                {!esVendedor && (
+                  <>
+                    <option value="albaran">Albarán</option>
+                    <option value="factura">Factura</option>
+                    <option value="rectificativa">Rectificativa</option>
+                  </>
+                )}
               </select>
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Sentido</label>
-              <select
-                className="form-select"
-                value={sentido}
-                onChange={e => setSentido(e.target.value as SentidoDocumento)}
-              >
-                <option value="venta">Venta (Cliente)</option>
-                <option value="compra">Compra (Proveedor)</option>
-              </select>
-            </div>
+            {!esVendedor && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Sentido</label>
+                <select
+                  className="form-select"
+                  value={sentido}
+                  onChange={e => setSentido(e.target.value as SentidoDocumento)}
+                >
+                  <option value="venta">Venta (Cliente)</option>
+                  <option value="compra">Compra (Proveedor)</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="form-row">
@@ -572,6 +591,7 @@ function NuevoDocumentoContent() {
         lotes={modoLotes ? lotes : []}
         sentido={sentido}
         clienteId={selectedClient?.id}
+        sinCostes={esVendedor}
       />
 
       {/* Totales */}

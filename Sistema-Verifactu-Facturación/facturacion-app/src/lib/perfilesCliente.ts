@@ -61,12 +61,26 @@ export interface EstadoPerfiles {
   perfiles: Perfil[];
   /** El perfil que está usando este equipo, si lo hay. */
   activoId: string | null;
+  /**
+   * El rol de la última persona que trabajó aquí. Mientras se pregunta
+   * quién trabaja (bloqueo por inactividad, cambio de perfil) no hay
+   * perfil activo, pero las pantallas de detrás siguen como las dejó esa
+   * persona: ni se pierde lo que tenía a medias ni se pinta nada que no
+   * viera. Se olvida al cambiar de cuenta.
+   */
+  ultimoRol: RolPerfil | null;
 }
 
-let estado: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null };
+let estado: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null, ultimoRol: null };
 const oyentes = new Set<() => void>();
 const avisar = () => { for (const o of oyentes) o(); };
-const fijar = (parcial: Partial<EstadoPerfiles>) => { estado = { ...estado, ...parcial }; avisar(); };
+const fijar = (parcial: Partial<Omit<EstadoPerfiles, 'ultimoRol'>>) => {
+  const sig = { ...estado, ...parcial };
+  const activo = sig.perfiles.find(p => p.id === sig.activoId && p.activo);
+  sig.ultimoRol = activo ? activo.rol : (sig.cargado && sig.cuenta ? estado.ultimoRol : null);
+  estado = sig;
+  avisar();
+};
 
 const leer = <T,>(clave: string): T | null => {
   try { const v = localStorage.getItem(clave); return v ? JSON.parse(v) as T : null; } catch { return null; }
@@ -162,6 +176,14 @@ function activoGuardado(cuenta: string | null): string | null {
 
 let cargando: Promise<void> | null = null;
 
+/**
+ * Lo que se espera a la lista de perfiles antes de seguir sin ella. Las
+ * pantallas no se pintan hasta saber quién trabaja (un vendedor no debe
+ * ver el panel ni un instante), así que una red que no contesta no puede
+ * dejarlas en blanco: pasado esto se sigue con lo que hubiera guardado.
+ */
+const ESPERA_PERFILES_MS = 6000;
+
 /** Lee los perfiles (de Supabase, o de la copia local sin conexión). */
 export function cargarPerfiles(forzar = false): Promise<void> {
   if (cargando && !forzar) return cargando;
@@ -184,8 +206,12 @@ export function cargarPerfiles(forzar = false): Promise<void> {
 
     let almacen: Almacen = 'tabla';
     let perfiles: Perfil[];
-    const { data, error } = await createClient()
-      .from('perfiles_trabajo').select('*').order('creado_en', { ascending: true });
+    const { data, error } = await Promise.race([
+      createClient().from('perfiles_trabajo').select('*').order('creado_en', { ascending: true }),
+      new Promise<{ data: null; error: { message: string } }>(resolver => {
+        setTimeout(() => resolver({ data: null, error: { message: 'La lista de perfiles tarda demasiado.' } }), ESPERA_PERFILES_MS);
+      }),
+    ]);
     if (error && !faltaLaTabla(error)) {
       // Fallo pasajero: se queda lo que hubiera.
       if (!cacheValida) fijar({ cargado: true, cuenta, disponible: false, perfiles: [], activoId: null });
@@ -218,7 +244,11 @@ export function cargarPerfiles(forzar = false): Promise<void> {
     if (activoId && !perfiles.some(p => p.id === activoId && p.activo)) activoId = null;
     fijar({ cargado: true, cuenta, disponible: true, almacen, perfiles, activoId });
     if (almacen === 'tabla') void vaciarBandeja();
-  })().finally(() => { cargando = null; });
+  })().catch(() => {
+    // Un fallo inesperado no puede dejar las pantallas esperando para
+    // siempre a saber quién hay delante: se sigue con lo que hubiera.
+    if (!estado.cargado) fijar({ cargado: true });
+  }).finally(() => { cargando = null; });
   return cargando;
 }
 
@@ -226,8 +256,44 @@ export function cargarPerfiles(forzar = false): Promise<void> {
 // Suscripción para React
 // ------------------------------------------------------------
 
+/**
+ * Al entrar o salir de la cuenta se vuelve a leer quién trabaja.
+ *
+ * El inicio de sesión no recarga la página: se pasa del login al panel sin
+ * salir de la aplicación. La lista se había leído en el login, sin sesión
+ * (ninguna), y así se quedaba: no se pedía elegir perfil y cualquiera veía
+ * la cuenta entera hasta que alguien recargaba. Ahora, si la cuenta que
+ * entra no es la que se leyó, se olvida lo leído y se lee de nuevo; hasta
+ * que llega, `cargado` es falso y las pantallas esperan.
+ */
+let oyendoLaSesion = false;
+
+/** ¿La cuenta que hay ahora es la que se leyó? Si no, se lee de nuevo. */
+async function revisarLaCuenta(): Promise<void> {
+  // Una lectura en marcha puede haber empezado antes de entrar: se espera
+  // a que acabe y se compara con la sesión de ahora, no con la del aviso.
+  if (cargando) await cargando.catch(() => {});
+  const cuenta = await cuentaActual();
+  if (!estado.cargado || cargando || cuenta === estado.cuenta) return;
+  fijar({ cargado: false, disponible: false, cuenta: null, perfiles: [], activoId: null });
+  void cargarPerfiles(true);
+}
+
+function oirLaSesion(): void {
+  if (oyendoLaSesion) return;
+  oyendoLaSesion = true;
+  try {
+    // Fuera del aviso: dentro de él no se puede preguntar por la sesión
+    // (Supabase la tiene bloqueada mientras avisa).
+    createClient().auth.onAuthStateChange(() => { setTimeout(() => { void revisarLaCuenta(); }, 0); });
+  } catch {
+    oyendoLaSesion = false;
+  }
+}
+
 function suscribirse(alCambiar: () => void): () => void {
   oyentes.add(alCambiar);
+  oirLaSesion();
   // Otra pestaña del mismo equipo cambió de perfil.
   const alAlmacen = (e: StorageEvent) => {
     if (e.key === CLAVE_ACTIVO) fijar({ activoId: activoGuardado(estado.cuenta) });
@@ -243,7 +309,7 @@ function suscribirse(alCambiar: () => void): () => void {
   };
 }
 
-const ESTADO_SERVIDOR: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null };
+const ESTADO_SERVIDOR: EstadoPerfiles = { cargado: false, disponible: false, almacen: 'tabla', cuenta: null, perfiles: [], activoId: null, ultimoRol: null };
 
 export function usePerfiles(): EstadoPerfiles & { activo: Perfil | null; enUso: boolean } {
   const e = useSyncExternalStore(suscribirse, () => estado, () => ESTADO_SERVIDOR);
@@ -255,6 +321,26 @@ export function usePerfiles(): EstadoPerfiles & { activo: Perfil | null; enUso: 
 
 export function perfilActivo(): Perfil | null {
   return estado.perfiles.find(p => p.id === estado.activoId && p.activo) ?? null;
+}
+
+/**
+ * El rol de quien trabaja en este equipo, para las pantallas que enseñan
+ * más o menos según quién mira (el vendedor no ve costes ni compras).
+ *
+ *  · `rol` es null si la cuenta no usa perfiles: entonces la pantalla es
+ *    la de siempre. Mientras se pregunta quién trabaja (bloqueo, cambio
+ *    de perfil) es el de la última persona: la pantalla, que queda detrás
+ *    del selector, no cambia hasta que entra alguien.
+ *  · `perfil` es quien trabaja ahora (null mientras se pregunta).
+ *  · `listo` es false mientras no se sabe quién hay delante. Una pantalla
+ *    que esconde algo al vendedor espera a `listo` antes de pintarlo: si
+ *    no, lo enseñaría un instante al recargar la página.
+ */
+export function useRolActivo(): { listo: boolean; rol: RolPerfil | null; esVendedor: boolean; perfil: Perfil | null } {
+  const { cargado, enUso, activo, ultimoRol } = usePerfiles();
+  const perfil = enUso ? activo : null;
+  const rol = perfil?.rol ?? (enUso ? ultimoRol : null);
+  return { listo: cargado, rol, esVendedor: rol === 'vendedor', perfil };
 }
 
 // ------------------------------------------------------------
@@ -332,6 +418,11 @@ export async function guardarPerfil(perfil: Perfil, pin?: string, { activar = fa
       pin_hash: pinHash, pin_sal: pinSal, activo: perfil.activo, actualizado_en: new Date().toISOString(),
     };
     const { error } = await createClient().from('perfiles_trabajo').upsert(fila);
+    // La tabla sólo admite los roles que conoce: el de vendedor llega con
+    // la migración 080. Sin ella, se dice qué falta en vez del error crudo.
+    if (error && error.code === '23514' && perfil.rol === 'vendedor') {
+      throw new Error('Para guardar un perfil de vendedor falta aplicar en Supabase la migración 080 (perfil de vendedor).');
+    }
     if (error) throw new Error(error.message);
   }
   // Activarlo ANTES de recargar la lista: si no, en medio hay un instante

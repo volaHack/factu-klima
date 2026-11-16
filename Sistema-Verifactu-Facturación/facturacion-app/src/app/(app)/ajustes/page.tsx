@@ -1097,14 +1097,14 @@ export default function AjustesPage() {
         <CobroOnline />
       </div>
 
-      {/* Quién trabaja en el negocio: perfiles de titular, empleado y cajero. */}
+      {/* Quién trabaja en el negocio: perfiles de titular, empleado, vendedor y cajero. */}
       <div className="settings-section" id="equipo">
         <div className="section-title" style={{ marginBottom: 'var(--space-1)' }}>
           <UsersRound size={18} />
           <h2 className="settings-section-title">Equipo</h2>
         </div>
         <p className="equipo-nota" style={{ marginTop: 0 }}>
-          Los perfiles de cada persona (titular, empleado, cajero) y quién está trabajando ahora tienen su propia pantalla.
+          Los perfiles de cada persona (titular, empleado, vendedor, cajero) y quién está trabajando ahora tienen su propia pantalla.
         </p>
         <Link href="/equipo" className="btn btn-secondary" style={{ alignSelf: 'flex-start', marginTop: 'var(--space-2)' }}>
           <UsersRound size={16} /> Abrir Equipo

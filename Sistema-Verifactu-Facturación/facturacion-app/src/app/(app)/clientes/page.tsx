@@ -30,7 +30,7 @@ import { TIPOS_RANKING, esDeCompra, rankingDeKlima, rankingDelHistorico } from '
 import CifraQueCuenta from '@/components/ui/CifraQueCuenta';
 import { programarBorrado, ESPERA_DESHACER_MS } from '@/lib/borradoDiferido';
 import { olvidarFicha } from '@/lib/memoriaFichas';
-import { usePerfiles } from '@/lib/perfilesCliente';
+import { usePerfiles, useRolActivo } from '@/lib/perfilesCliente';
 import { fichasParecidas } from '@/lib/clienteRepetido';
 import type { CampoFicha } from '@/lib/fichaPegada';
 import type { CasillasLugar } from '@/lib/codigosPostales';
@@ -60,7 +60,12 @@ function ClientesPageContenido() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [tipoContactoFilter, setTipoContactoFilter] = usePestanaDeLaDireccion<'todos' | 'clientes' | 'proveedores'>(['todos', 'clientes', 'proveedores'], 'todos', 'tipo');
+  const [pestanaElegida, setTipoContactoFilter] = usePestanaDeLaDireccion<'todos' | 'clientes' | 'proveedores'>(['todos', 'clientes', 'proveedores'], 'todos', 'tipo');
+  // El vendedor consulta la cartera de clientes: sin proveedores, sin lo
+  // facturado a cada uno y sin dar de alta, editar ni borrar desde aquí (a
+  // un cliente nuevo lo da de alta al hacerle el pedido).
+  const { listo: rolListo, esVendedor } = useRolActivo();
+  const tipoContactoFilter = esVendedor ? 'clientes' : pestanaElegida;
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -424,16 +429,19 @@ function ClientesPageContenido() {
   };
 
   // «+» de Clientes o Proveedores en el menú de Mantenimientos.
-  useNuevoDeLaDireccion(mounted, () => {
+  useNuevoDeLaDireccion(mounted && rolListo, () => {
+    if (esVendedor) return;
     openCreateModal();
     if (tipoContactoFilter === 'proveedores') setForm(f => ({ ...f, esProveedor: true }));
   });
 
-  if (!mounted) {
+  if (!mounted || !rolListo) {
     return <PageSkeleton variant="list" label="Cargando los clientes" />;
   }
 
-  const activeCount = clients.filter(c => c.active).length;
+  // Las fichas que cuenta la cabecera: para el vendedor, sólo los clientes.
+  const fichas = esVendedor ? clients.filter(c => !c.esProveedor) : clients;
+  const activeCount = fichas.filter(c => c.active).length;
   const totalClientRevenue = invoices.filter(i => i.status !== 'anulada').reduce((sum, i) => sum + i.total, 0);
 
   return (
@@ -441,20 +449,22 @@ function ClientesPageContenido() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Clientes</h1>
-          {clients.length > 0 && (
+          {fichas.length > 0 && (
             <div className="page-meta">
               <span className="page-meta-item">
-                <span className="page-meta-value"><CifraQueCuenta texto={String(clients.length)} /></span>
+                <span className="page-meta-value"><CifraQueCuenta texto={String(fichas.length)} /></span>
                 <span className="page-meta-label">en ficha</span>
               </span>
               <span className="page-meta-item">
                 <span className="page-meta-value is-success"><CifraQueCuenta texto={String(activeCount)} /></span>
                 <span className="page-meta-label">activos</span>
               </span>
-              <span className="page-meta-item">
-                <span className="page-meta-value"><CifraQueCuenta texto={String(formatCurrency(totalClientRevenue))} /></span>
-                <span className="page-meta-label">facturación acumulada</span>
-              </span>
+              {!esVendedor && (
+                <span className="page-meta-item">
+                  <span className="page-meta-value"><CifraQueCuenta texto={String(formatCurrency(totalClientRevenue))} /></span>
+                  <span className="page-meta-label">facturación acumulada</span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -468,18 +478,22 @@ function ClientesPageContenido() {
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
-          <Link href="/importar" className="btn btn-secondary" title="Traer clientes desde otro programa (Excel o CSV)">
-            <Upload size={16} /> Importar
-          </Link>
-          <span className="neon accion-neon">
-            <button className="btn btn-primary" onClick={openCreateModal}>
-              <Plus size={16} /> Nuevo cliente
-            </button>
-          </span>
+          {!esVendedor && (
+            <>
+              <Link href="/importar" className="btn btn-secondary" title="Traer clientes desde otro programa (Excel o CSV)">
+                <Upload size={16} /> Importar
+              </Link>
+              <span className="neon accion-neon">
+                <button className="btn btn-primary" onClick={openCreateModal}>
+                  <Plus size={16} /> Nuevo cliente
+                </button>
+              </span>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="segmentos fila-desplazable" role="group" aria-label="Qué fichas ver" style={{ marginBottom: 'var(--space-4)' }}>
+      {!esVendedor && <div className="segmentos fila-desplazable" role="group" aria-label="Qué fichas ver" style={{ marginBottom: 'var(--space-4)' }}>
         <button
           className="btn btn-sm"
           aria-pressed={tipoContactoFilter === 'todos'}
@@ -501,7 +515,7 @@ function ClientesPageContenido() {
         >
           Proveedores <span className="segmentos-num">{clients.filter(c => c.esProveedor).length}</span>
         </button>
-      </div>
+      </div>}
 
       <div className="filter-bar" style={{ marginBottom: 'var(--space-4)' }}>
         <div className="search-box">
@@ -541,7 +555,8 @@ function ClientesPageContenido() {
                   Nombre comercial {sortIcon('name')}
                 </button>
               </th>
-              <th>Tipo</th>
+              {/* Para el vendedor todos son clientes: la columna sobra. */}
+              {!esVendedor && <th>Tipo</th>}
               <th>Tarifa / dtos.</th>
               <th
                 className={sortField === 'city' ? 'sorted' : ''}
@@ -559,23 +574,27 @@ function ClientesPageContenido() {
                   Contacto {sortIcon('email')}
                 </button>
               </th>
-              <th
-                className={sortField === 'invoiceCount' ? 'sorted' : ''}
-                aria-sort={sortField === 'invoiceCount' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                <button type="button" className="th-orden" onClick={() => handleSort('invoiceCount')} title="Ordenar por número de facturas">
-                  Facturas {sortIcon('invoiceCount')}
-                </button>
-              </th>
-              <th
-                className={sortField === 'total' ? 'sorted' : ''}
-                aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                style={{ textAlign: 'right', }}
-              >
-                <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por total facturado">
-                  Total facturado {sortIcon('total')}
-                </button>
-              </th>
+              {!esVendedor && (
+                <>
+                  <th
+                    className={sortField === 'invoiceCount' ? 'sorted' : ''}
+                    aria-sort={sortField === 'invoiceCount' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <button type="button" className="th-orden" onClick={() => handleSort('invoiceCount')} title="Ordenar por número de facturas">
+                      Facturas {sortIcon('invoiceCount')}
+                    </button>
+                  </th>
+                  <th
+                    className={sortField === 'total' ? 'sorted' : ''}
+                    aria-sort={sortField === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    style={{ textAlign: 'right', }}
+                  >
+                    <button type="button" className="th-orden" onClick={() => handleSort('total')} title="Ordenar por total facturado">
+                      Total facturado {sortIcon('total')}
+                    </button>
+                  </th>
+                </>
+              )}
               <th>Estado</th>
               <th style={{ width: 120 }}><span className="solo-lectores">Acciones</span></th>
             </tr>
@@ -596,11 +615,13 @@ function ClientesPageContenido() {
                     </Link>
                     {client.tradeName && <span className="cell-sub">{client.businessName}</span>}
                   </td>
-                  <td data-m="dato">
-                    <span className={`badge ${client.esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
-                      {client.esProveedor ? 'Proveedor' : 'Cliente'}
-                    </span>
-                  </td>
+                  {!esVendedor && (
+                    <td data-m="dato">
+                      <span className={`badge ${client.esProveedor ? 'badge-warning' : 'badge-neutral'}`}>
+                        {client.esProveedor ? 'Proveedor' : 'Cliente'}
+                      </span>
+                    </td>
+                  )}
                   <td data-m="oculto">
                     {matchedTarifa ? (
                       <span className="badge badge-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -620,8 +641,12 @@ function ClientesPageContenido() {
                     {client.contactPerson}
                     {client.phone && <span className="cell-sub">{client.phone}</span>}
                   </td>
-                  <td data-m="dato" data-label="Facturas">{stats.count}</td>
-                  <td className="amount" data-m="importe">{formatCurrency(stats.total)}</td>
+                  {!esVendedor && (
+                    <>
+                      <td data-m="dato" data-label="Facturas">{stats.count}</td>
+                      <td className="amount" data-m="importe">{formatCurrency(stats.total)}</td>
+                    </>
+                  )}
                   <td data-m="estado">
                     <span className={`badge ${client.active ? 'badge-activo' : 'badge-inactivo'}`}>
                       {client.active ? 'Activo' : 'Inactivo'}
@@ -632,13 +657,17 @@ function ClientesPageContenido() {
                       <Link href={`/clientes/${client.id}`} className="btn btn-ghost btn-xs" aria-label={`Ver la ficha de ${client.tradeName || client.businessName}`} title="Ver ficha">
                         <Eye size={14} />
                       </Link>
-                      <EnlacePortal compacto clientId={client.id} clienteNombre={client.businessName} telefono={client.phone} email={client.email} />
-                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEditModal(client)} aria-label={`Editar ${client.tradeName || client.businessName}`} title="Editar">
-                        <Edit size={14} />
-                      </button>
-                      <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleDelete(client)} aria-label={`Eliminar ${client.tradeName || client.businessName}`} title="Eliminar">
-                        <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
-                      </button>
+                      {!esVendedor && (
+                        <>
+                          <EnlacePortal compacto clientId={client.id} clienteNombre={client.businessName} telefono={client.phone} email={client.email} />
+                          <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEditModal(client)} aria-label={`Editar ${client.tradeName || client.businessName}`} title="Editar">
+                            <Edit size={14} />
+                          </button>
+                          <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleDelete(client)} aria-label={`Eliminar ${client.tradeName || client.businessName}`} title="Eliminar">
+                            <Trash2 size={14} style={{ color: 'var(--color-danger)' }} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -646,7 +675,7 @@ function ClientesPageContenido() {
             })}
             {filtered.length === 0 && (
               <TableEmpty
-                colSpan={10}
+                colSpan={esVendedor ? 7 : 10}
                 icon={SearchX}
                 title="No hay clientes que coincidan"
                 hint="Prueba a cambiar el término de búsqueda o limpia el filtro."
@@ -659,7 +688,7 @@ function ClientesPageContenido() {
 
       {/* Las gráficas van después de la lista: a esta pantalla se viene a
           buscar una ficha, y con ellas arriba había que bajar para llegar. */}
-      <div className="dashboard-grid" style={{ marginTop: 'var(--space-6)' }}>
+      {!esVendedor && <div className="dashboard-grid" style={{ marginTop: 'var(--space-6)' }}>
         <ChartCard title={tituloTop} subtitle={subtituloTop}>
           <div className="top-terceros-filtros">
             <select
@@ -716,7 +745,7 @@ function ClientesPageContenido() {
             unidad={quienes}
           />
         </ChartCard>
-      </div>
+      </div>}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>

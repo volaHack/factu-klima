@@ -69,6 +69,12 @@ interface LineasDocumentoProps {
    * `accionDelEditor` en lib/atajos.ts). Encendido salvo que se diga.
    */
   conAtajos?: boolean;
+  /**
+   * Sin lo que cuesta el género: ni el margen de cada línea ni el precio
+   * que se le puso a otro cliente. Es lo que ve el perfil de vendedor
+   * (lib/perfiles.ts); el último precio a ESTE cliente sí, que es suyo.
+   */
+  sinCostes?: boolean;
 }
 
 export default function LineasDocumento({
@@ -86,6 +92,7 @@ export default function LineasDocumento({
   clienteId,
   documentoId,
   conAtajos = true,
+  sinCostes = false,
 }: LineasDocumentoProps) {
   const [showExtraDiscounts, setShowExtraDiscounts] = useState(false);
   // Las palabras de este oficio. Un distribuidor cuenta bultos y unidades;
@@ -178,7 +185,7 @@ export default function LineasDocumento({
   const sugerencia = (line: InvoiceLineItem): { p: PrecioAnterior; deEste: boolean } | null => {
     if (!line.productId) return null;
     const { cliente: deEste, ultimo } = preciosAnteriores(anteriores, line.productId, { clienteId, sentido, excluirId: documentoId });
-    const p = deEste ?? ultimo;
+    const p = deEste ?? (sinCostes ? null : ultimo);
     if (!p) return null;
     const igual = Math.abs(p.unitPrice - line.unitPrice) < 0.00005
       && p.descuentos[0] === (line.discountPercent || 0)
@@ -802,7 +809,7 @@ export default function LineasDocumento({
               {/* El margen de la línea (lib/margen.ts): discreto si está bien;
                   si se pierde dinero o queda muy poco, se dice claro y se
                   ofrece el precio que deja un margen razonable. */}
-              {sentido === 'venta' && (() => {
+              {sentido === 'venta' && !sinCostes && (() => {
                 const m = margenDeLinea(line, producto);
                 if (!m) return null;
                 if (m.nivel === 'normal') {

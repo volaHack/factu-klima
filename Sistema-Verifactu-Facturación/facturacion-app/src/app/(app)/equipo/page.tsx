@@ -9,7 +9,7 @@
  *
  *  · Trabajando ahora: cada equipo con un perfil puesto, en qué pantalla
  *    está y desde cuándo; la titular puede cerrar una sesión a distancia.
- *  · Personas: alta, rol (titular, empleado, cajero), PIN y actividad.
+ *  · Personas: alta, rol (titular, empleado, vendedor, cajero), PIN y actividad.
  */
 
 import { Activity, UsersRound } from 'lucide-react';
